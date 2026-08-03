@@ -1,0 +1,12 @@
+[
+  { "ticker": "MCRS", "company": "MacroSoft", "sector": "Tech", "startPrice": 312 },
+  { "ticker": "PEAR", "company": "Pear Systems", "sector": "Tech", "startPrice": 187 },
+  { "ticker": "SRCH", "company": "Searchly", "sector": "Tech", "startPrice": 142 },
+  { "ticker": "AMZN", "company": "Amazeon", "sector": "E-Commerce", "startPrice": 178 },
+  { "ticker": "VLTR", "company": "Voltra Motors", "sector": "EV", "startPrice": 245 },
+  { "ticker": "META", "company": "MetaSphere", "sector": "Social Media", "startPrice": 312 },
+  { "ticker": "GCAP", "company": "Global Capital", "sector": "Banking", "startPrice": 89 },
+  { "ticker": "GVLT", "company": "GreenVolt", "sector": "Energy", "startPrice": 67 },
+  { "ticker": "MEDI", "company": "MediCore", "sector": "Healthcare", "startPrice": 134 },
+  { "ticker": "MMART", "company": "MegaMart", "sector": "Retail", "startPrice": 56 }
+]

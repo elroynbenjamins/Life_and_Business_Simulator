@@ -1,0 +1,9 @@
+[
+  { "id": "cashier", "title": "Cashier", "weeklySalary": 350, "requiredCourse": "retail_basics" },
+  { "id": "receptionist", "title": "Receptionist", "weeklySalary": 450, "requiredCourse": "office_administration" },
+  { "id": "sales_associate", "title": "Sales Associate", "weeklySalary": 550, "requiredCourse": "sales" },
+  { "id": "office_assistant", "title": "Office Assistant", "weeklySalary": 650, "requiredCourse": "office_administration" },
+  { "id": "accountant", "title": "Accountant", "weeklySalary": 1100, "requiredCourse": "accounting" },
+  { "id": "marketing_specialist", "title": "Marketing Specialist", "weeklySalary": 1250, "requiredCourse": "marketing" },
+  { "id": "software_developer", "title": "Software Developer", "weeklySalary": 1300, "requiredCourse": "software_development" }
+]

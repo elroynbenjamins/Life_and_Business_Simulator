@@ -1,0 +1,8 @@
+[
+  { "id": "retail_basics", "name": "Retail Basics", "duration": 2, "cost": 200 },
+  { "id": "office_administration", "name": "Office Administration", "duration": 3, "cost": 400 },
+  { "id": "sales", "name": "Sales", "duration": 5, "cost": 700 },
+  { "id": "accounting", "name": "Accounting", "duration": 8, "cost": 2500 },
+  { "id": "marketing", "name": "Marketing", "duration": 10, "cost": 3500 },
+  { "id": "software_development", "name": "Software Development", "duration": 16, "cost": 6000 }
+]

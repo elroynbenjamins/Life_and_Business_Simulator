@@ -1,0 +1,22 @@
+[
+  { "headline": "AI demand explodes as companies race to adopt", "effects": { "Tech": 0.04, "E-Commerce": 0.02 } },
+  { "headline": "Global supply chain disruptions hit retail hard", "effects": { "Retail": -0.05, "E-Commerce": -0.03 } },
+  { "headline": "Electric vehicle sales hit all-time high", "effects": { "EV": 0.05, "Energy": 0.02 } },
+  { "headline": "Social media user growth stalls worldwide", "effects": { "Social Media": -0.04 } },
+  { "headline": "Interest rates cut by central banks globally", "effects": { "Banking": -0.03, "Tech": 0.03, "EV": 0.02 } },
+  { "headline": "Major data breach affects millions of users", "effects": { "Tech": -0.03, "Social Media": -0.05 } },
+  { "headline": "New renewable energy subsidies announced", "effects": { "Energy": 0.06, "EV": 0.03 } },
+  { "headline": "Healthcare breakthrough in gene therapy", "effects": { "Healthcare": 0.05 } },
+  { "headline": "Record online shopping during holiday season", "effects": { "E-Commerce": 0.05, "Retail": 0.03 } },
+  { "headline": "Banking sector faces regulatory crackdown", "effects": { "Banking": -0.04 } },
+  { "headline": "Tech giants announce massive layoffs", "effects": { "Tech": -0.04, "Social Media": -0.02 } },
+  { "headline": "Oil prices surge amid geopolitical tensions", "effects": { "Energy": 0.04, "EV": 0.03 } },
+  { "headline": "Pharmaceutical company wins major patent lawsuit", "effects": { "Healthcare": 0.04 } },
+  { "headline": "Cryptocurrency market crashes overnight", "effects": { "Tech": -0.02, "Banking": 0.02 } },
+  { "headline": "New trade deal boosts international commerce", "effects": { "E-Commerce": 0.03, "Retail": 0.02 } },
+  { "headline": "Electric grid failures cause nationwide blackouts", "effects": { "Energy": -0.05, "EV": -0.02 } },
+  { "headline": "Social media platform launches viral new feature", "effects": { "Social Media": 0.05 } },
+  { "headline": "Retail chains expand aggressively into new markets", "effects": { "Retail": 0.04 } },
+  { "headline": "Cloud computing revenue exceeds expectations", "effects": { "Tech": 0.03 } },
+  { "headline": "Housing market cools as mortgage rates climb", "effects": { "Banking": -0.02, "Retail": -0.02 } }
+]

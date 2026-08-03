@@ -1,0 +1,5 @@
+[
+  { "id": "cheap_apartment", "name": "Cheap Apartment", "weeklyRent": 150, "description": "A basic studio in a busy neighborhood. Gets the job done." },
+  { "id": "studio_apartment", "name": "Studio Apartment", "weeklyRent": 250, "description": "A modern studio with decent amenities and good location." },
+  { "id": "small_house", "name": "Small House", "weeklyRent": 450, "description": "A cozy house with a small garden. Room to breathe." }
+]
