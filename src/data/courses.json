@@ -1,8 +1,20 @@
 [
-  { "id": "retail_basics", "name": "Retail Basics", "duration": 2, "cost": 200 },
-  { "id": "office_administration", "name": "Office Administration", "duration": 3, "cost": 400 },
-  { "id": "sales", "name": "Sales", "duration": 5, "cost": 700 },
-  { "id": "accounting", "name": "Accounting", "duration": 8, "cost": 2500 },
-  { "id": "marketing", "name": "Marketing", "duration": 10, "cost": 3500 },
-  { "id": "software_development", "name": "Software Development", "duration": 16, "cost": 6000 }
+  {"id":"retail_basics","baseId":"retail","name":"Retail Basics","level":1,"duration":2,"cost":200,"weeklyCost":0,"prerequisite":null},
+  {"id":"retail_advanced","baseId":"retail","name":"Retail Advanced","level":2,"duration":4,"cost":0,"weeklyCost":100,"prerequisite":"retail_basics"},
+  {"id":"retail_expert","baseId":"retail","name":"Retail Expert","level":3,"duration":6,"cost":0,"weeklyCost":180,"prerequisite":"retail_advanced"},
+  {"id":"office_administration","baseId":"office","name":"Office Administration","level":1,"duration":3,"cost":400,"weeklyCost":0,"prerequisite":null},
+  {"id":"office_admin_advanced","baseId":"office","name":"Office Admin Advanced","level":2,"duration":6,"cost":0,"weeklyCost":120,"prerequisite":"office_administration"},
+  {"id":"office_admin_expert","baseId":"office","name":"Office Admin Expert","level":3,"duration":8,"cost":0,"weeklyCost":200,"prerequisite":"office_admin_advanced"},
+  {"id":"sales","baseId":"sales","name":"Sales","level":1,"duration":5,"cost":700,"weeklyCost":0,"prerequisite":null},
+  {"id":"sales_advanced","baseId":"sales","name":"Sales Advanced","level":2,"duration":8,"cost":0,"weeklyCost":130,"prerequisite":"sales"},
+  {"id":"sales_expert","baseId":"sales","name":"Sales Expert","level":3,"duration":10,"cost":0,"weeklyCost":220,"prerequisite":"sales_advanced"},
+  {"id":"accounting","baseId":"accounting","name":"Accounting","level":1,"duration":8,"cost":2500,"weeklyCost":0,"prerequisite":null},
+  {"id":"accounting_advanced","baseId":"accounting","name":"Accounting Advanced","level":2,"duration":12,"cost":0,"weeklyCost":200,"prerequisite":"accounting"},
+  {"id":"accounting_expert","baseId":"accounting","name":"Accounting Expert","level":3,"duration":16,"cost":0,"weeklyCost":350,"prerequisite":"accounting_advanced"},
+  {"id":"marketing","baseId":"marketing","name":"Marketing","level":1,"duration":10,"cost":3500,"weeklyCost":0,"prerequisite":null},
+  {"id":"marketing_advanced","baseId":"marketing","name":"Marketing Advanced","level":2,"duration":14,"cost":0,"weeklyCost":250,"prerequisite":"marketing"},
+  {"id":"marketing_expert","baseId":"marketing","name":"Marketing Expert","level":3,"duration":18,"cost":0,"weeklyCost":400,"prerequisite":"marketing_advanced"},
+  {"id":"software_development","baseId":"software","name":"Software Development","level":1,"duration":16,"cost":6000,"weeklyCost":0,"prerequisite":null},
+  {"id":"software_dev_advanced","baseId":"software","name":"Software Dev Advanced","level":2,"duration":20,"cost":0,"weeklyCost":300,"prerequisite":"software_development"},
+  {"id":"software_dev_expert","baseId":"software","name":"Software Dev Expert","level":3,"duration":24,"cost":0,"weeklyCost":500,"prerequisite":"software_dev_advanced"}
 ]

@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
 import GameStatusBar from '../src/components/StatusBar';
 import GameCard from '../src/components/GameCard';
+import SectorPill from '../src/components/SectorPill';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency, formatPercent } from '../src/utils/format';
 import stocksData from '../src/data/stocks.json';
@@ -67,12 +68,16 @@ export default function PortfolioScreen() {
           const cost = (h?.shares ?? 0) * (h?.avgBuyPrice ?? 0);
           const gl = value - cost;
           const glPercent = cost > 0 ? (gl / cost) * 100 : 0;
+          const isCommodity = sd?.type === 'commodity';
 
           return (
             <GameCard key={h?.ticker} onPress={() => router.push(`/stock/${h?.ticker}`)}>
               <View style={styles.row}>
                 <View>
-                  <Text style={styles.ticker}>{h?.ticker}</Text>
+                  <View style={styles.tickerRow}>
+                    <Text style={styles.ticker}>{h?.ticker}</Text>
+                    {isCommodity && <SectorPill sector="Commodity" />}
+                  </View>
                   <Text style={styles.company}>{sd?.company ?? ''}</Text>
                 </View>
                 <View style={styles.right}>
@@ -82,9 +87,7 @@ export default function PortfolioScreen() {
                   </Text>
                 </View>
               </View>
-              <Text style={styles.meta}>
-                {h?.shares} shares • Avg {formatCurrency(h?.avgBuyPrice, 2)}
-              </Text>
+              <Text style={styles.meta}>{h?.shares} shares • Avg {formatCurrency(h?.avgBuyPrice, 2)}</Text>
             </GameCard>
           );
         })}
@@ -106,6 +109,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   val: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   right: { alignItems: 'flex-end' },
+  tickerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   ticker: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
   company: { color: Colors.textMuted, fontSize: 12 },
   smallGl: { fontSize: 12, fontWeight: '600', marginTop: 2 },

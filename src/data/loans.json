@@ -1,0 +1,6 @@
+[
+  {"id":"personal_small","name":"Small Personal Loan","amount":5000,"interestRate":0.05,"durationWeeks":26},
+  {"id":"personal_medium","name":"Medium Personal Loan","amount":15000,"interestRate":0.07,"durationWeeks":52},
+  {"id":"personal_large","name":"Large Personal Loan","amount":40000,"interestRate":0.09,"durationWeeks":104},
+  {"id":"business_loan","name":"Business Loan","amount":100000,"interestRate":0.10,"durationWeeks":156}
+]

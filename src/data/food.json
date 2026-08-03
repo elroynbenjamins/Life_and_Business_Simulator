@@ -1,0 +1,6 @@
+[
+  {"id":"basic","name":"Basic Meals","weeklyCost":50,"happiness":0,"description":"Simple home cooking and cheap takeout."},
+  {"id":"standard","name":"Standard Meals","weeklyCost":100,"happiness":5,"description":"Balanced meals with variety. Occasional dining out."},
+  {"id":"premium","name":"Premium Dining","weeklyCost":200,"happiness":10,"description":"Quality ingredients and regular restaurant visits."},
+  {"id":"gourmet","name":"Gourmet Lifestyle","weeklyCost":400,"happiness":18,"description":"Fine dining, organic produce and personal chef."}
+]

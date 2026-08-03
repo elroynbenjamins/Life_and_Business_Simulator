@@ -1,5 +1,8 @@
 [
-  { "id": "cheap_apartment", "name": "Cheap Apartment", "weeklyRent": 150, "description": "A basic studio in a busy neighborhood. Gets the job done." },
-  { "id": "studio_apartment", "name": "Studio Apartment", "weeklyRent": 250, "description": "A modern studio with decent amenities and good location." },
-  { "id": "small_house", "name": "Small House", "weeklyRent": 450, "description": "A cozy house with a small garden. Room to breathe." }
+  {"id":"cheap_apartment","name":"Cheap Apartment","weeklyRent":150,"happiness":0,"description":"A basic studio in a busy neighborhood. Gets the job done."},
+  {"id":"studio_apartment","name":"Studio Apartment","weeklyRent":250,"happiness":3,"description":"A modern studio with decent amenities and good location."},
+  {"id":"small_house","name":"Small House","weeklyRent":450,"happiness":8,"description":"A cozy house with a small garden. Room to breathe."},
+  {"id":"family_house","name":"Family House","weeklyRent":700,"happiness":12,"description":"A spacious family home with multiple rooms and a nice yard."},
+  {"id":"luxury_villa","name":"Luxury Villa","weeklyRent":1500,"happiness":20,"description":"An upscale villa with a pool, gym and stunning views."},
+  {"id":"mansion","name":"Mansion","weeklyRent":4000,"happiness":30,"description":"The ultimate estate. Staff, grounds, and prestige."}
 ]

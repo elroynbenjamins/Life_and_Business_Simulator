@@ -10,6 +10,7 @@ export const Colors = {
   negative: '#EF4444',
   warning: '#F59E0B',
   info: '#3B82F6',
+  happiness: '#EC4899',
 
   textPrimary: '#E5E5E5',
   textSecondary: '#999999',
@@ -25,5 +26,15 @@ export const Colors = {
     Energy: '#84CC16',
     Healthcare: '#EF4444',
     Retail: '#F97316',
+    Semiconductors: '#06B6D4',
+    Entertainment: '#EC4899',
+    Airlines: '#14B8A6',
+    Automotive: '#A855F7',
+    Industrial: '#78716C',
+    Pharma: '#22D3EE',
+    Telecom: '#FB923C',
+    'Consumer Goods': '#4ADE80',
+    Finance: '#818CF8',
+    Commodity: '#D4A843',
   } as Record<string, string>,
 };

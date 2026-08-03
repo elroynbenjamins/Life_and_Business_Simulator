@@ -3,12 +3,14 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../theme/colors';
 import { formatCurrency } from '../utils/format';
 import useGameStore from '../store/gameStore';
+import HappinessBar from './HappinessBar';
 
 export default function GameStatusBar() {
   const week = useGameStore((s) => s?.week ?? 1);
   const year = useGameStore((s) => s?.year ?? 1);
   const age = useGameStore((s) => s?.age ?? 22);
   const cash = useGameStore((s) => s?.cash ?? 0);
+  const happiness = useGameStore((s) => s?.happiness ?? 30);
   const getNetWorthValue = useGameStore((s) => s?.getNetWorthValue);
 
   const netWorth = getNetWorthValue?.() ?? 0;
@@ -16,13 +18,16 @@ export default function GameStatusBar() {
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <Text style={styles.caption}>Week {week} • Year {year}</Text>
+        <Text style={styles.caption}>Week {week} | Year {year}</Text>
         <Text style={styles.caption}>Age {age}</Text>
         <Text style={[styles.cash, { color: cash >= 0 ? Colors.primary : Colors.negative }]}>
           {formatCurrency(cash)}
         </Text>
       </View>
-      <Text style={styles.netWorth}>Net Worth: {formatCurrency(netWorth)}</Text>
+      <View style={styles.bottomRow}>
+        <Text style={styles.netWorth}>Net Worth: {formatCurrency(netWorth)}</Text>
+      </View>
+      <HappinessBar value={happiness} />
     </View>
   );
 }
@@ -40,18 +45,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  caption: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-  },
-  cash: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  netWorth: {
-    color: Colors.textMuted,
-    fontSize: 12,
-    textAlign: 'right',
-    marginTop: 2,
-  },
+  caption: { color: Colors.textSecondary, fontSize: 13 },
+  cash: { fontSize: 15, fontWeight: '700' },
+  bottomRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 2, marginBottom: 4 },
+  netWorth: { color: Colors.textMuted, fontSize: 12 },
 });

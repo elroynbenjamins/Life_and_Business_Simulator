@@ -16,11 +16,12 @@ export function updateStockPrices(
   return (stocks ?? []).map((stock) => {
     const data = (stocksData ?? []).find((s) => s?.ticker === stock?.ticker);
     const sector = data?.sector ?? '';
+    const isCommodity = data?.type === 'commodity';
     const sectorEffect = sectorEffects?.[sector] ?? 0;
 
-    // Base volatility: random between -5% and +5%
-    const baseChange = (Math.random() - 0.5) * 0.10;
-    // Total change capped at ±10%
+    // Commodities are more volatile
+    const volatility = isCommodity ? 0.14 : 0.10;
+    const baseChange = (Math.random() - 0.5) * volatility;
     let totalChange = Math.max(-0.10, Math.min(0.10, baseChange + sectorEffect));
 
     let newPrice = (stock?.currentPrice ?? 100) * (1 + totalChange);
@@ -28,7 +29,7 @@ export function updateStockPrices(
 
     const history = [...(stock?.priceHistory ?? [])];
     history.push(newPrice);
-    if (history.length > 10) history.shift();
+    if (history.length > 20) history.shift();
 
     return {
       ...stock,

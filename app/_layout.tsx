@@ -44,10 +44,12 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="tabs" />
-        <Stack.Screen name="stock/[ticker]" options={{ headerShown: false }} />
-        <Stack.Screen name="portfolio" options={{ headerShown: false }} />
-        <Stack.Screen name="housing" options={{ headerShown: false }} />
-        <Stack.Screen name="profile" options={{ headerShown: false }} />
+        <Stack.Screen name="stock/[ticker]" />
+        <Stack.Screen name="portfolio" />
+        <Stack.Screen name="housing" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="achievements" />
+        <Stack.Screen name="loans" />
       </Stack>
       <NameEntryModal />
       <WeekSummarySheet />
