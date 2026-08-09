@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,9 +43,13 @@ export default function LifestyleScreen() {
     const idx = (housingData ?? []).findIndex((hh) => hh?.id === h?.id);
     const dir = idx > currentHIdx ? 'Upgrade' : 'Downgrade';
     const utilCost = inflated(UTILITY_BASE[h?.id] ?? 25, inflationMultiplier);
+    const message = `${dir} to ${h?.name}? Rent: ${formatCurrency(inflated(h?.weeklyRent, inflationMultiplier))}/week + Utilities: ${formatCurrency(utilCost)}/week.`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${dir} Housing: ${message}`)) changeHousing?.(h?.id);
+      return;
+    }
     Alert.alert(
-      `${dir} Housing`,
-      `${dir} to ${h?.name}? Rent: ${formatCurrency(inflated(h?.weeklyRent, inflationMultiplier))}/week + Utilities: ${formatCurrency(utilCost)}/week.`,
+      `${dir} Housing`, message,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: dir, onPress: () => changeHousing?.(h?.id) },
@@ -59,7 +63,12 @@ export default function LifestyleScreen() {
     const inflatedPurchase = inflated(c?.purchaseCost ?? 0, inflationMultiplier);
     const cost = inflatedPurchase - tradeIn;
     const desc = tradeIn > 0 ? `Trade-in: ${formatCurrency(tradeIn)}. Net cost: ${formatCurrency(cost)}.` : `Cost: ${formatCurrency(inflatedPurchase)}.`;
-    Alert.alert('Change Vehicle', `Get a ${c?.name}? ${desc} Running cost: ${formatCurrency(inflated(c?.weeklyCost ?? 0, inflationMultiplier))}/week.`, [
+    const message = `Get a ${c?.name}? ${desc} Running cost: ${formatCurrency(inflated(c?.weeklyCost ?? 0, inflationMultiplier))}/week.`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Change Vehicle: ${message}`)) changeCar?.(c?.id);
+      return;
+    }
+    Alert.alert('Change Vehicle', message, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Buy', onPress: () => changeCar?.(c?.id) },
     ]);

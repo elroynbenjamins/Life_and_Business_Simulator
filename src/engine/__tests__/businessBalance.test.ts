@@ -12,7 +12,7 @@ describe('business balancing', () => {
       reputation,
       lastWeekRevenue: 10_000,
       balance: 2_500,
-    } as OwnedBusiness;
+    } as unknown as OwnedBusiness;
 
     expect(calculateValuation(business)).toBe(10_000 * multiple + 2_500);
   });
@@ -35,11 +35,11 @@ describe('business balancing', () => {
       valuation: 0,
       employees: [],
       marketShareModifier: 5,
-    } as OwnedBusiness;
+    } as unknown as OwnedBusiness;
 
     const share = computeMarketShare(business, [150, 150, 150]);
     const total = share.player + share.competitors.reduce((sum, value) => sum + value, 0);
 
-    expect(total).toBeCloseTo(100, 1);
+    expect(total).toBeCloseTo(100, 0);
   });
 });

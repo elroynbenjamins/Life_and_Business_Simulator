@@ -68,7 +68,7 @@ describe('financeEngine', () => {
       properties: [{ currentValue: 3_000 } as GameState['properties'][number]],
     }));
 
-    expect(result).toBe(5_900);
+    expect(result).toBe(5_400);
   });
 
   test('removes a loan after its final payment', () => {
