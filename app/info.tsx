@@ -10,57 +10,87 @@ const sections = [
   {
     title: 'Time System',
     icon: '⏰',
-    content: 'Each game week advances when you tap "Advance to Next Week". Every 20 weeks equals 1 year of in-game time. Your age increases by 1 each year. A yearly summary with tax assessment appears every 20 weeks.',
+    content: 'Tap "Advance to Next Week" to process income, expenses, careers, education, investments, businesses, properties and events. Every 20 weeks equals one in-game year; your age increases and inflation is updated.',
+  },
+  {
+    title: 'Taxes',
+    icon: '🧾',
+    content: 'A tax bill is charged every 20 weeks based on the career salary earned during that period. The Dashboard shows a countdown to the next assessment. Keep cash available: the bill is deducted automatically and appears in the 20-week report.',
   },
   {
     title: 'Career',
     icon: '💼',
-    content: 'Complete courses to unlock career paths, then apply at companies. Performance reviews (D20 dice rolls) happen every 10 weeks — succeed to boost promotion progress. At 100% promotion progress, you advance to the next level. Higher positions earn more salary.',
+    content: 'Complete a matching course and meet skill, knowledge, experience and vehicle requirements to apply. Performance checks occur every 5 weeks and successful D20 rolls increase promotion progress. At 100%, you are promoted if you meet the vehicle requirement; level 3 and above require an SUV or better.',
   },
   {
     title: 'Education',
     icon: '📚',
-    content: 'Enroll in courses to gain skills and unlock career paths. Basic courses are available immediately. Advanced courses require 75 weeks of work experience. Expert courses require 150 weeks. Studying full-time prevents working.',
+    content: 'Courses unlock career paths and award skills and knowledge. Basic courses are available immediately; advanced courses require 75 worked weeks and expert courses require 150. Advanced and expert courses also require their preceding course. A part-time job slows study progress by 50%.',
+  },
+  {
+    title: 'Skills & Knowledge',
+    icon: '🧠',
+    content: 'Education provides large skill and knowledge gains, while working develops abilities related to your career. Higher positions check these values. Review the Skills screen for your progress and the Career screen for each position’s requirements.',
   },
   {
     title: 'Stock Market',
     icon: '📈',
-    content: 'Buy and sell stocks, ETFs, and commodities. Prices update weekly based on sector performance and news events. ETFs have smaller price swings than individual stocks. Banking and finance stocks pay yearly dividends. Track your realized and unrealized profit/loss in reports.',
+    content: 'Buy and sell stocks, ETFs and commodities. Prices update weekly based on volatility, sectors, news and market events. ETFs generally have smaller swings. Some finance assets pay dividends every 20 weeks. Portfolio reports show realized and unrealized profit or loss.',
   },
   {
     title: 'Market Events',
     icon: '📰',
-    content: 'Random market sentiment events (Oil Crisis, Tech Boom, etc.) affect entire sectors for several weeks. Historical market events from 2005-2015 can also trigger, impacting specific stocks and sectors.',
+    content: 'Market sentiment and temporary events can affect sectors and individual assets for several weeks. Check News before trading: a broad event can help one industry while hurting another.',
   },
   {
     title: 'Businesses',
     icon: '🏢',
-    content: 'Found businesses, hire employees, set pricing and advertising strategies. Businesses generate weekly profit or loss. You can inject cash, withdraw profits, and take business loans separately from personal loans.',
+    content: 'Found a business, hire employees, choose pricing and advertising, and buy unique upgrades. Every new business starts with 10% market share and three competitors. Revenue, reputation, market share, staffing costs, rent, morale and random events all affect weekly results.',
+  },
+  {
+    title: 'Business Morale & Reputation',
+    icon: '👥',
+    content: 'Employee morale affects your team. When average morale is at least 55, negative morale events can occur with a 10% chance and reduce morale by no more than 20. Team morale actions cost cash. Reputation and market share influence business performance, event choices and valuation.',
+  },
+  {
+    title: 'Business Value',
+    icon: '🏷️',
+    content: 'A business is valued from annualized revenue using a reputation-dependent multiple between 7× and 15×, plus its available business cash. Strong reputation, market share, profitability and cash reserves make a company more valuable.',
+  },
+  {
+    title: 'Lifestyle',
+    icon: '🚗',
+    content: 'Housing, food and vehicles create weekly expenses. Better vehicles can unlock career promotions. Changing vehicles applies the purchase cost and any eligible trade-in value. Keep enough cash for recurring rent, utilities, food and running costs.',
   },
   {
     title: 'Properties',
     icon: '🏠',
-    content: 'Buy investment properties, renovate them to increase value, and rent them out for weekly income. Property values appreciate over time.',
+    content: 'Buy investment properties, renovate them to increase value, and rent them out for weekly income. Property values can appreciate, but maintenance remains a weekly cost, so compare net rental income rather than rent alone.',
   },
   {
     title: 'Loans',
     icon: '💳',
-    content: 'Take up to 3 personal loans at once. You must be employed (company job) to qualify. Loans are repaid weekly over their duration. You can pay off loans early if you have enough cash.',
+    content: 'Take up to three personal loans at once while employed. Payments are deducted weekly and loans can be repaid early. Business loans are separate and belong to the business. Debt increases weekly expenses and reduces financial flexibility.',
   },
   {
-    title: 'Prestige Points',
+    title: 'Prestige & Achievements',
     icon: '⭐',
-    content: 'Earn Prestige Points (PP) by unlocking achievements. Spend PP on permanent bonuses in the Prestige Tree: salary boosts, study speed and more. Some bonuses require prerequisites.',
+    content: 'Achievements award Prestige Points and sometimes gems. Spend PP on permanent, multi-level bonuses such as salary, study speed, business performance and tax reduction. Connected nodes unlock in order, and effects from unlocked levels are cumulative.',
   },
   {
     title: 'Gems',
     icon: '💎',
-    content: 'Earn gems from difficult achievements. Convert gems to cash (100€ per gem) or get them through the Support page.',
+    content: 'Earn gems from difficult achievements. Gems can be converted to cash at €100 per gem or obtained through the Support screen.',
   },
   {
     title: 'Inflation',
+    icon: '📉',
+    content: 'Inflation updates every 20 weeks. Many prices, recurring costs and salaries rise with the inflation multiplier, so both income and expenses change as the game progresses.',
+  },
+  {
+    title: 'Cash, Net Worth & Statistics',
     icon: '📊',
-    content: 'The economy inflates yearly (every 20 weeks). Costs and salaries increase by the inflation rate. The inflation rate is expressed as a yearly percentage.',
+    content: 'Cash pays immediate bills; net worth also includes investments, properties and businesses, minus debts. The Statistics tab tracks lifetime results such as income, taxes, stock purchases and business performance.',
   },
 ];
 

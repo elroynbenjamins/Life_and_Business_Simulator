@@ -17,8 +17,8 @@ const career: CareerState = {
 
 describe('career salary and promotion requirements', () => {
   test('caps salary at the current position maximum after multipliers', () => {
-    // Technology L2 base is 1,700, so its default maximum is 2,210.
-    expect(getCareerSalary(career, 1)).toBe(2_210);
+    // Technology L2 base is 1,870, so its default maximum is 2,431.
+    expect(getCareerSalary(career, 1)).toBe(2_431);
   });
 
   test('holds an L3 promotion at 100% until the player owns an SUV', () => {

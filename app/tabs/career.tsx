@@ -138,8 +138,6 @@ export default function CareerScreen() {
                     const meets = meetsPositionRequirements(pos, knowledge, skills, totalWeeksWorked);
                     const reachedInCurrentCareer = career?.careerPathId === path.id && (career?.positionLevel ?? 0) >= pos.level;
                     const isCurrentPosition = career?.careerPathId === path.id && career?.positionLevel === pos.level;
-                    const minSalary = pos.minSalary ?? Math.round(pos.baseSalary * 0.85);
-                    const maxSalary = pos.maxSalary ?? Math.round(pos.baseSalary * 1.30);
                     const reqCourseLvl = pos.level >= 5 ? 3 : pos.level >= 3 ? 2 : 1;
                     const carLabel = pos.level >= 3 ? 'SUV+' : 'Used Car+';
                     const reqParts: string[] = [];
@@ -150,7 +148,7 @@ export default function CareerScreen() {
                         <Text style={[styles.posLevel, (meets || reachedInCurrentCareer) && { color: Colors.primary }]}>L{pos.level}</Text>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.posTitle}>{pos.title}{isCurrentPosition ? ' • Current' : ''}</Text>
-                          <Text style={styles.posSalary}>{formatCurrency(minSalary)}–{formatCurrency(maxSalary)}/wk</Text>
+                          <Text style={styles.posSalary}>Base salary: {formatCurrency(pos.baseSalary)}/wk</Text>
                           {reqParts.length > 0 && (
                             <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>Req: {reqParts.join(', ')}</Text>
                           )}

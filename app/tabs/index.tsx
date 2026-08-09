@@ -55,6 +55,8 @@ export default function DashboardScreen() {
         ? require('../../src/data/jobs.json')?.find((j: any) => j?.id === currentJobId)?.title
         : (partTimeJob ? 'Part-Time' : null));
   const displayIncome = isEmployed ? weeklyIncome : (partTimeJob ? 150 : 0); // avg part-time ~€150
+  const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+  const weeksUntilTax = 20 - (globalWeek % 20);
 
   const tryHaptic = async () => {
     if (Platform.OS !== 'web') {
@@ -106,6 +108,17 @@ export default function DashboardScreen() {
             <Text style={styles.statCaption}>Rent + Utils + Food + Car{loanPayments > 0 ? ' + Loans' : ''}</Text>
           </GameCard>
         </View>
+
+        {/* Tax reminder */}
+        <GameCard onPress={() => router.push('/info')}>
+          <View style={styles.taxReminderRow}>
+            <Ionicons name="receipt-outline" size={22} color={weeksUntilTax <= 3 ? Colors.negative : Colors.warning} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.taxReminderTitle}>Tax assessment in {weeksUntilTax} week{weeksUntilTax !== 1 ? 's' : ''}</Text>
+              <Text style={styles.taxReminderText}>A tax bill is calculated from your career salary every 20 weeks. Keep enough cash available.</Text>
+            </View>
+          </View>
+        </GameCard>
 
         {/* Course Progress */}
         {course ? (() => {
@@ -215,6 +228,9 @@ const styles = StyleSheet.create({
   statLabel: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
   statValue: { fontSize: 20, fontWeight: '700' },
   statCaption: { color: Colors.textMuted, fontSize: 12, marginTop: 4 },
+  taxReminderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  taxReminderTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  taxReminderText: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 3 },
   courseTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 8 },
   courseCaption: { color: Colors.textSecondary, fontSize: 12, marginTop: 6 },
   linksRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginVertical: 4 },
