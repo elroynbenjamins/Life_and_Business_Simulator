@@ -37,7 +37,7 @@ yarn doctor
 - Weekly salary, living expenses, loans, progressive taxes, and inflation
 - Education, skills, knowledge, careers, promotions, and performance events
 - Stock trading, dividends, market sentiment, and market events
-- Housing, cars, food tiers, house upgrades, and rental property
+- Housing, cars, food tiers, and rental property
 - Business founding, staffing, training, projects, upgrades, competitors, loans, and valuation
 - Life events, happiness effects, achievements, gems, and prestige bonuses
 - Weekly summaries, 20-week period reports, statistics, and news history
