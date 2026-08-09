@@ -18,6 +18,7 @@ import loansData from '../data/loans.json';
 import achievementsData from '../data/achievements.json';
 import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
+import { AD_GEM_REWARD, GEM_CASH_RATE } from '../constants/rewards';
 
 interface GameStore extends GameState {
   isLoading: boolean;
@@ -71,7 +72,7 @@ interface GameStore extends GameState {
   changeCar: (carId: string) => void;
   changeFoodLevel: (level: string) => void;
   togglePartTimeJob: () => void;
-  grantAdReward: (amount: number) => void;
+  grantAdReward: () => void;
   getAdUsage: () => { watchedToday: number; remaining: number; limitReached: boolean };
   buyHouseUpgrade: (upgradeId: string) => void;
 
@@ -693,18 +694,19 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, partTimeJob: newVal }), state.activeSlot);
   },
 
-  grantAdReward: (amount: number) => {
+  grantAdReward: () => {
     const state = get();
     const today = new Date().toISOString().slice(0, 10);
     const lastDate = (state as any).adLastWatchDate ?? '';
     const watchedToday = lastDate === today ? ((state as any).adWatchedToday ?? 0) : 0;
-    const newCash = (state.cash ?? 0) + amount;
+    const newProfile = { ...state.profile, gems: (state.profile.gems ?? 0) + AD_GEM_REWARD };
     const updates: any = {
-      cash: newCash,
+      profile: newProfile,
       adWatchedToday: watchedToday + 1,
       adLastWatchDate: today,
     };
     set(updates);
+    saveProfile(newProfile);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -775,16 +777,13 @@ const useGameStore = create<GameStore>((set, get) => ({
   },
 
   watchAd: () => {
-    const state = get();
-    const newProfile = { ...state.profile, gems: (state.profile.gems ?? 0) + 10 };
-    set({ profile: newProfile });
-    saveProfile(newProfile);
+    get().grantAdReward();
   },
 
   convertGemsToCash: (gems: number) => {
     const state = get();
     if (gems <= 0 || gems > (state.profile.gems ?? 0)) return;
-    const cashAmount = gems * 150;
+    const cashAmount = gems * GEM_CASH_RATE;
     const newProfile = { ...state.profile, gems: (state.profile.gems ?? 0) - gems };
     const newCash = (state.cash ?? 0) + cashAmount;
     set({ profile: newProfile, cash: newCash });

@@ -80,7 +80,7 @@ const sections = [
   {
     title: 'Gems',
     icon: '💎',
-    content: 'Earn gems from difficult achievements. Gems can be converted to cash at €100 per gem or obtained through the Support screen.',
+    content: 'Earn gems from difficult achievements or receive 10 gems for watching a rewarded ad. Gems can be converted to in-game cash at €200 per gem through the Support screen.',
   },
   {
     title: 'Inflation',

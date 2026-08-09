@@ -10,6 +10,7 @@ import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { AD_CONFIG } from '../src/services/adConfig';
 import { loadRewardedAd, showRewardedAd } from '../src/services/adManager';
+import { AD_GEM_REWARD, GEM_CASH_RATE } from '../src/constants/rewards';
 
 const GEM_PACKS = [
   { gems: 100, price: '$0.99' },
@@ -46,8 +47,8 @@ export default function SupportScreen() {
       setAdMessage('');
       setTimeout(() => {
         setAdState('success');
-        grantAdReward?.(AD_CONFIG.REWARD_AMOUNT);
-        setAdMessage(`Advertisement completed! +${formatCurrency(AD_CONFIG.REWARD_AMOUNT)}`);
+        grantAdReward?.();
+        setAdMessage(`Advertisement completed! +${AD_GEM_REWARD} gems`);
         setTimeout(() => { setAdState('idle'); setAdMessage(''); }, 3000);
       }, 2000);
       return;
@@ -65,9 +66,9 @@ export default function SupportScreen() {
     }
 
     const shown = await showRewardedAd(() => {
-      grantAdReward?.(AD_CONFIG.REWARD_AMOUNT);
+      grantAdReward?.();
       setAdState('success');
-      setAdMessage(`Advertisement completed! +${formatCurrency(AD_CONFIG.REWARD_AMOUNT)}`);
+      setAdMessage(`Advertisement completed! +${AD_GEM_REWARD} gems`);
     });
 
     if (!shown) {
@@ -109,21 +110,20 @@ export default function SupportScreen() {
       Alert.alert('Not Enough Gems', `You only have ${gems} gems.`);
       return;
     }
-    const cashGain = amount * 150;
-    Alert.alert(
-      'Convert Gems',
-      `Convert ${amount} gems into ${formatCurrency(cashGain)}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Convert',
-          onPress: () => {
-            convertGemsToCash?.(amount);
-            setConvertAmount('');
-          },
-        },
-      ]
-    );
+    const cashGain = amount * GEM_CASH_RATE;
+    const message = `Convert ${amount} gems into ${formatCurrency(cashGain)}?`;
+    const convert = () => {
+      convertGemsToCash?.(amount);
+      setConvertAmount('');
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Convert Gems: ${message}`)) convert();
+      return;
+    }
+    Alert.alert('Convert Gems', message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Convert', onPress: convert },
+    ]);
   };
 
   return (
@@ -155,7 +155,7 @@ export default function SupportScreen() {
 
         {/* Watch Ad */}
         <GameCard title="Watch an Ad">
-          <Text style={styles.desc}>Watch a short ad and earn {formatCurrency(AD_CONFIG.REWARD_AMOUNT)} cash!</Text>
+          <Text style={styles.desc}>Watch a short ad and earn {AD_GEM_REWARD} gems!</Text>
           <Pressable
             style={[styles.adBtn, (adState === 'loading' || adState === 'showing' || adUsage.limitReached) && styles.disabledBtn]}
             onPress={handleWatchAd}
@@ -178,7 +178,7 @@ export default function SupportScreen() {
 
         {/* Convert Gems to Cash */}
         <GameCard title="Convert Gems → Cash">
-          <Text style={styles.desc}>1 gem = €150 in-game cash</Text>
+          <Text style={styles.desc}>1 gem = {formatCurrency(GEM_CASH_RATE)} in-game cash</Text>
           <View style={styles.convertRow}>
             <TextInput
               style={styles.convertInput}
@@ -198,7 +198,7 @@ export default function SupportScreen() {
           </View>
           {convertAmount && parseInt(convertAmount, 10) > 0 && (
             <Text style={styles.convertPreview}>
-              {convertAmount} gems = {formatCurrency(parseInt(convertAmount, 10) * 150)} cash
+              {convertAmount} gems = {formatCurrency(parseInt(convertAmount, 10) * GEM_CASH_RATE)} cash
             </Text>
           )}
         </GameCard>
