@@ -2,6 +2,7 @@ import { GameState, StockState, NewsEvent, ActiveMarketSentiment, ActiveMarketEv
 import stocksData from '../data/stocks.json';
 import marketSentimentData from '../data/market_sentiment.json';
 import marketEventsData from '../data/market_events.json';
+import marketSectorEventsData from '../data/market_sector_events.json';
 
 /**
  * Initialize stocks at game start.
@@ -85,7 +86,7 @@ export function rollMarketEvent(
   // 5% chance of new event
   let newEvent: ActiveMarketEvent | null = null;
   if (Math.random() < 0.05) {
-    const events = marketEventsData as any[];
+    const events = [...(marketEventsData as any[]), ...(marketSectorEventsData as any[])];
     const activeIds = new Set(updated.map((e) => e.id));
     const eligible = events.filter((e) => !activeIds.has(e.id));
     if (eligible.length > 0) {
@@ -94,6 +95,7 @@ export function rollMarketEvent(
         id: picked.id,
         title: picked.title,
         effects: picked.effects ?? {},
+        assetTypes: picked.assetTypes,
         weeksRemaining: picked.durationWeeks ?? 8,
       };
       updated.push(newEvent);
@@ -108,7 +110,8 @@ export function rollMarketEvent(
  */
 function getCombinedMarketEffects(
   sentiment: ActiveMarketSentiment | null,
-  events: ActiveMarketEvent[]
+  events: ActiveMarketEvent[],
+  assetType: string
 ): { sectorEffects: Record<string, number>; volatilityMult: number } {
   const sectorEffects: Record<string, number> = {};
   let volatilityMult = 1.0;
@@ -121,6 +124,7 @@ function getCombinedMarketEffects(
   }
 
   for (const event of events) {
+    if ((event.assetTypes?.length ?? 0) > 0 && !event.assetTypes?.includes(assetType as 'stock' | 'commodity' | 'etf')) continue;
     for (const [sector, val] of Object.entries(event.effects)) {
       sectorEffects[sector] = (sectorEffects[sector] ?? 0) + (val as number) * 0.05;
     }
@@ -168,18 +172,17 @@ export function processStocks(
   const newsEffects = news?.effects ?? {};
   const inflationDrift = ((state?.inflationMultiplier ?? 1) - 1) * 0.001;
 
-  // Get market sentiment/event effects
-  const { sectorEffects: marketEffects, volatilityMult } = getCombinedMarketEffects(
-    state?.activeMarketSentiment ?? null,
-    state?.activeMarketEvents ?? []
-  );
-
   const newStocks = (state?.stocks ?? []).map((stock) => {
     const data = (stocksData ?? []).find((s) => s?.ticker === stock?.ticker);
     const sector = data?.sector ?? '';
     const assetType = data?.type ?? 'stock';
     const isCommodity = data?.type === 'commodity';
     const isEtf = data?.type === 'etf';
+    const { sectorEffects: marketEffects, volatilityMult } = getCombinedMarketEffects(
+      state?.activeMarketSentiment ?? null,
+      state?.activeMarketEvents ?? [],
+      assetType
+    );
     const newsEffect = newsEffects?.[sector] ?? 0;
     const marketEffect = (marketEffects?.[sector] ?? 0) + (marketEffects?.[assetType] ?? 0) + (marketEffects?.All ?? 0);
 

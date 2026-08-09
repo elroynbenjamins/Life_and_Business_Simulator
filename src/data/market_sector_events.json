@@ -1,0 +1,866 @@
+[
+  {
+    "id": "sector_tech_demand_surge",
+    "title": "Tech Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Tech sector.",
+    "effects": {
+      "Tech": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_tech_innovation_rally",
+    "title": "Tech Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Tech sector.",
+    "effects": {
+      "Tech": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_tech_demand_slump",
+    "title": "Tech Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Tech sector.",
+    "effects": {
+      "Tech": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_tech_industry_setback",
+    "title": "Tech Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Tech sector.",
+    "effects": {
+      "Tech": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_e_commerce_demand_surge",
+    "title": "E-Commerce Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the E-Commerce sector.",
+    "effects": {
+      "E-Commerce": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_e_commerce_innovation_rally",
+    "title": "E-Commerce Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the E-Commerce sector.",
+    "effects": {
+      "E-Commerce": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_e_commerce_demand_slump",
+    "title": "E-Commerce Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the E-Commerce sector.",
+    "effects": {
+      "E-Commerce": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_e_commerce_industry_setback",
+    "title": "E-Commerce Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the E-Commerce sector.",
+    "effects": {
+      "E-Commerce": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_ev_demand_surge",
+    "title": "EV Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the EV sector.",
+    "effects": {
+      "EV": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_ev_innovation_rally",
+    "title": "EV Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the EV sector.",
+    "effects": {
+      "EV": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_ev_demand_slump",
+    "title": "EV Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the EV sector.",
+    "effects": {
+      "EV": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_ev_industry_setback",
+    "title": "EV Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the EV sector.",
+    "effects": {
+      "EV": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_social_media_demand_surge",
+    "title": "Social Media Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Social Media sector.",
+    "effects": {
+      "Social Media": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_social_media_innovation_rally",
+    "title": "Social Media Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Social Media sector.",
+    "effects": {
+      "Social Media": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_social_media_demand_slump",
+    "title": "Social Media Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Social Media sector.",
+    "effects": {
+      "Social Media": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_social_media_industry_setback",
+    "title": "Social Media Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Social Media sector.",
+    "effects": {
+      "Social Media": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_banking_demand_surge",
+    "title": "Banking Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Banking sector.",
+    "effects": {
+      "Banking": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_banking_innovation_rally",
+    "title": "Banking Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Banking sector.",
+    "effects": {
+      "Banking": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_banking_demand_slump",
+    "title": "Banking Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Banking sector.",
+    "effects": {
+      "Banking": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_banking_industry_setback",
+    "title": "Banking Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Banking sector.",
+    "effects": {
+      "Banking": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_energy_demand_surge",
+    "title": "Energy Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Energy sector.",
+    "effects": {
+      "Energy": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_energy_innovation_rally",
+    "title": "Energy Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Energy sector.",
+    "effects": {
+      "Energy": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_energy_demand_slump",
+    "title": "Energy Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Energy sector.",
+    "effects": {
+      "Energy": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_energy_industry_setback",
+    "title": "Energy Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Energy sector.",
+    "effects": {
+      "Energy": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_healthcare_demand_surge",
+    "title": "Healthcare Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Healthcare sector.",
+    "effects": {
+      "Healthcare": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_healthcare_innovation_rally",
+    "title": "Healthcare Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Healthcare sector.",
+    "effects": {
+      "Healthcare": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_healthcare_demand_slump",
+    "title": "Healthcare Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Healthcare sector.",
+    "effects": {
+      "Healthcare": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_healthcare_industry_setback",
+    "title": "Healthcare Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Healthcare sector.",
+    "effects": {
+      "Healthcare": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_retail_demand_surge",
+    "title": "Retail Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Retail sector.",
+    "effects": {
+      "Retail": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_retail_innovation_rally",
+    "title": "Retail Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Retail sector.",
+    "effects": {
+      "Retail": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_retail_demand_slump",
+    "title": "Retail Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Retail sector.",
+    "effects": {
+      "Retail": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_retail_industry_setback",
+    "title": "Retail Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Retail sector.",
+    "effects": {
+      "Retail": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_semiconductors_demand_surge",
+    "title": "Semiconductors Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Semiconductors sector.",
+    "effects": {
+      "Semiconductors": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_semiconductors_innovation_rally",
+    "title": "Semiconductors Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Semiconductors sector.",
+    "effects": {
+      "Semiconductors": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_semiconductors_demand_slump",
+    "title": "Semiconductors Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Semiconductors sector.",
+    "effects": {
+      "Semiconductors": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_semiconductors_industry_setback",
+    "title": "Semiconductors Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Semiconductors sector.",
+    "effects": {
+      "Semiconductors": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_entertainment_demand_surge",
+    "title": "Entertainment Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Entertainment sector.",
+    "effects": {
+      "Entertainment": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_entertainment_innovation_rally",
+    "title": "Entertainment Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Entertainment sector.",
+    "effects": {
+      "Entertainment": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_entertainment_demand_slump",
+    "title": "Entertainment Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Entertainment sector.",
+    "effects": {
+      "Entertainment": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_entertainment_industry_setback",
+    "title": "Entertainment Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Entertainment sector.",
+    "effects": {
+      "Entertainment": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_airlines_demand_surge",
+    "title": "Airlines Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Airlines sector.",
+    "effects": {
+      "Airlines": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_airlines_innovation_rally",
+    "title": "Airlines Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Airlines sector.",
+    "effects": {
+      "Airlines": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_airlines_demand_slump",
+    "title": "Airlines Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Airlines sector.",
+    "effects": {
+      "Airlines": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_airlines_industry_setback",
+    "title": "Airlines Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Airlines sector.",
+    "effects": {
+      "Airlines": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_automotive_demand_surge",
+    "title": "Automotive Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Automotive sector.",
+    "effects": {
+      "Automotive": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_automotive_innovation_rally",
+    "title": "Automotive Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Automotive sector.",
+    "effects": {
+      "Automotive": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_automotive_demand_slump",
+    "title": "Automotive Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Automotive sector.",
+    "effects": {
+      "Automotive": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_automotive_industry_setback",
+    "title": "Automotive Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Automotive sector.",
+    "effects": {
+      "Automotive": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_industrial_demand_surge",
+    "title": "Industrial Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Industrial sector.",
+    "effects": {
+      "Industrial": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_industrial_innovation_rally",
+    "title": "Industrial Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Industrial sector.",
+    "effects": {
+      "Industrial": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_industrial_demand_slump",
+    "title": "Industrial Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Industrial sector.",
+    "effects": {
+      "Industrial": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_industrial_industry_setback",
+    "title": "Industrial Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Industrial sector.",
+    "effects": {
+      "Industrial": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_pharma_demand_surge",
+    "title": "Pharma Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Pharma sector.",
+    "effects": {
+      "Pharma": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_pharma_innovation_rally",
+    "title": "Pharma Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Pharma sector.",
+    "effects": {
+      "Pharma": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_pharma_demand_slump",
+    "title": "Pharma Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Pharma sector.",
+    "effects": {
+      "Pharma": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_pharma_industry_setback",
+    "title": "Pharma Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Pharma sector.",
+    "effects": {
+      "Pharma": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_telecom_demand_surge",
+    "title": "Telecom Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Telecom sector.",
+    "effects": {
+      "Telecom": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_telecom_innovation_rally",
+    "title": "Telecom Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Telecom sector.",
+    "effects": {
+      "Telecom": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_telecom_demand_slump",
+    "title": "Telecom Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Telecom sector.",
+    "effects": {
+      "Telecom": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_telecom_industry_setback",
+    "title": "Telecom Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Telecom sector.",
+    "effects": {
+      "Telecom": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_consumer_goods_demand_surge",
+    "title": "Consumer Goods Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Consumer Goods sector.",
+    "effects": {
+      "Consumer Goods": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_consumer_goods_innovation_rally",
+    "title": "Consumer Goods Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Consumer Goods sector.",
+    "effects": {
+      "Consumer Goods": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_consumer_goods_demand_slump",
+    "title": "Consumer Goods Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Consumer Goods sector.",
+    "effects": {
+      "Consumer Goods": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_consumer_goods_industry_setback",
+    "title": "Consumer Goods Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Consumer Goods sector.",
+    "effects": {
+      "Consumer Goods": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_finance_demand_surge",
+    "title": "Finance Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Finance sector.",
+    "effects": {
+      "Finance": 0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_finance_innovation_rally",
+    "title": "Finance Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Finance sector.",
+    "effects": {
+      "Finance": 0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_finance_demand_slump",
+    "title": "Finance Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Finance sector.",
+    "effects": {
+      "Finance": -0.07
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_finance_industry_setback",
+    "title": "Finance Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Finance sector.",
+    "effects": {
+      "Finance": -0.06
+    },
+    "assetTypes": [
+      "stock"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_commodity_demand_surge",
+    "title": "Commodity Demand Surge",
+    "description": "Stronger customer and investor demand improves the outlook for the Commodity sector.",
+    "effects": {
+      "Commodity": 0.07
+    },
+    "assetTypes": [
+      "commodity"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_commodity_innovation_rally",
+    "title": "Commodity Innovation Rally",
+    "description": "A wave of investment and innovation lifts expectations across the Commodity sector.",
+    "effects": {
+      "Commodity": 0.06
+    },
+    "assetTypes": [
+      "commodity"
+    ],
+    "durationWeeks": 8
+  },
+  {
+    "id": "sector_commodity_demand_slump",
+    "title": "Commodity Demand Slump",
+    "description": "Weakening demand and cautious spending pressure the Commodity sector.",
+    "effects": {
+      "Commodity": -0.07
+    },
+    "assetTypes": [
+      "commodity"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_commodity_industry_setback",
+    "title": "Commodity Industry Setback",
+    "description": "Operational problems and disappointing forecasts weigh on the Commodity sector.",
+    "effects": {
+      "Commodity": -0.06
+    },
+    "assetTypes": [
+      "commodity"
+    ],
+    "durationWeeks": 8
+  }
+]

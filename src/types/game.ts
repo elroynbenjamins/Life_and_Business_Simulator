@@ -81,6 +81,7 @@ export interface ActiveMarketEvent {
   id: string;
   title: string;
   effects: Record<string, number>;
+  assetTypes?: Array<'stock' | 'commodity' | 'etf'>;
   weeksRemaining: number;
 }
 
