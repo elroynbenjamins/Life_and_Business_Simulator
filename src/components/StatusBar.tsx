@@ -3,14 +3,11 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../theme/colors';
 import { formatCurrency } from '../utils/format';
 import useGameStore from '../store/gameStore';
-import HappinessBar from './HappinessBar';
-
 export default function GameStatusBar() {
   const week = useGameStore((s) => s?.week ?? 1);
   const year = useGameStore((s) => s?.year ?? 1);
   const age = useGameStore((s) => s?.age ?? 22);
   const cash = useGameStore((s) => s?.cash ?? 0);
-  const happiness = useGameStore((s) => s?.happiness ?? 30);
   const getNetWorthValue = useGameStore((s) => s?.getNetWorthValue);
 
   const netWorth = getNetWorthValue?.() ?? 0;
@@ -27,7 +24,6 @@ export default function GameStatusBar() {
       <View style={styles.bottomRow}>
         <Text style={styles.netWorth}>Net Worth: {formatCurrency(netWorth)}</Text>
       </View>
-      <HappinessBar value={happiness} />
     </View>
   );
 }

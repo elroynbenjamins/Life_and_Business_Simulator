@@ -1,0 +1,8 @@
+[
+  {"id": "basic_training", "name": "Basic Training", "description": "General on-the-job training.", "cost": 2000, "weeks": 4, "skillGain": 8, "failChance": 0.05},
+  {"id": "professional_certification", "name": "Professional Certification", "description": "Industry-standard credential.", "cost": 5000, "weeks": 8, "skillGain": 18, "failChance": 0.15},
+  {"id": "management_course", "name": "Management Course", "description": "Leadership and management skills.", "cost": 13000, "weeks": 10, "skillGain": 22, "failChance": 0.12, "requiresRole": ["supervisor", "manager"]},
+  {"id": "sales_workshop", "name": "Sales Workshop", "description": "Revenue-boosting sales tactics.", "cost": 7000, "weeks": 5, "skillGain": 12, "failChance": 0.08},
+  {"id": "technical_training", "name": "Technical Training", "description": "Advanced technical skills.", "cost": 11000, "weeks": 8, "skillGain": 20, "failChance": 0.15},
+  {"id": "customer_service", "name": "Customer Service Excellence", "description": "Improve customer interactions.", "cost": 6000, "weeks": 4, "skillGain": 10, "failChance": 0.05}
+]

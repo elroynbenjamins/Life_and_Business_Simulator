@@ -1,20 +1,358 @@
 [
-  {"id":"retail_basics","baseId":"retail","name":"Retail Basics","level":1,"duration":2,"cost":200,"weeklyCost":0,"prerequisite":null},
-  {"id":"retail_advanced","baseId":"retail","name":"Retail Advanced","level":2,"duration":4,"cost":0,"weeklyCost":100,"prerequisite":"retail_basics"},
-  {"id":"retail_expert","baseId":"retail","name":"Retail Expert","level":3,"duration":6,"cost":0,"weeklyCost":180,"prerequisite":"retail_advanced"},
-  {"id":"office_administration","baseId":"office","name":"Office Administration","level":1,"duration":3,"cost":400,"weeklyCost":0,"prerequisite":null},
-  {"id":"office_admin_advanced","baseId":"office","name":"Office Admin Advanced","level":2,"duration":6,"cost":0,"weeklyCost":120,"prerequisite":"office_administration"},
-  {"id":"office_admin_expert","baseId":"office","name":"Office Admin Expert","level":3,"duration":8,"cost":0,"weeklyCost":200,"prerequisite":"office_admin_advanced"},
-  {"id":"sales","baseId":"sales","name":"Sales","level":1,"duration":5,"cost":700,"weeklyCost":0,"prerequisite":null},
-  {"id":"sales_advanced","baseId":"sales","name":"Sales Advanced","level":2,"duration":8,"cost":0,"weeklyCost":130,"prerequisite":"sales"},
-  {"id":"sales_expert","baseId":"sales","name":"Sales Expert","level":3,"duration":10,"cost":0,"weeklyCost":220,"prerequisite":"sales_advanced"},
-  {"id":"accounting","baseId":"accounting","name":"Accounting","level":1,"duration":8,"cost":2500,"weeklyCost":0,"prerequisite":null},
-  {"id":"accounting_advanced","baseId":"accounting","name":"Accounting Advanced","level":2,"duration":12,"cost":0,"weeklyCost":200,"prerequisite":"accounting"},
-  {"id":"accounting_expert","baseId":"accounting","name":"Accounting Expert","level":3,"duration":16,"cost":0,"weeklyCost":350,"prerequisite":"accounting_advanced"},
-  {"id":"marketing","baseId":"marketing","name":"Marketing","level":1,"duration":10,"cost":3500,"weeklyCost":0,"prerequisite":null},
-  {"id":"marketing_advanced","baseId":"marketing","name":"Marketing Advanced","level":2,"duration":14,"cost":0,"weeklyCost":250,"prerequisite":"marketing"},
-  {"id":"marketing_expert","baseId":"marketing","name":"Marketing Expert","level":3,"duration":18,"cost":0,"weeklyCost":400,"prerequisite":"marketing_advanced"},
-  {"id":"software_development","baseId":"software","name":"Software Development","level":1,"duration":16,"cost":6000,"weeklyCost":0,"prerequisite":null},
-  {"id":"software_dev_advanced","baseId":"software","name":"Software Dev Advanced","level":2,"duration":20,"cost":0,"weeklyCost":300,"prerequisite":"software_development"},
-  {"id":"software_dev_expert","baseId":"software","name":"Software Dev Expert","level":3,"duration":24,"cost":0,"weeklyCost":500,"prerequisite":"software_dev_advanced"}
+  {
+    "id": "retail_basics",
+    "baseId": "retail",
+    "name": "Retail Basics",
+    "level": 1,
+    "duration": 2,
+    "cost": 4300,
+    "weeklyCost": 0,
+    "prerequisite": null,
+    "category": "Sales",
+    "skillRewards": {
+      "customer_service": 8,
+      "sales_ability": 5
+    },
+    "knowledgeRewards": {
+      "business": 10,
+      "sales_knowledge": 8
+    }
+  },
+  {
+    "id": "retail_advanced",
+    "baseId": "retail",
+    "name": "Retail Advanced",
+    "level": 2,
+    "duration": 4,
+    "cost": 4000,
+    "weeklyCost": 200,
+    "prerequisite": "retail_basics",
+    "category": "Sales",
+    "skillRewards": {
+      "customer_service": 12,
+      "negotiation": 8
+    },
+    "knowledgeRewards": {
+      "business": 12,
+      "sales_knowledge": 12
+    }
+  },
+  {
+    "id": "retail_expert",
+    "baseId": "retail",
+    "name": "Retail Expert",
+    "level": 3,
+    "duration": 6,
+    "cost": 4000,
+    "weeklyCost": 540,
+    "prerequisite": "retail_advanced",
+    "category": "Sales",
+    "skillRewards": {
+      "customer_service": 15,
+      "leadership": 10,
+      "negotiation": 10
+    },
+    "knowledgeRewards": {
+      "business": 15,
+      "sales_knowledge": 15
+    }
+  },
+  {
+    "id": "office_administration",
+    "baseId": "office",
+    "name": "Office Administration",
+    "level": 1,
+    "duration": 3,
+    "cost": 4600,
+    "weeklyCost": 0,
+    "prerequisite": null,
+    "category": "Administration",
+    "skillRewards": {
+      "organization": 10,
+      "communication": 5
+    },
+    "knowledgeRewards": {
+      "business": 10,
+      "administration": 10
+    }
+  },
+  {
+    "id": "office_admin_advanced",
+    "baseId": "office",
+    "name": "Office Admin Advanced",
+    "level": 2,
+    "duration": 6,
+    "cost": 4000,
+    "weeklyCost": 240,
+    "prerequisite": "office_administration",
+    "category": "Administration",
+    "skillRewards": {
+      "organization": 12,
+      "communication": 10,
+      "time_management": 8
+    },
+    "knowledgeRewards": {
+      "business": 12,
+      "administration": 12
+    }
+  },
+  {
+    "id": "office_admin_expert",
+    "baseId": "office",
+    "name": "Office Admin Expert",
+    "level": 3,
+    "duration": 8,
+    "cost": 4000,
+    "weeklyCost": 600,
+    "prerequisite": "office_admin_advanced",
+    "category": "Administration",
+    "skillRewards": {
+      "leadership": 12,
+      "organization": 15,
+      "communication": 12
+    },
+    "knowledgeRewards": {
+      "business": 15,
+      "administration": 15
+    }
+  },
+  {
+    "id": "sales",
+    "baseId": "sales",
+    "name": "Sales",
+    "level": 1,
+    "duration": 5,
+    "cost": 5050,
+    "weeklyCost": 0,
+    "prerequisite": null,
+    "category": "Sales",
+    "skillRewards": {
+      "sales_ability": 12,
+      "negotiation": 10,
+      "communication": 5
+    },
+    "knowledgeRewards": {
+      "sales_knowledge": 12,
+      "marketing": 5
+    }
+  },
+  {
+    "id": "sales_advanced",
+    "baseId": "sales",
+    "name": "Sales Advanced",
+    "level": 2,
+    "duration": 8,
+    "cost": 4000,
+    "weeklyCost": 260,
+    "prerequisite": "sales",
+    "category": "Sales",
+    "skillRewards": {
+      "sales_ability": 15,
+      "negotiation": 12,
+      "leadership": 5
+    },
+    "knowledgeRewards": {
+      "sales_knowledge": 15,
+      "marketing": 8
+    }
+  },
+  {
+    "id": "sales_expert",
+    "baseId": "sales",
+    "name": "Sales Expert",
+    "level": 3,
+    "duration": 10,
+    "cost": 4000,
+    "weeklyCost": 660,
+    "prerequisite": "sales_advanced",
+    "category": "Sales",
+    "skillRewards": {
+      "sales_ability": 18,
+      "negotiation": 15,
+      "leadership": 10
+    },
+    "knowledgeRewards": {
+      "sales_knowledge": 18,
+      "marketing": 10,
+      "business": 5
+    }
+  },
+  {
+    "id": "accounting",
+    "baseId": "accounting",
+    "name": "Accounting",
+    "level": 1,
+    "duration": 8,
+    "cost": 7750,
+    "weeklyCost": 0,
+    "prerequisite": null,
+    "category": "Finance",
+    "skillRewards": {
+      "financial_analysis": 15,
+      "attention_to_detail": 10
+    },
+    "knowledgeRewards": {
+      "finance": 15,
+      "accounting": 12
+    }
+  },
+  {
+    "id": "accounting_advanced",
+    "baseId": "accounting",
+    "name": "Accounting Advanced",
+    "level": 2,
+    "duration": 12,
+    "cost": 4000,
+    "weeklyCost": 400,
+    "prerequisite": "accounting",
+    "category": "Finance",
+    "skillRewards": {
+      "financial_analysis": 18,
+      "problem_solving": 10,
+      "attention_to_detail": 12
+    },
+    "knowledgeRewards": {
+      "finance": 18,
+      "accounting": 15
+    }
+  },
+  {
+    "id": "accounting_expert",
+    "baseId": "accounting",
+    "name": "Accounting Expert",
+    "level": 3,
+    "duration": 16,
+    "cost": 4000,
+    "weeklyCost": 1050,
+    "prerequisite": "accounting_advanced",
+    "category": "Finance",
+    "skillRewards": {
+      "financial_analysis": 20,
+      "leadership": 8,
+      "problem_solving": 12
+    },
+    "knowledgeRewards": {
+      "finance": 20,
+      "accounting": 18,
+      "economics": 5
+    }
+  },
+  {
+    "id": "marketing",
+    "baseId": "marketing",
+    "name": "Marketing",
+    "level": 1,
+    "duration": 10,
+    "cost": 9250,
+    "weeklyCost": 0,
+    "prerequisite": null,
+    "category": "Marketing",
+    "skillRewards": {
+      "communication": 12,
+      "creativity": 10
+    },
+    "knowledgeRewards": {
+      "marketing": 15,
+      "business": 5
+    }
+  },
+  {
+    "id": "marketing_advanced",
+    "baseId": "marketing",
+    "name": "Marketing Advanced",
+    "level": 2,
+    "duration": 14,
+    "cost": 4000,
+    "weeklyCost": 500,
+    "prerequisite": "marketing",
+    "category": "Marketing",
+    "skillRewards": {
+      "communication": 15,
+      "creativity": 12,
+      "leadership": 5
+    },
+    "knowledgeRewards": {
+      "marketing": 18,
+      "business": 8
+    }
+  },
+  {
+    "id": "marketing_expert",
+    "baseId": "marketing",
+    "name": "Marketing Expert",
+    "level": 3,
+    "duration": 18,
+    "cost": 4000,
+    "weeklyCost": 1200,
+    "prerequisite": "marketing_advanced",
+    "category": "Marketing",
+    "skillRewards": {
+      "communication": 18,
+      "creativity": 15,
+      "leadership": 10
+    },
+    "knowledgeRewards": {
+      "marketing": 20,
+      "business": 10
+    }
+  },
+  {
+    "id": "software_development",
+    "baseId": "software",
+    "name": "Software Development",
+    "level": 1,
+    "duration": 16,
+    "cost": 13000,
+    "weeklyCost": 0,
+    "prerequisite": null,
+    "category": "Technology",
+    "skillRewards": {
+      "technical": 15,
+      "problem_solving": 12
+    },
+    "knowledgeRewards": {
+      "technology": 15,
+      "data_science": 5
+    }
+  },
+  {
+    "id": "software_dev_advanced",
+    "baseId": "software",
+    "name": "Software Dev Advanced",
+    "level": 2,
+    "duration": 20,
+    "cost": 4000,
+    "weeklyCost": 600,
+    "prerequisite": "software_development",
+    "category": "Technology",
+    "skillRewards": {
+      "technical": 18,
+      "problem_solving": 15,
+      "leadership": 5
+    },
+    "knowledgeRewards": {
+      "technology": 18,
+      "data_science": 8
+    }
+  },
+  {
+    "id": "software_dev_expert",
+    "baseId": "software",
+    "name": "Software Dev Expert",
+    "level": 3,
+    "duration": 24,
+    "cost": 4000,
+    "weeklyCost": 1500,
+    "prerequisite": "software_dev_advanced",
+    "category": "Technology",
+    "skillRewards": {
+      "technical": 20,
+      "problem_solving": 18,
+      "leadership": 10
+    },
+    "knowledgeRewards": {
+      "technology": 20,
+      "data_science": 10
+    }
+  }
 ]

@@ -1,0 +1,12 @@
+[
+  {"id":"business","name":"Business Management","description":"General business operations and strategy"},
+  {"id":"finance","name":"Finance","description":"Financial principles and money management"},
+  {"id":"marketing","name":"Marketing","description":"Market research, branding, and promotion"},
+  {"id":"technology","name":"Technology","description":"Software, systems, and digital tools"},
+  {"id":"sales_knowledge","name":"Sales Theory","description":"Sales methodologies and customer psychology"},
+  {"id":"administration","name":"Administration","description":"Office management and coordination"},
+  {"id":"accounting","name":"Accounting","description":"Bookkeeping, auditing, and tax principles"},
+  {"id":"economics","name":"Economics","description":"Economic theory and market dynamics"},
+  {"id":"data_science","name":"Data Science","description":"Data analysis and statistical methods"},
+  {"id":"real_estate","name":"Real Estate","description":"Property valuation and investment"}
+]

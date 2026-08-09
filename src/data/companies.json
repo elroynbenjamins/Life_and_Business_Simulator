@@ -1,0 +1,10 @@
+[
+  {"id":"blueline","name":"BlueLine Retail","industry":"Retail","description":"Major retail chain with stores nationwide","careerPaths":["retail"],"salaryMultiplier":1.0,"promotionSpeed":1.0,"culture":3,"layoffRisk":0.02,"size":"large"},
+  {"id":"macrosoft","name":"MacroSoft","industry":"Technology","description":"Leading software and cloud computing giant","careerPaths":["technology","administration"],"salaryMultiplier":1.25,"promotionSpeed":0.9,"culture":5,"layoffRisk":0.01,"size":"large"},
+  {"id":"pear_systems","name":"Pear Systems","industry":"Technology","description":"Innovative consumer electronics company","careerPaths":["technology","marketing"],"salaryMultiplier":1.3,"promotionSpeed":0.85,"culture":6,"layoffRisk":0.01,"size":"large"},
+  {"id":"greenbank","name":"GreenBank","industry":"Finance","description":"Sustainable finance and banking institution","careerPaths":["finance","administration"],"salaryMultiplier":1.15,"promotionSpeed":1.0,"culture":4,"layoffRisk":0.02,"size":"medium"},
+  {"id":"novacorp","name":"NovaCorp","industry":"Consulting","description":"Strategy and management consulting firm","careerPaths":["sales","marketing"],"salaryMultiplier":1.2,"promotionSpeed":1.1,"culture":3,"layoffRisk":0.03,"size":"medium"},
+  {"id":"apex_health","name":"Apex Healthcare","industry":"Healthcare","description":"Leading healthcare services provider","careerPaths":["administration","sales"],"salaryMultiplier":1.1,"promotionSpeed":0.95,"culture":4,"layoffRisk":0.01,"size":"large"},
+  {"id":"sterling","name":"Sterling & Co","industry":"Finance","description":"Premium investment banking and wealth management","careerPaths":["finance","sales"],"salaryMultiplier":1.35,"promotionSpeed":0.8,"culture":2,"layoffRisk":0.04,"size":"medium"},
+  {"id":"mediawave","name":"MediaWave","industry":"Media","description":"Digital media and advertising agency","careerPaths":["marketing","technology"],"salaryMultiplier":1.05,"promotionSpeed":1.15,"culture":7,"layoffRisk":0.03,"size":"small"}
+]

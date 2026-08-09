@@ -10,7 +10,7 @@ import useGameStore from '../../src/store/gameStore';
 import { formatCurrency, formatPercent } from '../../src/utils/format';
 import stocksData from '../../src/data/stocks.json';
 
-type FilterType = 'all' | 'stock' | 'commodity';
+type FilterType = 'all' | 'stock' | 'commodity' | 'etf';
 
 export default function MarketScreen() {
   const router = useRouter();
@@ -36,10 +36,10 @@ export default function MarketScreen() {
 
       {/* Filter Tabs */}
       <View style={styles.filterRow}>
-        {(['all', 'stock', 'commodity'] as FilterType[]).map((f) => (
+        {(['all', 'stock', 'etf', 'commodity'] as FilterType[]).map((f) => (
           <Pressable key={f} style={[styles.filterTab, filter === f && styles.filterActive]} onPress={() => setFilter(f)}>
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f === 'all' ? 'All' : f === 'stock' ? 'Stocks' : 'Commodities'}
+              {f === 'all' ? 'All' : f === 'stock' ? 'Stocks' : f === 'etf' ? 'ETFs' : 'Commodities'}
             </Text>
           </Pressable>
         ))}

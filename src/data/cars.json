@@ -1,8 +1,50 @@
 [
-  {"id":"none","name":"No Car","purchaseCost":0,"weeklyCost":0,"happiness":0,"description":"Walking and public transport."},
-  {"id":"used_car","name":"Used Car","purchaseCost":2000,"weeklyCost":50,"happiness":2,"description":"A reliable used car. Gets you where you need to go."},
-  {"id":"sedan","name":"Sedan","purchaseCost":8000,"weeklyCost":100,"happiness":5,"description":"A comfortable mid-range sedan. Professional look."},
-  {"id":"suv","name":"SUV","purchaseCost":18000,"weeklyCost":175,"happiness":8,"description":"Spacious and powerful. Great for any occasion."},
-  {"id":"sports_car","name":"Sports Car","purchaseCost":40000,"weeklyCost":300,"happiness":12,"description":"Turn heads everywhere you go. Speed and style."},
-  {"id":"luxury_car","name":"Luxury Car","purchaseCost":85000,"weeklyCost":500,"happiness":18,"description":"The pinnacle of automotive luxury and performance."}
+  {
+    "id": "none",
+    "name": "No Car",
+    "purchaseCost": 0,
+    "weeklyCost": 0,
+    "happiness": 0,
+    "description": "Walking and public transport."
+  },
+  {
+    "id": "used_car",
+    "name": "Used Car",
+    "purchaseCost": 2000,
+    "weeklyCost": 150,
+    "happiness": 2,
+    "description": "A reliable used car. Gets you where you need to go."
+  },
+  {
+    "id": "sedan",
+    "name": "Sedan",
+    "purchaseCost": 8000,
+    "weeklyCost": 200,
+    "happiness": 5,
+    "description": "A comfortable mid-range sedan. Professional look."
+  },
+  {
+    "id": "suv",
+    "name": "SUV",
+    "purchaseCost": 18000,
+    "weeklyCost": 350,
+    "happiness": 8,
+    "description": "Spacious and powerful. Great for any occasion."
+  },
+  {
+    "id": "sports_car",
+    "name": "Sports Car",
+    "purchaseCost": 40000,
+    "weeklyCost": 300,
+    "happiness": 12,
+    "description": "Turn heads everywhere you go. Speed and style."
+  },
+  {
+    "id": "luxury_car",
+    "name": "Luxury Car",
+    "purchaseCost": 85000,
+    "weeklyCost": 1000,
+    "happiness": 18,
+    "description": "The pinnacle of automotive luxury and performance."
+  }
 ]

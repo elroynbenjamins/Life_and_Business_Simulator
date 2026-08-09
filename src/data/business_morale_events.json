@@ -1,0 +1,17 @@
+[
+  {"id":"morale_deadline_crunch","title":"Deadline Crunch","description":"A punishing deadline drained the team.","icon":"⏰","moraleDecrease":12},
+  {"id":"morale_pay_complaints","title":"Pay Complaints","description":"Employees are comparing salaries and feel undervalued.","icon":"💸","moraleDecrease":15},
+  {"id":"morale_schedule_conflict","title":"Schedule Conflict","description":"A scheduling mistake disrupted everyone's plans.","icon":"📅","moraleDecrease":8},
+  {"id":"morale_micromanagement","title":"Micromanagement Frustration","description":"The team feels it has too little autonomy.","icon":"🔍","moraleDecrease":14},
+  {"id":"morale_broken_equipment","title":"Broken Equipment","description":"Unreliable equipment made the week miserable.","icon":"🛠️","moraleDecrease":10},
+  {"id":"morale_office_tension","title":"Office Tension","description":"A disagreement spread tension across the team.","icon":"⚡","moraleDecrease":13},
+  {"id":"morale_benefit_cut","title":"Benefits Cut","description":"A benefit reduction upset the workforce.","icon":"✂️","moraleDecrease":20},
+  {"id":"morale_long_meetings","title":"Meeting Overload","description":"Too many meetings left little time for meaningful work.","icon":"🗓️","moraleDecrease":7},
+  {"id":"morale_customer_abuse","title":"Difficult Customers","description":"A wave of abusive customers exhausted the team.","icon":"😠","moraleDecrease":11},
+  {"id":"morale_promotion_snub","title":"Promotion Snub","description":"Employees believe strong performance went unrecognized.","icon":"📉","moraleDecrease":16},
+  {"id":"morale_workspace_issue","title":"Workspace Problems","description":"Noise and poor facilities hurt the working atmosphere.","icon":"🏚️","moraleDecrease":9},
+  {"id":"morale_policy_backlash","title":"Policy Backlash","description":"A new internal policy proved deeply unpopular.","icon":"📋","moraleDecrease":14},
+  {"id":"morale_overtime","title":"Unexpected Overtime","description":"Last-minute overtime disrupted the team's personal lives.","icon":"🌙","moraleDecrease":18},
+  {"id":"morale_communication_gap","title":"Communication Breakdown","description":"Mixed messages caused avoidable rework and frustration.","icon":"📵","moraleDecrease":10},
+  {"id":"morale_leadership_rumor","title":"Leadership Rumors","description":"Uncertainty about leadership changes unsettled employees.","icon":"🗣️","moraleDecrease":12}
+]

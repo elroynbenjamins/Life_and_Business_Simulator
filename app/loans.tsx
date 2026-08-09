@@ -9,14 +9,20 @@ import GameCard from '../src/components/GameCard';
 import ProgressBar from '../src/components/ProgressBar';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
+import { getNetWorth } from '../src/engine/financeEngine';
 import loansData from '../src/data/loans.json';
 
 export default function LoansScreen() {
   const router = useRouter();
   const loans = useGameStore((s) => s?.loans ?? []);
   const cash = useGameStore((s) => s?.cash ?? 0);
+  const currentJobId = useGameStore((s) => s?.currentJobId);
+  const career = useGameStore((s) => s?.career);
   const takeLoan = useGameStore((s) => s?.takeLoan);
   const payOffLoan = useGameStore((s) => s?.payOffLoan);
+  const hasJob = !!(currentJobId || career?.companyId);
+  const state = useGameStore();
+  const netWorth = getNetWorth(state);
 
   const totalDebt = loans.reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
   const totalWeeklyPayments = loans.reduce((t, l) => t + (l?.weeklyPayment ?? 0), 0);
@@ -99,10 +105,22 @@ export default function LoansScreen() {
 
         {/* Available Loans */}
         <Text style={styles.sectionHeader}>Available Loans</Text>
+        {!hasJob && (
+          <GameCard>
+            <View style={styles.noJobBanner}>
+              <Ionicons name="briefcase-outline" size={20} color={Colors.warning} />
+              <Text style={styles.noJobText}>You need a job before you can take out a loan</Text>
+            </View>
+          </GameCard>
+        )}
         {(loansData ?? []).map((template) => {
           const alreadyHas = loans.some((l) => l?.loanId === template?.id);
           const slotsFull = loans.length >= 3;
-          const available = !alreadyHas && !slotsFull;
+          const meetsNetWorth = netWorth >= (template?.amount ?? 0);
+          const available = !alreadyHas && !slotsFull && hasJob && meetsNetWorth;
+          const reason = !hasJob ? 'Requires a job'
+            : !meetsNetWorth ? `Need ${formatCurrency(template?.amount)} net worth (you have ${formatCurrency(netWorth)})`
+            : alreadyHas ? 'Already active' : 'Max 3 loans';
           return (
             <GameCard key={template?.id}>
               <Text style={styles.loanName}>{template?.name}</Text>
@@ -111,12 +129,13 @@ export default function LoansScreen() {
                 <Text style={styles.loanMeta}>Interest: {((template?.interestRate ?? 0) * 100).toFixed(0)}%</Text>
               </View>
               <Text style={styles.loanMeta}>Duration: {template?.durationWeeks} weeks</Text>
+              <Text style={styles.loanMeta}>Required net worth: {formatCurrency(template?.amount)}</Text>
               {available ? (
                 <Pressable style={[styles.actionBtn, { borderColor: Colors.primary }]} onPress={() => handleTakeLoan(template)}>
                   <Text style={[styles.actionText, { color: Colors.primary }]}>Borrow {formatCurrency(template?.amount)}</Text>
                 </Pressable>
               ) : (
-                <Text style={styles.unavailable}>{alreadyHas ? 'Already active' : 'Max 3 loans'}</Text>
+                <Text style={styles.unavailable}>{reason}</Text>
               )}
             </GameCard>
           );
@@ -145,4 +164,6 @@ const styles = StyleSheet.create({
   actionBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginTop: 8 },
   actionText: { fontWeight: '600', fontSize: 14 },
   unavailable: { color: Colors.textMuted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
+  noJobBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: `${Colors.warning}15`, borderRadius: 8, padding: 12 },
+  noJobText: { color: Colors.warning, fontSize: 14, fontWeight: '600', flex: 1 },
 });

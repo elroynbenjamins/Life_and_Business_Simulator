@@ -1,6 +1,11 @@
-import { StockState } from '../types/game';
+import { GameState, StockState, NewsEvent, ActiveMarketSentiment, ActiveMarketEvent } from '../types/game';
 import stocksData from '../data/stocks.json';
+import marketSentimentData from '../data/market_sentiment.json';
+import marketEventsData from '../data/market_events.json';
 
+/**
+ * Initialize stocks at game start.
+ */
 export function initializeStocks(): StockState[] {
   return (stocksData ?? []).map((s) => ({
     ticker: s?.ticker ?? '',
@@ -9,20 +14,172 @@ export function initializeStocks(): StockState[] {
   }));
 }
 
-export function updateStockPrices(
-  stocks: StockState[],
-  sectorEffects: Record<string, number>
-): StockState[] {
-  return (stocks ?? []).map((stock) => {
+/**
+ * Merge saved stocks with current stocks.json — adds any new tickers missing from saved state.
+ */
+export function mergeStocks(existing: StockState[]): StockState[] {
+  const tickers = new Set((existing ?? []).map((s) => s?.ticker));
+  const missing = (stocksData ?? []).filter((s) => !tickers.has(s?.ticker));
+  if (missing.length === 0) return existing;
+  const added: StockState[] = missing.map((s) => ({
+    ticker: s?.ticker ?? '',
+    currentPrice: s?.startPrice ?? 100,
+    priceHistory: [s?.startPrice ?? 100],
+  }));
+  return [...(existing ?? []), ...added];
+}
+
+/**
+ * Roll for a yearly market sentiment event (every 20 weeks).
+ */
+export function rollMarketSentiment(
+  globalWeek: number,
+  current: ActiveMarketSentiment | null
+): ActiveMarketSentiment | null {
+  // Tick existing
+  if (current && (current.weeksRemaining ?? 0) > 1) {
+    return { ...current, weeksRemaining: current.weeksRemaining - 1 };
+  }
+  // Roll new one every 20 weeks
+  if (globalWeek > 0 && globalWeek % 20 === 0) {
+    const events = marketSentimentData as any[];
+    if (events.length === 0) return null;
+    const picked = events[Math.floor(Math.random() * events.length)];
+    return {
+      id: picked.id,
+      name: picked.name,
+      effects: picked.effects ?? {},
+      volatilityMultiplier: picked.volatilityMultiplier ?? 1.0,
+      weeksRemaining: picked.durationWeeks ?? 20,
+    };
+  }
+  return current?.weeksRemaining === 1 ? null : (current ?? null);
+}
+
+/**
+ * Roll for random market events (historical, 5% chance per week).
+ */
+export function rollMarketEvent(
+  activeEvents: ActiveMarketEvent[]
+): { updatedEvents: ActiveMarketEvent[]; newEvent: ActiveMarketEvent | null } {
+  // Tick existing
+  const updated = activeEvents
+    .map((e) => ({ ...e, weeksRemaining: e.weeksRemaining - 1 }))
+    .filter((e) => e.weeksRemaining > 0);
+
+  // 5% chance of new event
+  let newEvent: ActiveMarketEvent | null = null;
+  if (Math.random() < 0.05) {
+    const events = marketEventsData as any[];
+    const activeIds = new Set(updated.map((e) => e.id));
+    const eligible = events.filter((e) => !activeIds.has(e.id));
+    if (eligible.length > 0) {
+      const picked = eligible[Math.floor(Math.random() * eligible.length)];
+      newEvent = {
+        id: picked.id,
+        title: picked.title,
+        effects: picked.effects ?? {},
+        weeksRemaining: picked.durationWeeks ?? 8,
+      };
+      updated.push(newEvent);
+    }
+  }
+
+  return { updatedEvents: updated, newEvent };
+}
+
+/**
+ * Calculate combined market effects from sentiment + active events.
+ */
+function getCombinedMarketEffects(
+  sentiment: ActiveMarketSentiment | null,
+  events: ActiveMarketEvent[]
+): { sectorEffects: Record<string, number>; volatilityMult: number } {
+  const sectorEffects: Record<string, number> = {};
+  let volatilityMult = 1.0;
+
+  if (sentiment) {
+    for (const [sector, val] of Object.entries(sentiment.effects)) {
+      sectorEffects[sector] = (sectorEffects[sector] ?? 0) + (val as number) * 0.05; // per-week fraction
+    }
+    volatilityMult = sentiment.volatilityMultiplier ?? 1.0;
+  }
+
+  for (const event of events) {
+    for (const [sector, val] of Object.entries(event.effects)) {
+      sectorEffects[sector] = (sectorEffects[sector] ?? 0) + (val as number) * 0.05;
+    }
+  }
+
+  return { sectorEffects, volatilityMult };
+}
+
+/**
+ * Process bank dividends (yearly, every 20 weeks).
+ * Banking stocks pay ~2% annual dividend.
+ */
+export function processDividends(
+  state: GameState,
+  globalWeek: number
+): number {
+  if (globalWeek <= 0 || globalWeek % 20 !== 0) return 0;
+
+  let totalDividend = 0;
+  for (const holding of state?.holdings ?? []) {
+    const sd = (stocksData ?? []).find((s) => s?.ticker === holding?.ticker);
+    if (!sd) continue;
+    const stock = (state?.stocks ?? []).find((s) => s?.ticker === holding?.ticker);
+    const price = stock?.currentPrice ?? sd.startPrice;
+    // Banking stocks: 2.5% annual, Finance: 1.5%, ETFs: 1%
+    let rate = 0;
+    if (sd.sector === 'Banking') rate = 0.025;
+    else if (sd.sector === 'Finance') rate = 0.015;
+    else if (sd.type === 'etf') rate = 0.01;
+    if (rate > 0) {
+      totalDividend += Math.round((holding?.shares ?? 0) * price * rate);
+    }
+  }
+  return totalDividend;
+}
+
+/**
+ * Step 4: Stock Market Simulation
+ * Updates all stock prices based on news sector effects + market sentiment + random volatility.
+ */
+export function processStocks(
+  state: GameState,
+  news: NewsEvent
+): { stocks: StockState[]; stockChanges: { ticker: string; change: number }[] } {
+  const newsEffects = news?.effects ?? {};
+  const inflationDrift = ((state?.inflationMultiplier ?? 1) - 1) * 0.001;
+
+  // Get market sentiment/event effects
+  const { sectorEffects: marketEffects, volatilityMult } = getCombinedMarketEffects(
+    state?.activeMarketSentiment ?? null,
+    state?.activeMarketEvents ?? []
+  );
+
+  const newStocks = (state?.stocks ?? []).map((stock) => {
     const data = (stocksData ?? []).find((s) => s?.ticker === stock?.ticker);
     const sector = data?.sector ?? '';
     const isCommodity = data?.type === 'commodity';
-    const sectorEffect = sectorEffects?.[sector] ?? 0;
+    const isEtf = data?.type === 'etf';
+    const newsEffect = newsEffects?.[sector] ?? 0;
+    const marketEffect = marketEffects?.[sector] ?? 0;
 
-    // Commodities are more volatile
-    const volatility = isCommodity ? 0.14 : 0.10;
+    // ETFs have much smaller swings
+    const baseVolatility = isEtf ? 0.04 : isCommodity ? 0.14 : 0.10;
+    const volatility = baseVolatility * volatilityMult;
     const baseChange = (Math.random() - 0.5) * volatility;
-    let totalChange = Math.max(-0.10, Math.min(0.10, baseChange + sectorEffect));
+
+    // ETFs follow a weighted average of all stock movements
+    let etfDrift = 0;
+    if (isEtf) {
+      // Small positive drift to make ETFs generally follow market
+      etfDrift = 0.001;
+    }
+
+    let totalChange = Math.max(-0.12, Math.min(0.12, baseChange + newsEffect + marketEffect + inflationDrift + etfDrift));
 
     let newPrice = (stock?.currentPrice ?? 100) * (1 + totalChange);
     newPrice = Math.max(1, Math.round(newPrice * 100) / 100);
@@ -31,10 +188,17 @@ export function updateStockPrices(
     history.push(newPrice);
     if (history.length > 20) history.shift();
 
+    return { ...stock, currentPrice: newPrice, priceHistory: history };
+  });
+
+  const stockChanges = newStocks.map((ns) => {
+    const old = (state?.stocks ?? []).find((s) => s?.ticker === ns?.ticker);
+    const oldPrice = old?.currentPrice ?? ns?.currentPrice;
     return {
-      ...stock,
-      currentPrice: newPrice,
-      priceHistory: history,
+      ticker: ns?.ticker ?? '',
+      change: oldPrice > 0 ? ((ns?.currentPrice ?? 0) - oldPrice) / oldPrice * 100 : 0,
     };
   });
+
+  return { stocks: newStocks, stockChanges };
 }

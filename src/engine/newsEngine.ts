@@ -1,7 +1,11 @@
 import newsEvents from '../data/news_events.json';
 import { NewsEvent } from '../types/game';
 
-export function generateNewsEvent(): NewsEvent {
+/**
+ * Step 3: News Generation
+ * Picks a random news event and returns its sector effects.
+ */
+export function processNews(): NewsEvent {
   const events = newsEvents ?? [];
   if (events.length === 0) {
     return { headline: 'A quiet week in the markets.', effects: {} };
@@ -19,3 +23,6 @@ export function generateNewsEvent(): NewsEvent {
     effects,
   };
 }
+
+// Keep backward compat alias
+export const generateNewsEvent = processNews;

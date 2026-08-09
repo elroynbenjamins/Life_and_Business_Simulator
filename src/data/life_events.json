@@ -1,0 +1,642 @@
+[
+  {
+    "id": "car_breakdown",
+    "category": "vehicle",
+    "rarity": "common",
+    "type": "choice",
+    "title": "Car Breakdown",
+    "description": "Your car suddenly breaks down on the way to work.",
+    "icon": "🔧",
+    "requirements": { "ownsCar": true },
+    "choices": [
+      { "text": "Repair it (€450)", "cost": 450, "happiness": -2 },
+      { "text": "Ignore it", "cost": 0, "happiness": -8 }
+    ]
+  },
+  {
+    "id": "flat_tire",
+    "category": "vehicle",
+    "rarity": "common",
+    "type": "choice",
+    "title": "Flat Tire",
+    "description": "You got a flat tire. Need to deal with it.",
+    "icon": "🛞",
+    "requirements": { "ownsCar": true },
+    "choices": [
+      { "text": "Fix it (€120)", "cost": 120, "happiness": -1 },
+      { "text": "Drive on it", "cost": 0, "happiness": -5 }
+    ]
+  },
+  {
+    "id": "parking_ticket",
+    "category": "vehicle",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Parking Ticket",
+    "description": "You got a parking ticket. €80 fine.",
+    "icon": "🅿️",
+    "requirements": { "ownsCar": true },
+    "effects": { "cash": -80, "happiness": -2 }
+  },
+  {
+    "id": "car_wash_surprise",
+    "category": "vehicle",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Free Car Wash",
+    "description": "A new car wash is giving free washes today. Your car looks great!",
+    "icon": "🚿",
+    "requirements": { "ownsCar": true },
+    "effects": { "happiness": 3 }
+  },
+  {
+    "id": "bonus_from_boss",
+    "category": "career",
+    "rarity": "uncommon",
+    "type": "automatic",
+    "title": "Performance Bonus",
+    "description": "Your boss is impressed with your work and gives you a bonus!",
+    "icon": "💼",
+    "requirements": { "hasJob": true },
+    "effects": { "cash": 500, "happiness": 8 }
+  },
+  {
+    "id": "overtime_request",
+    "category": "career",
+    "rarity": "common",
+    "type": "choice",
+    "title": "Overtime Request",
+    "description": "Your manager asks if you can work overtime this week.",
+    "icon": "⏰",
+    "requirements": { "hasJob": true },
+    "choices": [
+      { "text": "Accept (+€300)", "cash": 300, "happiness": -4 },
+      { "text": "Decline", "cash": 0, "happiness": 2 }
+    ]
+  },
+  {
+    "id": "workplace_conflict",
+    "category": "career",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Workplace Conflict",
+    "description": "A disagreement with a coworker has been stressing you out.",
+    "icon": "😤",
+    "requirements": { "hasJob": true },
+    "effects": { "happiness": -5 }
+  },
+  {
+    "id": "promotion_celebration",
+    "category": "career",
+    "rarity": "uncommon",
+    "type": "choice",
+    "title": "Team Celebration",
+    "description": "Your team hit a big milestone! They want to celebrate.",
+    "icon": "🎉",
+    "requirements": { "hasJob": true },
+    "choices": [
+      { "text": "Join dinner (€150)", "cost": 150, "happiness": 10 },
+      { "text": "Skip it", "cost": 0, "happiness": -2 }
+    ]
+  },
+  {
+    "id": "tax_refund",
+    "category": "financial",
+    "rarity": "uncommon",
+    "type": "automatic",
+    "title": "Tax Refund",
+    "description": "You received a small tax refund from last year's overpayment.",
+    "icon": "💰",
+    "requirements": {},
+    "effects": { "cash": 250, "happiness": 5 }
+  },
+  {
+    "id": "found_money",
+    "category": "financial",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Found Money",
+    "description": "You found €50 in an old jacket pocket!",
+    "icon": "🧥",
+    "requirements": {},
+    "effects": { "cash": 50, "happiness": 3 }
+  },
+  {
+    "id": "unexpected_bill",
+    "category": "financial",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Unexpected Bill",
+    "description": "An unexpected medical bill arrived in the mail.",
+    "icon": "📬",
+    "requirements": {},
+    "effects": { "cash": -200, "happiness": -4 }
+  },
+  {
+    "id": "lottery_small",
+    "category": "financial",
+    "rarity": "rare",
+    "type": "automatic",
+    "title": "Lottery Win!",
+    "description": "You bought a scratch card and won €1,000!",
+    "icon": "🎰",
+    "requirements": {},
+    "effects": { "cash": 1000, "happiness": 15 }
+  },
+  {
+    "id": "scam_attempt",
+    "category": "financial",
+    "rarity": "uncommon",
+    "type": "choice",
+    "title": "Suspicious Email",
+    "description": "You received an email claiming you've won a prize. Click to claim?",
+    "icon": "📧",
+    "requirements": {},
+    "choices": [
+      { "text": "Ignore it (smart)", "cash": 0, "happiness": 1 },
+      { "text": "Click the link", "cash": -500, "happiness": -10 }
+    ]
+  },
+  {
+    "id": "friend_sends_money",
+    "category": "social",
+    "rarity": "uncommon",
+    "type": "automatic",
+    "title": "Friend Pays Back",
+    "description": "A friend finally paid back the €100 they owed you.",
+    "icon": "🤝",
+    "requirements": {},
+    "effects": { "cash": 100, "happiness": 4 }
+  },
+  {
+    "id": "birthday_party",
+    "category": "social",
+    "rarity": "common",
+    "type": "choice",
+    "title": "Friend's Birthday",
+    "description": "Your friend is having a birthday party this weekend.",
+    "icon": "🎂",
+    "requirements": {},
+    "choices": [
+      { "text": "Go with a gift (€80)", "cost": 80, "happiness": 6 },
+      { "text": "Send wishes only", "cost": 0, "happiness": -2 }
+    ]
+  },
+  {
+    "id": "neighbor_noise",
+    "category": "social",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Noisy Neighbors",
+    "description": "Your neighbors had a loud party all night. You're exhausted.",
+    "icon": "🔊",
+    "requirements": {},
+    "effects": { "happiness": -4 }
+  },
+  {
+    "id": "gym_membership_offer",
+    "category": "health",
+    "rarity": "common",
+    "type": "choice",
+    "title": "Gym Offer",
+    "description": "A new gym opened nearby with a great introductory deal.",
+    "icon": "🏋️",
+    "requirements": {},
+    "choices": [
+      { "text": "Sign up (€60)", "cost": 60, "happiness": 8, "happinessDuration": 8 },
+      { "text": "Not interested", "cost": 0, "happiness": 0 }
+    ]
+  },
+  {
+    "id": "flu_season",
+    "category": "health",
+    "rarity": "common",
+    "type": "choice",
+    "title": "Flu Season",
+    "description": "You're feeling under the weather. Should you see a doctor?",
+    "icon": "🤒",
+    "requirements": {},
+    "choices": [
+      { "text": "Visit doctor (€100)", "cost": 100, "happiness": -2, "happinessDuration": 2 },
+      { "text": "Tough it out", "cost": 0, "happiness": -8, "happinessDuration": 4 }
+    ]
+  },
+  {
+    "id": "dental_emergency",
+    "category": "health",
+    "rarity": "uncommon",
+    "type": "automatic",
+    "title": "Dental Emergency",
+    "description": "A sudden toothache requires an emergency dental visit.",
+    "icon": "🦷",
+    "requirements": {},
+    "effects": { "cash": -350, "happiness": -6 }
+  },
+  {
+    "id": "pipe_burst",
+    "category": "housing",
+    "rarity": "uncommon",
+    "type": "choice",
+    "title": "Burst Pipe",
+    "description": "A pipe burst in your apartment. Water everywhere!",
+    "icon": "💧",
+    "requirements": {},
+    "choices": [
+      { "text": "Call plumber (€300)", "cost": 300, "happiness": -3 },
+      { "text": "DIY repair (€50)", "cost": 50, "happiness": -6 }
+    ]
+  },
+  {
+    "id": "appliance_failure",
+    "category": "housing",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Appliance Broke",
+    "description": "Your washing machine stopped working. Replacement needed.",
+    "icon": "🧺",
+    "requirements": {},
+    "effects": { "cash": -250, "happiness": -3 }
+  },
+  {
+    "id": "nice_sunset",
+    "category": "lifestyle",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Beautiful Sunset",
+    "description": "You enjoyed a beautiful sunset from your window. Life is good.",
+    "icon": "🌅",
+    "requirements": {},
+    "effects": { "happiness": 5 }
+  },
+  {
+    "id": "hobby_discovery",
+    "category": "lifestyle",
+    "rarity": "uncommon",
+    "type": "choice",
+    "title": "New Hobby",
+    "description": "You discovered a new hobby that excites you.",
+    "icon": "🎨",
+    "requirements": {},
+    "choices": [
+      { "text": "Get supplies (€200)", "cost": 200, "happiness": 12, "happinessDuration": 10 },
+      { "text": "Maybe later", "cost": 0, "happiness": 0 }
+    ]
+  },
+  {
+    "id": "pet_adoption",
+    "category": "lifestyle",
+    "rarity": "rare",
+    "type": "choice",
+    "title": "Adopt a Pet?",
+    "description": "A cute stray cat appeared at your door. Will you adopt it?",
+    "icon": "🐱",
+    "requirements": {},
+    "choices": [
+      { "text": "Adopt it (€150 + €30/week)", "cost": 150, "happiness": 15, "happinessDuration": 20 },
+      { "text": "Find it a shelter", "cost": 0, "happiness": 2 }
+    ]
+  },
+  {
+    "id": "stock_tip",
+    "category": "investment",
+    "rarity": "uncommon",
+    "type": "automatic",
+    "title": "Hot Stock Tip",
+    "description": "A colleague mentioned a stock that's about to surge. Market is interesting this week.",
+    "icon": "📈",
+    "requirements": {},
+    "effects": { "happiness": 2 }
+  },
+  {
+    "id": "market_crash_fear",
+    "category": "investment",
+    "rarity": "rare",
+    "type": "automatic",
+    "title": "Market Panic",
+    "description": "News outlets are predicting a market crash. Investors are nervous.",
+    "icon": "📉",
+    "requirements": { "hasHoldings": true },
+    "effects": { "happiness": -8 }
+  },
+  {
+    "id": "dividend_payment",
+    "category": "investment",
+    "rarity": "uncommon",
+    "type": "automatic",
+    "title": "Dividend Received",
+    "description": "One of your investments paid out a dividend!",
+    "icon": "💵",
+    "requirements": { "hasHoldings": true },
+    "effects": { "cash": 200, "happiness": 5 }
+  },
+  {
+    "id": "coffee_shop_opportunity",
+    "category": "opportunity",
+    "rarity": "rare",
+    "type": "opportunity",
+    "title": "Coffee Shop Investment",
+    "description": "Your friend is starting a coffee shop and wants investors.",
+    "icon": "☕",
+    "requirements": { "minCash": 2500 },
+    "choices": [
+      { "text": "Invest €2,500", "cost": 2500, "investmentId": "coffee_shop_small", "happiness": 3 },
+      { "text": "Invest €5,000", "cost": 5000, "investmentId": "coffee_shop_large", "happiness": 5 },
+      { "text": "Decline", "cost": 0, "happiness": 0 }
+    ],
+    "investmentOutcomes": {
+      "coffee_shop_small": { "successChance": 0.6, "returnMultiplier": 2.5, "failReturnMultiplier": 0.3, "weeksToResolve": 20 },
+      "coffee_shop_large": { "successChance": 0.6, "returnMultiplier": 2.5, "failReturnMultiplier": 0.3, "weeksToResolve": 20 }
+    }
+  },
+  {
+    "id": "tech_startup_opportunity",
+    "category": "opportunity",
+    "rarity": "rare",
+    "type": "opportunity",
+    "title": "Tech Startup Pitch",
+    "description": "A tech startup is looking for angel investors. High risk, high reward.",
+    "icon": "🚀",
+    "requirements": { "minCash": 5000 },
+    "choices": [
+      { "text": "Invest €5,000", "cost": 5000, "investmentId": "tech_startup_small", "happiness": 3 },
+      { "text": "Invest €10,000", "cost": 10000, "investmentId": "tech_startup_large", "happiness": 5 },
+      { "text": "Pass", "cost": 0, "happiness": 0 }
+    ],
+    "investmentOutcomes": {
+      "tech_startup_small": { "successChance": 0.35, "returnMultiplier": 4.0, "failReturnMultiplier": 0, "weeksToResolve": 30 },
+      "tech_startup_large": { "successChance": 0.35, "returnMultiplier": 4.0, "failReturnMultiplier": 0, "weeksToResolve": 30 }
+    }
+  },
+  {
+    "id": "real_estate_opportunity",
+    "category": "opportunity",
+    "rarity": "legendary",
+    "type": "opportunity",
+    "title": "Real Estate Deal",
+    "description": "A prime real estate investment opportunity is available in your area.",
+    "icon": "🏢",
+    "requirements": { "minCash": 20000 },
+    "choices": [
+      { "text": "Invest €20,000", "cost": 20000, "investmentId": "real_estate_deal", "happiness": 5 },
+      { "text": "Too risky", "cost": 0, "happiness": 0 }
+    ],
+    "investmentOutcomes": {
+      "real_estate_deal": { "successChance": 0.7, "returnMultiplier": 2.0, "failReturnMultiplier": 0.6, "weeksToResolve": 40 }
+    }
+  },
+  {
+    "id": "freelance_gig",
+    "category": "opportunity",
+    "rarity": "uncommon",
+    "type": "choice",
+    "title": "Freelance Gig",
+    "description": "Someone offered you a side freelance project.",
+    "icon": "💻",
+    "requirements": { "hasJob": true },
+    "choices": [
+      { "text": "Take it (+€600, -happiness)", "cash": 600, "happiness": -5 },
+      { "text": "No time", "cash": 0, "happiness": 1 }
+    ]
+  },
+  {
+    "id": "inheritance_small",
+    "category": "financial",
+    "rarity": "rare",
+    "type": "automatic",
+    "title": "Small Inheritance",
+    "description": "A distant relative left you a small inheritance.",
+    "icon": "📜",
+    "requirements": {},
+    "effects": { "cash": 3000, "happiness": 8 }
+  },
+  {
+    "id": "insurance_payout",
+    "category": "financial",
+    "rarity": "rare",
+    "type": "automatic",
+    "title": "Insurance Payout",
+    "description": "An old insurance claim finally came through.",
+    "icon": "🛡️",
+    "requirements": {},
+    "effects": { "cash": 1500, "happiness": 6 }
+  },
+  {
+    "id": "identity_theft_scare",
+    "category": "financial",
+    "rarity": "rare",
+    "type": "choice",
+    "title": "Identity Theft Scare",
+    "description": "Your bank flagged suspicious activity on your account.",
+    "icon": "🔐",
+    "requirements": {},
+    "choices": [
+      { "text": "Upgrade security (€200)", "cost": 200, "happiness": -3 },
+      { "text": "Ignore it", "cost": 0, "happiness": -8 }
+    ]
+  },
+  {
+    "id": "good_weather_mood",
+    "category": "lifestyle",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Perfect Weather",
+    "description": "The weather this week was absolutely perfect. Great vibes!",
+    "icon": "☀️",
+    "requirements": {},
+    "effects": { "happiness": 4 }
+  },
+  {
+    "id": "bad_weather",
+    "category": "lifestyle",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Terrible Weather",
+    "description": "It rained non-stop all week. Your mood took a hit.",
+    "icon": "🌧️",
+    "requirements": {},
+    "effects": { "happiness": -3 }
+  },
+  {
+    "id": "vacation_offer",
+    "category": "lifestyle",
+    "rarity": "uncommon",
+    "type": "choice",
+    "title": "Vacation Deal",
+    "description": "A last-minute vacation deal popped up. Beach getaway!",
+    "icon": "🏖️",
+    "requirements": { "minCash": 800 },
+    "choices": [
+      { "text": "Book it! (€800)", "cost": 800, "happiness": 20, "happinessDuration": 6 },
+      { "text": "Can't afford the time", "cost": 0, "happiness": -2 }
+    ]
+  },
+  {
+    "id": "education_scholarship",
+    "category": "education",
+    "rarity": "rare",
+    "type": "automatic",
+    "title": "Scholarship Award",
+    "description": "You received a scholarship grant for your dedication to learning!",
+    "icon": "🎓",
+    "requirements": { "isStudying": true },
+    "effects": { "cash": 500, "happiness": 10 }
+  },
+  {
+    "id": "study_burnout",
+    "category": "education",
+    "rarity": "common",
+    "type": "automatic",
+    "title": "Study Burnout",
+    "description": "All the studying is getting to you. You feel mentally drained.",
+    "icon": "😩",
+    "requirements": { "isStudying": true },
+    "effects": { "happiness": -6 }
+  },
+  {
+    "id": "networking_event",
+    "category": "career",
+    "rarity": "uncommon",
+    "type": "choice",
+    "title": "Networking Event",
+    "description": "There's a professional networking event in your city.",
+    "icon": "🤵",
+    "requirements": { "hasJob": true },
+    "choices": [
+      { "text": "Attend (€100)", "cost": 100, "happiness": 5 },
+      { "text": "Skip it", "cost": 0, "happiness": 0 }
+    ]
+  },
+  {
+    "id": "rent_increase",
+    "category": "housing",
+    "rarity": "uncommon",
+    "type": "automatic",
+    "title": "Rent Increase Notice",
+    "description": "Your landlord sent a one-time maintenance fee of €200.",
+    "icon": "🏠",
+    "requirements": {},
+    "effects": { "cash": -200, "happiness": -4 }
+  },
+  {
+    "id": "charity_request",
+    "category": "social",
+    "rarity": "common",
+    "type": "choice",
+    "title": "Charity Request",
+    "description": "A local charity is asking for donations for a good cause.",
+    "icon": "❤️",
+    "requirements": {},
+    "choices": [
+      { "text": "Donate €100", "cost": 100, "happiness": 8 },
+      { "text": "Donate €50", "cost": 50, "happiness": 4 },
+      { "text": "Not now", "cost": 0, "happiness": -1 }
+    ]
+  },
+  {
+    "id": "wedding_invitation",
+    "category": "social",
+    "rarity": "rare",
+    "type": "choice",
+    "title": "Wedding Invitation",
+    "description": "A close friend is getting married and you're invited!",
+    "icon": "💍",
+    "requirements": {},
+    "choices": [
+      { "text": "Attend with gift (€400)", "cost": 400, "happiness": 12 },
+      { "text": "Send gift only (€150)", "cost": 150, "happiness": 3 },
+      { "text": "Decline", "cost": 0, "happiness": -5 }
+    ]
+  },
+  {
+    "id": "health_checkup",
+    "category": "health",
+    "rarity": "uncommon",
+    "type": "choice",
+    "title": "Annual Checkup",
+    "description": "Time for your annual health checkup.",
+    "icon": "🏥",
+    "requirements": {},
+    "choices": [
+      { "text": "Go (€150)", "cost": 150, "happiness": 3 },
+      { "text": "Skip it", "cost": 0, "happiness": -2 }
+    ]
+  },
+  {
+    "id": "restaurant_opportunity",
+    "category": "opportunity",
+    "rarity": "rare",
+    "type": "opportunity",
+    "title": "Restaurant Partnership",
+    "description": "A chef friend wants you to co-invest in a new restaurant.",
+    "icon": "🍽️",
+    "requirements": { "minCash": 8000 },
+    "choices": [
+      { "text": "Invest €8,000", "cost": 8000, "investmentId": "restaurant_deal", "happiness": 4 },
+      { "text": "Not for me", "cost": 0, "happiness": 0 }
+    ],
+    "investmentOutcomes": {
+      "restaurant_deal": { "successChance": 0.5, "returnMultiplier": 2.8, "failReturnMultiplier": 0.2, "weeksToResolve": 25 }
+    }
+  },
+  {
+    "id": "windfall_legendary",
+    "category": "financial",
+    "rarity": "legendary",
+    "type": "automatic",
+    "title": "Mysterious Windfall",
+    "description": "A legal settlement from a class-action lawsuit you forgot about. €10,000!",
+    "icon": "🤯",
+    "requirements": {},
+    "effects": { "cash": 10000, "happiness": 25 }
+  },
+  {
+    "id": "theft_legendary",
+    "category": "financial",
+    "rarity": "legendary",
+    "type": "automatic",
+    "title": "Robbery",
+    "description": "Someone broke into your home and stole valuables.",
+    "icon": "🦹",
+    "requirements": {},
+    "effects": { "cash": -2000, "happiness": -20 }
+  },
+  {
+    "id": "crypto_opportunity",
+    "category": "opportunity",
+    "rarity": "legendary",
+    "type": "opportunity",
+    "title": "Crypto Opportunity",
+    "description": "An insider tip on a new cryptocurrency before it goes mainstream.",
+    "icon": "🪙",
+    "requirements": { "minCash": 1000 },
+    "choices": [
+      { "text": "Invest €1,000", "cost": 1000, "investmentId": "crypto_small", "happiness": 2 },
+      { "text": "Invest €5,000", "cost": 5000, "investmentId": "crypto_large", "happiness": 4 },
+      { "text": "Too volatile", "cost": 0, "happiness": 0 }
+    ],
+    "investmentOutcomes": {
+      "crypto_small": { "successChance": 0.3, "returnMultiplier": 8.0, "failReturnMultiplier": 0.1, "weeksToResolve": 15 },
+      "crypto_large": { "successChance": 0.3, "returnMultiplier": 8.0, "failReturnMultiplier": 0.1, "weeksToResolve": 15 }
+    }
+  },
+  {"id":"phone_stolen","category":"financial","rarity":"uncommon","type":"automatic","title":"Phone Stolen","description":"Someone pickpocketed your phone on the train. You need a replacement.","icon":"📱","requirements":{},"effects":{"cash":-600,"happiness":-8}},
+  {"id":"minor_car_accident","category":"vehicle","rarity":"uncommon","type":"choice","title":"Minor Car Accident","description":"You bumped another car while parking. The other driver wants compensation.","icon":"🚗","requirements":{"ownsCar":true},"choices":[{"text":"Pay damages (€700)","cost":700,"happiness":-3},{"text":"Exchange insurance info (€200)","cost":200,"happiness":-5},{"text":"Drive away","cost":0,"happiness":-12}]},
+  {"id":"kitchen_fire","category":"housing","rarity":"rare","type":"automatic","title":"Kitchen Fire","description":"A small kitchen fire caused damage. Fire department responded quickly.","icon":"🔥","requirements":{},"effects":{"cash":-800,"happiness":-10}},
+  {"id":"concert_tickets","category":"lifestyle","rarity":"uncommon","type":"choice","title":"Concert Tickets Available","description":"Your favorite band is performing in town this weekend!","icon":"🎵","requirements":{},"choices":[{"text":"VIP tickets (€300)","cost":300,"happiness":15,"happinessDuration":4},{"text":"Regular tickets (€80)","cost":80,"happiness":8,"happinessDuration":3},{"text":"Skip it","cost":0,"happiness":-1}]},
+  {"id":"power_outage","category":"housing","rarity":"common","type":"automatic","title":"Power Outage","description":"A major power outage affected your neighborhood for two days.","icon":"⚡","requirements":{},"effects":{"cash":-50,"happiness":-4}},
+  {"id":"water_damage","category":"housing","rarity":"uncommon","type":"choice","title":"Water Damage","description":"Heavy rain caused water damage in your apartment.","icon":"🌊","requirements":{},"choices":[{"text":"Professional repair (€500)","cost":500,"happiness":-3},{"text":"Patch it yourself (€80)","cost":80,"happiness":-7}]},
+  {"id":"fitness_challenge","category":"health","rarity":"common","type":"choice","title":"30-Day Fitness Challenge","description":"A friend invites you to join a 30-day fitness challenge.","icon":"💪","requirements":{},"choices":[{"text":"Join (€40 gear)","cost":40,"happiness":10,"happinessDuration":8},{"text":"Not my thing","cost":0,"happiness":0}]},
+  {"id":"family_reunion","category":"social","rarity":"uncommon","type":"choice","title":"Family Reunion","description":"Your family is organizing a big reunion this weekend.","icon":"👨‍👩‍👧‍👦","requirements":{},"choices":[{"text":"Attend & host (€250)","cost":250,"happiness":12,"happinessDuration":3},{"text":"Just attend (€50)","cost":50,"happiness":6},{"text":"Can't make it","cost":0,"happiness":-4}]},
+  {"id":"online_course_discount","category":"education","rarity":"common","type":"choice","title":"Online Course Sale","description":"A premium online learning platform is offering 80% off annual subscription.","icon":"🖥️","requirements":{},"choices":[{"text":"Subscribe (€50)","cost":50,"happiness":5,"happinessDuration":10},{"text":"Not interested","cost":0,"happiness":0}]},
+  {"id":"investment_seminar","category":"financial","rarity":"uncommon","type":"choice","title":"Investment Seminar","description":"A well-known investor is giving a seminar in your city.","icon":"📊","requirements":{},"choices":[{"text":"Attend (€150)","cost":150,"happiness":6},{"text":"Watch online free","cost":0,"happiness":2}]},
+  {"id":"side_hustle","category":"career","rarity":"uncommon","type":"choice","title":"Side Hustle Opportunity","description":"A friend needs help with their business this weekend. Cash in hand.","icon":"🔨","requirements":{},"choices":[{"text":"Help out (+€400)","cash":400,"happiness":-3},{"text":"Too busy","cost":0,"happiness":1}]},
+  {"id":"moving_costs","category":"housing","rarity":"rare","type":"automatic","title":"Emergency Maintenance","description":"Your building requires emergency maintenance. All tenants must contribute.","icon":"🏗️","requirements":{},"effects":{"cash":-400,"happiness":-5}},
+  {"id":"pet_emergency","category":"lifestyle","rarity":"rare","type":"choice","title":"Pet Emergency","description":"A neighborhood pet is injured and needs immediate vet care. No owner in sight.","icon":"🐕","requirements":{},"choices":[{"text":"Pay vet bill (€350)","cost":350,"happiness":8,"happinessDuration":4},{"text":"Call animal control","cost":0,"happiness":-2}]},
+  {"id":"road_trip","category":"lifestyle","rarity":"uncommon","type":"choice","title":"Road Trip Invite","description":"Friends are planning a weekend road trip to the countryside.","icon":"🗺️","requirements":{"ownsCar":true},"choices":[{"text":"Join (€200 for fuel & food)","cost":200,"happiness":14,"happinessDuration":4},{"text":"Maybe next time","cost":0,"happiness":-2}]},
+  {"id":"volunteer_opportunity","category":"social","rarity":"common","type":"choice","title":"Volunteer Day","description":"A local organization needs volunteers for a community cleanup.","icon":"🌿","requirements":{},"choices":[{"text":"Volunteer (full day)","cost":0,"happiness":8,"happinessDuration":3},{"text":"Too busy","cost":0,"happiness":0}]},
+  {"id":"tax_filing_service","category":"financial","rarity":"common","type":"choice","title":"Tax Filing Help","description":"A tax consultant offers to review your finances for potential savings.","icon":"📋","requirements":{},"choices":[{"text":"Hire them (€120)","cost":120,"happiness":3},{"text":"Do it myself","cost":0,"happiness":-1}]},
+  {"id":"gym_injury","category":"health","rarity":"uncommon","type":"automatic","title":"Minor Injury","description":"You pulled a muscle during exercise. Doctor says rest for a week.","icon":"🩹","requirements":{},"effects":{"cash":-150,"happiness":-6}},
+  {"id":"surprise_gift","category":"social","rarity":"uncommon","type":"automatic","title":"Surprise Gift","description":"An old friend sent you a thoughtful gift package. What a nice surprise!","icon":"🎁","requirements":{},"effects":{"happiness":10}},
+  {"id":"speeding_ticket","category":"vehicle","rarity":"common","type":"automatic","title":"Speeding Ticket","description":"You were caught going 20 over the limit. €180 fine.","icon":"🚨","requirements":{"ownsCar":true},"effects":{"cash":-180,"happiness":-4}},
+  {"id":"art_gallery_opening","category":"lifestyle","rarity":"uncommon","type":"choice","title":"Art Gallery Opening","description":"A new art gallery is having an exclusive opening night with free drinks.","icon":"🖼️","requirements":{},"choices":[{"text":"Attend & buy art (€500)","cost":500,"happiness":12,"happinessDuration":8},{"text":"Just attend (free)","cost":0,"happiness":5},{"text":"Not interested","cost":0,"happiness":0}]}
+]

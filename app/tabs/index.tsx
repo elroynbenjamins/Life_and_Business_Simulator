@@ -9,11 +9,9 @@ import GameCard from '../../src/components/GameCard';
 import ProgressBar from '../../src/components/ProgressBar';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
+import { getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyCarCost, getWeeklyFoodCost, getWeeklyCourseCost, getWeeklyLoanPayments } from '../../src/engine/financeEngine';
+import { getCareerSalary } from '../../src/engine/careerEngine';
 import coursesData from '../../src/data/courses.json';
-import jobsData from '../../src/data/jobs.json';
-import housingData from '../../src/data/housing.json';
-import carsData from '../../src/data/cars.json';
-import foodData from '../../src/data/food.json';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -21,25 +19,42 @@ export default function DashboardScreen() {
   const currentJobId = useGameStore((s) => s?.currentJobId);
   const currentCourseId = useGameStore((s) => s?.currentCourseId);
   const courseWeeksCompleted = useGameStore((s) => s?.courseWeeksCompleted ?? 0);
-  const currentHousingId = useGameStore((s) => s?.currentHousingId);
-  const currentCarId = useGameStore((s) => s?.currentCarId ?? 'none');
-  const foodLevel = useGameStore((s) => s?.foodLevel ?? 'basic');
   const currentHeadline = useGameStore((s) => s?.currentHeadline ?? '');
   const holdings = useGameStore((s) => s?.holdings ?? []);
   const loans = useGameStore((s) => s?.loans ?? []);
+  const businesses = useGameStore((s) => s?.businesses ?? []);
+  const properties = useGameStore((s) => s?.properties ?? []);
+  const career = useGameStore((s) => s?.career);
   const getPortfolioValueTotal = useGameStore((s) => s?.getPortfolioValueTotal);
+  const gems = useGameStore((s) => s?.profile?.gems ?? 0);
+  const prestigePoints = useGameStore((s) => s?.profile?.prestigePoints ?? 0);
+  const state = useGameStore();
 
-  const job = (jobsData ?? []).find((j) => j?.id === currentJobId);
+  const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
   const course = (coursesData ?? []).find((c) => c?.id === currentCourseId);
-  const housing = (housingData ?? []).find((h) => h?.id === currentHousingId);
-  const car = (carsData ?? []).find((c) => c?.id === currentCarId);
-  const food = (foodData ?? []).find((f) => f?.id === foodLevel);
   const portfolioValue = getPortfolioValueTotal?.() ?? 0;
   const hasHoldings = (holdings?.length ?? 0) > 0;
-
-  const weeklyIncome = job?.weeklySalary ?? 0;
-  const weeklyExpenses = (housing?.weeklyRent ?? 150) + (car?.weeklyCost ?? 0) + (food?.weeklyCost ?? 50) + (course?.weeklyCost ?? 0);
   const totalLoanDebt = (loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
+
+  // Use career v2 salary if available, otherwise legacy
+  const hasCareerV2 = !!career?.companyId;
+  const weeklyIncome = hasCareerV2 ? getCareerSalary(career!, state.inflationMultiplier ?? 1) : getWeeklySalary(state);
+  const loanPayments = getWeeklyLoanPayments(state);
+  const weeklyExpenses = getWeeklyRent(state) + getWeeklyUtilityCost(state) + getWeeklyCarCost(state) + getWeeklyFoodCost(state) + getWeeklyCourseCost(state) + loanPayments;
+
+  const isEmployed = hasCareerV2 || !!currentJobId;
+  const hasIncome = isEmployed || partTimeJob;
+  const jobTitle = hasCareerV2
+    ? (() => {
+        const careerPathsData = require('../../src/data/career_paths.json') as any[];
+        const path = careerPathsData.find((p: any) => p?.id === career?.careerPathId);
+        const pos = path?.positions?.find((p: any) => p?.level === career?.positionLevel);
+        return pos?.title ?? 'Employee';
+      })()
+    : (currentJobId
+        ? require('../../src/data/jobs.json')?.find((j: any) => j?.id === currentJobId)?.title
+        : (partTimeJob ? 'Part-Time' : null));
+  const displayIncome = isEmployed ? weeklyIncome : (partTimeJob ? 150 : 0); // avg part-time ~€150
 
   const tryHaptic = async () => {
     if (Platform.OS !== 'web') {
@@ -56,9 +71,15 @@ export default function DashboardScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Dashboard</Text>
-        <Pressable onPress={() => router.push('/profile')} hitSlop={12}>
-          <Ionicons name="settings-outline" size={24} color={Colors.textSecondary} />
-        </Pressable>
+        <View style={styles.headerRight}>
+          <Pressable style={styles.gemsBadge} onPress={() => router.push('/support')} hitSlop={8}>
+            <Ionicons name="diamond" size={14} color="#8B5CF6" />
+            <Text style={styles.gemsText}>{gems}</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/profile')} hitSlop={12}>
+            <Ionicons name="settings-outline" size={24} color={Colors.textSecondary} />
+          </Pressable>
+        </View>
       </View>
       <GameStatusBar />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -74,26 +95,32 @@ export default function DashboardScreen() {
         <View style={styles.statsRow}>
           <GameCard style={styles.statCard} onPress={() => router.push('/tabs/career')}>
             <Text style={styles.statLabel}>Weekly Income</Text>
-            <Text style={[styles.statValue, { color: job ? Colors.primary : Colors.warning }]}>
-              {job ? formatCurrency(weeklyIncome) : 'Unemployed'}
+            <Text style={[styles.statValue, { color: hasIncome ? Colors.primary : Colors.warning }]}>
+              {hasIncome ? (isEmployed ? formatCurrency(weeklyIncome) : '~' + formatCurrency(displayIncome)) : 'Unemployed'}
             </Text>
-            <Text style={styles.statCaption}>{job?.title ?? 'No job'}</Text>
+            <Text style={styles.statCaption}>{jobTitle ?? 'No job'}</Text>
           </GameCard>
-          <GameCard style={styles.statCard} onPress={() => router.push('/tabs/finance')}>
+          <GameCard style={styles.statCard} onPress={() => router.push('/tabs/statistics')}>
             <Text style={styles.statLabel}>Weekly Expenses</Text>
             <Text style={[styles.statValue, { color: Colors.negative }]}>{formatCurrency(weeklyExpenses)}</Text>
-            <Text style={styles.statCaption}>Rent + Food + Car</Text>
+            <Text style={styles.statCaption}>Rent + Utils + Food + Car{loanPayments > 0 ? ' + Loans' : ''}</Text>
           </GameCard>
         </View>
 
         {/* Course Progress */}
-        {course ? (
-          <GameCard title="Course Progress" onPress={() => router.push('/tabs/education')}>
-            <Text style={styles.courseTitle}>{course?.name}</Text>
-            <ProgressBar progress={courseWeeksCompleted / (course?.duration ?? 1)} />
-            <Text style={styles.courseCaption}>Week {courseWeeksCompleted}/{course?.duration}</Text>
-          </GameCard>
-        ) : null}
+        {course ? (() => {
+          const baseDur = course?.duration ?? 1;
+          const adjustedDur = partTimeJob ? Math.ceil(baseDur * 1.5) : baseDur;
+          return (
+            <GameCard title="Course Progress" onPress={() => router.push('/tabs/education')}>
+              <Text style={styles.courseTitle}>{course?.name}</Text>
+              <ProgressBar progress={courseWeeksCompleted / adjustedDur} />
+              <Text style={styles.courseCaption}>
+                Week {courseWeeksCompleted}/{adjustedDur}{partTimeJob ? ' (slower — part-time)' : ''}
+              </Text>
+            </GameCard>
+          );
+        })() : null}
 
         {/* Portfolio */}
         {hasHoldings ? (
@@ -111,12 +138,44 @@ export default function DashboardScreen() {
           </GameCard>
         ) : null}
 
+        {/* Businesses */}
+        {businesses.length > 0 ? (
+          <GameCard title="My Businesses" onPress={() => router.push('/business')}>
+            <Text style={[styles.statValue, { color: Colors.primary }]}>
+              {businesses.length} business{businesses.length !== 1 ? 'es' : ''}
+            </Text>
+            <Text style={styles.statCaption}>
+              Weekly P&L: {(() => { const p = businesses.reduce((t, b) => t + (b?.lastWeekProfit ?? 0), 0); return `${p >= 0 ? '+' : ''}${formatCurrency(p)}`; })()}
+            </Text>
+          </GameCard>
+        ) : null}
+
+        {/* Properties */}
+        {properties.length > 0 ? (
+          <GameCard title="Real Estate" onPress={() => router.push('/properties')}>
+            <Text style={[styles.statValue, { color: Colors.primary }]}>
+              {properties.length} propert{properties.length !== 1 ? 'ies' : 'y'}
+            </Text>
+            <Text style={styles.statCaption}>
+              Rental Income: {formatCurrency(properties.filter(p => p?.isRentedOut).reduce((t, p) => t + (p?.weeklyIncome ?? 0), 0))}/wk
+            </Text>
+          </GameCard>
+        ) : null}
+
         {/* Quick Links */}
         <View style={styles.linksRow}>
           <QuickLink icon="home" label="Lifestyle" onPress={() => router.push('/housing')} />
           <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} />
           <QuickLink icon="card" label="Loans" onPress={() => router.push('/loans')} />
           <QuickLink icon="pie-chart" label="Portfolio" onPress={() => router.push('/portfolio')} />
+          <QuickLink icon="business" label="Business" onPress={() => router.push('/business')} color="#06B6D4" />
+          <QuickLink icon="star" label="Skills" onPress={() => router.push('/skills')} color="#F59E0B" />
+          <QuickLink icon="home-outline" label="Properties" onPress={() => router.push('/properties')} color="#06B6D4" />
+          <QuickLink icon="ribbon" label="Prestige" onPress={() => router.push('/prestige')} color="#EC4899" />
+          <QuickLink icon="diamond" label="Support" onPress={() => router.push('/support')} color="#8B5CF6" />
+          <QuickLink icon="information-circle" label="Info" onPress={() => router.push('/info')} color="#3B82F6" />
+          <QuickLink icon="stats-chart" label="Statistics" onPress={() => router.push('/tabs/statistics')} color="#10B981" />
+          <QuickLink icon="newspaper" label="News" onPress={() => router.push('/news')} color="#F59E0B" />
         </View>
 
         {/* Next Week Button */}
@@ -131,10 +190,10 @@ export default function DashboardScreen() {
   );
 }
 
-function QuickLink({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+function QuickLink({ icon, label, onPress, color }: { icon: string; label: string; onPress: () => void; color?: string }) {
   return (
     <Pressable style={styles.quickLink} onPress={onPress}>
-      <Ionicons name={icon as any} size={20} color={Colors.primary} />
+      <Ionicons name={icon as any} size={20} color={color ?? Colors.primary} />
       <Text style={styles.quickLinkText}>{label}</Text>
     </Pressable>
   );
@@ -144,6 +203,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   headerTitle: { color: Colors.textPrimary, fontSize: 24, fontWeight: '700' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  gemsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#8B5CF620', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  gemsText: { color: '#8B5CF6', fontSize: 14, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   newsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },

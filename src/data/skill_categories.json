@@ -1,0 +1,14 @@
+[
+  {"id":"customer_service","name":"Customer Service","description":"Handling customer interactions professionally"},
+  {"id":"sales_ability","name":"Sales","description":"Closing deals and generating revenue"},
+  {"id":"negotiation","name":"Negotiation","description":"Reaching favorable agreements"},
+  {"id":"communication","name":"Communication","description":"Clear verbal and written expression"},
+  {"id":"leadership","name":"Leadership","description":"Guiding and motivating teams"},
+  {"id":"organization","name":"Organization","description":"Managing tasks and resources efficiently"},
+  {"id":"time_management","name":"Time Management","description":"Prioritizing and meeting deadlines"},
+  {"id":"financial_analysis","name":"Financial Analysis","description":"Interpreting financial data and reports"},
+  {"id":"attention_to_detail","name":"Attention to Detail","description":"Thoroughness and accuracy in work"},
+  {"id":"problem_solving","name":"Problem Solving","description":"Analyzing and resolving complex issues"},
+  {"id":"technical","name":"Technical","description":"Using technology and specialized tools"},
+  {"id":"creativity","name":"Creativity","description":"Innovative thinking and idea generation"}
+]

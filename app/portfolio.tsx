@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ export default function PortfolioScreen() {
   const stocks = useGameStore((s) => s?.stocks ?? []);
   const holdings = useGameStore((s) => s?.holdings ?? []);
   const cash = useGameStore((s) => s?.cash ?? 0);
+  const sellStock = useGameStore((s) => s?.sellStock);
   const portfolioValue = useGameStore((s) => s?.getPortfolioValueTotal?.() ?? 0);
 
   const ownedHoldings = (holdings ?? []).filter((h) => (h?.shares ?? 0) > 0);
@@ -70,6 +71,13 @@ export default function PortfolioScreen() {
           const glPercent = cost > 0 ? (gl / cost) * 100 : 0;
           const isCommodity = sd?.type === 'commodity';
 
+          const handleSellAll = () => {
+            Alert.alert('Sell All', `Sell all ${h?.shares} shares of ${h?.ticker} for ${formatCurrency(value, 2)}?`, [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Sell All', onPress: () => sellStock?.(h?.ticker, h?.shares ?? 0) },
+            ]);
+          };
+
           return (
             <GameCard key={h?.ticker} onPress={() => router.push(`/stock/${h?.ticker}`)}>
               <View style={styles.row}>
@@ -88,6 +96,9 @@ export default function PortfolioScreen() {
                 </View>
               </View>
               <Text style={styles.meta}>{h?.shares} shares • Avg {formatCurrency(h?.avgBuyPrice, 2)}</Text>
+              <Pressable style={styles.sellBtn} onPress={(e) => { e.stopPropagation?.(); handleSellAll(); }}>
+                <Text style={styles.sellBtnText}>Sell All</Text>
+              </Pressable>
             </GameCard>
           );
         })}
@@ -114,6 +125,8 @@ const styles = StyleSheet.create({
   company: { color: Colors.textMuted, fontSize: 12 },
   smallGl: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   meta: { color: Colors.textMuted, fontSize: 12, marginTop: 8 },
+  sellBtn: { borderWidth: 1, borderColor: Colors.negative, borderRadius: 8, paddingVertical: 8, alignItems: 'center', marginTop: 8 },
+  sellBtnText: { color: Colors.negative, fontSize: 13, fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyText: { color: Colors.textMuted, fontSize: 15, textAlign: 'center', marginTop: 16, maxWidth: 250 },
 });

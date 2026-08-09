@@ -1,0 +1,474 @@
+[
+  {
+    "id": "espresso_machine",
+    "name": "Premium Espresso Machine",
+    "cost": 25000,
+    "revenueBoost": 0.12,
+    "reputationBoost": 5,
+    "description": "Higher quality drinks attract more customers."
+  },
+  {
+    "id": "pastry_display",
+    "name": "Artisan Pastry Display",
+    "cost": 15000,
+    "revenueBoost": 0.08,
+    "reputationBoost": 3,
+    "description": "Eye-catching display increases impulse buys."
+  },
+  {
+    "id": "wifi_lounge",
+    "name": "Wi-Fi Lounge Area",
+    "cost": 20000,
+    "revenueBoost": 0.1,
+    "reputationBoost": 4,
+    "description": "Remote workers love a good caf\u00e9."
+  },
+  {
+    "id": "drive_through",
+    "name": "Drive-Through Window",
+    "cost": 60000,
+    "revenueBoost": 0.2,
+    "reputationBoost": 6,
+    "description": "Serve on-the-go customers faster."
+  },
+  {
+    "id": "mobile_ordering",
+    "name": "Mobile Ordering App",
+    "cost": 40000,
+    "revenueBoost": 0.15,
+    "reputationBoost": 5,
+    "description": "Skip the line with digital ordering."
+  },
+  {
+    "id": "gourmet_menu",
+    "name": "Gourmet Menu Expansion",
+    "cost": 15000,
+    "revenueBoost": 0.15,
+    "reputationBoost": 5,
+    "description": "Upscale dishes command higher prices."
+  },
+  {
+    "id": "social_media_presence",
+    "name": "Social Media Campaign",
+    "cost": 10000,
+    "revenueBoost": 0.1,
+    "reputationBoost": 7,
+    "description": "Go viral with food photography."
+  },
+  {
+    "id": "catering_service",
+    "name": "Catering Service",
+    "cost": 25000,
+    "revenueBoost": 0.18,
+    "reputationBoost": 4,
+    "description": "Serve events and corporate clients."
+  },
+  {
+    "id": "second_truck",
+    "name": "Second Truck",
+    "cost": 40000,
+    "revenueBoost": 0.25,
+    "reputationBoost": 3,
+    "description": "Double your coverage area."
+  },
+  {
+    "id": "branded_packaging",
+    "name": "Branded Packaging",
+    "cost": 7500,
+    "revenueBoost": 0.05,
+    "reputationBoost": 4,
+    "description": "Professional packaging builds brand recognition."
+  },
+  {
+    "id": "fine_dining_renovation",
+    "name": "Fine Dining Renovation",
+    "cost": 100000,
+    "revenueBoost": 0.2,
+    "reputationBoost": 8,
+    "description": "Upscale ambience for premium pricing."
+  },
+  {
+    "id": "bar_area",
+    "name": "Bar & Cocktail Lounge",
+    "cost": 60000,
+    "revenueBoost": 0.15,
+    "reputationBoost": 5,
+    "description": "High-margin drinks boost profits."
+  },
+  {
+    "id": "private_rooms",
+    "name": "Private Dining Rooms",
+    "cost": 75000,
+    "revenueBoost": 0.12,
+    "reputationBoost": 6,
+    "description": "Host exclusive events and parties."
+  },
+  {
+    "id": "delivery_service",
+    "name": "Delivery Service",
+    "cost": 30000,
+    "revenueBoost": 0.14,
+    "reputationBoost": 3,
+    "description": "Reach customers who don't dine in."
+  },
+  {
+    "id": "celebrity_chef",
+    "name": "Celebrity Chef Partnership",
+    "cost": 150000,
+    "revenueBoost": 0.25,
+    "reputationBoost": 12,
+    "description": "Star power draws crowds."
+  },
+  {
+    "id": "online_store",
+    "name": "E-Commerce Platform",
+    "cost": 40000,
+    "revenueBoost": 0.18,
+    "reputationBoost": 5,
+    "description": "Sell online 24/7."
+  },
+  {
+    "id": "personal_stylist",
+    "name": "Personal Stylist Service",
+    "cost": 25000,
+    "revenueBoost": 0.1,
+    "reputationBoost": 6,
+    "description": "Premium shopping experience."
+  },
+  {
+    "id": "vip_lounge",
+    "name": "VIP Shopping Lounge",
+    "cost": 50000,
+    "revenueBoost": 0.12,
+    "reputationBoost": 7,
+    "description": "Exclusive area for top spenders."
+  },
+  {
+    "id": "designer_collab",
+    "name": "Designer Collaboration",
+    "cost": 100000,
+    "revenueBoost": 0.22,
+    "reputationBoost": 10,
+    "description": "Limited edition collections."
+  },
+  {
+    "id": "loyalty_program",
+    "name": "Loyalty Rewards Program",
+    "cost": 20000,
+    "revenueBoost": 0.08,
+    "reputationBoost": 5,
+    "description": "Keep customers coming back."
+  },
+  {
+    "id": "cloud_infrastructure",
+    "name": "Cloud Infrastructure",
+    "cost": 50000,
+    "revenueBoost": 0.15,
+    "reputationBoost": 4,
+    "description": "Scalable and reliable services."
+  },
+  {
+    "id": "ai_features",
+    "name": "AI-Powered Features",
+    "cost": 90000,
+    "revenueBoost": 0.22,
+    "reputationBoost": 8,
+    "description": "Cutting-edge AI differentiates your product."
+  },
+  {
+    "id": "mobile_app",
+    "name": "Mobile App Launch",
+    "cost": 60000,
+    "revenueBoost": 0.18,
+    "reputationBoost": 6,
+    "description": "Reach users on the go."
+  },
+  {
+    "id": "enterprise_sales",
+    "name": "Enterprise Sales Team",
+    "cost": 75000,
+    "revenueBoost": 0.2,
+    "reputationBoost": 5,
+    "description": "Land big corporate contracts."
+  },
+  {
+    "id": "dev_team_expansion",
+    "name": "Dev Team Expansion",
+    "cost": 100000,
+    "revenueBoost": 0.16,
+    "reputationBoost": 3,
+    "description": "Ship features faster."
+  },
+  {
+    "id": "sauna_spa",
+    "name": "Sauna & Spa Area",
+    "cost": 75000,
+    "revenueBoost": 0.15,
+    "reputationBoost": 7,
+    "description": "Premium relaxation facilities."
+  },
+  {
+    "id": "personal_trainers",
+    "name": "Personal Trainers",
+    "cost": 40000,
+    "revenueBoost": 0.12,
+    "reputationBoost": 5,
+    "description": "One-on-one coaching sessions."
+  },
+  {
+    "id": "nutrition_bar",
+    "name": "Nutrition & Juice Bar",
+    "cost": 30000,
+    "revenueBoost": 0.1,
+    "reputationBoost": 4,
+    "description": "Healthy refreshments post-workout."
+  },
+  {
+    "id": "pool_area",
+    "name": "Swimming Pool",
+    "cost": 125000,
+    "revenueBoost": 0.2,
+    "reputationBoost": 8,
+    "description": "Aquatic fitness and recreation."
+  },
+  {
+    "id": "24h_access",
+    "name": "24/7 Access System",
+    "cost": 25000,
+    "revenueBoost": 0.08,
+    "reputationBoost": 4,
+    "description": "Members train on their schedule."
+  },
+  {
+    "id": "heavy_equipment",
+    "name": "Heavy Equipment Fleet",
+    "cost": 150000,
+    "revenueBoost": 0.18,
+    "reputationBoost": 5,
+    "description": "Take on bigger projects."
+  },
+  {
+    "id": "safety_certification",
+    "name": "Safety Certification",
+    "cost": 40000,
+    "revenueBoost": 0.08,
+    "reputationBoost": 8,
+    "description": "Industry-standard safety compliance."
+  },
+  {
+    "id": "project_management_sw",
+    "name": "Project Management Software",
+    "cost": 25000,
+    "revenueBoost": 0.1,
+    "reputationBoost": 3,
+    "description": "Track projects efficiently."
+  },
+  {
+    "id": "green_building",
+    "name": "Green Building Certification",
+    "cost": 75000,
+    "revenueBoost": 0.14,
+    "reputationBoost": 7,
+    "description": "Eco-friendly builds attract premium clients."
+  },
+  {
+    "id": "government_contracts",
+    "name": "Government Contract License",
+    "cost": 100000,
+    "revenueBoost": 0.22,
+    "reputationBoost": 6,
+    "description": "Bid on public sector projects."
+  },
+  {
+    "id": "seo_tools",
+    "name": "Advanced SEO Tools",
+    "cost": 20000,
+    "revenueBoost": 0.12,
+    "reputationBoost": 4,
+    "description": "Dominate search rankings."
+  },
+  {
+    "id": "video_production",
+    "name": "Video Production Studio",
+    "cost": 50000,
+    "revenueBoost": 0.15,
+    "reputationBoost": 6,
+    "description": "Create compelling video content."
+  },
+  {
+    "id": "influencer_network",
+    "name": "Influencer Network",
+    "cost": 35000,
+    "revenueBoost": 0.13,
+    "reputationBoost": 7,
+    "description": "Partner with social media stars."
+  },
+  {
+    "id": "analytics_platform",
+    "name": "Analytics Platform",
+    "cost": 30000,
+    "revenueBoost": 0.1,
+    "reputationBoost": 4,
+    "description": "Data-driven marketing insights."
+  },
+  {
+    "id": "international_clients",
+    "name": "International Expansion",
+    "cost": 75000,
+    "revenueBoost": 0.2,
+    "reputationBoost": 5,
+    "description": "Serve clients worldwide."
+  },
+  {
+    "id": "health_clinic",
+    "name": "Walk-In Health Clinic",
+    "cost": 100000,
+    "revenueBoost": 0.18,
+    "reputationBoost": 8,
+    "description": "Basic healthcare attracts foot traffic."
+  },
+  {
+    "id": "online_pharmacy",
+    "name": "Online Pharmacy Portal",
+    "cost": 50000,
+    "revenueBoost": 0.15,
+    "reputationBoost": 5,
+    "description": "Home delivery of medications."
+  },
+  {
+    "id": "beauty_section",
+    "name": "Beauty & Skincare Section",
+    "cost": 30000,
+    "revenueBoost": 0.1,
+    "reputationBoost": 4,
+    "description": "High-margin beauty products."
+  },
+  {
+    "id": "compounding_lab",
+    "name": "Compounding Laboratory",
+    "cost": 90000,
+    "revenueBoost": 0.14,
+    "reputationBoost": 6,
+    "description": "Custom medication services."
+  },
+  {
+    "id": "diagnostic_equipment",
+    "name": "Advanced Diagnostics",
+    "cost": 40000,
+    "revenueBoost": 0.14,
+    "reputationBoost": 5,
+    "description": "Precision computer diagnostics."
+  },
+  {
+    "id": "body_shop",
+    "name": "Body Shop & Paint",
+    "cost": 60000,
+    "revenueBoost": 0.16,
+    "reputationBoost": 4,
+    "description": "Collision repair services."
+  },
+  {
+    "id": "ev_certification",
+    "name": "EV Certification",
+    "cost": 50000,
+    "revenueBoost": 0.18,
+    "reputationBoost": 7,
+    "description": "Service the growing EV market."
+  },
+  {
+    "id": "tire_center",
+    "name": "Tire Center",
+    "cost": 30000,
+    "revenueBoost": 0.1,
+    "reputationBoost": 3,
+    "description": "Tire sales and installation."
+  },
+  {
+    "id": "fleet_contracts",
+    "name": "Fleet Service Contracts",
+    "cost": 40000,
+    "revenueBoost": 0.15,
+    "reputationBoost": 5,
+    "description": "Maintain corporate vehicle fleets."
+  },
+  {
+    "id": "virtual_tours",
+    "name": "3D Virtual Tours",
+    "cost": 25000,
+    "revenueBoost": 0.12,
+    "reputationBoost": 6,
+    "description": "Show properties remotely."
+  },
+  {
+    "id": "luxury_division",
+    "name": "Luxury Properties Division",
+    "cost": 75000,
+    "revenueBoost": 0.2,
+    "reputationBoost": 8,
+    "description": "High-end real estate commissions."
+  },
+  {
+    "id": "property_management",
+    "name": "Property Management",
+    "cost": 40000,
+    "revenueBoost": 0.14,
+    "reputationBoost": 4,
+    "description": "Ongoing rental management income."
+  },
+  {
+    "id": "commercial_division",
+    "name": "Commercial Real Estate",
+    "cost": 60000,
+    "revenueBoost": 0.18,
+    "reputationBoost": 5,
+    "description": "Office and retail leasing."
+  },
+  {
+    "id": "franchise_model",
+    "name": "Franchise System",
+    "cost": 100000,
+    "revenueBoost": 0.22,
+    "reputationBoost": 6,
+    "description": "License your brand to others."
+  },
+  {
+    "id": "artisan_oven",
+    "name": "Artisan Stone Oven",
+    "cost": 30000,
+    "revenueBoost": 0.12,
+    "reputationBoost": 6,
+    "description": "Authentic baked goods."
+  },
+  {
+    "id": "wedding_cakes",
+    "name": "Wedding Cake Service",
+    "cost": 20000,
+    "revenueBoost": 0.14,
+    "reputationBoost": 5,
+    "description": "High-margin custom cakes."
+  },
+  {
+    "id": "wholesale_supply",
+    "name": "Wholesale Supply",
+    "cost": 40000,
+    "revenueBoost": 0.18,
+    "reputationBoost": 3,
+    "description": "Supply to cafes and stores."
+  },
+  {
+    "id": "cafe_seating",
+    "name": "Caf\u00e9 Seating Area",
+    "cost": 25000,
+    "revenueBoost": 0.1,
+    "reputationBoost": 5,
+    "description": "Dine-in experience."
+  },
+  {
+    "id": "online_orders",
+    "name": "Online Ordering",
+    "cost": 15000,
+    "revenueBoost": 0.08,
+    "reputationBoost": 4,
+    "description": "Cakes and pastries delivered."
+  }
+]

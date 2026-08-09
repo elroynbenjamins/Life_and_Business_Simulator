@@ -1,0 +1,42 @@
+[
+  {
+    "id": "company_party",
+    "name": "Company Party",
+    "icon": "\ud83c\udf89",
+    "description": "Throw a memorable company party.",
+    "costPerEmployee": 3750,
+    "moraleBoost": 12
+  },
+  {
+    "id": "team_outing",
+    "name": "Team Outing",
+    "icon": "\ud83c\udfde\ufe0f",
+    "description": "A day out with the team.",
+    "costPerEmployee": 5000,
+    "moraleBoost": 15
+  },
+  {
+    "id": "holiday_bonus",
+    "name": "Holiday Bonus",
+    "icon": "\ud83d\udcb0",
+    "description": "Cash bonus for everyone.",
+    "costPerEmployee": 12500,
+    "moraleBoost": 20
+  },
+  {
+    "id": "office_upgrade",
+    "name": "Office Improvements",
+    "icon": "\ud83d\udecb\ufe0f",
+    "description": "Upgrade the workspace.",
+    "costPerEmployee": 8750,
+    "moraleBoost": 14
+  },
+  {
+    "id": "wellness_program",
+    "name": "Wellness Program",
+    "icon": "\ud83e\uddd8",
+    "description": "Gym passes and wellness support.",
+    "costPerEmployee": 4500,
+    "moraleBoost": 10
+  }
+]

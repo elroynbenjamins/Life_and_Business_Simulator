@@ -8,6 +8,10 @@ import { Colors } from '../src/theme/colors';
 import useGameStore from '../src/store/gameStore';
 import NameEntryModal from '../src/components/NameEntryModal';
 import WeekSummarySheet from '../src/components/WeekSummarySheet';
+import SaveSlotPicker from '../src/components/SaveSlotPicker';
+import NegativeCashModal from '../src/components/NegativeCashModal';
+import PeriodReportModal from '../src/components/PeriodReportModal';
+import EventModal from '../src/components/EventModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -50,9 +54,19 @@ export default function RootLayout() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="achievements" />
         <Stack.Screen name="loans" />
+        <Stack.Screen name="support" />
+        <Stack.Screen name="business" />
+        <Stack.Screen name="skills" />
+        <Stack.Screen name="prestige" />
+        <Stack.Screen name="properties" />
+        <Stack.Screen name="info" />
       </Stack>
+      <SaveSlotPicker />
       <NameEntryModal />
       <WeekSummarySheet />
+      <NegativeCashModal />
+      <EventModal />
+      <PeriodReportModal />
     </SafeAreaProvider>
   );
 }

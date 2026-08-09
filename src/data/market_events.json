@@ -1,0 +1,283 @@
+[
+  {
+    "id": "me_2005_housing",
+    "title": "US Housing Prices Peak",
+    "description": "Subprime lending at all-time highs, housing market overheating.",
+    "effects": {
+      "Banking": 0.04,
+      "Finance": 0.03
+    },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_2006_oil",
+    "title": "Middle East Tensions Spike Oil",
+    "description": "Geopolitical unrest pushes crude prices above $70/barrel.",
+    "effects": {
+      "Commodity": 0.06,
+      "Energy": 0.05,
+      "Airlines": -0.04
+    },
+    "durationWeeks": 6
+  },
+  {
+    "id": "me_2007_subprime",
+    "title": "Subprime Mortgage Warnings",
+    "description": "First signs of subprime mortgage defaults emerge.",
+    "effects": {
+      "Banking": -0.06,
+      "Finance": -0.04
+    },
+    "durationWeeks": 10
+  },
+  {
+    "id": "me_2008_lehman",
+    "title": "Lehman Brothers Collapse",
+    "description": "Major investment bank files for bankruptcy, triggering global panic.",
+    "effects": {
+      "Banking": -0.12,
+      "Finance": -0.1,
+      "Retail": -0.06,
+      "Commodity": 0.05
+    },
+    "durationWeeks": 12
+  },
+  {
+    "id": "me_2008_bailout",
+    "title": "Government Bank Bailouts",
+    "description": "Central banks inject trillions to stabilize the financial system.",
+    "effects": {
+      "Banking": 0.06,
+      "Finance": 0.04,
+      "Tech": 0.02
+    },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_2009_recovery",
+    "title": "Early Recovery Signs",
+    "description": "Markets begin recovering from the Great Recession.",
+    "effects": {
+      "Tech": 0.04,
+      "Retail": 0.03,
+      "Consumer Goods": 0.03
+    },
+    "durationWeeks": 10
+  },
+  {
+    "id": "me_2009_auto",
+    "title": "Auto Industry Bailout",
+    "description": "Major automakers receive government rescue packages.",
+    "effects": {
+      "Automotive": 0.06,
+      "Industrial": 0.03
+    },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_2010_flash",
+    "title": "Flash Crash",
+    "description": "Dow Jones drops 1,000 points in minutes before recovering.",
+    "effects": {
+      "Tech": -0.04,
+      "Finance": -0.03,
+      "Banking": -0.02
+    },
+    "durationWeeks": 4
+  },
+  {
+    "id": "me_2010_euro",
+    "title": "European Debt Crisis",
+    "description": "Greece, Ireland, and Portugal face sovereign debt crises.",
+    "effects": {
+      "Banking": -0.05,
+      "Finance": -0.04,
+      "Retail": -0.02
+    },
+    "durationWeeks": 10
+  },
+  {
+    "id": "me_2010_ipad",
+    "title": "Tablet Computing Revolution",
+    "description": "Launch of the first major tablet disrupts personal computing.",
+    "effects": {
+      "Tech": 0.06,
+      "Semiconductors": 0.04,
+      "Retail": 0.02
+    },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_2011_arab",
+    "title": "Arab Spring Disruptions",
+    "description": "Political upheaval across Middle East/North Africa disrupts oil supply.",
+    "effects": {
+      "Commodity": 0.08,
+      "Energy": 0.06,
+      "Airlines": -0.05
+    },
+    "durationWeeks": 10
+  },
+  {
+    "id": "me_2011_japan",
+    "title": "Japan Earthquake & Tsunami",
+    "description": "Devastating natural disaster disrupts global supply chains.",
+    "effects": {
+      "Automotive": -0.06,
+      "Semiconductors": -0.04,
+      "Industrial": -0.03,
+      "Energy": -0.02
+    },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_2012_facebook",
+    "title": "Social Media IPO Frenzy",
+    "description": "Major social network goes public, driving tech investor enthusiasm.",
+    "effects": {
+      "Social Media": 0.08,
+      "Tech": 0.04,
+      "Entertainment": 0.03
+    },
+    "durationWeeks": 6
+  },
+  {
+    "id": "me_2012_qe3",
+    "title": "Quantitative Easing Round 3",
+    "description": "Federal Reserve launches open-ended bond-buying program.",
+    "effects": {
+      "Finance": 0.04,
+      "Banking": 0.03,
+      "Commodity": 0.03
+    },
+    "durationWeeks": 10
+  },
+  {
+    "id": "me_2013_taper",
+    "title": "Taper Tantrum",
+    "description": "Fed signals reducing bond purchases, causing market volatility.",
+    "effects": {
+      "Finance": -0.04,
+      "Banking": -0.03,
+      "Commodity": -0.03
+    },
+    "durationWeeks": 6
+  },
+  {
+    "id": "me_2013_healthcare",
+    "title": "Healthcare Reform Expansion",
+    "description": "Major healthcare legislation expands insurance coverage.",
+    "effects": {
+      "Healthcare": 0.06,
+      "Pharma": 0.04
+    },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_2014_oil_glut",
+    "title": "Oil Price Collapse",
+    "description": "Oversupply from shale boom crashes crude oil prices by 50%.",
+    "effects": {
+      "Commodity": -0.08,
+      "Energy": -0.1,
+      "Airlines": 0.06,
+      "Automotive": 0.03
+    },
+    "durationWeeks": 12
+  },
+  {
+    "id": "me_2014_cloud",
+    "title": "Cloud Computing Boom",
+    "description": "Enterprise cloud adoption accelerates exponentially.",
+    "effects": {
+      "Tech": 0.06,
+      "Semiconductors": 0.04
+    },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_2015_china",
+    "title": "China Stock Market Crash",
+    "description": "Chinese markets lose 30% of value, contagion fears spread globally.",
+    "effects": {
+      "Tech": -0.04,
+      "Industrial": -0.05,
+      "Commodity": -0.06,
+      "Banking": -0.03
+    },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_2015_streaming",
+    "title": "Streaming Wars Begin",
+    "description": "Streaming services challenge traditional media dominance.",
+    "effects": {
+      "Entertainment": 0.08,
+      "Tech": 0.03,
+      "Telecom": 0.02
+    },
+    "durationWeeks": 10
+  },
+  {
+    "id": "me_2016_brexit",
+    "title": "Brexit Vote Shocks Markets",
+    "description": "UK votes to leave the EU, causing global market turbulence.",
+    "effects": {
+      "Banking": -0.06,
+      "Finance": -0.05,
+      "Retail": -0.03,
+      "Commodity": 0.04
+    },
+    "durationWeeks": 10
+  },
+  {
+    "id": "me_2017_crypto",
+    "title": "Cryptocurrency Mania",
+    "description": "Bitcoin and altcoins surge to unprecedented highs, drawing retail investors.",
+    "effects": {
+      "Tech": 0.05,
+      "Finance": 0.03,
+      "Banking": -0.02
+    },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_2018_trade_war",
+    "title": "US-China Trade War Escalates",
+    "description": "Tariffs on billions of imports rattle supply chains worldwide.",
+    "effects": {
+      "Industrial": -0.06,
+      "Semiconductors": -0.05,
+      "Automotive": -0.04,
+      "E-Commerce": -0.03,
+      "Consumer Goods": 0.02
+    },
+    "durationWeeks": 12
+  },
+  {
+    "id": "me_2019_5g",
+    "title": "5G Network Rollout Begins",
+    "description": "Telecom giants launch next-gen wireless, spurring tech investment.",
+    "effects": {
+      "Telecom": 0.07,
+      "Semiconductors": 0.05,
+      "Tech": 0.03
+    },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_2020_pandemic",
+    "title": "Global Pandemic Lockdowns",
+    "description": "Worldwide lockdowns devastate travel and retail while boosting tech and healthcare.",
+    "effects": {
+      "Airlines": -0.12,
+      "Retail": -0.08,
+      "Entertainment": -0.06,
+      "Healthcare": 0.08,
+      "Pharma": 0.1,
+      "Tech": 0.06,
+      "E-Commerce": 0.08
+    },
+    "durationWeeks": 14
+  }
+]

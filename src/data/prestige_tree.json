@@ -1,0 +1,19 @@
+[
+  {"id":"salary_boost","name":"Salary Boost I","description":"+5% salary from all jobs","icon":"💰","cost":50,"effect":{"type":"salary_multiplier","value":0.05}},
+  {"id":"salary_boost_2","name":"Salary Boost II","description":"+10% salary from all jobs","icon":"💰","cost":120,"effect":{"type":"salary_multiplier","value":0.10},"requires":"salary_boost"},
+  {"id":"study_speed","name":"Quick Learner","description":"+5% study speed","icon":"📚","cost":50,"effect":{"type":"study_speed","value":0.05}},
+  {"id":"study_speed_2","name":"Speed Reader","description":"+10% study speed","icon":"📚","cost":100,"effect":{"type":"study_speed","value":0.10},"requires":"study_speed"},
+  {"id":"starting_cash","name":"Trust Fund","description":"+€2,500 starting cash","icon":"🏦","cost":40,"effect":{"type":"starting_cash","value":2500}},
+  {"id":"starting_cash_2","name":"Silver Spoon","description":"+€5,000 starting cash","icon":"🏦","cost":100,"effect":{"type":"starting_cash","value":5000},"requires":"starting_cash"},
+  {"id":"business_costs","name":"Cost Cutter I","description":"-3% business operating costs","icon":"✂️","cost":60,"effect":{"type":"business_cost_reduction","value":0.03}},
+  {"id":"business_costs_2","name":"Cost Cutter II","description":"-7% business operating costs","icon":"✂️","cost":130,"effect":{"type":"business_cost_reduction","value":0.07},"requires":"business_costs"},
+  {"id":"skill_growth","name":"Fast Learner","description":"+7% skill growth rate","icon":"⚡","cost":65,"effect":{"type":"skill_growth","value":0.07}},
+  {"id":"skill_growth_2","name":"Prodigy","description":"+15% skill growth rate","icon":"⚡","cost":140,"effect":{"type":"skill_growth","value":0.15},"requires":"skill_growth"},
+  {"id":"loan_rate","name":"Credit Score+","description":"-2% on all loan interest rates","icon":"🏦","cost":70,"effect":{"type":"loan_rate_reduction","value":0.02}},
+  {"id":"property_income","name":"Landlord Pro","description":"+10% property rental income","icon":"🏠","cost":80,"effect":{"type":"property_income","value":0.10}},
+  {"id":"promotion_speed","name":"Career Climber","description":"+10% promotion progress per event","icon":"🚀","cost":90,"effect":{"type":"promotion_speed","value":0.10}},
+  {"id":"tax_reduction","name":"Tax Loophole","description":"-2% effective tax rate","icon":"💸","cost":100,"effect":{"type":"tax_reduction","value":0.03}},
+  {"id":"tax_reduction_2","name":"Tax Loophole II","description":"-5% effective tax rate","icon":"💸","cost":100,"effect":{"type":"tax_reduction","value":0.05},"requires":"tax_reduction"},
+  {"id":"dividend_boost","name":"Dividend Hunter","description":"+20% dividend income","icon":"💵","cost":85,"effect":{"type":"dividend_boost","value":0.20}},
+  {"id":"negotiation","name":"Master Negotiator","description":"+5% better prices when buying/selling businesses","icon":"🤝","cost":95,"effect":{"type":"negotiation","value":0.05}}
+]

@@ -21,7 +21,7 @@ export default function StockDetailScreen() {
   const buyStock = useGameStore((s) => s?.buyStock);
   const sellStock = useGameStore((s) => s?.sellStock);
 
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(0);
 
   const sd = (stocksData ?? []).find((s) => s?.ticker === ticker);
   const stock = (stocks ?? []).find((s) => s?.ticker === ticker);
@@ -62,7 +62,7 @@ export default function StockDetailScreen() {
     if (qty <= 0 || totalCost > cash) return;
     Alert.alert('Confirm Purchase', `Buy ${qty} shares of ${sd?.ticker} for ${formatCurrency(totalCost, 2)}?`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Buy', onPress: () => { buyStock?.(ticker, qty); setQty(1); } },
+      { text: 'Buy', onPress: () => { buyStock?.(ticker, qty); setQty(0); } },
     ]);
   };
 
@@ -70,7 +70,16 @@ export default function StockDetailScreen() {
     if (qty <= 0 || qty > maxSell) return;
     Alert.alert('Confirm Sale', `Sell ${qty} shares of ${sd?.ticker} for ${formatCurrency(qty * price, 2)}?`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sell', onPress: () => { sellStock?.(ticker, qty); setQty(1); } },
+      { text: 'Sell', onPress: () => { sellStock?.(ticker, qty); setQty(0); } },
+    ]);
+  };
+
+  const handleSellAll = () => {
+    if (maxSell <= 0) return;
+    const totalSaleValue = maxSell * price;
+    Alert.alert('Sell All', `Sell all ${maxSell} shares of ${sd?.ticker} for ${formatCurrency(totalSaleValue, 2)}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sell All', onPress: () => { sellStock?.(ticker, maxSell); setQty(0); } },
     ]);
   };
 
@@ -95,10 +104,17 @@ export default function StockDetailScreen() {
 
         {/* Chart */}
         {(history?.length ?? 0) >= 2 ? (
-          <GameCard title="Price History (Last 10 Weeks)">
+          <GameCard title={`Price History (Last ${history.length} Weeks)`}>
             <LineChart
               data={{
-                labels: history.map((_, i) => `W${i + 1}`),
+                labels: history.map((_, i) => {
+                  const len = history.length;
+                  const weeksAgo = len - 1 - i;
+                  if (weeksAgo === 0) return 'Now';
+                  if (len <= 10) return `${weeksAgo}w`;
+                  const step = len <= 20 ? 5 : 10;
+                  return weeksAgo % step === 0 ? `${weeksAgo}w` : '';
+                }),
                 datasets: [{ data: history.map((p) => Math.max(0, p ?? 0)), color: () => lineColor, strokeWidth: 2 }],
               }}
               width={chartWidth}
@@ -118,6 +134,11 @@ export default function StockDetailScreen() {
               bezier
               style={{ borderRadius: 8 }}
             />
+            {(sd as any)?.dividendYield ? (
+              <Text style={{ color: '#10B981', fontSize: 13, marginTop: 8, textAlign: 'center', fontWeight: '600' }}>
+                💵 Dividend Yield: {((sd as any).dividendYield * 100).toFixed(2)}% annual
+              </Text>
+            ) : null}
           </GameCard>
         ) : null}
 
@@ -150,16 +171,19 @@ export default function StockDetailScreen() {
           <View style={styles.qtyRow}>
             <Pressable
               style={styles.stepperBtn}
-              onPress={() => setQty(Math.max(1, qty - 1))}
+              onPress={() => setQty(Math.max(0, qty - 1))}
             >
               <Text style={styles.stepperText}>−</Text>
             </Pressable>
             <TextInput
               style={styles.qtyInput}
-              value={String(qty)}
+              value={qty > 0 ? String(qty) : ''}
+              placeholder="0"
+              placeholderTextColor={Colors.textMuted}
               onChangeText={(t) => {
+                if (t === '') { setQty(0); return; }
                 const n = parseInt(t, 10);
-                setQty(isNaN(n) ? 1 : Math.max(1, n));
+                setQty(isNaN(n) ? 0 : Math.max(0, n));
               }}
               keyboardType="number-pad"
             />
@@ -171,7 +195,7 @@ export default function StockDetailScreen() {
             </Pressable>
             <Pressable
               style={styles.maxBtn}
-              onPress={() => setQty(maxBuy > 0 ? maxBuy : 1)}
+              onPress={() => setQty(maxBuy > 0 ? maxBuy : 0)}
             >
               <Text style={styles.maxText}>Max</Text>
             </Pressable>
@@ -182,20 +206,25 @@ export default function StockDetailScreen() {
 
           <View style={styles.actionRow}>
             <Pressable
-              style={[styles.buyBtn, totalCost > cash && styles.disabledBtn]}
+              style={[styles.buyBtn, (totalCost > cash || qty <= 0) && styles.disabledBtn]}
               onPress={handleBuy}
               disabled={totalCost > cash || qty <= 0}
             >
               <Text style={styles.buyText}>Buy</Text>
             </Pressable>
             <Pressable
-              style={[styles.sellBtn, qty > maxSell && styles.disabledBtn]}
+              style={[styles.sellBtn, (qty > maxSell || qty <= 0) && styles.disabledBtn]}
               onPress={handleSell}
-              disabled={qty > maxSell || maxSell === 0}
+              disabled={qty > maxSell || maxSell === 0 || qty <= 0}
             >
               <Text style={styles.sellText}>Sell</Text>
             </Pressable>
           </View>
+          {maxSell > 0 && (
+            <Pressable style={styles.sellAllBtn} onPress={handleSellAll}>
+              <Text style={styles.sellAllText}>Sell All ({maxSell} shares)</Text>
+            </Pressable>
+          )}
         </GameCard>
       </ScrollView>
     </SafeAreaView>
@@ -267,5 +296,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sellText: { color: Colors.negative, fontSize: 16, fontWeight: '700' },
+  sellAllBtn: { borderWidth: 1, borderColor: Colors.negative, borderRadius: 12, padding: 12, alignItems: 'center', marginTop: 10 },
+  sellAllText: { color: Colors.negative, fontSize: 14, fontWeight: '600' },
   disabledBtn: { opacity: 0.4 },
 });

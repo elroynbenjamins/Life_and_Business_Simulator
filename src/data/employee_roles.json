@@ -1,0 +1,7 @@
+[
+  {"id": "worker", "name": "Worker", "baseSalary": 260, "productivityMultiplier": 1.0, "description": "General staff handling daily operations."},
+  {"id": "skilled_worker", "name": "Skilled Worker", "baseSalary": 400, "productivityMultiplier": 1.5, "description": "Experienced staff with specialized skills."},
+  {"id": "supervisor", "name": "Supervisor", "baseSalary": 520, "productivityMultiplier": 1.9, "description": "Oversees operations and improves team output."},
+  {"id": "manager", "name": "Manager", "baseSalary": 720, "productivityMultiplier": 2.6, "description": "Manages the team and enables efficiency projects."},
+  {"id": "specialist", "name": "Specialist / Marketing", "baseSalary": 620, "productivityMultiplier": 2.1, "description": "Marketing, R&D, and specialized services."}
+]

@@ -1,17 +1,338 @@
 [
-  {"id":"first_job","name":"First Job","description":"Get your first job","xpReward":50,"icon":"briefcase"},
-  {"id":"first_stock","name":"Investor","description":"Buy your first stock","xpReward":25,"icon":"trending-up"},
-  {"id":"first_promotion","name":"Moving Up","description":"Get promoted to a Level 2 job","xpReward":75,"icon":"arrow-up-circle"},
-  {"id":"max_level_job","name":"Top of the Game","description":"Reach a Level 3 job position","xpReward":250,"icon":"trophy"},
-  {"id":"own_1000_shares","name":"Stock Mogul","description":"Own 1,000 total shares","xpReward":200,"icon":"stats-chart"},
-  {"id":"first_100k","name":"Wealthy Start","description":"Reach €100,000 net worth","xpReward":100,"icon":"cash"},
-  {"id":"net_worth_500k","name":"Half Millionaire","description":"Reach €500,000 net worth","xpReward":200,"icon":"diamond"},
-  {"id":"first_million","name":"Millionaire","description":"Reach €1,000,000 net worth","xpReward":500,"icon":"star"},
-  {"id":"all_basic_courses","name":"Scholar","description":"Complete all basic courses","xpReward":150,"icon":"school"},
-  {"id":"expert_course","name":"Expert Knowledge","description":"Complete an Expert level course","xpReward":150,"icon":"ribbon"},
-  {"id":"earn_10k_week","name":"High Roller","description":"Earn €10,000 in a single week","xpReward":150,"icon":"rocket"},
-  {"id":"happiness_80","name":"Living the Dream","description":"Reach 80 happiness","xpReward":150,"icon":"heart"},
-  {"id":"debt_free_after_loan","name":"Debt Free","description":"Pay off all your loans","xpReward":100,"icon":"checkmark-circle"},
-  {"id":"luxury_life","name":"Luxury Life","description":"Own a Luxury Car and live in a Mansion","xpReward":300,"icon":"sparkles"},
-  {"id":"buy_first_car","name":"On the Road","description":"Buy your first car","xpReward":30,"icon":"car-sport"}
+  {
+    "id": "first_job",
+    "name": "First Job",
+    "description": "Get your first job",
+    "xpReward": 20,
+    "gemReward": 0,
+    "icon": "briefcase"
+  },
+  {
+    "id": "first_stock",
+    "name": "Investor",
+    "description": "Buy your first stock",
+    "xpReward": 10,
+    "gemReward": 0,
+    "icon": "trending-up"
+  },
+  {
+    "id": "first_promotion",
+    "name": "Moving Up",
+    "description": "Get promoted to a Level 2 position",
+    "xpReward": 30,
+    "gemReward": 0,
+    "icon": "arrow-up-circle"
+  },
+  {
+    "id": "max_level_job",
+    "name": "Top of the Game",
+    "description": "Reach a Level 5+ position",
+    "xpReward": 80,
+    "gemReward": 0,
+    "icon": "trophy"
+  },
+  {
+    "id": "own_1000_shares",
+    "name": "Stock Mogul",
+    "description": "Own 1,000 total shares",
+    "xpReward": 60,
+    "gemReward": 0,
+    "icon": "stats-chart"
+  },
+  {
+    "id": "first_100k",
+    "name": "Wealthy Start",
+    "description": "Reach \u20ac100,000 net worth",
+    "xpReward": 30,
+    "gemReward": 0,
+    "icon": "cash"
+  },
+  {
+    "id": "net_worth_250k",
+    "name": "Quarter Millionaire",
+    "description": "Reach \u20ac250,000 net worth",
+    "xpReward": 50,
+    "gemReward": 0,
+    "icon": "cash"
+  },
+  {
+    "id": "net_worth_500k",
+    "name": "Half Millionaire",
+    "description": "Reach \u20ac500,000 net worth",
+    "xpReward": 75,
+    "gemReward": 0,
+    "icon": "diamond"
+  },
+  {
+    "id": "first_million",
+    "name": "Millionaire",
+    "description": "Reach \u20ac1,000,000 net worth",
+    "xpReward": 120,
+    "gemReward": 5,
+    "icon": "star"
+  },
+  {
+    "id": "all_basic_courses",
+    "name": "Scholar",
+    "description": "Complete all basic courses",
+    "xpReward": 40,
+    "gemReward": 0,
+    "icon": "school"
+  },
+  {
+    "id": "expert_course",
+    "name": "Expert Knowledge",
+    "description": "Complete an Expert level course",
+    "xpReward": 50,
+    "gemReward": 0,
+    "icon": "ribbon"
+  },
+  {
+    "id": "earn_10k_week",
+    "name": "High Roller",
+    "description": "Earn \u20ac10,000 in a single week",
+    "xpReward": 50,
+    "gemReward": 0,
+    "icon": "rocket"
+  },
+  {
+    "id": "happiness_80",
+    "name": "Living the Dream",
+    "description": "Reach 80 happiness",
+    "xpReward": 40,
+    "gemReward": 0,
+    "icon": "heart"
+  },
+  {
+    "id": "debt_free_after_loan",
+    "name": "Debt Free",
+    "description": "Pay off all your loans",
+    "xpReward": 30,
+    "gemReward": 0,
+    "icon": "checkmark-circle"
+  },
+  {
+    "id": "luxury_life",
+    "name": "Luxury Life",
+    "description": "Own a Luxury Car and live in a Mansion",
+    "xpReward": 80,
+    "gemReward": 0,
+    "icon": "sparkles"
+  },
+  {
+    "id": "buy_first_car",
+    "name": "On the Road",
+    "description": "Buy your first car",
+    "xpReward": 10,
+    "gemReward": 0,
+    "icon": "car-sport"
+  },
+  {
+    "id": "survive_52_weeks",
+    "name": "One Year Down",
+    "description": "Play for 1 year (20 weeks)",
+    "xpReward": 20,
+    "gemReward": 0,
+    "icon": "calendar"
+  },
+  {
+    "id": "five_years",
+    "name": "Veteran Player",
+    "description": "Play for 5 years (100 weeks)",
+    "xpReward": 60,
+    "gemReward": 0,
+    "icon": "time"
+  },
+  {
+    "id": "net_worth_5m",
+    "name": "Multi-Millionaire",
+    "description": "Reach \u20ac5,000,000 net worth",
+    "xpReward": 200,
+    "gemReward": 10,
+    "icon": "medal"
+  },
+  {
+    "id": "own_all_upgrades",
+    "name": "Fully Upgraded",
+    "description": "Own all house upgrades at once",
+    "xpReward": 60,
+    "gemReward": 0,
+    "icon": "construct"
+  },
+  {
+    "id": "diversified",
+    "name": "Diversified",
+    "description": "Hold 10 or more different stocks",
+    "xpReward": 30,
+    "gemReward": 0,
+    "icon": "grid"
+  },
+  {
+    "id": "tax_payer",
+    "name": "Tax Contributor",
+    "description": "Pay over \u20ac50,000 in total taxes",
+    "xpReward": 30,
+    "gemReward": 0,
+    "icon": "receipt"
+  },
+  {
+    "id": "all_housing",
+    "name": "Real Estate Tour",
+    "description": "Live in every housing type",
+    "xpReward": 40,
+    "gemReward": 0,
+    "icon": "home"
+  },
+  {
+    "id": "cash_100k",
+    "name": "Cash Hoarder",
+    "description": "Hold \u20ac100,000 cash at once",
+    "xpReward": 30,
+    "gemReward": 0,
+    "icon": "wallet"
+  },
+  {
+    "id": "three_loans",
+    "name": "Leveraged Up",
+    "description": "Have 3 active loans simultaneously",
+    "xpReward": 20,
+    "gemReward": 0,
+    "icon": "layers"
+  },
+  {
+    "id": "all_courses",
+    "name": "Master Scholar",
+    "description": "Complete all 18 courses",
+    "xpReward": 120,
+    "gemReward": 5,
+    "icon": "library"
+  },
+  {
+    "id": "happiness_90",
+    "name": "Pure Bliss",
+    "description": "Reach 90 happiness",
+    "xpReward": 80,
+    "gemReward": 20,
+    "icon": "happy"
+  },
+  {
+    "id": "stock_profit_25",
+    "name": "Market Genius",
+    "description": "Achieve 25% profit on a stock position",
+    "xpReward": 60,
+    "gemReward": 25,
+    "icon": "trending-up"
+  },
+  {
+    "id": "net_worth_10m",
+    "name": "Tycoon",
+    "description": "Reach \u20ac10,000,000 net worth",
+    "xpReward": 300,
+    "gemReward": 30,
+    "icon": "planet"
+  },
+  {
+    "id": "own_5_businesses",
+    "name": "Business Empire",
+    "description": "Own 5 businesses simultaneously",
+    "xpReward": 100,
+    "gemReward": 20,
+    "icon": "business"
+  },
+  {
+    "id": "own_5_properties",
+    "name": "Property Mogul",
+    "description": "Own 5 properties simultaneously",
+    "xpReward": 80,
+    "gemReward": 15,
+    "icon": "home"
+  },
+  {
+    "id": "portfolio_100k",
+    "name": "Portfolio Bronze",
+    "description": "Portfolio value reaches \u20ac100,000",
+    "xpReward": 30,
+    "gemReward": 0,
+    "icon": "pie-chart"
+  },
+  {
+    "id": "portfolio_250k",
+    "name": "Portfolio Silver",
+    "description": "Portfolio value reaches \u20ac250,000",
+    "xpReward": 50,
+    "gemReward": 0,
+    "icon": "pie-chart"
+  },
+  {
+    "id": "portfolio_500k",
+    "name": "Portfolio Gold",
+    "description": "Portfolio value reaches \u20ac500,000",
+    "xpReward": 80,
+    "gemReward": 5,
+    "icon": "pie-chart"
+  },
+  {
+    "id": "portfolio_1m",
+    "name": "Portfolio Platinum",
+    "description": "Portfolio value reaches \u20ac1,000,000",
+    "xpReward": 150,
+    "gemReward": 15,
+    "icon": "pie-chart"
+  },
+  {
+    "id": "ten_years",
+    "name": "Decade of Success",
+    "description": "Play for 10 years (200 weeks)",
+    "xpReward": 100,
+    "gemReward": 10,
+    "icon": "time"
+  },
+  {
+    "id": "career_level_7",
+    "name": "C-Suite",
+    "description": "Reach career position level 7",
+    "xpReward": 120,
+    "gemReward": 10,
+    "icon": "ribbon"
+  },
+  {
+    "id": "realized_profit_100k",
+    "name": "Profit Taker",
+    "description": "Realize \u20ac100,000 in stock profits",
+    "xpReward": 60,
+    "gemReward": 0,
+    "icon": "cash"
+  },
+  {
+    "id": "multi_business_3",
+    "name": "Business Mogul",
+    "description": "Own 3 businesses at the same time",
+    "xpReward": 100,
+    "gemReward": 5,
+    "icon": "business"
+  },
+  {
+    "id": "legendary_hire",
+    "name": "Legendary Recruit",
+    "description": "Hire a Legendary-tier employee",
+    "xpReward": 75,
+    "gemReward": 3,
+    "icon": "star"
+  },
+  {
+    "id": "survive_20_years",
+    "name": "Two Decades",
+    "description": "Survive for 20 years",
+    "xpReward": 150,
+    "gemReward": 8,
+    "icon": "calendar"
+  },
+  {
+    "id": "complete_all_courses",
+    "name": "Scholar",
+    "description": "Complete all available courses",
+    "xpReward": 120,
+    "gemReward": 6,
+    "icon": "school"
+  }
 ]

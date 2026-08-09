@@ -7,7 +7,7 @@ import GameStatusBar from '../../src/components/StatusBar';
 import GameCard from '../../src/components/GameCard';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
-import { getWeeklySalary, getWeeklyRent, getWeeklyCarCost, getWeeklyFoodCost, getWeeklyCourseCost, getWeeklyLoanPayments } from '../../src/engine/financeEngine';
+import { getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyCarCost, getWeeklyFoodCost, getWeeklyCourseCost, getWeeklyLoanPayments } from '../../src/engine/financeEngine';
 import { BarChart } from 'react-native-chart-kit';
 
 export default function FinanceScreen() {
@@ -15,17 +15,19 @@ export default function FinanceScreen() {
   const state = useGameStore();
   const salary = getWeeklySalary(state);
   const rent = getWeeklyRent(state);
+  const utilityCost = getWeeklyUtilityCost(state);
   const carCost = getWeeklyCarCost(state);
   const foodCost = getWeeklyFoodCost(state);
   const courseCost = getWeeklyCourseCost(state);
   const loanPayments = getWeeklyLoanPayments(state);
-  const totalExpenses = rent + carCost + foodCost + courseCost + loanPayments;
+  const totalExpenses = rent + utilityCost + carCost + foodCost + courseCost + loanPayments;
   const netFlow = salary - totalExpenses;
   const portfolioValue = state?.getPortfolioValueTotal?.() ?? 0;
   const netWorth = state?.getNetWorthValue?.() ?? 0;
   const netWorthHistory = state?.netWorthHistory ?? [];
   const totalTaxPaid = state?.totalTaxPaid ?? 0;
   const loanDebt = (state?.loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
+  const inflationMultiplier = state?.inflationMultiplier ?? 1;
 
   const last8 = netWorthHistory.slice(-8);
   const chartWidth = Math.min(Dimensions.get('window').width - 64, 500);
@@ -35,11 +37,19 @@ export default function FinanceScreen() {
       <Text style={styles.headerTitle}>Finance</Text>
       <GameStatusBar />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        {/* Inflation indicator */}
+        {inflationMultiplier > 1 && (
+          <View style={styles.inflationBadge}>
+            <Text style={styles.inflationText}>📈 Inflation: ×{inflationMultiplier.toFixed(2)}</Text>
+          </View>
+        )}
+
         {/* Weekly Summary */}
         <GameCard title="Weekly Summary">
           <FRow label="Job Income" value={salary} color={Colors.primary} prefix="+" />
           <View style={styles.divider} />
           <FRow label="Rent" value={rent} color={Colors.negative} prefix="-" />
+          <FRow label="Utilities" value={utilityCost} color={Colors.negative} prefix="-" />
           <FRow label="Food" value={foodCost} color={Colors.negative} prefix="-" />
           {carCost > 0 && <FRow label="Car" value={carCost} color={Colors.negative} prefix="-" />}
           {courseCost > 0 && <FRow label="Course" value={courseCost} color={Colors.negative} prefix="-" />}
@@ -123,6 +133,8 @@ const styles = StyleSheet.create({
   headerTitle: { color: Colors.textPrimary, fontSize: 24, fontWeight: '700', padding: 16, paddingBottom: 0 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
+  inflationBadge: { backgroundColor: `${Colors.warning}22`, borderRadius: 8, padding: 8, marginBottom: 8 },
+  inflationText: { color: Colors.warning, fontSize: 13, fontWeight: '600', textAlign: 'center' },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
   label: { color: Colors.textSecondary, fontSize: 14 },
   value: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
