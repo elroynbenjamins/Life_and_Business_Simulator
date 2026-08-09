@@ -50,7 +50,7 @@ const sections = [
   {
     title: 'Business Morale & Reputation',
     icon: '👥',
-    content: 'Employee morale affects your team. When average morale is at least 55, negative morale events can occur with a 10% chance and reduce morale by no more than 20. Team morale actions cost cash. Reputation and market share influence business performance, event choices and valuation.',
+    content: 'Employee morale affects your team. Team morale actions cost cash. Reputation and market share influence business performance, event choices and valuation.',
   },
   {
     title: 'Business Value',

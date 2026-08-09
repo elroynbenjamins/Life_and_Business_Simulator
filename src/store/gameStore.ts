@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
-import { getNetWorth, getPortfolioValue } from '../engine/financeEngine';
+import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
 import { inflated } from '../engine/economyEngine';
 import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED } from '../engine/businessEngine';
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
@@ -364,14 +364,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     let periodReportUpdate: Record<string, any> = {};
     if (is20WeekMark) {
       const nw = getNetWorth(newState);
-      // Calculate unrealized P/L
-      let unrealizedPL = 0;
-      for (const h of newState.holdings ?? []) {
-        const stock = (newState.stocks ?? []).find((s) => s?.ticker === h?.ticker);
-        if (stock) {
-          unrealizedPL += (h.shares ?? 0) * ((stock.currentPrice ?? 0) - (h.avgBuyPrice ?? 0));
-        }
-      }
+      const unrealizedPL = getUnrealizedProfitLoss(newState.stocks ?? [], newState.holdings ?? []);
       const report: PeriodReport = {
         fromWeek: periodAccum.periodStartWeek,
         toWeek: currentGlobalWeek,

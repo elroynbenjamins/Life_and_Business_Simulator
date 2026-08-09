@@ -182,6 +182,15 @@ export function getPortfolioValue(stocks: StockState[], holdings: StockHolding[]
   }, 0);
 }
 
+/** Current paper profit/loss for all open positions, based on weighted average purchase prices. */
+export function getUnrealizedProfitLoss(stocks: StockState[], holdings: StockHolding[]): number {
+  return (holdings ?? []).reduce((total, holding) => {
+    const stock = (stocks ?? []).find((candidate) => candidate?.ticker === holding?.ticker);
+    if (!stock) return total;
+    return total + (holding?.shares ?? 0) * ((stock?.currentPrice ?? 0) - (holding?.avgBuyPrice ?? 0));
+  }, 0);
+}
+
 export function getNetWorth(state: GameState): number {
   const portfolioValue = getPortfolioValue(state?.stocks ?? [], state?.holdings ?? []);
   const loanDebt = (state?.loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);

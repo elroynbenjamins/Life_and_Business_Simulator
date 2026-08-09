@@ -2,6 +2,7 @@ import {
   calculateTax,
   getNetWorth,
   getPortfolioValue,
+  getUnrealizedProfitLoss,
   processLoans,
   processTaxes,
 } from '../financeEngine';
@@ -45,6 +46,21 @@ describe('financeEngine', () => {
     );
 
     expect(value).toBe(100);
+  });
+
+  test('calculates unrealized profit and loss from open-position cost basis', () => {
+    const result = getUnrealizedProfitLoss(
+      [
+        { ticker: 'GAIN', currentPrice: 30, priceHistory: [30] },
+        { ticker: 'LOSS', currentPrice: 8, priceHistory: [8] },
+      ],
+      [
+        { ticker: 'GAIN', shares: 4, avgBuyPrice: 20 },
+        { ticker: 'LOSS', shares: 5, avgBuyPrice: 10 },
+      ],
+    );
+
+    expect(result).toBe(30);
   });
 
   test('subtracts personal and business debt from net worth', () => {

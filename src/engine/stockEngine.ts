@@ -29,6 +29,21 @@ export function mergeStocks(existing: StockState[]): StockState[] {
   return [...(existing ?? []), ...added];
 }
 
+/** Percentage changes from the two most recent saved prices. */
+export function getLatestStockChanges(stocks: StockState[]): { ticker: string; change: number }[] {
+  return (stocks ?? []).flatMap((stock) => {
+    const history = stock?.priceHistory ?? [];
+    if (history.length < 2) return [];
+    const previousPrice = history[history.length - 2] ?? 0;
+    const currentPrice = history[history.length - 1] ?? stock?.currentPrice ?? 0;
+    if (previousPrice <= 0) return [];
+    return [{
+      ticker: stock?.ticker ?? '',
+      change: ((currentPrice - previousPrice) / previousPrice) * 100,
+    }];
+  });
+}
+
 /**
  * Roll for a yearly market sentiment event (every 20 weeks).
  */
@@ -162,10 +177,11 @@ export function processStocks(
   const newStocks = (state?.stocks ?? []).map((stock) => {
     const data = (stocksData ?? []).find((s) => s?.ticker === stock?.ticker);
     const sector = data?.sector ?? '';
+    const assetType = data?.type ?? 'stock';
     const isCommodity = data?.type === 'commodity';
     const isEtf = data?.type === 'etf';
     const newsEffect = newsEffects?.[sector] ?? 0;
-    const marketEffect = marketEffects?.[sector] ?? 0;
+    const marketEffect = (marketEffects?.[sector] ?? 0) + (marketEffects?.[assetType] ?? 0) + (marketEffects?.All ?? 0);
 
     // ETFs have much smaller swings
     const baseVolatility = isEtf ? 0.04 : isCommodity ? 0.14 : 0.10;

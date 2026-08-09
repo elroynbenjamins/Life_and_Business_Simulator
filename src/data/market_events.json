@@ -279,5 +279,89 @@
       "E-Commerce": 0.08
     },
     "durationWeeks": 14
+  },
+  {
+    "id": "me_stock_earnings_surge",
+    "title": "Corporate Earnings Surge",
+    "description": "Broad earnings beats and stronger guidance lift listed companies.",
+    "effects": { "stock": 0.08 },
+    "durationWeeks": 6
+  },
+  {
+    "id": "me_stock_productivity_breakthrough",
+    "title": "Productivity Breakthrough",
+    "description": "New workplace technology raises profit expectations across public companies.",
+    "effects": { "stock": 0.07 },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_stock_profit_warning_wave",
+    "title": "Profit Warning Wave",
+    "description": "Companies across the market cut forecasts as operating costs rise.",
+    "effects": { "stock": -0.08 },
+    "durationWeeks": 6
+  },
+  {
+    "id": "me_stock_equity_selloff",
+    "title": "Equity Risk Selloff",
+    "description": "Investors reduce exposure to individual companies amid growing uncertainty.",
+    "effects": { "stock": -0.09 },
+    "durationWeeks": 5
+  },
+  {
+    "id": "me_commodity_supply_shortage",
+    "title": "Global Materials Shortage",
+    "description": "Production disruptions tighten supplies of energy, metals and crops.",
+    "effects": { "commodity": 0.1 },
+    "durationWeeks": 7
+  },
+  {
+    "id": "me_commodity_currency_tailwind",
+    "title": "Commodity Currency Tailwind",
+    "description": "A weaker reserve currency lifts globally traded raw-material prices.",
+    "effects": { "commodity": 0.07 },
+    "durationWeeks": 6
+  },
+  {
+    "id": "me_commodity_inventory_glut",
+    "title": "Raw-Material Inventory Glut",
+    "description": "Warehouses fill as supply outpaces industrial demand.",
+    "effects": { "commodity": -0.1 },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_commodity_demand_slump",
+    "title": "Commodity Demand Slump",
+    "description": "Slower construction and manufacturing weaken raw-material consumption.",
+    "effects": { "commodity": -0.08 },
+    "durationWeeks": 7
+  },
+  {
+    "id": "me_etf_passive_inflows",
+    "title": "Passive Fund Inflow Record",
+    "description": "Investors pour record amounts into diversified exchange-traded funds.",
+    "effects": { "etf": 0.06 },
+    "durationWeeks": 8
+  },
+  {
+    "id": "me_etf_pension_rebalance",
+    "title": "Pension Funds Rebalance into ETFs",
+    "description": "Large retirement funds increase allocations to low-cost index products.",
+    "effects": { "etf": 0.05 },
+    "durationWeeks": 6
+  },
+  {
+    "id": "me_etf_liquidity_shock",
+    "title": "ETF Liquidity Shock",
+    "description": "Widening spreads and heavy redemptions pressure exchange-traded funds.",
+    "effects": { "etf": -0.06 },
+    "durationWeeks": 5
+  },
+  {
+    "id": "me_etf_index_selloff",
+    "title": "Index Reconstitution Selloff",
+    "description": "A major index reshuffle triggers forced selling across passive funds.",
+    "effects": { "etf": -0.05 },
+    "durationWeeks": 6
   }
 ]
