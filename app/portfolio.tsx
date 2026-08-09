@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -72,7 +72,12 @@ export default function PortfolioScreen() {
           const isCommodity = sd?.type === 'commodity';
 
           const handleSellAll = () => {
-            Alert.alert('Sell All', `Sell all ${h?.shares} shares of ${h?.ticker} for ${formatCurrency(value, 2)}?`, [
+            const message = `Sell all ${h?.shares} shares of ${h?.ticker} for ${formatCurrency(value, 2)}?`;
+            if (Platform.OS === 'web') {
+              if (window.confirm(`Sell All: ${message}`)) sellStock?.(h?.ticker, h?.shares ?? 0);
+              return;
+            }
+            Alert.alert('Sell All', message, [
               { text: 'Cancel', style: 'cancel' },
               { text: 'Sell All', onPress: () => sellStock?.(h?.ticker, h?.shares ?? 0) },
             ]);

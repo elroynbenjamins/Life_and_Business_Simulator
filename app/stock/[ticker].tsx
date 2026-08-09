@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Dimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,7 +60,15 @@ export default function StockDetailScreen() {
 
   const handleBuy = () => {
     if (qty <= 0 || totalCost > cash) return;
-    Alert.alert('Confirm Purchase', `Buy ${qty} shares of ${sd?.ticker} for ${formatCurrency(totalCost, 2)}?`, [
+    const message = `Buy ${qty} shares of ${sd?.ticker} for ${formatCurrency(totalCost, 2)}?`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Confirm Purchase: ${message}`)) {
+        buyStock?.(ticker, qty);
+        setQty(0);
+      }
+      return;
+    }
+    Alert.alert('Confirm Purchase', message, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Buy', onPress: () => { buyStock?.(ticker, qty); setQty(0); } },
     ]);
@@ -68,7 +76,15 @@ export default function StockDetailScreen() {
 
   const handleSell = () => {
     if (qty <= 0 || qty > maxSell) return;
-    Alert.alert('Confirm Sale', `Sell ${qty} shares of ${sd?.ticker} for ${formatCurrency(qty * price, 2)}?`, [
+    const message = `Sell ${qty} shares of ${sd?.ticker} for ${formatCurrency(qty * price, 2)}?`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Confirm Sale: ${message}`)) {
+        sellStock?.(ticker, qty);
+        setQty(0);
+      }
+      return;
+    }
+    Alert.alert('Confirm Sale', message, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sell', onPress: () => { sellStock?.(ticker, qty); setQty(0); } },
     ]);
@@ -77,7 +93,15 @@ export default function StockDetailScreen() {
   const handleSellAll = () => {
     if (maxSell <= 0) return;
     const totalSaleValue = maxSell * price;
-    Alert.alert('Sell All', `Sell all ${maxSell} shares of ${sd?.ticker} for ${formatCurrency(totalSaleValue, 2)}?`, [
+    const message = `Sell all ${maxSell} shares of ${sd?.ticker} for ${formatCurrency(totalSaleValue, 2)}?`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Sell All: ${message}`)) {
+        sellStock?.(ticker, maxSell);
+        setQty(0);
+      }
+      return;
+    }
+    Alert.alert('Sell All', message, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sell All', onPress: () => { sellStock?.(ticker, maxSell); setQty(0); } },
     ]);
