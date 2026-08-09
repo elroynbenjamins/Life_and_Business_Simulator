@@ -1,7 +1,0 @@
-[
-  {"id":"kitchen","name":"Kitchen Upgrade","cost":2000,"happiness":3,"description":"Modern appliances and granite countertops."},
-  {"id":"bedroom","name":"Bedroom Upgrade","cost":1500,"happiness":3,"description":"Premium mattress, blackout curtains and ambient lighting."},
-  {"id":"bathroom","name":"Bathroom Upgrade","cost":1000,"happiness":2,"description":"Rain shower, heated floors and quality fixtures."},
-  {"id":"home_office","name":"Home Office","cost":3000,"happiness":3,"description":"Standing desk, ergonomic chair and fast internet."},
-  {"id":"entertainment","name":"Entertainment Room","cost":4000,"happiness":4,"description":"Home theater, gaming setup and sound system."}
-]
