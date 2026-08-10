@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Platfo
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { Colors } from '../src/theme/colors';
 import GameStatusBar from '../src/components/StatusBar';
 import GameCard from '../src/components/GameCard';
@@ -33,6 +34,7 @@ export default function SupportScreen() {
 
   const gems = profile?.gems ?? 0;
   const adUsage = getAdUsage?.() ?? { watchedToday: 0, remaining: 5, limitReached: false };
+  const useSimulatedAd = Platform.OS === 'web' || Constants.expoGoConfig != null;
 
   const handleWatchAd = useCallback(async () => {
     if (adState === 'loading' || adState === 'showing') return;
@@ -41,8 +43,9 @@ export default function SupportScreen() {
       return;
     }
 
-    // On web, simulate the ad (ads SDK not available)
-    if (Platform.OS === 'web') {
+    // Web and Expo Go do not include the native AdMob module, so use the same
+    // timed reward flow without attempting to load unavailable native code.
+    if (useSimulatedAd) {
       setAdState('loading');
       setAdMessage('');
       setTimeout(() => {
@@ -77,7 +80,7 @@ export default function SupportScreen() {
     }
 
     setTimeout(() => { setAdState('idle'); setAdMessage(''); }, 3000);
-  }, [adState, adUsage.limitReached, grantAdReward]);
+  }, [adState, adUsage.limitReached, grantAdReward, useSimulatedAd]);
 
   const handleBuyGems = (pack: typeof GEM_PACKS[0]) => {
     Alert.alert(
@@ -155,7 +158,9 @@ export default function SupportScreen() {
 
         {/* Watch Ad */}
         <GameCard title="Watch an Ad">
-          <Text style={styles.desc}>Watch a short ad and earn {AD_GEM_REWARD} gems!</Text>
+          <Text style={styles.desc}>
+            {useSimulatedAd ? 'Complete a short simulated ad' : 'Watch a short ad'} and earn {AD_GEM_REWARD} gems!
+          </Text>
           <Pressable
             style={[styles.adBtn, (adState === 'loading' || adState === 'showing' || adUsage.limitReached) && styles.disabledBtn]}
             onPress={handleWatchAd}

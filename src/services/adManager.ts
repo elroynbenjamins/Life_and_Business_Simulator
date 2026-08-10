@@ -1,5 +1,4 @@
 import { Platform } from 'react-native';
-import { RewardedAd, RewardedAdEventType } from 'react-native-google-mobile-ads';
 import { AD_CONFIG } from './adConfig';
 
 type AdState = 'idle' | 'loading' | 'ready' | 'showing' | 'error';
@@ -7,6 +6,7 @@ type Listener = (state: AdState) => void;
 
 let adState: AdState = 'idle';
 let rewardedAd: any = null;
+let rewardedAdEventType: any = null;
 let listeners: Listener[] = [];
 let rewardCallback: (() => void) | null = null;
 let rewardGranted = false;
@@ -26,6 +26,10 @@ export function subscribeAdState(fn: Listener): () => void {
 
 export async function loadRewardedAd(): Promise<boolean> {
   try {
+    // This native module is unavailable in Expo Go. Loading it lazily keeps the
+    // rest of the app compatible while development/production builds retain AdMob.
+    const { RewardedAd, RewardedAdEventType } = await import('react-native-google-mobile-ads');
+    rewardedAdEventType = RewardedAdEventType;
     adState = 'loading';
     notify();
     const adUnitId = Platform.OS === 'ios'
@@ -74,7 +78,7 @@ export async function showRewardedAd(onReward: () => void): Promise<boolean> {
   rewardCallback = onReward;
 
   try {
-    const earnSub = rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+    const earnSub = rewardedAd.addAdEventListener(rewardedAdEventType.EARNED_REWARD, () => {
       if (!rewardGranted) {
         rewardGranted = true;
         rewardCallback?.();
