@@ -33,6 +33,8 @@ export default function EducationScreen() {
   const speedUpEducationWithAd = useGameStore((s) => s?.speedUpEducationWithAd);
   const getAdUsage = useGameStore((s) => s?.getAdUsage);
   const [adMessage, setAdMessage] = useState('');
+  const [simulatedAdReady, setSimulatedAdReady] = useState(false);
+  const [simulatedAdPlaying, setSimulatedAdPlaying] = useState(false);
   const weeksEmployed = useGameStore((s) => s?.statistics?.weeksEmployed ?? 0);
   const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
 
@@ -46,11 +48,24 @@ export default function EducationScreen() {
     setAdMessage('Loading advertisement...');
     const grant = () => { speedUpEducationWithAd?.(); setAdMessage('Education completed!'); };
     if (Platform.OS === 'web' || Constants.expoGoConfig != null) {
-      setTimeout(grant, 1500);
+      if (simulatedAdReady) {
+        setSimulatedAdReady(false);
+        grant();
+        return;
+      }
+      if (simulatedAdPlaying) return;
+      setSimulatedAdPlaying(true);
+      setAdMessage('Simulated ad playing — watch until the reward becomes available.');
+      setTimeout(() => {
+        setSimulatedAdPlaying(false);
+        setSimulatedAdReady(true);
+        setAdMessage('Ad watched. Tap the reward button to complete your education.');
+      }, 5000);
       return;
     }
     const loaded = await loadRewardedAd();
-    if (!loaded || !(await showRewardedAd(grant))) setAdMessage('Ad unavailable. Please try again later.');
+    if (!loaded) { setAdMessage('Ad unavailable. Please try again later.'); return; }
+    if (!(await showRewardedAd(grant))) setAdMessage('No reward earned. Watch the complete ad to finish your education.');
   };
 
   const groupedCourses: Record<string, any[]> = {};
@@ -79,9 +94,9 @@ export default function EducationScreen() {
               return (<>
                 <ProgressBar progress={courseWeeksCompleted / adjDur} />
                 <Text style={styles.progressText}>Week {courseWeeksCompleted}/{adjDur}{partTimeJob ? ' (slower — part-time)' : ''}</Text>
-                <Pressable style={styles.adButton} onPress={speedUp}>
+                <Pressable style={[styles.adButton, simulatedAdPlaying && { opacity: 0.55 }]} onPress={speedUp} disabled={simulatedAdPlaying}>
                   <Ionicons name="play-circle" size={18} color={Colors.white} />
-                  <Text style={styles.enrollBtnText}>Watch ad: complete education</Text>
+                  <Text style={styles.enrollBtnText}>{simulatedAdReady ? 'Claim reward: complete education' : simulatedAdPlaying ? 'Watching ad...' : 'Watch ad: complete education'}</Text>
                 </Pressable>
                 {!!adMessage && <Text style={styles.adMessage}>{adMessage}</Text>}
               </>);

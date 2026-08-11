@@ -5,8 +5,7 @@ import { LineChart } from 'react-native-chart-kit';
 import useGameStore from '../src/store/gameStore';
 import { Colors } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
-import { formatCurrency, formatPercent } from '../src/utils/format';
-import { getUnrealizedProfitLoss } from '../src/engine/financeEngine';
+import { formatCurrency } from '../src/utils/format';
 
 export default function StatisticsScreen({ showBack = true }: { showBack?: boolean } = {}) {
   const s = useGameStore((st: any) => st.statistics);
@@ -14,8 +13,6 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
   const week = useGameStore((st: any) => st.week);
   const year = useGameStore((st: any) => st.year);
   const age = useGameStore((st: any) => st.age);
-  const stocks = useGameStore((st: any) => st.stocks) ?? [];
-  const holdings = useGameStore((st: any) => st.holdings) ?? [];
   const nw = (netWorthHistory ?? []).slice(-1)[0] ?? 0;
   const chartWidth = Math.min(Dimensions.get('window').width - 64, 500);
   const history: number[] = netWorthHistory ?? [];
@@ -26,7 +23,6 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
   const minNW = hasChart ? Math.min(...history) : 0;
   const offset = minNW < 0 ? Math.abs(minNW) : 0;
   const chartData = hasChart ? history.map((v) => (v ?? 0) + offset) : [];
-  const unrealizedProfitLoss = getUnrealizedProfitLoss(stocks, holdings);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,15 +100,6 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
 
         <GameCard title="Education">
           <Row label="Courses Completed" value={`${s?.coursesCompleted ?? 0}`} />
-        </GameCard>
-
-        <GameCard title="Investing">
-          <Row label="Stocks Purchased" value={`${s?.stocksPurchased ?? 0}`} />
-          <Row label="Largest Weekly Stock Gain" value={formatPercent(s?.largestStockGain ?? 0)} tone="positive" />
-          <Row label="Largest Weekly Stock Loss" value={formatPercent(s?.largestStockLoss ?? 0)} tone="negative" />
-          <Row label="Total Dividends" value={formatCurrency(s?.totalDividendsReceived ?? 0)} tone="positive" />
-          <Row label="Lifetime Realized P/L" value={formatCurrency(s?.totalRealizedProfitLoss ?? 0)} amount={s?.totalRealizedProfitLoss ?? 0} />
-          <Row label="Current Unrealized P/L" value={formatCurrency(unrealizedProfitLoss)} amount={unrealizedProfitLoss} />
         </GameCard>
 
         <GameCard title="Living">

@@ -76,7 +76,7 @@ export default function SupportScreen() {
 
     if (!shown) {
       setAdState('error');
-      setAdMessage('Ad unavailable right now. Please try again later.');
+      setAdMessage('No reward earned. Watch the complete ad to receive gems.');
     }
 
     setTimeout(() => { setAdState('idle'); setAdMessage(''); }, 3000);

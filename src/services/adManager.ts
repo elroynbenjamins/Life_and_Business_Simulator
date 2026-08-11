@@ -79,26 +79,29 @@ export async function showRewardedAd(onReward: () => void): Promise<boolean> {
   rewardCallback = onReward;
 
   try {
-    const earnSub = rewardedAd.addAdEventListener(rewardedAdEventType.EARNED_REWARD, () => {
-      if (!rewardGranted) {
-        rewardGranted = true;
-        rewardCallback?.();
-      }
-      earnSub();
-    });
+    return await new Promise<boolean>(async (resolve) => {
+      const earnSub = rewardedAd.addAdEventListener(rewardedAdEventType.EARNED_REWARD, () => {
+        if (!rewardGranted) {
+          rewardGranted = true;
+          rewardCallback?.();
+        }
+      });
 
-    const closeSub = rewardedAd.addAdEventListener('closed', () => {
-      adState = 'idle';
+      const closeSub = rewardedAd.addAdEventListener('closed', () => {
+        const earned = rewardGranted;
+        adState = 'idle';
+        notify();
+        rewardCallback = null;
+        rewardedAd = null;
+        earnSub();
+        closeSub();
+        resolve(earned);
+      });
+
+      adState = 'showing';
       notify();
-      rewardCallback = null;
-      rewardedAd = null;
-      closeSub();
+      await rewardedAd.show();
     });
-
-    adState = 'showing';
-    notify();
-    await rewardedAd.show();
-    return true;
   } catch {
     adState = 'error';
     notify();
