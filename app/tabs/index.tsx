@@ -84,6 +84,14 @@ export default function DashboardScreen() {
         </View>
       </View>
       <GameStatusBar />
+      <View style={styles.primaryActionWrap}>
+        <Pressable
+          style={({ pressed }) => [styles.nextWeekButton, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+          onPress={handleNextWeek}
+        >
+          <Text style={styles.nextWeekText}>Advance to Next Week →</Text>
+        </Pressable>
+      </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* News */}
         <GameCard>
@@ -191,13 +199,6 @@ export default function DashboardScreen() {
           <QuickLink icon="newspaper" label="News" onPress={() => router.push('/news')} color="#F59E0B" />
         </View>
 
-        {/* Next Week Button */}
-        <Pressable
-          style={({ pressed }) => [styles.nextWeekButton, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}
-          onPress={handleNextWeek}
-        >
-          <Text style={styles.nextWeekText}>Advance to Next Week →</Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -221,6 +222,7 @@ const styles = StyleSheet.create({
   gemsText: { color: '#8B5CF6', fontSize: 14, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
+  primaryActionWrap: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, backgroundColor: Colors.background },
   newsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   newsText: { color: Colors.warning, fontSize: 14, fontStyle: 'italic', flex: 1 },
   statsRow: { flexDirection: 'row', gap: 12 },
@@ -236,6 +238,6 @@ const styles = StyleSheet.create({
   linksRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginVertical: 4 },
   quickLink: { flexBasis: '30%', flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   quickLinkText: { color: Colors.textPrimary, fontSize: 13, fontWeight: '500' },
-  nextWeekButton: { backgroundColor: Colors.primary, borderRadius: 16, padding: 20, alignItems: 'center', marginTop: 8 },
-  nextWeekText: { color: Colors.white, fontSize: 18, fontWeight: '700' },
+  nextWeekButton: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  nextWeekText: { color: Colors.white, fontSize: 17, fontWeight: '700' },
 });
