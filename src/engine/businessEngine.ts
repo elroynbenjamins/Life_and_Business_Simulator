@@ -102,6 +102,18 @@ import moraleEventsData from '../data/business_morale_events.json';
 import choiceEventsData from '../data/business_choice_events.json';
 
 export const MIN_EMPLOYEES_REQUIRED = 3;
+export const BUSINESS_LEVEL_REPUTATION_REQUIREMENTS = [0, 20, 30, 40, 52, 65, 78, 90];
+
+export function getBusinessLevelForMetrics(thresholds: number[], valuation: number, reputation: number): number {
+  for (let level = thresholds.length - 1; level >= 0; level--) {
+    if (valuation >= thresholds[level] && reputation >= (BUSINESS_LEVEL_REPUTATION_REQUIREMENTS[level] ?? 100)) return level;
+  }
+  return 0;
+}
+
+export function getStartupRevenueTarget(baseExpenses: number, rent: number, salaries: number, advertising: number, randomRoll: number): number {
+  return Math.round((baseExpenses + rent + salaries + advertising) * (0.86 + Math.max(0, Math.min(1, randomRoll)) * 0.30));
+}
 
 // --- Constants ---
 const PRICING_MULTIPLIERS: Record<string, { revenue: number; demand: number; reputation: number }> = {
@@ -426,7 +438,7 @@ export function processBusinessWeek(
   // Revenue (rebalanced +10% base)
   const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.1;
   const levelBonus = 1 + biz.level * 0.1;
-  const revenue = Math.round(
+  let revenue = Math.round(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
     (1 + upgradeRevenueBoost) * levelBonus * eventRevenueMultiplier * buffAgg.revenueMult
   );
@@ -434,15 +446,22 @@ export function processBusinessWeek(
   // Expenses (detailed breakdown) — variable costs SCALE with actual revenue.
   const baseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier;
   // Revenue scaling factor: if revenue is 5x the expected base, variable costs go up ~4x
-  const revScale = baseRev > 0 ? revenue / baseRev : 1;
+  let revScale = baseRev > 0 ? revenue / baseRev : 1;
   // Variable-cost scaling: 60% fixed baseline + 40% × revScale (dampened)
-  const variableScale = 0.6 + 0.4 * Math.min(6, revScale);
+  let variableScale = 0.6 + 0.4 * Math.min(6, revScale);
   // Rent scales with revenue: base rent + 2% of revenue above baseline
   const baseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier;
-  const rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
-  const rent = Math.round(rentScale);
+  let rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
+  let rent = Math.round(rentScale);
   const salaries = Math.round((biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0));
   const adCost = Math.round((adMod.weeklyCost ?? 0) * inflationMultiplier);
+  if ((biz.level ?? 0) === 0 && (biz.employees?.length ?? 0) === MIN_EMPLOYEES_REQUIRED && (biz.reputation ?? 0) < 40) {
+    revenue = Math.max(revenue, getStartupRevenueTarget(baseExp, baseRent, salaries, adCost, Math.random()));
+    revScale = baseRev > 0 ? revenue / baseRev : 1;
+    variableScale = 0.6 + 0.4 * Math.min(6, revScale);
+    rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
+    rent = Math.round(rentScale);
+  }
   // COGS is highly variable — scales strongly with revenue (11% of revenue floor)
   const cogs = Math.round(Math.max(baseExp * 0.45, revenue * 0.11) * eventExpenseMultiplier * buffAgg.expenseMult);
   // Utilities/maintenance/misc scale moderately, insurance is mostly fixed
@@ -578,7 +597,9 @@ export function processBusinessWeek(
   const repGrowth = (type.reputationGrowthRate ?? 0.5) * (profit > 0 ? 0.3 : -0.15);
   const adRepBoost = adMod.reputationBoost ?? 0;
   const pricingRepEffect = pricingMod.reputation ?? 0;
-  const projectRepBoost = updatedProjects.filter(p => p.resolved && p.succeeded).reduce((t, p) => t + p.reputationBonus, 0);
+  const projectRepBoost = updatedProjects
+    .filter((project) => project.resolved && project.succeeded && !biz.activeProjects?.find((old) => old.id === project.id)?.resolved)
+    .reduce((total, project) => total + project.reputationBonus, 0);
   let newReputation = (biz.reputation ?? 25) + repGrowth + adRepBoost + pricingRepEffect + eventRepChange + projectRepBoost + buffAgg.weeklyRepBoost;
   newReputation = Math.max(0, Math.min(100, newReputation));
 
@@ -635,10 +656,7 @@ export function processBusinessWeek(
     lastWeekProfit: profit,
     employees: updatedEmployees,
   });
-  let newLevel = 0;
-  for (let i = thresholds.length - 1; i >= 0; i--) {
-    if (valuation >= thresholds[i]) { newLevel = i; break; }
-  }
+  let newLevel = getBusinessLevelForMetrics(thresholds, valuation, newReputation);
 
   // Balance & dividend
   let newBalance = (biz.balance ?? 0) + profit + extraCashDelta;
@@ -656,10 +674,7 @@ export function processBusinessWeek(
     lastWeekProfit: profit,
     employees: updatedEmployees,
   });
-  newLevel = 0;
-  for (let i = thresholds.length - 1; i >= 0; i--) {
-    if (valuation >= thresholds[i]) { newLevel = i; break; }
-  }
+  newLevel = getBusinessLevelForMetrics(thresholds, valuation, newReputation);
 
   // Track annual profit; give tax refund if new year starts and last year was negative
   let annualProfit = biz.annualProfit ?? 0;
@@ -808,17 +823,23 @@ export function startProject(
   // ONE active project at a time
   const hasActive = (biz.activeProjects ?? []).some((p) => !p.resolved);
   if (hasActive) return { updatedBusiness: null, cost: 0, success: false, roll: 0, needed: 0 };
-  // Check required role
-  const hasRequiredRole = (biz.employees ?? []).some((e) => e.roleId === project.requiredRoleId);
+  // Accessible projects such as Local Marketing do not require a specialist.
+  const hasRequiredRole = !project.requiredRoleId || (biz.employees ?? []).some((e) => e.roleId === project.requiredRoleId);
   if (!hasRequiredRole) return { updatedBusiness: null, cost: 0, success: false, roll: 0, needed: 0 };
 
-  const cost = Math.round((project.baseCost ?? 0) * (inflationMultiplier ?? 1));
+  const levelScale = project.scalesWithLevel ? 1 + (biz.level ?? 0) * 0.75 : 1;
+  const cost = Math.round((project.baseCost ?? 0) * levelScale * (inflationMultiplier ?? 1));
   // Skill check with best matching employee
-  const eligible = (biz.employees ?? []).filter((e) => e.roleId === project.requiredRoleId);
+  const eligible = project.requiredRoleId
+    ? (biz.employees ?? []).filter((e) => e.roleId === project.requiredRoleId)
+    : (biz.employees ?? []);
   const bestSkill = eligible.reduce((max, e) => Math.max(max, e.skill ?? 0), 0);
   const needed = getProjectDifficulty(project);
   const roll = Math.floor(Math.random() * 20) + 1; // 1-20
-  const success = (roll + bestSkill / 10) >= needed;
+  const success = project.guaranteed === true || (roll + bestSkill / 10) >= needed;
+  const reputationBonus = project.scalesWithLevel
+    ? Math.min(project.maxReputationBonus ?? 4, (project.reputationBonus ?? 0) + (biz.level ?? 0) * 0.4)
+    : (project.reputationBonus ?? 0);
 
   const newProject: ActiveBusinessProject = {
     id: `proj_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -830,7 +851,7 @@ export function startProject(
     totalWeeks: project.weeks ?? 4,
     revenueMultiplier: success ? (project.revenueMultiplier ?? 1) : 1,
     expenseMultiplier: success ? (project.expenseMultiplier ?? 1) : 1.02,
-    reputationBonus: success ? (project.reputationBonus ?? 0) : 0,
+    reputationBonus: success ? reputationBonus : 0,
     succeeded: success,
     neededRoll: needed,
     actualRoll: roll,

@@ -1,5 +1,21 @@
 [
   {
+    "id": "local_marketing",
+    "name": "Local Marketing",
+    "icon": "📍",
+    "description": "Sponsor local activities and promote the business nearby for a guaranteed reputation gain.",
+    "requiredRoleId": null,
+    "baseCost": 1500,
+    "weeks": 3,
+    "revenueMultiplier": 1.0,
+    "expenseMultiplier": 1.0,
+    "reputationBonus": 1,
+    "maxReputationBonus": 4,
+    "scalesWithLevel": true,
+    "guaranteed": true,
+    "skillWeight": 0
+  },
+  {
     "id": "marketing_campaign",
     "name": "Marketing Campaign",
     "icon": "\ud83d\udce3",

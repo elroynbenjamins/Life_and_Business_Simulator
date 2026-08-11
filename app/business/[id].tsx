@@ -12,6 +12,7 @@ import {
   getLevelName, getBusinessType, getUpgrade, getEmployeeRole, getAutomationScore, getDemandLabel,
   getAllMoraleActions, getAllTraining, getAllProjects, computeMarketShare, meetsMinStaffing, MIN_EMPLOYEES_REQUIRED,
   TIER_CONFIG, getProjectDifficulty, getProjectOdds,
+  BUSINESS_LEVEL_REPUTATION_REQUIREMENTS,
 } from '../../src/engine/businessEngine';
 import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
@@ -193,6 +194,11 @@ export default function BusinessDetailScreen() {
               <View style={[styles.automationFill, { width: `${automation}%` }]} />
             </View>
           </View>
+          {biz.level < 7 && (
+            <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 8 }}>
+              Next level requires reputation {BUSINESS_LEVEL_REPUTATION_REQUIREMENTS[biz.level + 1]} and the valuation target.
+            </Text>
+          )}
         </GameCard>
 
         {/* Weekly Financials */}
@@ -424,12 +430,15 @@ export default function BusinessDetailScreen() {
                   </Text>
                 )}
                 {allProjects.map((proj: any) => {
-                  const hasRole = (biz.employees ?? []).some((e) => e.roleId === proj.requiredRoleId);
-                  const roleName = getEmployeeRole(proj.requiredRoleId)?.name ?? proj.requiredRoleId;
-                  const cost = Math.round((proj.baseCost ?? 0) * inflationMultiplier);
-                  const bestSkill = (biz.employees ?? []).filter((e) => e.roleId === proj.requiredRoleId).reduce((m, e) => Math.max(m, e.skill ?? 0), 0);
+                  const hasRole = !proj.requiredRoleId || (biz.employees ?? []).some((e) => e.roleId === proj.requiredRoleId);
+                  const roleName = proj.requiredRoleId ? (getEmployeeRole(proj.requiredRoleId)?.name ?? proj.requiredRoleId) : 'No specialist required';
+                  const levelScale = proj.scalesWithLevel ? 1 + (biz.level ?? 0) * 0.75 : 1;
+                  const cost = Math.round((proj.baseCost ?? 0) * levelScale * inflationMultiplier);
+                  const relevantEmployees = proj.requiredRoleId ? (biz.employees ?? []).filter((e) => e.roleId === proj.requiredRoleId) : (biz.employees ?? []);
+                  const bestSkill = relevantEmployees.reduce((m, e) => Math.max(m, e.skill ?? 0), 0);
                   const needed = getProjectDifficulty(proj);
-                  const odds = getProjectOdds(proj, bestSkill);
+                  const odds = proj.guaranteed ? 100 : getProjectOdds(proj, bestSkill);
+                  const scaledReputation = proj.scalesWithLevel ? Math.min(proj.maxReputationBonus ?? 4, (proj.reputationBonus ?? 0) + (biz.level ?? 0) * 0.4) : proj.reputationBonus;
                   const disabled = !hasRole || hasActive;
                   return (
                     <Pressable
@@ -446,7 +455,7 @@ export default function BusinessDetailScreen() {
                         <Text style={[styles.actionDesc, { color: Colors.primary, marginTop: 2 }]}>
                           Effect: {proj.revenueMultiplier && proj.revenueMultiplier !== 1 ? `${proj.revenueMultiplier > 1 ? '+' : ''}${Math.round((proj.revenueMultiplier - 1) * 100)}% revenue` : ''}
                           {proj.expenseMultiplier && proj.expenseMultiplier !== 1 ? ` • ${proj.expenseMultiplier < 1 ? '' : '+'}${Math.round((proj.expenseMultiplier - 1) * 100)}% expenses` : ''}
-                          {proj.reputationBonus ? ` • +${proj.reputationBonus} rep` : ''}
+                          {scaledReputation ? ` • +${scaledReputation.toFixed(1)} rep${proj.guaranteed ? ' guaranteed' : ''}` : ''}
                         </Text>
                         <Text style={{ color: odds >= 60 ? Colors.primary : odds >= 30 ? Colors.warning : Colors.negative, fontSize: 11, marginTop: 3 }}>
                           🎲 Difficulty {needed}/20 • Best skill {Math.round(bestSkill)} • Odds ~{odds}%
