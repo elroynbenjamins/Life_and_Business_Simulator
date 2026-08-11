@@ -6,17 +6,6 @@ import carsData from '../data/cars.json';
 import foodData from '../data/food.json';
 import coursesData from '../data/courses.json';
 
-// --- Utility cost per housing tier (base values) ---
-// Utilities cost 20% more than original base values
-const UTILITY_BASE: Record<string, number> = {
-  cheap_apartment: 50,
-  studio_apartment: 62,
-  small_house: 80,
-  family_house: 104,
-  luxury_villa: 164,
-  mansion: 260,
-};
-
 /**
  * Step 8: Income Collection
  * Returns total weekly income (salary). Inflation applied to salary.
@@ -53,8 +42,7 @@ export function getWeeklyRent(state: GameState): number {
 }
 
 export function getWeeklyUtilityCost(state: GameState): number {
-  const base = UTILITY_BASE[state?.currentHousingId ?? 'cheap_apartment'] ?? 25;
-  return inflated(base, state?.inflationMultiplier ?? 1);
+  return Math.round(getWeeklyRent(state) * 0.15);
 }
 
 export function getWeeklyCarCost(state: GameState): number {

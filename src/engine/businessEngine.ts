@@ -436,7 +436,7 @@ export function processBusinessWeek(
   }
 
   // Revenue (rebalanced +10% base)
-  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.1;
+  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.133;
   const levelBonus = 1 + biz.level * 0.1;
   let revenue = Math.round(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
@@ -444,7 +444,7 @@ export function processBusinessWeek(
   );
 
   // Expenses (detailed breakdown) — variable costs SCALE with actual revenue.
-  const baseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier;
+  const baseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.97;
   // Revenue scaling factor: if revenue is 5x the expected base, variable costs go up ~4x
   let revScale = baseRev > 0 ? revenue / baseRev : 1;
   // Variable-cost scaling: 60% fixed baseline + 40% × revScale (dampened)

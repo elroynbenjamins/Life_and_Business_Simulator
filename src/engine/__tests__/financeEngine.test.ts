@@ -3,6 +3,7 @@ import {
   getNetWorth,
   getPortfolioValue,
   getUnrealizedProfitLoss,
+  getWeeklyUtilityCost,
   processLoans,
   processTaxes,
 } from '../financeEngine';
@@ -16,6 +17,11 @@ function state(overrides: Partial<GameState> = {}): GameState {
 }
 
 describe('financeEngine', () => {
+  test('charges utilities at 15% of inflation-adjusted housing rent', () => {
+    expect(getWeeklyUtilityCost(state({ currentHousingId: 'studio_apartment', inflationMultiplier: 1 }))).toBe(75);
+    expect(getWeeklyUtilityCost(state({ currentHousingId: 'small_house', inflationMultiplier: 1.2 }))).toBe(162);
+  });
+
   test.each([
     [0, 0],
     [5_000, 750],

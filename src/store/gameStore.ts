@@ -590,6 +590,9 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!hasReq) return;
     if ((state?.totalWeeksWorked ?? 0) < (job?.requiredExperienceWeeks ?? 0)) return;
     if (job?.requiresCar && (!state?.currentCarId || state?.currentCarId === 'none')) return;
+    const housingTiers: Record<string, number> = { cheap_apartment: 0, studio_apartment: 1, small_house: 2, family_house: 3, luxury_villa: 4, mansion: 5 };
+    const requiredHousingTier = (job.level ?? 1) >= 5 ? 2 : (job.level ?? 1) >= 3 ? 1 : 0;
+    if ((housingTiers[state.currentHousingId ?? 'cheap_apartment'] ?? 0) < requiredHousingTier) return;
     if (state?.currentCourseId) {
       const currentCourse = (coursesData ?? []).find((c) => c?.id === state.currentCourseId);
       if ((currentCourse?.level ?? 1) === 1) return;
@@ -844,6 +847,11 @@ const useGameStore = create<GameStore>((set, get) => ({
     const currentCarTier = CAR_TIER[state?.currentCarId ?? 'none'] ?? 0;
     const minCarTier = level >= 3 ? 3 : 1;
     if (currentCarTier < minCarTier) return;
+
+    // Housing requirement: L3/L4 need Studio Apartment+, L5+ need Small House+.
+    const HOUSING_TIER: Record<string, number> = { cheap_apartment: 0, studio_apartment: 1, small_house: 2, family_house: 3, luxury_villa: 4, mansion: 5 };
+    const minHousingTier = level >= 5 ? 2 : level >= 3 ? 1 : 0;
+    if ((HOUSING_TIER[state.currentHousingId ?? 'cheap_apartment'] ?? 0) < minHousingTier) return;
 
     // Can't apply while studying full-time (level 1 course)
     if (state?.currentCourseId) {
