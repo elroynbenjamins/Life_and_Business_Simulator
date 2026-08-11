@@ -193,9 +193,10 @@ export function processStocks(
     const volatility = baseVolatility * volatilityMult;
     const baseChange = (Math.random() - 0.5) * volatility;
 
-    // Modest long-term growth plus a soft pull toward a 3% yearly trend line.
-    const weeklyGrowthDrift = isEtf ? 0.0018 : isCommodity ? 0.0006 : 0.0015;
-    const trendPrice = (data?.startPrice ?? stock.currentPrice ?? 100) * Math.pow(1.03, elapsedWeeks / 20);
+    // Modest long-term growth plus a soft pull toward a 1.5% yearly trend line.
+    // This targets roughly 25-40% median growth over a 13-year playthrough.
+    const weeklyGrowthDrift = isEtf ? 0.0009 : isCommodity ? 0.0003 : 0.0007;
+    const trendPrice = (data?.startPrice ?? stock.currentPrice ?? 100) * Math.pow(1.015, elapsedWeeks / 20);
     const trendGap = trendPrice / Math.max(1, stock.currentPrice ?? 1) - 1;
     const meanReversion = Math.max(-0.004, Math.min(0.004, trendGap * 0.02));
 

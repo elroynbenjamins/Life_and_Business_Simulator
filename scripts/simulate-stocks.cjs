@@ -43,8 +43,8 @@ for (let week = 1; week <= totalWeeks; week++) {
   for (const stock of stocksData) {
     const { effects, volatility } = combined(stock.type || 'stock');
     const baseVolatility = stock.type === 'etf' ? .025 : stock.type === 'commodity' ? .08 : .06;
-    const growthDrift = stock.type === 'etf' ? .0018 : stock.type === 'commodity' ? .0006 : .0015;
-    const trendPrice = stock.startPrice * Math.pow(1.03, (week - 1) / 20);
+    const growthDrift = stock.type === 'etf' ? .0009 : stock.type === 'commodity' ? .0003 : .0007;
+    const trendPrice = stock.startPrice * Math.pow(1.015, (week - 1) / 20);
     const meanReversion = Math.max(-.004, Math.min(.004, ((trendPrice / Math.max(1, prices[stock.ticker])) - 1) * .02));
     const change = Math.max(-.08, Math.min(.10,
       (random() - .5) * baseVolatility * volatility + (news.effects?.[stock.sector] || 0) +
