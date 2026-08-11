@@ -305,7 +305,6 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     marketShareModifier: 0,
     pricingStrategy: 'standard',
     advertisingLevel: 'none',
-    autoPilot: false,
     employees: [],
     purchasedUpgrades: [],
     businessLoans: [],
@@ -517,16 +516,22 @@ export function processBusinessWeek(
   const averageMorale = (biz.employees?.length ?? 0) > 0
     ? (biz.employees ?? []).reduce((total, employee) => total + (employee.morale ?? 50), 0) / (biz.employees?.length ?? 1)
     : 0;
-  if (averageMorale >= 55 && Math.random() < 0.10) {
-    const moraleEvent: any = (moraleEventsData as any[])[Math.floor(Math.random() * (moraleEventsData as any[]).length)];
+  const eventSpacingReady = globalWeek - (biz.lastBusinessEventWeek ?? -100) >= 10;
+  const eventCooldowns = { ...(biz.businessEventCooldowns ?? {}) };
+  const availableMoraleEvents = (moraleEventsData as any[]).filter((event: any) => globalWeek - (eventCooldowns[event.id] ?? -100) >= 40);
+  let triggeredEventId: string | null = null;
+  if (eventSpacingReady && averageMorale >= 55 && availableMoraleEvents.length > 0 && Math.random() < 0.10) {
+    const moraleEvent: any = availableMoraleEvents[Math.floor(Math.random() * availableMoraleEvents.length)];
     if (moraleEvent) {
       moraleDrop = Math.min(20, Math.max(1, moraleEvent.moraleDecrease ?? 1));
       newEvent = { businessName: biz.name, eventTitle: moraleEvent.title, icon: moraleEvent.icon };
+      triggeredEventId = moraleEvent.id;
     }
   }
 
   const eligibleEvents = (businessEventsData ?? []).filter((ev: any) => {
     if ((ev.minReputation ?? 0) > (biz.reputation ?? 0)) return false;
+    if (!eventSpacingReady || globalWeek - (eventCooldowns[ev.id] ?? -100) < 40) return false;
     const industries = ev.industries ?? [];
     if (industries.includes('all') || industries.includes(type.industry)) return true;
     return false;
@@ -537,6 +542,7 @@ export function processBusinessWeek(
       if (newActiveEvents.some((ae) => ae.eventId === (ev as any).id)) continue;
 
       newEvent = { businessName: biz.name, eventTitle: (ev as any).title, icon: (ev as any).icon };
+      triggeredEventId = (ev as any).id;
       const eff = (ev as any).effects ?? {};
 
       if (eff.expenseCost) {
@@ -638,7 +644,7 @@ export function processBusinessWeek(
   let newBalance = (biz.balance ?? 0) + profit + extraCashDelta;
   let playerDividend = 0;
   if (newBalance > 0 && profit > 0) {
-    const dividendRate = biz.autoPilot ? 0.5 : 0.7;
+    const dividendRate = 0.7;
     playerDividend = Math.round(Math.max(0, profit * dividendRate));
     newBalance -= playerDividend;
   }
@@ -756,6 +762,8 @@ export function processBusinessWeek(
       ...(biz.purchasedUpgrades ?? []),
       ...(completedUpgradeId ? [completedUpgradeId] : []),
     ])],
+    lastBusinessEventWeek: triggeredEventId ? globalWeek : biz.lastBusinessEventWeek,
+    businessEventCooldowns: triggeredEventId ? { ...eventCooldowns, [triggeredEventId]: globalWeek } : eventCooldowns,
   };
 
   return {
@@ -865,6 +873,7 @@ export function startTraining(biz: OwnedBusiness, employeeId: string, trainingId
   if (!training) return { updatedBusiness: null, cost: 0 };
   const emp = (biz.employees ?? []).find((e) => e.id === employeeId);
   if (!emp) return { updatedBusiness: null, cost: 0 };
+  if ((biz.employees ?? []).some((employee) => !!employee.inTrainingId)) return { updatedBusiness: null, cost: 0 };
   if (emp.inTrainingId) return { updatedBusiness: null, cost: 0 };
   if (training.requiresRole && !training.requiresRole.includes(emp.roleId)) return { updatedBusiness: null, cost: 0 };
 
@@ -958,10 +967,12 @@ export function computeMarketShare(biz: OwnedBusiness, competitorStrengths: numb
   };
 }
 
-function rollBusinessChoiceEvent(businesses: OwnedBusiness[]): TriggeredEvent | null {
+function rollBusinessChoiceEvent(businesses: OwnedBusiness[], globalWeek: number): TriggeredEvent | null {
   if ((businesses?.length ?? 0) === 0 || Math.random() >= 0.08) return null;
-  const biz = businesses[Math.floor(Math.random() * businesses.length)];
-  const template: any = (choiceEventsData as any[])[Math.floor(Math.random() * (choiceEventsData as any[]).length)];
+  const eligibleBusinesses = businesses.filter((business) => globalWeek - (business.lastBusinessEventWeek ?? -100) >= 10);
+  const biz = eligibleBusinesses[Math.floor(Math.random() * eligibleBusinesses.length)];
+  const eligibleTemplates = (choiceEventsData as any[]).filter((template: any) => globalWeek - (biz?.businessEventCooldowns?.[template.id] ?? -100) >= 40);
+  const template: any = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
   if (!biz || !template) return null;
   return {
     ...template,
@@ -1003,7 +1014,20 @@ export function processAllBusinesses(
     if (result.newRetention) retentionEvents.push(result.newRetention);
   }
 
-  return { updatedBusinesses, totalProfit, totalDividend, totalTaxRefund, events, retentionEvents, decisionEvent: rollBusinessChoiceEvent(updatedBusinesses) };
+  const globalWeek = ((currentYear - 1) * 20) + currentWeek;
+  const decisionEvent = rollBusinessChoiceEvent(updatedBusinesses, globalWeek);
+  if (decisionEvent?.businessId) {
+    const idx = updatedBusinesses.findIndex((business) => business.id === decisionEvent.businessId);
+    if (idx >= 0) {
+      const templateId = String(decisionEvent.id).replace(`_${decisionEvent.businessId}`, '');
+      updatedBusinesses[idx] = {
+        ...updatedBusinesses[idx],
+        lastBusinessEventWeek: globalWeek,
+        businessEventCooldowns: { ...(updatedBusinesses[idx].businessEventCooldowns ?? {}), [templateId]: globalWeek },
+      };
+    }
+  }
+  return { updatedBusinesses, totalProfit, totalDividend, totalTaxRefund, events, retentionEvents, decisionEvent };
 }
 
 export function getTotalBusinessValue(businesses: OwnedBusiness[]): number {

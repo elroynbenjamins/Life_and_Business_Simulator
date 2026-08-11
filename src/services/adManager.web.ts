@@ -21,3 +21,6 @@ export async function loadRewardedAd(): Promise<boolean> {
 export async function showRewardedAd(_onReward: () => void): Promise<boolean> {
   return false;
 }
+
+export async function loadInterstitialAd(): Promise<boolean> { return false; }
+export async function showInterstitialAd(_onClosed: () => void): Promise<boolean> { return false; }

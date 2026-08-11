@@ -507,7 +507,6 @@ export interface OwnedBusiness {
   // Settings
   pricingStrategy: 'budget' | 'standard' | 'premium' | 'luxury';
   advertisingLevel: 'none' | 'basic' | 'moderate' | 'aggressive';
-  autoPilot: boolean;
   // People
   employees: BusinessEmployee[];
   // Upgrades
@@ -539,6 +538,8 @@ export interface OwnedBusiness {
   recruitProgress?: number;     // weeks accrued toward next paid charge (0-5)
   // Business timeline
   timeline?: BusinessTimelineEntry[];
+  lastBusinessEventWeek?: number;
+  businessEventCooldowns?: Record<string, number>;
 }
 
 /** Triggered life event for display */

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,9 @@ import { formatCurrency } from '../../src/utils/format';
 import { inflated } from '../../src/engine/economyEngine';
 import { meetsExperienceRequirement } from '../../src/engine/educationEngine';
 import coursesData from '../../src/data/courses.json';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import { loadRewardedAd, showRewardedAd } from '../../src/services/adManager';
 
 const CATEGORIES = ['Sales', 'Administration', 'Finance', 'Marketing', 'Technology'];
 const CATEGORY_ICONS: Record<string, string> = {
@@ -27,6 +30,9 @@ export default function EducationScreen() {
   const completedCourses = useGameStore((s) => s?.completedCourses ?? []);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const enrollCourse = useGameStore((s) => s?.enrollCourse);
+  const speedUpEducationWithAd = useGameStore((s) => s?.speedUpEducationWithAd);
+  const getAdUsage = useGameStore((s) => s?.getAdUsage);
+  const [adMessage, setAdMessage] = useState('');
   const weeksEmployed = useGameStore((s) => s?.statistics?.weeksEmployed ?? 0);
   const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
 
@@ -34,6 +40,18 @@ export default function EducationScreen() {
   const currentCourse = currentCourseId
     ? (coursesData as any[]).find((c) => c?.id === currentCourseId)
     : null;
+
+  const speedUp = async () => {
+    if (getAdUsage?.().limitReached) { setAdMessage('Daily ad limit reached.'); return; }
+    setAdMessage('Loading advertisement...');
+    const grant = () => { speedUpEducationWithAd?.(); setAdMessage('Course advanced by 1 week!'); };
+    if (Platform.OS === 'web' || Constants.expoGoConfig != null) {
+      setTimeout(grant, 1500);
+      return;
+    }
+    const loaded = await loadRewardedAd();
+    if (!loaded || !(await showRewardedAd(grant))) setAdMessage('Ad unavailable. Please try again later.');
+  };
 
   const groupedCourses: Record<string, any[]> = {};
   for (const cat of CATEGORIES) groupedCourses[cat] = [];
@@ -61,6 +79,11 @@ export default function EducationScreen() {
               return (<>
                 <ProgressBar progress={courseWeeksCompleted / adjDur} />
                 <Text style={styles.progressText}>Week {courseWeeksCompleted}/{adjDur}{partTimeJob ? ' (slower — part-time)' : ''}</Text>
+                <Pressable style={styles.adButton} onPress={speedUp}>
+                  <Ionicons name="play-circle" size={18} color={Colors.white} />
+                  <Text style={styles.enrollBtnText}>Watch ad: skip 1 week</Text>
+                </Pressable>
+                {!!adMessage && <Text style={styles.adMessage}>{adMessage}</Text>}
               </>);
             })()}
             {/* Show what you'll learn */}
@@ -195,5 +218,7 @@ const styles = StyleSheet.create({
   enrollBtn: { backgroundColor: Colors.primary, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
   enrollBtnText: { color: Colors.white, fontSize: 13, fontWeight: '700' },
   studyingBadge: { color: '#F59E0B', fontSize: 12, fontWeight: '600' },
+  adButton: { marginTop: 10, backgroundColor: '#3B82F6', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  adMessage: { color: Colors.textSecondary, textAlign: 'center', marginTop: 6, fontSize: 12 },
   lockText: { color: Colors.textMuted, fontSize: 11 },
 });

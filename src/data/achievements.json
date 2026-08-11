@@ -152,14 +152,6 @@
     "icon": "medal"
   },
   {
-    "id": "own_all_upgrades",
-    "name": "Fully Upgraded",
-    "description": "Own all house upgrades at once",
-    "xpReward": 60,
-    "gemReward": 0,
-    "icon": "construct"
-  },
-  {
     "id": "diversified",
     "name": "Diversified",
     "description": "Hold 10 or more different stocks",

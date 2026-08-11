@@ -99,12 +99,6 @@ export default function BusinessPortfolioScreen() {
                       </View>
                       <Text style={styles.automationValue}>{automation}%</Text>
                     </View>
-                    {biz.autoPilot && (
-                      <View style={styles.autoPilotBadge}>
-                        <Ionicons name="airplane" size={12} color={Colors.info} />
-                        <Text style={styles.autoPilotText}>Auto</Text>
-                      </View>
-                    )}
                   </View>
                 </GameCard>
               </Pressable>
@@ -153,8 +147,6 @@ const styles = StyleSheet.create({
   automationTrack: { flex: 1, height: 4, backgroundColor: Colors.elevated, borderRadius: 2 },
   automationFill: { height: 4, backgroundColor: Colors.primary, borderRadius: 2 },
   automationValue: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600', width: 30, textAlign: 'right' },
-  autoPilotBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.info}20`, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  autoPilotText: { color: Colors.info, fontSize: 11, fontWeight: '600' },
   startButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, padding: 16, marginTop: 8 },
   startButtonText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
 });

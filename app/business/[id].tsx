@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Modal, TextInput, Dimensions } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -42,7 +42,7 @@ const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4
 
 export default function BusinessDetailScreen() {
   const router = useRouter();
-  const { id = '' } = useLocalSearchParams();
+  const { id = '', newBusiness } = useLocalSearchParams();
   const businesses = useGameStore((s) => s?.businesses ?? []);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
@@ -51,26 +51,27 @@ export default function BusinessDetailScreen() {
     sellBusiness, openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
     setBusinessPricing, setBusinessAdvertising,
     buyBusinessUpgrade, takeBusinessLoan,
-    toggleAutoPilot, injectCashIntoBusiness, withdrawFromBusiness,
+    injectCashIntoBusiness, withdrawFromBusiness,
     applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, resolveBusinessRetention,
   } = useGameStore();
 
   const [showHireModal, setShowHireModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState<'inject' | 'withdraw' | null>(null);
   const [transferAmount, setTransferAmount] = useState('');
+  const [dialog, setDialog] = useState<{ title: string; message: string; action: () => void } | null>(null);
 
   const confirmAction = (title: string, msg: string, action: () => void) => {
-    if (Platform.OS === 'web') {
-      if (window.confirm(`${title}: ${msg}`)) action();
-    } else {
-      Alert.alert(title, msg, [{ text: 'Cancel', style: 'cancel' }, { text: 'Confirm', onPress: action }]);
-    }
+    setDialog({ title, message: msg, action });
   };
   const [showTrainingModal, setShowTrainingModal] = useState<string | null>(null); // employeeId
   const [showMoraleDropdown, setShowMoraleDropdown] = useState(false);
   const [showProjectsModal, setShowProjectsModal] = useState(false);
+  const [showFundingNotice, setShowFundingNotice] = useState(newBusiness === '1');
 
   const biz = businesses.find((b) => b?.id === id);
+  useEffect(() => {
+    if (biz && (biz.balance ?? 0) < -50000) setShowFundingNotice(true);
+  }, [biz?.balance]);
   if (!biz) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -132,14 +133,7 @@ export default function BusinessDetailScreen() {
       // Navigate away immediately to avoid rendering with deleted business
       router.replace('/tabs');
     };
-    if (Platform.OS === 'web') {
-      if (confirm(`Sell ${biz.name} for ${formatCurrency(salePrice)}?`)) doSell();
-    } else {
-      Alert.alert('Sell Business', `Sell ${biz.name} for ${formatCurrency(salePrice)}?`, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sell', style: 'destructive', onPress: doSell },
-      ]);
-    }
+    confirmAction('Sell Business', `Sell ${biz.name} for ${formatCurrency(salePrice)}?`, doSell);
   };
 
   const handleTransfer = () => {
@@ -261,21 +255,6 @@ export default function BusinessDetailScreen() {
             </Pressable>
           </View>
         </GameCard>
-
-        {/* Auto Pilot */}
-        <Pressable onPress={() => toggleAutoPilot(biz.id)}>
-          <GameCard>
-            <View style={styles.autoPilotRow}>
-              <View>
-                <Text style={styles.autoPilotTitle}>Auto-Pilot Mode</Text>
-                <Text style={styles.autoPilotDesc}>Business runs automatically with lower dividends</Text>
-              </View>
-              <View style={[styles.toggle, biz.autoPilot && styles.toggleOn]}>
-                <View style={[styles.toggleThumb, biz.autoPilot && styles.toggleThumbOn]} />
-              </View>
-            </View>
-          </GameCard>
-        </Pressable>
 
         {/* Pricing Strategy */}
         <GameCard title="Pricing Strategy">
@@ -425,6 +404,7 @@ export default function BusinessDetailScreen() {
                       <Text style={[styles.actionDesc, { color: p.succeeded ? Colors.primary : Colors.negative }]}>
                         {p.succeeded ? 'On track' : 'Struggling'} • {p.weeksRemaining}wk left
                       </Text>
+                      {typeof p.actualRoll === 'number' && <Text style={styles.actionDesc}>Dice roll: {p.actualRoll}/20 • Needed: {p.neededRoll}</Text>}
                     </View>
                     <Text style={styles.actionCost}>{formatCurrency(p.cost)}</Text>
                   </View>
@@ -753,6 +733,39 @@ export default function BusinessDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal visible={showFundingNotice} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{(biz.balance ?? 0) < -50000 ? 'Business funding required' : 'Fund your new business'}</Text>
+            <Text style={styles.modalSubtitle}>Recruitment, training, projects, morale actions, and upgrades are paid only from the business balance. Inject personal cash first or use a business loan.</Text>
+            <Pressable style={styles.modalClose} onPress={() => { setShowFundingNotice(false); setShowTransferModal('inject'); }}>
+              <Text style={styles.modalCloseText}>Inject cash</Text>
+            </Pressable>
+            <Pressable style={[styles.modalClose, { backgroundColor: Colors.info }]} onPress={() => { takeBusinessLoan(biz.id, 50000, 0.08, 52); setShowFundingNotice(false); }}>
+              <Text style={styles.modalCloseText}>Take €50K business loan</Text>
+            </Pressable>
+            <Pressable style={[styles.modalClose, { backgroundColor: Colors.cardBorder }]} onPress={() => setShowFundingNotice(false)}>
+              <Text style={styles.modalCloseText}>Not now</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!dialog} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{dialog?.title}</Text>
+            <Text style={styles.modalSubtitle}>{dialog?.message}</Text>
+            <Pressable style={styles.modalClose} onPress={() => { const action = dialog?.action; setDialog(null); action?.(); }}>
+              <Text style={styles.modalCloseText}>Confirm</Text>
+            </Pressable>
+            <Pressable style={[styles.modalClose, { backgroundColor: Colors.cardBorder }]} onPress={() => setDialog(null)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -901,6 +914,7 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalContent: { backgroundColor: Colors.card, borderRadius: 16, padding: 20, width: '100%', maxWidth: 400, maxHeight: '85%' },
   modalTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 16 },
+  modalSubtitle: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19, marginBottom: 10 },
   roleOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   roleName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   roleDesc: { color: Colors.textMuted, fontSize: 12, marginTop: 2, maxWidth: 200 },

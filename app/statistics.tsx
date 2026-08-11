@@ -98,8 +98,8 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
           <Row label="Jobs Worked" value={`${s?.jobsWorked ?? 0}`} />
           <Row label="Weeks Employed" value={`${s?.weeksEmployed ?? 0}`} />
           <Row label="Weeks Unemployed" value={`${s?.weeksUnemployed ?? 0}`} />
-          <Row label="Total Salary Earned" value={formatCurrency(s?.totalSalaryEarned ?? 0)} />
-          <Row label="Total Taxes Paid" value={formatCurrency(s?.totalTaxesPaid ?? 0)} />
+          <Row label="Total Salary Earned" value={formatCurrency(s?.totalSalaryEarned ?? 0)} tone="positive" />
+          <Row label="Total Taxes Paid" value={formatCurrency(s?.totalTaxesPaid ?? 0)} tone="negative" />
         </GameCard>
 
         <GameCard title="Education">
@@ -108,15 +108,15 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
 
         <GameCard title="Investing">
           <Row label="Stocks Purchased" value={`${s?.stocksPurchased ?? 0}`} />
-          <Row label="Largest Weekly Stock Gain" value={formatPercent(s?.largestStockGain ?? 0)} />
-          <Row label="Largest Weekly Stock Loss" value={formatPercent(s?.largestStockLoss ?? 0)} />
-          <Row label="Total Dividends" value={formatCurrency(s?.totalDividendsReceived ?? 0)} />
-          <Row label="Lifetime Realized P/L" value={formatCurrency(s?.totalRealizedProfitLoss ?? 0)} />
-          <Row label="Current Unrealized P/L" value={formatCurrency(unrealizedProfitLoss)} />
+          <Row label="Largest Weekly Stock Gain" value={formatPercent(s?.largestStockGain ?? 0)} tone="positive" />
+          <Row label="Largest Weekly Stock Loss" value={formatPercent(s?.largestStockLoss ?? 0)} tone="negative" />
+          <Row label="Total Dividends" value={formatCurrency(s?.totalDividendsReceived ?? 0)} tone="positive" />
+          <Row label="Lifetime Realized P/L" value={formatCurrency(s?.totalRealizedProfitLoss ?? 0)} amount={s?.totalRealizedProfitLoss ?? 0} />
+          <Row label="Current Unrealized P/L" value={formatCurrency(unrealizedProfitLoss)} amount={unrealizedProfitLoss} />
         </GameCard>
 
         <GameCard title="Living">
-          <Row label="Total Living Costs" value={formatCurrency(s?.totalLivingCosts ?? 0)} />
+          <Row label="Total Living Costs" value={formatCurrency(s?.totalLivingCosts ?? 0)} tone="negative" />
           <Row label="Highest Cash" value={formatCurrency(s?.highestCash ?? 0)} />
           <Row label="Highest Net Worth" value={formatCurrency(s?.highestNetWorth ?? 0)} />
         </GameCard>
@@ -130,11 +130,14 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, amount, tone }: { label: string; value: string; amount?: number; tone?: 'positive' | 'negative' }) {
+  const color = tone === 'positive' ? Colors.primary : tone === 'negative' ? Colors.negative
+    : typeof amount === 'number' ? (amount > 0 ? Colors.primary : amount < 0 ? Colors.negative : Colors.textPrimary)
+    : Colors.textPrimary;
   return (
     <View style={styles.row}>
       <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value}>{value}</Text>
+      <Text style={[styles.value, { color }]}>{value}</Text>
     </View>
   );
 }

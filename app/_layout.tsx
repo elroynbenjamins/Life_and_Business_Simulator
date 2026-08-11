@@ -12,6 +12,7 @@ import SaveSlotPicker from '../src/components/SaveSlotPicker';
 import NegativeCashModal from '../src/components/NegativeCashModal';
 import PeriodReportModal from '../src/components/PeriodReportModal';
 import EventModal from '../src/components/EventModal';
+import ScheduledAdModal from '../src/components/ScheduledAdModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -67,6 +68,7 @@ export default function RootLayout() {
       <NegativeCashModal />
       <EventModal />
       <PeriodReportModal />
+      <ScheduledAdModal />
     </SafeAreaProvider>
   );
 }

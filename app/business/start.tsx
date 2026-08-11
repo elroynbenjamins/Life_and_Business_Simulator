@@ -32,11 +32,8 @@ export default function StartBusinessScreen() {
   const handleFound = () => {
     if (!selectedType || !canAfford) return;
     foundBusiness?.(selectedType, customName || null);
-    if (Platform.OS === 'web') {
-      router.back();
-    } else {
-      router.back();
-    }
+    const created = useGameStore.getState().businesses.slice(-1)[0];
+    if (created) router.replace({ pathname: '/business/[id]', params: { id: created.id, newBusiness: '1' } });
   };
 
   return (

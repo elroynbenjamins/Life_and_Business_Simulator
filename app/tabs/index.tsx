@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   courseTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 8 },
   courseCaption: { color: Colors.textSecondary, fontSize: 12, marginTop: 6 },
   linksRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginVertical: 4 },
-  quickLink: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: Colors.cardBorder },
+  quickLink: { flexBasis: '30%', flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   quickLinkText: { color: Colors.textPrimary, fontSize: 13, fontWeight: '500' },
   nextWeekButton: { backgroundColor: Colors.primary, borderRadius: 16, padding: 20, alignItems: 'center', marginTop: 8 },
   nextWeekText: { color: Colors.white, fontSize: 18, fontWeight: '700' },

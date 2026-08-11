@@ -28,6 +28,7 @@ interface GameStore extends GameState {
   showSlotPicker: boolean;
   showNegativeCashModal: boolean;
   showPeriodReport: boolean;
+  showScheduledAd: boolean;
   periodReport: PeriodReport | null;
 
   // Period tracking accumulators (reset every 20 weeks)
@@ -58,10 +59,12 @@ interface GameStore extends GameState {
   dismissSummary: () => void;
   dismissNegativeCash: () => void;
   dismissPeriodReport: () => void;
+  dismissScheduledAd: () => void;
   openSlotPicker: () => void;
   closeSlotPicker: () => void;
 
   enrollCourse: (courseId: string) => void;
+  speedUpEducationWithAd: () => void;
   applyForJob: (jobId: string) => void;
   quitJob: () => void;
 
@@ -117,7 +120,6 @@ interface GameStore extends GameState {
   setBusinessAdvertising: (businessId: string, level: OwnedBusiness['advertisingLevel']) => void;
   buyBusinessUpgrade: (businessId: string, upgradeId: string) => void;
   takeBusinessLoan: (businessId: string, amount: number, interestRate: number, durationWeeks: number) => void;
-  toggleAutoPilot: (businessId: string) => void;
   injectCashIntoBusiness: (businessId: string, amount: number) => void;
   withdrawFromBusiness: (businessId: string, amount: number) => void;
 
@@ -134,6 +136,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   showSlotPicker: false,
   showNegativeCashModal: false,
   showPeriodReport: false,
+  showScheduledAd: false,
   periodReport: null,
   periodIncome: 0,
   periodExpenses: 0,
@@ -418,17 +421,20 @@ const useGameStore = create<GameStore>((set, get) => ({
   dismissSummary: () => {
     const state = get();
     const summary = state.lastSummary;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const scheduledAd = globalWeek > 0 && globalWeek % 100 === 0;
     // If there's a choice/opportunity event, show event modal first
     if (summary?.lifeEvent && (summary.lifeEvent.type === 'choice' || summary.lifeEvent.type === 'opportunity')) {
-      set({ showSummary: false, showEventModal: true, pendingEvent: summary.lifeEvent });
+      set({ showSummary: false, showEventModal: true, pendingEvent: summary.lifeEvent, showScheduledAd: scheduledAd });
     } else if (state.periodReport && !state.showPeriodReport) {
-      set({ showSummary: false, showPeriodReport: true });
+      set({ showSummary: false, showPeriodReport: true, showScheduledAd: scheduledAd });
     } else {
-      set({ showSummary: false });
+      set({ showSummary: false, showScheduledAd: scheduledAd });
     }
   },
   dismissNegativeCash: () => set({ showNegativeCashModal: false }),
   dismissPeriodReport: () => set({ showPeriodReport: false, periodReport: null }),
+  dismissScheduledAd: () => set({ showScheduledAd: false }),
   dismissEventModal: () => {
     const state = get();
     // After event modal, check for period report
@@ -545,6 +551,20 @@ const useGameStore = create<GameStore>((set, get) => ({
       updates.careerHistory = newHistory;
     }
     set(updates as any);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  speedUpEducationWithAd: () => {
+    const state = get();
+    if (!state.currentCourseId || get().getAdUsage().limitReached) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const watchedToday = (state as any).adLastWatchDate === today ? ((state as any).adWatchedToday ?? 0) : 0;
+    const updates: any = {
+      courseWeeksCompleted: (state.courseWeeksCompleted ?? 0) + 1,
+      adWatchedToday: watchedToday + 1,
+      adLastWatchDate: today,
+    };
+    set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -977,19 +997,10 @@ const useGameStore = create<GameStore>((set, get) => ({
     const RECRUIT_COST = 10000;
     let free = biz.freeRecruits ?? 3;
     let charges = biz.recruitCharges ?? 0;
-    let newCash = state?.cash ?? 0;
     if (free > 0) {
-      free -= 1;
+      // The free attempt is consumed only after a candidate is hired.
     } else if (charges > 0) {
-      charges -= 1;
-      // Pay from business balance first, else personal cash
-      if ((biz.balance ?? 0) >= RECRUIT_COST) {
-        biz.balance = (biz.balance ?? 0) - RECRUIT_COST;
-      } else if (newCash >= RECRUIT_COST) {
-        newCash -= RECRUIT_COST;
-      } else {
-        return; // can't afford
-      }
+      if ((biz.balance ?? 0) < RECRUIT_COST) return;
     } else {
       return; // no charges available
     }
@@ -1000,8 +1011,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     biz.pendingCandidates = generateCandidates(roleId, existingNames, state?.inflationMultiplier ?? 1);
     biz.pendingCandidateRoleId = roleId;
     businesses[idx] = biz;
-    set({ businesses, cash: newCash });
-    saveGame(extractGameState({ ...state, businesses, cash: newCash }), state.activeSlot);
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
   hireCandidate: (businessId: string, candidateId: string) => {
@@ -1015,6 +1026,14 @@ const useGameStore = create<GameStore>((set, get) => ({
     const type = getBusinessType(biz.typeId);
     if ((biz.employees?.length ?? 0) >= (type?.maxEmployees ?? 1)) return;
     const emp = candidateToEmployee(candidate);
+    if ((biz.freeRecruits ?? 3) > 0) {
+      biz.freeRecruits = (biz.freeRecruits ?? 3) - 1;
+    } else {
+      const recruitCost = 10000;
+      if ((biz.recruitCharges ?? 0) <= 0 || (biz.balance ?? 0) < recruitCost) return;
+      biz.recruitCharges = (biz.recruitCharges ?? 0) - 1;
+      biz.balance = (biz.balance ?? 0) - recruitCost;
+    }
     biz.employees = [...(biz.employees ?? []), emp];
     biz.pendingCandidates = null;
     biz.pendingCandidateRoleId = null;
@@ -1047,19 +1066,13 @@ const useGameStore = create<GameStore>((set, get) => ({
     const biz = businesses[idx];
     const result = applyMoraleAction(biz, actionId);
     if (!result.updatedBusiness) return;
-    // Deduct cost from business balance; if insufficient, from player cash
-    let newCash = state.cash;
+    // Deduct only from the business account.
     let updatedBiz = result.updatedBusiness;
-    if ((updatedBiz.balance ?? 0) >= result.cost) {
-      updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
-    } else if (newCash >= result.cost) {
-      newCash -= result.cost;
-    } else {
-      return;
-    }
+    if ((updatedBiz.balance ?? 0) < result.cost) return;
+    updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
     businesses[idx] = updatedBiz;
-    set({ businesses, cash: newCash });
-    saveGame(extractGameState({ ...state, businesses, cash: newCash }), state.activeSlot);
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
   startEmployeeTraining: (businessId: string, employeeId: string, trainingId: string) => {
@@ -1070,18 +1083,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     const biz = businesses[idx];
     const result = startTraining(biz, employeeId, trainingId, state.inflationMultiplier);
     if (!result.updatedBusiness) return;
-    let newCash = state.cash;
     let updatedBiz = result.updatedBusiness;
-    if ((updatedBiz.balance ?? 0) >= result.cost) {
-      updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
-    } else if (newCash >= result.cost) {
-      newCash -= result.cost;
-    } else {
-      return;
-    }
+    if ((updatedBiz.balance ?? 0) < result.cost) return;
+    updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
     businesses[idx] = updatedBiz;
-    set({ businesses, cash: newCash });
-    saveGame(extractGameState({ ...state, businesses, cash: newCash }), state.activeSlot);
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
   startBusinessProject: (businessId: string, projectId: string) => {
@@ -1092,18 +1099,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     const biz = businesses[idx];
     const result = startProject(biz, projectId, state.inflationMultiplier);
     if (!result.updatedBusiness) return;
-    let newCash = state.cash;
     let updatedBiz = result.updatedBusiness;
-    if ((updatedBiz.balance ?? 0) >= result.cost) {
-      updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
-    } else if (newCash >= result.cost) {
-      newCash -= result.cost;
-    } else {
-      return;
-    }
+    if ((updatedBiz.balance ?? 0) < result.cost) return;
+    updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
     businesses[idx] = updatedBiz;
-    set({ businesses, cash: newCash });
-    saveGame(extractGameState({ ...state, businesses, cash: newCash }), state.activeSlot);
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
   resolveBusinessRetention: (businessId: string, choice) => {
@@ -1206,15 +1207,6 @@ const useGameStore = create<GameStore>((set, get) => ({
     const updates = { businesses };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
-  },
-
-  toggleAutoPilot: (businessId: string) => {
-    const state = get();
-    const businesses = (state?.businesses ?? []).map((b) =>
-      b?.id === businessId ? { ...b, autoPilot: !(b?.autoPilot ?? false) } : b
-    );
-    set({ businesses });
-    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
   injectCashIntoBusiness: (businessId: string, amount: number) => {

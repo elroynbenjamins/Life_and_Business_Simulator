@@ -38,7 +38,6 @@ export function getCareerSalary(career: CareerState, inflationMultiplier: number
   const base = position.baseSalary ?? 0;
   const companySalaryMult = company.salaryMultiplier ?? 1.0;
   const raiseBonus = career.salaryBonus ?? 1.0;
-  const { min, max } = getPositionSalaryRange(position);
 
   // Prestige salary multiplier
   let prestigeMult = 1.0;
@@ -47,8 +46,10 @@ export function getCareerSalary(career: CareerState, inflationMultiplier: number
     prestigeMult = 1 + (fx.salary_multiplier ?? 0);
   }
 
-  const raw = base * companySalaryMult * raiseBonus * prestigeMult;
-  const bounded = Math.max(min, Math.min(max, raw));
+  const companyBase = base * companySalaryMult;
+  const raw = companyBase * raiseBonus * prestigeMult;
+  // Performance is capped at +30%. Inflation is applied after the cap.
+  const bounded = Math.max(companyBase, Math.min(companyBase * 1.30, raw));
   return Math.round(inflated(bounded, inflationMultiplier));
 }
 
@@ -147,15 +148,13 @@ export function processCareerTick(
 
   // Annual raise check (~every 20 weeks = 1 year); bounded by max
   const currentPos = (path.positions as any[]).find((p: any) => p?.level === career.positionLevel);
-  const { max: posMax } = currentPos ? getPositionSalaryRange(currentPos) : { max: Infinity };
   const baseSalary = currentPos?.baseSalary ?? 0;
   const companyMult = company.salaryMultiplier ?? 1.0;
   const currentAbs = baseSalary * companyMult * (updatedCareer.salaryBonus ?? 1.0);
 
   const weeksSinceRaise = globalWeek - (career.lastRaiseWeek ?? 0);
-  if (weeksSinceRaise >= 20 && (career.performance ?? 50) >= 40 && currentAbs < posMax) {
-    const raisePercent = 0.03 + Math.random() * 0.05;
-    updatedCareer.salaryBonus = (career.salaryBonus ?? 1.0) * (1 + raisePercent);
+  if (weeksSinceRaise >= 20 && (career.performance ?? 50) >= 40 && (updatedCareer.salaryBonus ?? 1) < 1.30) {
+    updatedCareer.salaryBonus = Math.min(1.30, (career.salaryBonus ?? 1.0) * 1.03);
     updatedCareer.lastRaiseWeek = globalWeek;
     gotRaise = true;
   }
@@ -169,8 +168,13 @@ export function processCareerTick(
       const carTiers: Record<string, number> = { none: 0, used_car: 1, sedan: 2, suv: 3, sports_car: 4, luxury_car: 5 };
       const needsSuv = nextPosition.level >= 3;
       const hasRequiredCar = !needsSuv || (carTiers[state.currentCarId ?? 'none'] ?? 0) >= carTiers.suv;
+      const housingTiers: Record<string, number> = { cheap_apartment: 0, studio_apartment: 1, small_house: 2, family_house: 3, luxury_villa: 4, mansion: 5 };
+      const requiredHousingTier = nextPosition.level >= 5 ? 2 : nextPosition.level >= 3 ? 1 : 0;
+      const hasRequiredHousing = (housingTiers[state.currentHousingId ?? 'cheap_apartment'] ?? 0) >= requiredHousingTier;
       if (!hasRequiredCar) {
         promotionBlockedReason = `Promotion to ${nextPosition.title} is ready, but you need an SUV or better vehicle.`;
+      } else if (!hasRequiredHousing) {
+        promotionBlockedReason = `Promotion to ${nextPosition.title} is ready, but you need ${nextPosition.level >= 5 ? 'a Small House or better' : 'a Studio Apartment or better'}.`;
       } else {
       // Preserve current salary unless below new position's minSalary
       const { min: newMin } = getPositionSalaryRange(nextPosition);

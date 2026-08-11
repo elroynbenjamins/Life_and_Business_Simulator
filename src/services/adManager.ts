@@ -10,6 +10,7 @@ let rewardedAdEventType: any = null;
 let listeners: Listener[] = [];
 let rewardCallback: (() => void) | null = null;
 let rewardGranted = false;
+let interstitialAd: any = null;
 
 function notify() {
   listeners.forEach((l) => l(adState));
@@ -104,4 +105,28 @@ export async function showRewardedAd(onReward: () => void): Promise<boolean> {
     rewardCallback = null;
     return false;
   }
+}
+
+export async function loadInterstitialAd(): Promise<boolean> {
+  try {
+    const { InterstitialAd, AdEventType } = await import('react-native-google-mobile-ads');
+    const unitId = Platform.OS === 'ios' ? AD_CONFIG.INTERSTITIAL_AD_UNIT_ID_IOS : AD_CONFIG.INTERSTITIAL_AD_UNIT_ID_ANDROID;
+    interstitialAd = InterstitialAd.createForAdRequest(unitId, { requestNonPersonalizedAdsOnly: true });
+    return await new Promise<boolean>((resolve) => {
+      const loaded = interstitialAd.addAdEventListener(AdEventType.LOADED, () => { loaded(); resolve(true); });
+      const failed = interstitialAd.addAdEventListener(AdEventType.ERROR, () => { failed(); resolve(false); });
+      interstitialAd.load();
+      setTimeout(() => resolve(false), 15000);
+    });
+  } catch { return false; }
+}
+
+export async function showInterstitialAd(onClosed: () => void): Promise<boolean> {
+  if (!interstitialAd) return false;
+  try {
+    const { AdEventType } = await import('react-native-google-mobile-ads');
+    const closed = interstitialAd.addAdEventListener(AdEventType.CLOSED, () => { closed(); interstitialAd = null; onClosed(); });
+    await interstitialAd.show();
+    return true;
+  } catch { return false; }
 }

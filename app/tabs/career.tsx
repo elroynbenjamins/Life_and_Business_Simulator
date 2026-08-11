@@ -21,6 +21,7 @@ export default function CareerScreen() {
   const knowledge = useGameStore((s) => s?.knowledge ?? {});
   const totalWeeksWorked = useGameStore((s) => s?.totalWeeksWorked ?? 0);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
+  const currentHousingId = useGameStore((s) => s?.currentHousingId ?? 'cheap_apartment');
   const currentCourseId = useGameStore((s) => s?.currentCourseId);
   const applyForCareerJob = useGameStore((s) => s?.applyForCareerJob);
   const quitCareerJob = useGameStore((s) => s?.quitCareerJob);
@@ -141,14 +142,14 @@ export default function CareerScreen() {
                     const reqCourseLvl = pos.level >= 5 ? 3 : pos.level >= 3 ? 2 : 1;
                     const carLabel = pos.level >= 3 ? 'SUV+' : 'Used Car+';
                     const reqParts: string[] = [];
-                    Object.entries(pos.reqSkills ?? {}).forEach(([k, v]) => reqParts.push(`${k} ${v}`));
-                    Object.entries(pos.reqKnowledge ?? {}).forEach(([k, v]) => reqParts.push(`${k} ${v}`));
+                    const humanize = (key: string) => key.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                    Object.entries(pos.reqSkills ?? {}).forEach(([k, v]) => reqParts.push(`${humanize(k)} ${v}`));
+                    Object.entries(pos.reqKnowledge ?? {}).forEach(([k, v]) => reqParts.push(`${humanize(k)} ${v}`));
                     return (
                       <View key={pos.level} style={styles.positionRow}>
                         <Text style={[styles.posLevel, (meets || reachedInCurrentCareer) && { color: Colors.primary }]}>L{pos.level}</Text>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.posTitle}>{pos.title}{isCurrentPosition ? ' • Current' : ''}</Text>
-                          <Text style={styles.posSalary}>Base salary: {formatCurrency(pos.baseSalary)}/wk</Text>
                           {reqParts.length > 0 && (
                             <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>Req: {reqParts.join(', ')}</Text>
                           )}
@@ -177,6 +178,9 @@ export default function CareerScreen() {
                     const currentCarTier = CAR_TIER[useGameStore.getState()?.currentCarId ?? 'none'] ?? 0;
                     const minCarTier = entryPos.level >= 3 ? 3 : 1;
                     const hasCar = currentCarTier >= minCarTier;
+                    const HOUSING_TIER: Record<string, number> = { cheap_apartment: 0, studio_apartment: 1, small_house: 2, family_house: 3, luxury_villa: 4, mansion: 5 };
+                    const minHousingTier = entryPos.level >= 5 ? 2 : entryPos.level >= 3 ? 1 : 0;
+                    const hasHousing = (HOUSING_TIER[currentHousingId] ?? 0) >= minHousingTier;
 
                     // Check course level
                     const reqCourseLvl = entryPos.level >= 5 ? 3 : entryPos.level >= 3 ? 2 : 1;
@@ -193,9 +197,10 @@ export default function CareerScreen() {
                       return (cc?.level ?? 1) === 1;
                     })();
 
-                    const canApply = meetsEntry && hasCar && hasCourse && !studyingBasic;
+                    const canApply = meetsEntry && hasCar && hasHousing && hasCourse && !studyingBasic;
                     const blockReason = !hasCourse ? `Need ${path.requiredCourseBase} course (lvl ${reqCourseLvl})`
                       : !hasCar ? `Need ${minCarTier >= 3 ? 'SUV' : 'a car'} first`
+                      : !hasHousing ? `Need ${minHousingTier >= 2 ? 'a Small House' : 'a Studio Apartment'} first`
                       : studyingBasic ? 'Finish basic course first'
                       : !meetsEntry ? 'Skills too low' : '';
 

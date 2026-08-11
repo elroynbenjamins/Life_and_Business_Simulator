@@ -149,11 +149,11 @@ export function processDividends(
     if (!sd) continue;
     const stock = (state?.stocks ?? []).find((s) => s?.ticker === holding?.ticker);
     const price = stock?.currentPrice ?? sd.startPrice;
-    // Banking stocks: 2.5% annual, Finance: 1.5%, ETFs: 1%
-    let rate = 0;
-    if (sd.sector === 'Banking') rate = 0.025;
-    else if (sd.sector === 'Finance') rate = 0.015;
-    else if (sd.type === 'etf') rate = 0.01;
+    // Use each asset's configured annual yield, with fallbacks for old saves/data.
+    let rate = Number(sd.dividendYield ?? 0);
+    if (rate <= 0 && sd.sector === 'Banking') rate = 0.025;
+    else if (rate <= 0 && sd.sector === 'Finance') rate = 0.015;
+    else if (rate <= 0 && sd.type === 'etf') rate = 0.01;
     if (rate > 0) {
       totalDividend += Math.round((holding?.shares ?? 0) * price * rate);
     }
@@ -198,7 +198,9 @@ export function processStocks(
       etfDrift = 0.001;
     }
 
-    let totalChange = Math.max(-0.12, Math.min(0.12, baseChange + newsEffect + marketEffect + inflationDrift + etfDrift));
+    // Slightly asymmetric circuit breakers reduce long-run collapse from volatility drag
+    // and prevent lifetime gain/loss records from always converging on the same magnitude.
+    let totalChange = Math.max(-0.10, Math.min(0.12, baseChange + newsEffect + marketEffect + inflationDrift + etfDrift));
 
     let newPrice = (stock?.currentPrice ?? 100) * (1 + totalChange);
     newPrice = Math.max(1, Math.round(newPrice * 100) / 100);
