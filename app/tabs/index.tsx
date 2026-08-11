@@ -84,14 +84,6 @@ export default function DashboardScreen() {
         </View>
       </View>
       <GameStatusBar />
-      <View style={styles.primaryActionWrap}>
-        <Pressable
-          style={({ pressed }) => [styles.nextWeekButton, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-          onPress={handleNextWeek}
-        >
-          <Text style={styles.nextWeekText}>Advance to Next Week →</Text>
-        </Pressable>
-      </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* News */}
         <GameCard>
@@ -142,6 +134,16 @@ export default function DashboardScreen() {
             </GameCard>
           );
         })() : null}
+
+        {/* Primary action sits immediately above the Portfolio section. */}
+        <View style={styles.primaryActionWrap}>
+          <Pressable
+            style={({ pressed }) => [styles.nextWeekButton, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+            onPress={handleNextWeek}
+          >
+            <Text style={styles.nextWeekText}>Advance to Next Week →</Text>
+          </Pressable>
+        </View>
 
         {/* Portfolio */}
         {hasHoldings ? (
@@ -222,7 +224,7 @@ const styles = StyleSheet.create({
   gemsText: { color: '#8B5CF6', fontSize: 14, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
-  primaryActionWrap: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, backgroundColor: Colors.background },
+  primaryActionWrap: { marginBottom: 10 },
   newsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   newsText: { color: Colors.warning, fontSize: 14, fontStyle: 'italic', flex: 1 },
   statsRow: { flexDirection: 'row', gap: 12 },

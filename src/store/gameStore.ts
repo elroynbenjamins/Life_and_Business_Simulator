@@ -27,6 +27,8 @@ interface GameStore extends GameState {
   showSummary: boolean;
   showNameModal: boolean;
   showSlotPicker: boolean;
+  showMainMenu: boolean;
+  slotPickerMode: 'load' | 'new';
   showNegativeCashModal: boolean;
   showPeriodReport: boolean;
   showScheduledAd: boolean;
@@ -63,6 +65,10 @@ interface GameStore extends GameState {
   dismissScheduledAd: () => void;
   openSlotPicker: () => void;
   closeSlotPicker: () => void;
+  continueGame: () => void;
+  openMainMenu: () => void;
+  beginNewGame: () => void;
+  selectNewGameSlot: (slot: number) => Promise<void>;
 
   enrollCourse: (courseId: string) => void;
   speedUpEducationWithAd: () => void;
@@ -135,6 +141,8 @@ const useGameStore = create<GameStore>((set, get) => ({
   showSummary: false,
   showNameModal: false,
   showSlotPicker: false,
+  showMainMenu: false,
+  slotPickerMode: 'load',
   showNegativeCashModal: false,
   showPeriodReport: false,
   showScheduledAd: false,
@@ -212,9 +220,9 @@ const useGameStore = create<GameStore>((set, get) => ({
         (profile as any).prestigePoints = profile.totalXp ?? 0;
         (profile as any).unlockedPrestige = (profile as any).unlockedPrestige ?? [];
       }
-      set({ ...merged, isLoading: false, showNameModal: false, profile, slotMeta, activeSlot });
+      set({ ...merged, isLoading: false, showNameModal: false, showMainMenu: true, profile, slotMeta, activeSlot });
     } else {
-      set({ isLoading: false, showSlotPicker: true, profile, slotMeta, activeSlot });
+      set({ isLoading: false, showMainMenu: true, showSlotPicker: false, profile, slotMeta, activeSlot });
     }
   },
 
@@ -265,10 +273,10 @@ const useGameStore = create<GameStore>((set, get) => ({
       }
       merged.stocks = mergeStocks(merged.stocks);
       const slotMeta = await loadAllSlotMeta();
-      set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
+      set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
     } else {
       // Empty slot — start new game here
-      set({ activeSlot: slot, showSlotPicker: false, showNameModal: true });
+      set({ activeSlot: slot, showSlotPicker: false, showMainMenu: false, showNameModal: true, slotPickerMode: 'load' });
     }
   },
 
@@ -288,7 +296,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     };
     await saveGame(newState, activeSlot);
     const slotMeta = await loadAllSlotMeta();
-    set({ ...newState, isLoading: false, showNameModal: false, showSlotPicker: false, lastSummary: null, showSummary: false, slotMeta });
+    set({ ...newState, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, slotPickerMode: 'load', lastSummary: null, showSummary: false, slotMeta });
   },
 
   deleteSlot: async (slot: number) => {
@@ -520,8 +528,15 @@ const useGameStore = create<GameStore>((set, get) => ({
       set({ showEventModal: false, pendingEvent: null });
     }
   },
-  openSlotPicker: () => set({ showSlotPicker: true }),
+  openSlotPicker: () => set({ showSlotPicker: true, slotPickerMode: 'load' }),
   closeSlotPicker: () => set({ showSlotPicker: false }),
+  continueGame: () => set({ showMainMenu: false }),
+  openMainMenu: () => set({ showMainMenu: true }),
+  beginNewGame: () => set({ showSlotPicker: true, slotPickerMode: 'new' }),
+  selectNewGameSlot: async (slot: number) => {
+    await setActiveSlot(slot);
+    set({ activeSlot: slot, showSlotPicker: false, showMainMenu: false, showNameModal: true, slotPickerMode: 'load' });
+  },
 
   enrollCourse: (courseId: string) => {
     const state = get();

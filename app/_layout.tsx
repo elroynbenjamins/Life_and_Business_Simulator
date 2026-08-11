@@ -13,6 +13,7 @@ import NegativeCashModal from '../src/components/NegativeCashModal';
 import PeriodReportModal from '../src/components/PeriodReportModal';
 import EventModal from '../src/components/EventModal';
 import ScheduledAdModal from '../src/components/ScheduledAdModal';
+import MainMenu from '../src/components/MainMenu';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -62,6 +63,7 @@ export default function RootLayout() {
         <Stack.Screen name="properties" />
         <Stack.Screen name="info" />
       </Stack>
+      <MainMenu />
       <SaveSlotPicker />
       <NameEntryModal />
       <WeekSummarySheet />
