@@ -5,6 +5,7 @@ const sentiments = require('../src/data/market_sentiment.json');
 const events = [...require('../src/data/market_events.json'), ...require('../src/data/market_sector_events.json')];
 
 let seed = Number(process.argv[2] || 42) >>> 0;
+const totalWeeks = Math.max(20, Number(process.argv[3] || 60));
 const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
 const prices = Object.fromEntries(stocksData.map((stock) => [stock.ticker, stock.startPrice]));
 let sentiment = null;
@@ -25,7 +26,7 @@ function combined(assetType) {
 }
 
 const snapshots = {};
-for (let week = 1; week <= 60; week++) {
+for (let week = 1; week <= totalWeeks; week++) {
   if (sentiment?.weeksRemaining > 1) sentiment.weeksRemaining--;
   else sentiment = null;
   if (week % 20 === 0) {
@@ -41,18 +42,22 @@ for (let week = 1; week <= 60; week++) {
   const news = newsEvents[Math.floor(random() * newsEvents.length)] || { effects: {} };
   for (const stock of stocksData) {
     const { effects, volatility } = combined(stock.type || 'stock');
-    const baseVolatility = stock.type === 'etf' ? .04 : stock.type === 'commodity' ? .14 : .10;
-    const change = Math.max(-.10, Math.min(.12,
+    const baseVolatility = stock.type === 'etf' ? .025 : stock.type === 'commodity' ? .08 : .06;
+    const growthDrift = stock.type === 'etf' ? .0018 : stock.type === 'commodity' ? .0006 : .0015;
+    const trendPrice = stock.startPrice * Math.pow(1.03, (week - 1) / 20);
+    const meanReversion = Math.max(-.004, Math.min(.004, ((trendPrice / Math.max(1, prices[stock.ticker])) - 1) * .02));
+    const change = Math.max(-.08, Math.min(.10,
       (random() - .5) * baseVolatility * volatility + (news.effects?.[stock.sector] || 0) +
-      (effects[stock.sector] || 0) + (effects[stock.type] || 0) + (effects.All || 0) + (stock.type === 'etf' ? .001 : 0)
+      (effects[stock.sector] || 0) + (effects[stock.type] || 0) + (effects.All || 0) + growthDrift + meanReversion
     ));
     prices[stock.ticker] = Math.max(1, Math.round(prices[stock.ticker] * (1 + change) * 100) / 100);
   }
-  if (week % 20 === 0) snapshots[week] = { ...prices };
+  if (week === 20 || week === 40 || week === 60 || week === totalWeeks) snapshots[week] = { ...prices };
 }
 
-console.log('Ticker\tStart\tW20\tW40\tW60\t60w change');
+const checkpoints = [...new Set([20, 40, 60, totalWeeks].filter((week) => week <= totalWeeks))];
+console.log(['Ticker', 'Start', ...checkpoints.map((week) => `W${week}`), `${totalWeeks}w change`].join('\t'));
 for (const stock of stocksData) {
-  const end = snapshots[60][stock.ticker];
-  console.log(`${stock.ticker}\t${stock.startPrice.toFixed(2)}\t${snapshots[20][stock.ticker].toFixed(2)}\t${snapshots[40][stock.ticker].toFixed(2)}\t${end.toFixed(2)}\t${(((end / stock.startPrice) - 1) * 100).toFixed(1)}%`);
+  const end = snapshots[totalWeeks][stock.ticker];
+  console.log([stock.ticker, stock.startPrice.toFixed(2), ...checkpoints.map((week) => snapshots[week][stock.ticker].toFixed(2)), `${(((end / stock.startPrice) - 1) * 100).toFixed(1)}%`].join('\t'));
 }

@@ -17,8 +17,8 @@ const career: CareerState = {
 
 describe('career salary and promotion requirements', () => {
   test('caps salary at the current position maximum after multipliers', () => {
-    // Technology L2 base is 1,870, so its default maximum is 2,431.
-    expect(getCareerSalary(career, 1)).toBe(2_431);
+    // The 30% performance cap is applied to MacroSoft's company-adjusted base.
+    expect(getCareerSalary(career, 1)).toBe(3_039);
   });
 
   test('holds an L3 promotion at 100% until the player owns an SUV', () => {
@@ -37,11 +37,24 @@ describe('career salary and promotion requirements', () => {
     const result = processCareerTick({
       ...INITIAL_GAME_STATE,
       currentCarId: 'suv',
+      currentHousingId: 'studio_apartment',
       career,
     }, 101);
 
     expect(result.updatedCareer.positionLevel).toBe(3);
     expect(result.updatedCareer.promotionProgress).toBe(0);
     expect(result.promotionTitle).toBe('Senior Developer');
+  });
+
+  test('holds an L3 promotion until the player has a Studio Apartment', () => {
+    const result = processCareerTick({
+      ...INITIAL_GAME_STATE,
+      currentCarId: 'suv',
+      currentHousingId: 'cheap_apartment',
+      career,
+    }, 101);
+
+    expect(result.updatedCareer.positionLevel).toBe(2);
+    expect(result.promotionBlockedReason).toContain('Studio Apartment');
   });
 });

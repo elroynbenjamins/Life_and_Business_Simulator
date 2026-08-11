@@ -44,7 +44,7 @@ export default function EducationScreen() {
   const speedUp = async () => {
     if (getAdUsage?.().limitReached) { setAdMessage('Daily ad limit reached.'); return; }
     setAdMessage('Loading advertisement...');
-    const grant = () => { speedUpEducationWithAd?.(); setAdMessage('Course advanced by 1 week!'); };
+    const grant = () => { speedUpEducationWithAd?.(); setAdMessage('Education completed!'); };
     if (Platform.OS === 'web' || Constants.expoGoConfig != null) {
       setTimeout(grant, 1500);
       return;
@@ -81,7 +81,7 @@ export default function EducationScreen() {
                 <Text style={styles.progressText}>Week {courseWeeksCompleted}/{adjDur}{partTimeJob ? ' (slower — part-time)' : ''}</Text>
                 <Pressable style={styles.adButton} onPress={speedUp}>
                   <Ionicons name="play-circle" size={18} color={Colors.white} />
-                  <Text style={styles.enrollBtnText}>Watch ad: skip 1 week</Text>
+                  <Text style={styles.enrollBtnText}>Watch ad: complete education</Text>
                 </Pressable>
                 {!!adMessage && <Text style={styles.adMessage}>{adMessage}</Text>}
               </>);

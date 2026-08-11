@@ -8,6 +8,7 @@ import { createBusiness, generateCandidates, candidateToEmployee, getBusinessTyp
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
 import { unlockPrestige, getPrestigeEffects } from '../engine/prestigeEngine';
 import { getCareerSalary } from '../engine/careerEngine';
+import { applyEducationRewards } from '../engine/skillEngine';
 import { createInitialCompetitors } from '../engine/competitorEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
 import coursesData from '../data/courses.json';
@@ -557,10 +558,23 @@ const useGameStore = create<GameStore>((set, get) => ({
   speedUpEducationWithAd: () => {
     const state = get();
     if (!state.currentCourseId || get().getAdUsage().limitReached) return;
+    const course = (coursesData as any[]).find((item) => item.id === state.currentCourseId);
+    if (!course) return;
     const today = new Date().toISOString().slice(0, 10);
     const watchedToday = (state as any).adLastWatchDate === today ? ((state as any).adWatchedToday ?? 0) : 0;
+    const rewards = applyEducationRewards(state.skills ?? {}, state.knowledge ?? {}, course);
+    const statistics = {
+      ...(state.statistics ?? INITIAL_STATISTICS),
+      coursesCompleted: (state.statistics?.coursesCompleted ?? 0) + 1,
+    };
     const updates: any = {
-      courseWeeksCompleted: (state.courseWeeksCompleted ?? 0) + 1,
+      currentCourseId: null,
+      courseWeeksCompleted: 0,
+      completedCourses: [...(state.completedCourses ?? []), { courseId: course.id, name: course.name, completedWeek: state.week }],
+      skills: rewards.updatedSkills,
+      knowledge: rewards.updatedKnowledge,
+      statistics,
+      periodCoursesCompleted: (state.periodCoursesCompleted ?? 0) + 1,
       adWatchedToday: watchedToday + 1,
       adLastWatchDate: today,
     };

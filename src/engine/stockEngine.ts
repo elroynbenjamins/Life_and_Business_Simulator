@@ -170,7 +170,8 @@ export function processStocks(
   news: NewsEvent
 ): { stocks: StockState[]; stockChanges: { ticker: string; change: number }[] } {
   const newsEffects = news?.effects ?? {};
-  const inflationDrift = ((state?.inflationMultiplier ?? 1) - 1) * 0.001;
+  const inflationDrift = ((state?.inflationMultiplier ?? 1) - 1) * 0.0005;
+  const elapsedWeeks = Math.max(0, state?.statistics?.weeksPlayed ?? 0);
 
   const newStocks = (state?.stocks ?? []).map((stock) => {
     const data = (stocksData ?? []).find((s) => s?.ticker === stock?.ticker);
@@ -186,21 +187,21 @@ export function processStocks(
     const newsEffect = newsEffects?.[sector] ?? 0;
     const marketEffect = (marketEffects?.[sector] ?? 0) + (marketEffects?.[assetType] ?? 0) + (marketEffects?.All ?? 0);
 
-    // ETFs have much smaller swings
-    const baseVolatility = isEtf ? 0.04 : isCommodity ? 0.14 : 0.10;
+    // Volatility is deliberately below the old 4/14/10% levels so news remains
+    // important without random noise dominating a decade-long playthrough.
+    const baseVolatility = isEtf ? 0.025 : isCommodity ? 0.08 : 0.06;
     const volatility = baseVolatility * volatilityMult;
     const baseChange = (Math.random() - 0.5) * volatility;
 
-    // ETFs follow a weighted average of all stock movements
-    let etfDrift = 0;
-    if (isEtf) {
-      // Small positive drift to make ETFs generally follow market
-      etfDrift = 0.001;
-    }
+    // Modest long-term growth plus a soft pull toward a 3% yearly trend line.
+    const weeklyGrowthDrift = isEtf ? 0.0018 : isCommodity ? 0.0006 : 0.0015;
+    const trendPrice = (data?.startPrice ?? stock.currentPrice ?? 100) * Math.pow(1.03, elapsedWeeks / 20);
+    const trendGap = trendPrice / Math.max(1, stock.currentPrice ?? 1) - 1;
+    const meanReversion = Math.max(-0.004, Math.min(0.004, trendGap * 0.02));
 
     // Slightly asymmetric circuit breakers reduce long-run collapse from volatility drag
     // and prevent lifetime gain/loss records from always converging on the same magnitude.
-    let totalChange = Math.max(-0.10, Math.min(0.12, baseChange + newsEffect + marketEffect + inflationDrift + etfDrift));
+    let totalChange = Math.max(-0.08, Math.min(0.10, baseChange + newsEffect + marketEffect + inflationDrift + weeklyGrowthDrift + meanReversion));
 
     let newPrice = (stock?.currentPrice ?? 100) * (1 + totalChange);
     newPrice = Math.max(1, Math.round(newPrice * 100) / 100);

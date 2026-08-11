@@ -33,8 +33,8 @@ describe('stockEngine market reporting and type events', () => {
     };
 
     const result = processStocks(state, { headline: 'Quiet week', effects: {} });
-    expect(result.stocks.find((stock) => stock.ticker === 'MCRS')?.currentPrice).toBe(100.5);
-    expect(result.stocks.find((stock) => stock.ticker === 'TCHE')?.currentPrice).toBe(100.1);
+    expect(result.stocks.find((stock) => stock.ticker === 'MCRS')?.currentPrice).toBe(101.05);
+    expect(result.stocks.find((stock) => stock.ticker === 'TCHE')?.currentPrice).toBe(100.58);
     random.mockRestore();
   });
 
