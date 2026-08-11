@@ -611,7 +611,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const prevStats = state?.statistics ?? { ...INITIAL_STATISTICS };
     const newStats: LifetimeStatistics = { ...prevStats, jobsWorked: prevStats.jobsWorked + 1 };
 
-    const updates = { currentJobId: jobId, careerHistory: newHistory, statistics: newStats, periodJobChanges: (state.periodJobChanges ?? 0) + 1 };
+    const updates = { currentJobId: jobId, careerHistory: newHistory, statistics: newStats, periodJobChanges: (state.periodJobChanges ?? 0) + 1, partTimeJob: false };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
@@ -719,6 +719,7 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   togglePartTimeJob: () => {
     const state = get();
+    if (state.currentJobId || state.career?.companyId) return;
     const newVal = !(state.partTimeJob ?? false);
     set({ partTimeJob: newVal } as any);
     saveGame(extractGameState({ ...state, partTimeJob: newVal }), state.activeSlot);
@@ -889,6 +890,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       careerHistory: newHistory,
       statistics: { ...prevStats, jobsWorked: prevStats.jobsWorked + 1 },
       periodJobChanges: (state.periodJobChanges ?? 0) + 1,
+      partTimeJob: false,
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);

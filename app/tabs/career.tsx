@@ -252,19 +252,22 @@ function PartTimeCard() {
   const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
   const togglePartTimeJob = useGameStore((s) => s?.togglePartTimeJob);
   const hasCareerV2 = !!useGameStore((s) => s?.career?.companyId);
+  const hasLegacyJob = !!useGameStore((s) => s?.currentJobId);
+  const hasFullTimeJob = hasCareerV2 || hasLegacyJob;
   return (
     <GameCard>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flex: 1 }}>
           <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '700' }}>🕒 Part-Time Job</Text>
           <Text style={{ color: Colors.textMuted, fontSize: 12, marginTop: 2 }}>€200–350/week • Slows study by 50%</Text>
-          {hasCareerV2 && <Text style={{ color: Colors.warning, fontSize: 11, marginTop: 2 }}>Works alongside your full-time career</Text>}
+          {hasFullTimeJob && <Text style={{ color: Colors.warning, fontSize: 11, marginTop: 2 }}>Unavailable while working a full-time job</Text>}
         </View>
         <Pressable
-          style={{ backgroundColor: partTimeJob ? Colors.negative : Colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
+          style={{ backgroundColor: hasFullTimeJob ? Colors.textMuted : partTimeJob ? Colors.negative : Colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, opacity: hasFullTimeJob ? 0.55 : 1 }}
           onPress={() => togglePartTimeJob?.()}
+          disabled={hasFullTimeJob}
         >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{partTimeJob ? 'Quit' : 'Start'}</Text>
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{hasFullTimeJob ? 'Unavailable' : partTimeJob ? 'Quit' : 'Start'}</Text>
         </Pressable>
       </View>
     </GameCard>

@@ -30,6 +30,7 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
     newAge += 1;
   }
   const globalWeek = ((newYear - 1) * 20) + newWeek;
+  const partTimeActive = !!state?.partTimeJob && !state?.currentJobId && !state?.career?.companyId;
 
   // ---------- Step 2: Economy (Inflation) ----------
   const economy = processEconomy(state, newWeek);
@@ -57,7 +58,7 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
   const dividendIncome = processDividends({ ...stateWithInflation, stocks: stockResult.stocks }, globalWeek);
 
   // ---------- Step 5: Education ----------
-  const edu = processEducation(stateWithInflation, newWeek, state?.partTimeJob ?? false);
+  const edu = processEducation(stateWithInflation, newWeek, partTimeActive);
 
   // ---------- Step 5.5: Apply Education Rewards ----------
   let updatedSkills = { ...(state?.skills ?? {}) };
@@ -106,7 +107,7 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
   const taxes = processTaxes(stateWithInflation, salary, globalWeek);
 
   // ---------- Step 11.5: Part-Time Income ----------
-  const partTimeIncome = (state?.partTimeJob ?? false) ? Math.round(100 + Math.random() * 100) : 0;
+  const partTimeIncome = partTimeActive ? Math.round(100 + Math.random() * 100) : 0;
 
   // ---------- Step 12: Cash Settlement ----------
   const totalExpenses = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + expenses.courseCost + loanResult.totalPaid;
@@ -199,7 +200,7 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
       const next = [...prev, news.headline];
       return next.length > 40 ? next.slice(next.length - 40) : next;
     })(),
-    partTimeJob: state?.partTimeJob ?? false,
+    partTimeJob: partTimeActive,
   };
 
   const happiness = calculateHappiness(tempState);
