@@ -37,7 +37,9 @@ export function getCareerSalary(career: CareerState, inflationMultiplier: number
 
   const base = position.baseSalary ?? 0;
   const companySalaryMult = company.salaryMultiplier ?? 1.0;
-  const raiseBonus = career.salaryBonus ?? 1.0;
+  const inferredRaises = Math.round(((career.salaryBonus ?? 1) - 1) / 0.03);
+  const raisesAtLevel = Math.max(0, Math.min(5, career.performanceRaisesAtLevel ?? inferredRaises));
+  const raiseBonus = 1 + raisesAtLevel * 0.03;
 
   // Prestige salary multiplier
   let prestigeMult = 1.0;
@@ -47,10 +49,8 @@ export function getCareerSalary(career: CareerState, inflationMultiplier: number
   }
 
   const companyBase = base * companySalaryMult;
-  const raw = companyBase * raiseBonus * prestigeMult;
-  // Performance is capped at +30%. Inflation is applied after the cap.
-  const bounded = Math.max(companyBase, Math.min(companyBase * 1.30, raw));
-  return Math.round(inflated(bounded, inflationMultiplier));
+  const performanceCapped = companyBase * raiseBonus;
+  return Math.round(inflated(performanceCapped * prestigeMult, inflationMultiplier));
 }
 
 /**
@@ -147,14 +147,12 @@ export function processCareerTick(
   }
 
   // Annual raise check (~every 20 weeks = 1 year); bounded by max
-  const currentPos = (path.positions as any[]).find((p: any) => p?.level === career.positionLevel);
-  const baseSalary = currentPos?.baseSalary ?? 0;
-  const companyMult = company.salaryMultiplier ?? 1.0;
-  const currentAbs = baseSalary * companyMult * (updatedCareer.salaryBonus ?? 1.0);
-
   const weeksSinceRaise = globalWeek - (career.lastRaiseWeek ?? 0);
-  if (weeksSinceRaise >= 20 && (career.performance ?? 50) >= 40 && (updatedCareer.salaryBonus ?? 1) < 1.30) {
-    updatedCareer.salaryBonus = Math.min(1.30, (career.salaryBonus ?? 1.0) * 1.03);
+  const inferredRaiseCount = Math.round(((career.salaryBonus ?? 1) - 1) / 0.03);
+  const raiseCount = Math.max(0, Math.min(5, career.performanceRaisesAtLevel ?? inferredRaiseCount));
+  if (weeksSinceRaise >= 20 && (career.performance ?? 50) >= 40 && raiseCount < 5) {
+    updatedCareer.performanceRaisesAtLevel = raiseCount + 1;
+    updatedCareer.salaryBonus = 1 + (raiseCount + 1) * 0.03;
     updatedCareer.lastRaiseWeek = globalWeek;
     gotRaise = true;
   }
@@ -176,18 +174,12 @@ export function processCareerTick(
       } else if (!hasRequiredHousing) {
         promotionBlockedReason = `Promotion to ${nextPosition.title} is ready, but you need ${nextPosition.level >= 5 ? 'a Small House or better' : 'a Studio Apartment or better'}.`;
       } else {
-      // Preserve current salary unless below new position's minSalary
-      const { min: newMin } = getPositionSalaryRange(nextPosition);
-      const newBase = nextPosition.baseSalary ?? 0;
-      const preservedSalary = Math.max(newMin, currentAbs);
-      const newBonus = newBase * companyMult > 0
-        ? preservedSalary / (newBase * companyMult)
-        : 1.0;
       updatedCareer.positionLevel = nextPosition.level;
       updatedCareer.weeksInPosition = 0;
       updatedCareer.performance = Math.max(50, (career.performance ?? 50) - 10);
       updatedCareer.promotionProgress = 0;
-      updatedCareer.salaryBonus = Math.max(1.0, newBonus);
+      updatedCareer.salaryBonus = 1.0;
+      updatedCareer.performanceRaisesAtLevel = 0;
       promotionTitle = nextPosition.title;
       }
     }

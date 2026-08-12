@@ -1,20 +1,29 @@
-import { calculateValuation, computeMarketShare, createBusiness, getBusinessLevelForMetrics, getStartupRevenueTarget, processBusinessWeek, startProject } from '../businessEngine';
+import { calculateValuation, computeMarketShare, createBusiness, getBusinessLevelForMetrics, getStartupRevenueTarget, processBusinessWeek, scaleValuationTargets, startProject } from '../businessEngine';
 import { createInitialCompetitors } from '../competitorEngine';
 import { OwnedBusiness } from '../../types/game';
 
 describe('business balancing', () => {
   test.each([
-    [0, 7],
-    [50, 11],
-    [100, 15],
-  ])('uses a %i reputation revenue multiple of %i', (reputation, multiple) => {
+    [0, 2],
+    [50, 3.5],
+    [100, 5],
+  ])('uses a %i reputation profit multiple of %i', (reputation, multiple) => {
     const business = {
       reputation,
-      lastWeekRevenue: 10_000,
+      weeklyProfitHistory: [1_000, 1_000],
       balance: 2_500,
     } as unknown as OwnedBusiness;
 
-    expect(calculateValuation(business)).toBe(10_000 * multiple + 2_500);
+    expect(calculateValuation(business)).toBe(2_000 * multiple + 2_500 * 1.5);
+  });
+
+  test('values a loss-making business at only its available balance', () => {
+    const business = { reputation: 100, weeklyProfitHistory: [1_000, -2_000], balance: 12_500 } as OwnedBusiness;
+    expect(calculateValuation(business)).toBe(12_500);
+  });
+
+  test('scales level valuation targets to the lower valuation model', () => {
+    expect(scaleValuationTargets([0, 25_000, 80_000])).toEqual([0, 10_000, 32_000]);
   });
 
   test('creates three competitors and gives a new business 10% market share', () => {

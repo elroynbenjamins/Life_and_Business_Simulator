@@ -141,23 +141,31 @@ export default function CareerScreen() {
                     const isCurrentPosition = career?.careerPathId === path.id && career?.positionLevel === pos.level;
                     const reqCourseLvl = pos.level >= 5 ? 3 : pos.level >= 3 ? 2 : 1;
                     const carLabel = pos.level >= 3 ? 'SUV+' : 'Used Car+';
+                    const housingLabel = pos.level >= 5 ? 'Small House+' : pos.level >= 3 ? 'Studio Apartment+' : 'Any Housing';
+                    const housingTiers: Record<string, number> = { cheap_apartment: 0, studio_apartment: 1, small_house: 2, family_house: 3, luxury_villa: 4, mansion: 5 };
+                    const requiredHousingTier = pos.level >= 5 ? 2 : pos.level >= 3 ? 1 : 0;
+                    const hasLevelHousing = (housingTiers[currentHousingId] ?? 0) >= requiredHousingTier;
+                    const requirementsMet = meets && hasLevelHousing;
                     const reqParts: string[] = [];
                     const humanize = (key: string) => key.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
                     Object.entries(pos.reqSkills ?? {}).forEach(([k, v]) => reqParts.push(`${humanize(k)} ${v}`));
                     Object.entries(pos.reqKnowledge ?? {}).forEach(([k, v]) => reqParts.push(`${humanize(k)} ${v}`));
                     return (
                       <View key={pos.level} style={styles.positionRow}>
-                        <Text style={[styles.posLevel, (meets || reachedInCurrentCareer) && { color: Colors.primary }]}>L{pos.level}</Text>
+                        <Text style={[styles.posLevel, (requirementsMet || reachedInCurrentCareer) && { color: Colors.primary }]}>L{pos.level}</Text>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.posTitle}>{pos.title}{isCurrentPosition ? ' • Current' : ''}</Text>
                           {reqParts.length > 0 && (
                             <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>Req: {reqParts.join(', ')}</Text>
                           )}
                           <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>
-                            Course lvl {reqCourseLvl} • {carLabel}
+                            Course lvl {reqCourseLvl} · {carLabel} · Housing: {housingLabel}
                           </Text>
+                          {!hasLevelHousing && !reachedInCurrentCareer && pos.level >= 3 && (
+                            <Text style={{ color: Colors.warning, fontSize: 11, marginTop: 2 }}>Housing requirement not met</Text>
+                          )}
                         </View>
-                        {meets || reachedInCurrentCareer ? (
+                        {requirementsMet || reachedInCurrentCareer ? (
                           <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
                         ) : (
                           <Ionicons name="lock-closed" size={16} color={Colors.textMuted} />

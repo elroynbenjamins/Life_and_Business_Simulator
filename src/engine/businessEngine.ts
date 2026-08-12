@@ -103,6 +103,11 @@ import choiceEventsData from '../data/business_choice_events.json';
 
 export const MIN_EMPLOYEES_REQUIRED = 3;
 export const BUSINESS_LEVEL_REPUTATION_REQUIREMENTS = [0, 20, 30, 40, 52, 65, 78, 90];
+export const VALUATION_TARGET_SCALE = 0.4;
+
+export function scaleValuationTargets(thresholds: number[]): number[] {
+  return thresholds.map((threshold) => Math.round(threshold * VALUATION_TARGET_SCALE));
+}
 
 export function getBusinessLevelForMetrics(thresholds: number[], valuation: number, reputation: number): number {
   for (let level = thresholds.length - 1; level >= 0; level--) {
@@ -195,9 +200,11 @@ export function getAutomationScore(biz: OwnedBusiness): number {
 
 export function calculateValuation(biz: OwnedBusiness): number {
   const reputation = Math.max(0, Math.min(100, biz.reputation ?? 0));
-  const revenueMultiple = 7 + (reputation / 100) * 8;
-  const revenueValue = Math.max(0, biz.lastWeekRevenue ?? 0) * revenueMultiple;
-  return Math.max(0, Math.round(revenueValue + Math.max(0, biz.balance ?? 0)));
+  const profitMultiple = 2 + (reputation / 100) * 3;
+  const twentyWeekProfit = (biz.weeklyProfitHistory ?? []).slice(-20).reduce((total, profit) => total + (profit ?? 0), 0);
+  const availableBalance = Math.max(0, biz.balance ?? 0);
+  if (twentyWeekProfit <= 0) return Math.round(availableBalance);
+  return Math.round(availableBalance * 1.5 + twentyWeekProfit * profitMultiple);
 }
 
 export function getBusinessMarketStrength(biz: OwnedBusiness): number {
@@ -435,8 +442,8 @@ export function processBusinessWeek(
     }
   }
 
-  // Revenue (rebalanced +10% base)
-  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.133;
+  // Base revenue reduced by 3% from the previous balance pass.
+  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.099;
   const levelBonus = 1 + biz.level * 0.1;
   let revenue = Math.round(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
@@ -528,7 +535,7 @@ export function processBusinessWeek(
     }
   }
 
-  // Morale incident: a single 10% roll, only for teams averaging at least 55 morale.
+  // Morale incident: a single 5% roll, only for teams averaging at least 55 morale.
   let newEvent: { businessName: string; eventTitle: string; icon: string } | null = null;
   let eventRepChange = 0;
   let moraleDrop = 0;
@@ -539,10 +546,10 @@ export function processBusinessWeek(
   const eventCooldowns = { ...(biz.businessEventCooldowns ?? {}) };
   const availableMoraleEvents = (moraleEventsData as any[]).filter((event: any) => globalWeek - (eventCooldowns[event.id] ?? -100) >= 40);
   let triggeredEventId: string | null = null;
-  if (eventSpacingReady && averageMorale >= 55 && availableMoraleEvents.length > 0 && Math.random() < 0.10) {
+  if (eventSpacingReady && averageMorale >= 55 && availableMoraleEvents.length > 0 && Math.random() < 0.05) {
     const moraleEvent: any = availableMoraleEvents[Math.floor(Math.random() * availableMoraleEvents.length)];
     if (moraleEvent) {
-      moraleDrop = Math.min(20, Math.max(1, moraleEvent.moraleDecrease ?? 1));
+      moraleDrop = Math.min(10, Math.max(5, moraleEvent.moraleDecrease ?? 5));
       newEvent = { businessName: biz.name, eventTitle: moraleEvent.title, icon: moraleEvent.icon };
       triggeredEventId = moraleEvent.id;
     }
@@ -648,12 +655,14 @@ export function processBusinessWeek(
   }
 
   // Level check
-  const thresholds = type.levelThresholds ?? [0];
+  const thresholds = scaleValuationTargets(type.levelThresholds ?? [0]);
+  const valuationProfitHistory = [...(biz.weeklyProfitHistory ?? []), profit].slice(-52);
   let valuation = calculateValuation({
     ...biz,
     reputation: newReputation,
     lastWeekRevenue: revenue,
     lastWeekProfit: profit,
+    weeklyProfitHistory: valuationProfitHistory,
     employees: updatedEmployees,
   });
   let newLevel = getBusinessLevelForMetrics(thresholds, valuation, newReputation);
@@ -672,6 +681,7 @@ export function processBusinessWeek(
     reputation: newReputation,
     lastWeekRevenue: revenue,
     lastWeekProfit: profit,
+    weeklyProfitHistory: valuationProfitHistory,
     employees: updatedEmployees,
   });
   newLevel = getBusinessLevelForMetrics(thresholds, valuation, newReputation);

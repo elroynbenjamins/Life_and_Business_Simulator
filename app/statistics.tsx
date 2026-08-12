@@ -6,6 +6,8 @@ import useGameStore from '../src/store/gameStore';
 import { Colors } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
 import { formatCurrency } from '../src/utils/format';
+import { getWeeklySalary, processExpenses } from '../src/engine/financeEngine';
+import { getCareerSalary } from '../src/engine/careerEngine';
 
 export default function StatisticsScreen({ showBack = true }: { showBack?: boolean } = {}) {
   const s = useGameStore((st: any) => st.statistics);
@@ -13,6 +15,13 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
   const week = useGameStore((st: any) => st.week);
   const year = useGameStore((st: any) => st.year);
   const age = useGameStore((st: any) => st.age);
+  const gameState = useGameStore();
+  const expenses = processExpenses(gameState);
+  const careerIncome = gameState.career?.companyId
+    ? getCareerSalary(gameState.career, gameState.inflationMultiplier ?? 1, gameState.profile)
+    : getWeeklySalary(gameState);
+  const partTimeIncome = !gameState.career?.companyId && !gameState.currentJobId && gameState.partTimeJob ? 150 : 0;
+  const weeklyIncome = careerIncome + partTimeIncome;
   const nw = (netWorthHistory ?? []).slice(-1)[0] ?? 0;
   const chartWidth = Math.min(Dimensions.get('window').width - 64, 500);
   const history: number[] = netWorthHistory ?? [];
@@ -31,6 +40,22 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
         <Text style={styles.title}>Life Statistics</Text>
       </View>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <GameCard title="Weekly Income & Expenses">
+          <Row label="Job income" value={formatCurrency(careerIncome)} tone={careerIncome > 0 ? 'positive' : undefined} />
+          {partTimeIncome > 0 && <Row label="Part-time income" value={formatCurrency(partTimeIncome)} tone="positive" />}
+          <View style={styles.sectionDivider} />
+          <Row label="Housing rent" value={formatCurrency(expenses.rent)} tone="negative" />
+          <Row label="Utilities" value={formatCurrency(expenses.utilityCost)} tone="negative" />
+          <Row label="Food" value={formatCurrency(expenses.foodCost)} tone="negative" />
+          <Row label="Vehicle" value={formatCurrency(expenses.carCost)} tone="negative" />
+          {expenses.courseCost > 0 && <Row label="Education" value={formatCurrency(expenses.courseCost)} tone="negative" />}
+          {expenses.loanPayments > 0 && <Row label="Loan payments" value={formatCurrency(expenses.loanPayments)} tone="negative" />}
+          <View style={styles.sectionDivider} />
+          <Row label="Total weekly income" value={formatCurrency(weeklyIncome)} tone="positive" />
+          <Row label="Total weekly expenses" value={formatCurrency(expenses.totalExpenses)} tone="negative" />
+          <Row label="Weekly cash flow" value={formatCurrency(weeklyIncome - expenses.totalExpenses)} amount={weeklyIncome - expenses.totalExpenses} />
+        </GameCard>
+
         <GameCard title="Current Life">
           <Row label="Age" value={`${age}`} />
           <Row label="Year / Week" value={`Y${year} W${week}`} />
@@ -141,4 +166,5 @@ const styles = StyleSheet.create({
   chartPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 12 },
   chartBigPrice: { fontSize: 24, fontWeight: '700' },
   chartChange: { fontSize: 14, fontWeight: '600' },
+  sectionDivider: { height: 1, backgroundColor: Colors.cardBorder, marginVertical: 6 },
 });

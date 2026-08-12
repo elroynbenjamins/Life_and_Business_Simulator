@@ -48,6 +48,7 @@ export interface CareerState {
   weeksInPosition: number;
   weeksAtCompany: number;
   salaryBonus: number;
+  performanceRaisesAtLevel?: number;
   lastRaiseWeek: number;
   networkingScore: number;
   promotionProgress: number; // 0-100, promote at 100
@@ -62,6 +63,7 @@ export const INITIAL_CAREER_STATE: CareerState = {
   weeksInPosition: 0,
   weeksAtCompany: 0,
   salaryBonus: 1.0,
+  performanceRaisesAtLevel: 0,
   lastRaiseWeek: 0,
   networkingScore: 0,
   promotionProgress: 0,

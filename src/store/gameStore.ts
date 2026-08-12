@@ -891,6 +891,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       weeksInPosition: 0,
       weeksAtCompany: 0,
       salaryBonus: 1.0,
+      performanceRaisesAtLevel: 0,
       lastRaiseWeek: globalWeek,
       networkingScore: state.career?.networkingScore ?? 0,
       promotionProgress: 0,
