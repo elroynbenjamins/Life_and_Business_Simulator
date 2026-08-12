@@ -98,6 +98,7 @@ interface GameStore extends GameState {
   // Gems
   watchAd: () => void;
   convertGemsToCash: (gems: number) => void;
+  setAdsRemoved: () => void;
 
   // Career v2
   applyForCareerJob: (companyId: string, careerPathId: string, level: number) => void;
@@ -835,6 +836,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     set({ profile: newProfile, cash: newCash });
     saveProfile(newProfile);
     saveGame(extractGameState({ ...state, cash: newCash }), state.activeSlot);
+  },
+  setAdsRemoved: () => {
+    const state = get();
+    const profile = { ...state.profile, adsRemoved: true };
+    set({ profile, showScheduledAd: false });
+    saveProfile(profile);
   },
 
   // ---- Career v2 Actions ----

@@ -69,3 +69,13 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for state flow, save compatibility, and
 ## Data changes
 
 Most content and balancing live in `src/data/*.json`. IDs are persisted in save files, so renaming or deleting an ID requires a save migration or a compatible fallback. Update the corresponding interfaces in `src/types/game.ts` when a JSON schema changes.
+# Google Play in-app products
+
+Create these one-time products in Google Play Console before testing purchases:
+
+- `remove_ads` — non-consumable, base price €2.99
+- `gems_100`, `gems_250`, `gems_500`, `gems_1000`, `gems_2500` — consumable
+
+Google Play automatically derives regional prices from each product's base price. The app displays the store-returned `displayPrice`, including the user's local currency and formatting. Purchases require a development/production build installed through a Google Play testing track; they do not run in Expo Go or on web.
+
+Before production release, validate purchase tokens on a trusted server through the Google Play Developer API. Client-side entitlement handling is suitable for internal testing but must not be the only production purchase validation layer.

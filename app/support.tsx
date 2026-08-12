@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,14 +12,8 @@ import { formatCurrency } from '../src/utils/format';
 import { AD_CONFIG } from '../src/services/adConfig';
 import { loadRewardedAd, showRewardedAd } from '../src/services/adManager';
 import { AD_GEM_REWARD, GEM_CASH_RATE } from '../src/constants/rewards';
-
-const GEM_PACKS = [
-  { gems: 100, price: '$0.99' },
-  { gems: 250, price: '$2.49' },
-  { gems: 500, price: '$4.99' },
-  { gems: 1000, price: '$8.99' },
-  { gems: 2500, price: '$19.99' },
-];
+import { connectStore, disconnectStore, GEM_PRODUCTS, isNativeStoreAvailable, purchaseProduct, REMOVE_ADS_PRODUCT_ID, restoreRemoveAds, StoreProduct } from '../src/services/iapManager';
+import { saveProfile } from '../src/utils/storage';
 
 export default function SupportScreen() {
   const router = useRouter();
@@ -27,14 +21,53 @@ export default function SupportScreen() {
   const convertGemsToCash = useGameStore((s) => s?.convertGemsToCash);
   const grantAdReward = useGameStore((s) => s?.grantAdReward);
   const getAdUsage = useGameStore((s) => s?.getAdUsage);
+  const setAdsRemoved = useGameStore((s) => s.setAdsRemoved);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const [convertAmount, setConvertAmount] = useState('');
   const [adState, setAdState] = useState<'idle' | 'loading' | 'showing' | 'success' | 'error'>('idle');
   const [adMessage, setAdMessage] = useState('');
+  const [storeProducts, setStoreProducts] = useState<Record<string, StoreProduct>>({});
+  const [purchaseMessage, setPurchaseMessage] = useState('');
+  const [purchasing, setPurchasing] = useState(false);
 
   const gems = profile?.gems ?? 0;
   const adUsage = getAdUsage?.() ?? { watchedToday: 0, remaining: 5, limitReached: false };
   const useSimulatedAd = Platform.OS === 'web' || Constants.expoGoConfig != null;
+  const storeAvailable = isNativeStoreAvailable();
+  const adsRemoved = profile?.adsRemoved ?? false;
+
+  useEffect(() => {
+    let mounted = true;
+    connectStore({
+      onSuccess: async (productId, finish) => {
+        try {
+          if (productId === REMOVE_ADS_PRODUCT_ID) {
+            setAdsRemoved();
+            await finish(false);
+            if (mounted) setPurchaseMessage('Ads removed permanently. Thank you!');
+          } else {
+            const pack = GEM_PRODUCTS.find((item) => item.id === productId);
+            if (pack) {
+              const state = useGameStore.getState();
+              const updatedProfile = { ...state.profile, gems: (state.profile.gems ?? 0) + pack.gems };
+              useGameStore.setState({ profile: updatedProfile });
+              await saveProfile(updatedProfile);
+              await finish(true);
+              if (mounted) setPurchaseMessage(`${pack.gems} gems added.`);
+            }
+          }
+        } finally {
+          if (mounted) setPurchasing(false);
+        }
+      },
+      onError: (message) => {
+        if (mounted) { setPurchasing(false); setPurchaseMessage(message); }
+      },
+    }).then((products) => {
+      if (mounted) setStoreProducts(Object.fromEntries(products.map((product) => [product.id, product])));
+    });
+    return () => { mounted = false; disconnectStore(); };
+  }, [setAdsRemoved]);
 
   const handleWatchAd = useCallback(async () => {
     if (adState === 'loading' || adState === 'showing') return;
@@ -82,25 +115,33 @@ export default function SupportScreen() {
     setTimeout(() => { setAdState('idle'); setAdMessage(''); }, 3000);
   }, [adState, adUsage.limitReached, grantAdReward, useSimulatedAd]);
 
-  const handleBuyGems = (pack: typeof GEM_PACKS[0]) => {
-    Alert.alert(
-      'Purchase Gems',
-      `Buy ${pack.gems} gems for ${pack.price}?\n\n(In-app purchases are simulated in this demo. Gems will be added immediately.)`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Buy',
-          onPress: () => {
-            // Simulate purchase — in production use expo-in-app-purchases
-            const state = useGameStore.getState();
-            const newProfile = { ...state.profile, gems: (state.profile.gems ?? 0) + pack.gems };
-            useGameStore.setState({ profile: newProfile });
-            import('../src/utils/storage').then(({ saveProfile }) => saveProfile(newProfile));
-            Alert.alert('Success!', `${pack.gems} gems added to your account!`);
-          },
-        },
-      ]
-    );
+  const handlePurchase = async (productId: string) => {
+    if (!storeAvailable) {
+      setPurchaseMessage('Purchases require a Google Play development or testing build; they are unavailable in Expo Go and web.');
+      return;
+    }
+    try {
+      setPurchasing(true);
+      setPurchaseMessage('Opening Google Play…');
+      await purchaseProduct(productId);
+    } catch (error) {
+      setPurchasing(false);
+      setPurchaseMessage(error instanceof Error ? error.message : 'Purchase could not be started.');
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      setPurchasing(true);
+      if (await restoreRemoveAds()) {
+        setAdsRemoved();
+        setPurchaseMessage('Remove Ads purchase restored.');
+      } else setPurchaseMessage('No Remove Ads purchase was found.');
+    } catch {
+      setPurchaseMessage('Purchases could not be restored right now.');
+    } finally {
+      setPurchasing(false);
+    }
   };
 
   const handleConvert = () => {
@@ -157,7 +198,7 @@ export default function SupportScreen() {
         </GameCard>
 
         {/* Watch Ad */}
-        <GameCard title="Watch an Ad">
+        {!adsRemoved && <GameCard title="Watch an Ad">
           <Text style={styles.desc}>
             {useSimulatedAd ? 'Complete a short simulated ad' : 'Watch a short ad'} and earn {AD_GEM_REWARD} gems!
           </Text>
@@ -179,7 +220,7 @@ export default function SupportScreen() {
               {adMessage}
             </Text>
           )}
-        </GameCard>
+        </GameCard>}
 
         {/* Convert Gems to Cash */}
         <GameCard title="Convert Gems → Cash">
@@ -208,17 +249,31 @@ export default function SupportScreen() {
           )}
         </GameCard>
 
+        <GameCard title="Remove Ads">
+          <View style={styles.removeAdsRow}>
+            <View style={styles.removeAdsCopy}>
+              <Text style={styles.removeAdsTitle}>{adsRemoved ? 'Ads Removed' : 'Play without advertisements'}</Text>
+              <Text style={styles.desc}>{adsRemoved ? 'This permanent purchase is active.' : 'One-time purchase. Removes scheduled and rewarded ads.'}</Text>
+            </View>
+            {!adsRemoved && <Pressable disabled={purchasing} style={[styles.packPriceBtn, purchasing && styles.disabledBtn]} onPress={() => handlePurchase(REMOVE_ADS_PRODUCT_ID)}>
+              <Text style={styles.packPrice}>{storeProducts[REMOVE_ADS_PRODUCT_ID]?.displayPrice ?? '€2.99'}</Text>
+            </Pressable>}
+          </View>
+          {!adsRemoved && storeAvailable && <Pressable onPress={handleRestore} disabled={purchasing}><Text style={styles.restoreText}>Restore purchase</Text></Pressable>}
+          {purchaseMessage !== '' && <Text style={styles.purchaseMessage}>{purchaseMessage}</Text>}
+        </GameCard>
+
         {/* Buy Gems */}
         <GameCard title="Purchase Gems">
-          <Text style={styles.desc}>Get gems instantly to boost your game!</Text>
-          {GEM_PACKS.map((pack) => (
-            <Pressable key={pack.gems} style={styles.packRow} onPress={() => handleBuyGems(pack)}>
+          <Text style={styles.desc}>{storeAvailable ? 'Prices below come directly from Google Play for your account region.' : 'Store prices are shown after installing a Google Play testing build.'}</Text>
+          {GEM_PRODUCTS.map((pack) => (
+            <Pressable key={pack.id} disabled={purchasing} style={[styles.packRow, purchasing && styles.disabledBtn]} onPress={() => handlePurchase(pack.id)}>
               <View style={styles.packLeft}>
                 <Ionicons name="diamond" size={20} color="#8B5CF6" />
                 <Text style={styles.packGems}>{pack.gems} Gems</Text>
               </View>
               <View style={styles.packPriceBtn}>
-                <Text style={styles.packPrice}>{pack.price}</Text>
+                <Text style={styles.packPrice}>{storeProducts[pack.id]?.displayPrice ?? pack.fallbackPrice}</Text>
               </View>
             </Pressable>
           ))}
@@ -254,4 +309,9 @@ const styles = StyleSheet.create({
   convertBtnText: { color: Colors.white, fontSize: 14, fontWeight: '700' },
   convertPreview: { color: Colors.primary, fontSize: 13, marginTop: 8, textAlign: 'center' },
   adMsg: { fontSize: 13, marginTop: 10, textAlign: 'center', fontWeight: '600' },
+  removeAdsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  removeAdsCopy: { flex: 1 },
+  removeAdsTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  restoreText: { color: Colors.primary, fontSize: 13, fontWeight: '700', marginTop: 10, textAlign: 'center' },
+  purchaseMessage: { color: Colors.textSecondary, fontSize: 13, marginTop: 10, textAlign: 'center' },
 });

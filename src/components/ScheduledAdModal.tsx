@@ -8,10 +8,12 @@ import { loadInterstitialAd, showInterstitialAd } from '../services/adManager';
 export default function ScheduledAdModal() {
   const visible = useGameStore((state) => state.showScheduledAd);
   const dismiss = useGameStore((state) => state.dismissScheduledAd);
+  const adsRemoved = useGameStore((state) => state.profile?.adsRemoved ?? false);
   const [ready, setReady] = useState(false);
   const simulated = Platform.OS === 'web' || Constants.expoGoConfig != null;
 
   useEffect(() => {
+    if (adsRemoved && visible) { dismiss(); return; }
     if (!visible) { setReady(false); return; }
     if (simulated) {
       const timer = setTimeout(() => setReady(true), 2500);
@@ -23,9 +25,9 @@ export default function ScheduledAdModal() {
         if (!shown) setReady(true);
       } else setReady(true);
     })();
-  }, [visible, simulated, dismiss]);
+  }, [visible, simulated, dismiss, adsRemoved]);
 
-  if (!visible || (!simulated && !ready)) return null;
+  if (!visible || adsRemoved || (!simulated && !ready)) return null;
   return (
     <Modal visible transparent={false} animationType="fade">
       <View style={styles.screen}>

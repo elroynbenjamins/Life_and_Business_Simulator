@@ -44,6 +44,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-iap",
       [
         "react-native-google-mobile-ads",
         {

@@ -37,6 +37,7 @@ export default function EducationScreen() {
   const [simulatedAdPlaying, setSimulatedAdPlaying] = useState(false);
   const weeksEmployed = useGameStore((s) => s?.statistics?.weeksEmployed ?? 0);
   const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
+  const adsRemoved = useGameStore((s) => s.profile?.adsRemoved ?? false);
 
   const completedIds = new Set(completedCourses.map((c) => c?.courseId));
   const currentCourse = currentCourseId
@@ -94,10 +95,10 @@ export default function EducationScreen() {
               return (<>
                 <ProgressBar progress={courseWeeksCompleted / adjDur} />
                 <Text style={styles.progressText}>Week {courseWeeksCompleted}/{adjDur}{partTimeJob ? ' (slower — part-time)' : ''}</Text>
-                <Pressable style={[styles.adButton, simulatedAdPlaying && { opacity: 0.55 }]} onPress={speedUp} disabled={simulatedAdPlaying}>
+                {!adsRemoved && <Pressable style={[styles.adButton, simulatedAdPlaying && { opacity: 0.55 }]} onPress={speedUp} disabled={simulatedAdPlaying}>
                   <Ionicons name="play-circle" size={18} color={Colors.white} />
                   <Text style={styles.enrollBtnText}>{simulatedAdReady ? 'Claim reward: complete education' : simulatedAdPlaying ? 'Watching ad...' : 'Watch ad: complete education'}</Text>
-                </Pressable>
+                </Pressable>}
                 {!!adMessage && <Text style={styles.adMessage}>{adMessage}</Text>}
               </>);
             })()}

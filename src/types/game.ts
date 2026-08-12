@@ -681,6 +681,7 @@ export const INITIAL_GAME_STATE: GameState = {
 export interface PlayerProfile {
   totalXp: number;
   gems: number;
+  adsRemoved: boolean;
   prestigePoints: number;
   unlockedPrestige: string[];
 }
@@ -688,6 +689,7 @@ export interface PlayerProfile {
 export const INITIAL_PROFILE: PlayerProfile = {
   totalXp: 0,
   gems: 0,
+  adsRemoved: false,
   prestigePoints: 0,
   unlockedPrestige: [],
 };
