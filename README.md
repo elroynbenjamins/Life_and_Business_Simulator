@@ -1,6 +1,6 @@
-# Life & Business Simulator
+# Life Empire
 
-Life & Business Simulator is a local-first management game built with React Native, Expo, Expo Router, TypeScript, and Zustand. The player advances one week at a time while managing education, employment, personal finances, investments, property, and businesses.
+Life Empire is a local-first management game built with React Native, Expo, Expo Router, TypeScript, and Zustand. The player advances one week at a time while managing education, employment, personal finances, investments, property, and businesses.
 
 This `react_native_space` directory is the canonical and most complete application in this workspace. The copy under `github_repos/life-business-simulator` is an older snapshot and should not receive new development work unless the copies are deliberately reconciled.
 

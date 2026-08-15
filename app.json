@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Life Business Simulator",
+    "name": "Life Empire",
     "slug": "abacusai-mobile-apps",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/life-empire-icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
@@ -13,10 +13,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#071126",
+        "foregroundImage": "./assets/life-empire-icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.abacusai.lifebusinesssim.t1785763284",
@@ -39,7 +37,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./assets/life-empire-icon.png",
       "output": "single"
     },
     "plugins": [
