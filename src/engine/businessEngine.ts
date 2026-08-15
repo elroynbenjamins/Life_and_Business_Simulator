@@ -443,7 +443,7 @@ export function processBusinessWeek(
   }
 
   // Base revenue reduced by 3% from the previous balance pass.
-  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.099;
+  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121;
   const levelBonus = 1 + biz.level * 0.1;
   let revenue = Math.round(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
@@ -535,7 +535,7 @@ export function processBusinessWeek(
     }
   }
 
-  // Morale incident: a single 5% roll, only for teams averaging at least 55 morale.
+  // Morale incident: a single 5% roll, only for teams averaging at least 75 morale.
   let newEvent: { businessName: string; eventTitle: string; icon: string } | null = null;
   let eventRepChange = 0;
   let moraleDrop = 0;
@@ -546,7 +546,7 @@ export function processBusinessWeek(
   const eventCooldowns = { ...(biz.businessEventCooldowns ?? {}) };
   const availableMoraleEvents = (moraleEventsData as any[]).filter((event: any) => globalWeek - (eventCooldowns[event.id] ?? -100) >= 40);
   let triggeredEventId: string | null = null;
-  if (eventSpacingReady && averageMorale >= 55 && availableMoraleEvents.length > 0 && Math.random() < 0.05) {
+  if (eventSpacingReady && averageMorale >= 75 && availableMoraleEvents.length > 0 && Math.random() < 0.05) {
     const moraleEvent: any = availableMoraleEvents[Math.floor(Math.random() * availableMoraleEvents.length)];
     if (moraleEvent) {
       moraleDrop = Math.min(10, Math.max(5, moraleEvent.moraleDecrease ?? 5));
