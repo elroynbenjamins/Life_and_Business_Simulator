@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { AD_CONFIG } from './adConfig';
+import { AD_CONFIG, RewardedAdPlacement } from './adConfig';
 
 type AdState = 'idle' | 'loading' | 'ready' | 'showing' | 'error';
 type Listener = (state: AdState) => void;
@@ -25,7 +25,7 @@ export function subscribeAdState(fn: Listener): () => void {
   return () => { listeners = listeners.filter((l) => l !== fn); };
 }
 
-export async function loadRewardedAd(): Promise<boolean> {
+export async function loadRewardedAd(placement: RewardedAdPlacement): Promise<boolean> {
   try {
     // This native module is unavailable in Expo Go. Loading it lazily keeps the
     // rest of the app compatible while development/production builds retain AdMob.
@@ -33,9 +33,12 @@ export async function loadRewardedAd(): Promise<boolean> {
     rewardedAdEventType = RewardedAdEventType;
     adState = 'loading';
     notify();
-    const adUnitId = Platform.OS === 'ios'
-      ? AD_CONFIG.REWARDED_AD_UNIT_ID_IOS
-      : AD_CONFIG.REWARDED_AD_UNIT_ID_ANDROID;
+    const productionAndroidUnit = placement === 'education'
+      ? AD_CONFIG.EDUCATION_REWARDED_AD_UNIT_ID_ANDROID
+      : AD_CONFIG.GEM_REWARDED_AD_UNIT_ID_ANDROID;
+    const adUnitId = __DEV__
+      ? (Platform.OS === 'ios' ? AD_CONFIG.REWARDED_TEST_AD_UNIT_ID_IOS : AD_CONFIG.REWARDED_TEST_AD_UNIT_ID_ANDROID)
+      : (Platform.OS === 'ios' ? AD_CONFIG.REWARDED_TEST_AD_UNIT_ID_IOS : productionAndroidUnit);
 
     rewardedAd = RewardedAd.createForAdRequest(adUnitId, {
       requestNonPersonalizedAdsOnly: true,
@@ -113,7 +116,9 @@ export async function showRewardedAd(onReward: () => void): Promise<boolean> {
 export async function loadInterstitialAd(): Promise<boolean> {
   try {
     const { InterstitialAd, AdEventType } = await import('react-native-google-mobile-ads');
-    const unitId = Platform.OS === 'ios' ? AD_CONFIG.INTERSTITIAL_AD_UNIT_ID_IOS : AD_CONFIG.INTERSTITIAL_AD_UNIT_ID_ANDROID;
+    const unitId = __DEV__
+      ? (Platform.OS === 'ios' ? AD_CONFIG.INTERSTITIAL_TEST_AD_UNIT_ID_IOS : AD_CONFIG.INTERSTITIAL_TEST_AD_UNIT_ID_ANDROID)
+      : (Platform.OS === 'ios' ? AD_CONFIG.INTERSTITIAL_TEST_AD_UNIT_ID_IOS : AD_CONFIG.SCHEDULED_INTERSTITIAL_AD_UNIT_ID_ANDROID);
     interstitialAd = InterstitialAd.createForAdRequest(unitId, { requestNonPersonalizedAdsOnly: true });
     return await new Promise<boolean>((resolve) => {
       const loaded = interstitialAd.addAdEventListener(AdEventType.LOADED, () => { loaded(); resolve(true); });

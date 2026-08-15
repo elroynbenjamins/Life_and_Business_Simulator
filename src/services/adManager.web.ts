@@ -14,7 +14,7 @@ export function subscribeAdState(fn: Listener): () => void {
   return () => { listeners = listeners.filter((l) => l !== fn); };
 }
 
-export async function loadRewardedAd(): Promise<boolean> {
+export async function loadRewardedAd(_placement: 'gems' | 'education'): Promise<boolean> {
   return false;
 }
 

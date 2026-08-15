@@ -20,6 +20,7 @@ import achievementsData from '../data/achievements.json';
 import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
 import { AD_GEM_REWARD, GEM_CASH_RATE } from '../constants/rewards';
+import { AD_CONFIG } from '../services/adConfig';
 
 interface GameStore extends GameState {
   isLoading: boolean;
@@ -573,11 +574,9 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   speedUpEducationWithAd: () => {
     const state = get();
-    if (!state.currentCourseId || get().getAdUsage().limitReached) return;
+    if (!state.currentCourseId) return;
     const course = (coursesData as any[]).find((item) => item.id === state.currentCourseId);
     if (!course) return;
-    const today = new Date().toISOString().slice(0, 10);
-    const watchedToday = (state as any).adLastWatchDate === today ? ((state as any).adWatchedToday ?? 0) : 0;
     const rewards = applyEducationRewards(state.skills ?? {}, state.knowledge ?? {}, course);
     const statistics = {
       ...(state.statistics ?? INITIAL_STATISTICS),
@@ -591,8 +590,6 @@ const useGameStore = create<GameStore>((set, get) => ({
       knowledge: rewards.updatedKnowledge,
       statistics,
       periodCoursesCompleted: (state.periodCoursesCompleted ?? 0) + 1,
-      adWatchedToday: watchedToday + 1,
-      adLastWatchDate: today,
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
@@ -762,7 +759,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const today = new Date().toISOString().slice(0, 10);
     const lastDate = (state as any).adLastWatchDate ?? '';
     const watchedToday = lastDate === today ? ((state as any).adWatchedToday ?? 0) : 0;
-    const remaining = Math.max(0, 5 - watchedToday);
+    const remaining = Math.max(0, AD_CONFIG.DAILY_AD_LIMIT - watchedToday);
     return { watchedToday, remaining, limitReached: remaining <= 0 };
   },
 

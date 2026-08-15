@@ -31,7 +31,6 @@ export default function EducationScreen() {
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const enrollCourse = useGameStore((s) => s?.enrollCourse);
   const speedUpEducationWithAd = useGameStore((s) => s?.speedUpEducationWithAd);
-  const getAdUsage = useGameStore((s) => s?.getAdUsage);
   const [adMessage, setAdMessage] = useState('');
   const [simulatedAdReady, setSimulatedAdReady] = useState(false);
   const [simulatedAdPlaying, setSimulatedAdPlaying] = useState(false);
@@ -45,7 +44,6 @@ export default function EducationScreen() {
     : null;
 
   const speedUp = async () => {
-    if (getAdUsage?.().limitReached) { setAdMessage('Daily ad limit reached.'); return; }
     setAdMessage('Loading advertisement...');
     const grant = () => { speedUpEducationWithAd?.(); setAdMessage('Education completed!'); };
     if (Platform.OS === 'web' || Constants.expoGoConfig != null) {
@@ -64,7 +62,7 @@ export default function EducationScreen() {
       }, 5000);
       return;
     }
-    const loaded = await loadRewardedAd();
+    const loaded = await loadRewardedAd('education');
     if (!loaded) { setAdMessage('Ad unavailable. Please try again later.'); return; }
     if (!(await showRewardedAd(grant))) setAdMessage('No reward earned. Watch the complete ad to finish your education.');
   };

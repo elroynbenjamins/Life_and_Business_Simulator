@@ -91,7 +91,7 @@ export default function SupportScreen() {
     setAdState('loading');
     setAdMessage('');
 
-    const loaded = await loadRewardedAd();
+    const loaded = await loadRewardedAd('gems');
     if (!loaded) {
       setAdState('error');
       setAdMessage('Ad unavailable right now. Please try again later.');
