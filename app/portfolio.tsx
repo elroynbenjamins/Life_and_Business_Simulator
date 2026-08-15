@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import SectorPill from '../src/components/SectorPill';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency, formatPercent } from '../src/utils/format';
 import stocksData from '../src/data/stocks.json';
+import { showGameDialog } from '../src/components/GameDialog';
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -73,14 +74,7 @@ export default function PortfolioScreen() {
 
           const handleSellAll = () => {
             const message = `Sell all ${h?.shares} shares of ${h?.ticker} for ${formatCurrency(value, 2)}?`;
-            if (Platform.OS === 'web') {
-              if (window.confirm(`Sell All: ${message}`)) sellStock?.(h?.ticker, h?.shares ?? 0);
-              return;
-            }
-            Alert.alert('Sell All', message, [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Sell All', onPress: () => sellStock?.(h?.ticker, h?.shares ?? 0) },
-            ]);
+            showGameDialog({ title: 'Sell All', message, confirmText: 'Sell All', destructive: true, onConfirm: () => sellStock?.(h?.ticker, h?.shares ?? 0) });
           };
 
           return (

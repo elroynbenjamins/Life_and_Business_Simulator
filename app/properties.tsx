@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -10,6 +10,7 @@ import { formatCurrency } from '../src/utils/format';
 import { inflated } from '../src/engine/economyEngine';
 import { getTotalPropertyValue } from '../src/engine/propertyEngine';
 import propertiesData from '../src/data/properties.json';
+import { showGameDialog } from '../src/components/GameDialog';
 
 export default function PropertiesScreen() {
   const router = useRouter();
@@ -25,11 +26,7 @@ export default function PropertiesScreen() {
   const weeklyIncome = properties.filter((p) => p.isRentedOut).reduce((t, p) => t + (p.weeklyIncome ?? 0), 0);
 
   const confirmAction = (title: string, msg: string, action: () => void) => {
-    if (Platform.OS === 'web') {
-      if (window.confirm(`${title}: ${msg}`)) action();
-    } else {
-      Alert.alert(title, msg, [{ text: 'Cancel', style: 'cancel' }, { text: 'Confirm', onPress: action }]);
-    }
+    showGameDialog({ title, message: msg, onConfirm: action });
   };
 
   return (

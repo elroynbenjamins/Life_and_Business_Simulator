@@ -14,6 +14,7 @@ import PeriodReportModal from '../src/components/PeriodReportModal';
 import EventModal from '../src/components/EventModal';
 import ScheduledAdModal from '../src/components/ScheduledAdModal';
 import MainMenu from '../src/components/MainMenu';
+import GameDialog from '../src/components/GameDialog';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -71,6 +72,7 @@ export default function RootLayout() {
       <EventModal />
       <PeriodReportModal />
       <ScheduledAdModal />
+      <GameDialog />
     </SafeAreaProvider>
   );
 }

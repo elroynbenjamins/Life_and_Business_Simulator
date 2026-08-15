@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { getNetWorth } from '../src/engine/financeEngine';
 import loansData from '../src/data/loans.json';
+import { showGameDialog } from '../src/components/GameDialog';
 
 export default function LoansScreen() {
   const router = useRouter();
@@ -30,25 +31,11 @@ export default function LoansScreen() {
   const handleTakeLoan = (template: (typeof loansData)[0]) => {
     const totalRepayment = (template?.amount ?? 0) * (1 + (template?.interestRate ?? 0));
     const weeklyPayment = Math.ceil(totalRepayment / (template?.durationWeeks ?? 1));
-    Alert.alert(
-      'Take Loan',
-      `Borrow ${formatCurrency(template?.amount)}?\n\nInterest: ${((template?.interestRate ?? 0) * 100).toFixed(0)}%\nDuration: ${template?.durationWeeks} weeks\nWeekly payment: ${formatCurrency(weeklyPayment)}\nTotal repayment: ${formatCurrency(Math.round(totalRepayment))}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Borrow', onPress: () => takeLoan?.(template?.id) },
-      ]
-    );
+    showGameDialog({ title: 'Take Loan', message: `Borrow ${formatCurrency(template?.amount)}?\n\nInterest: ${((template?.interestRate ?? 0) * 100).toFixed(0)}%\nDuration: ${template?.durationWeeks} weeks\nWeekly payment: ${formatCurrency(weeklyPayment)}\nTotal repayment: ${formatCurrency(Math.round(totalRepayment))}`, confirmText: 'Borrow', onConfirm: () => takeLoan?.(template?.id) });
   };
 
   const handlePayOff = (loan: (typeof loans)[0]) => {
-    Alert.alert(
-      'Pay Off Loan',
-      `Pay off ${loan?.name} early? Remaining: ${formatCurrency(loan?.remainingAmount)}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Pay Off', onPress: () => payOffLoan?.(loan?.loanId) },
-      ]
-    );
+    showGameDialog({ title: 'Pay Off Loan', message: `Pay off ${loan?.name} early? Remaining: ${formatCurrency(loan?.remainingAmount)}`, confirmText: 'Pay Off', onConfirm: () => payOffLoan?.(loan?.loanId) });
   };
 
   return (

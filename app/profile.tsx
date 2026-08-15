@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { INITIAL_STATISTICS } from '../src/types/game';
 import achievementsData from '../src/data/achievements.json';
+import { showGameDialog } from '../src/components/GameDialog';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -31,10 +32,7 @@ export default function ProfileScreen() {
   const netWorth = getNetWorthValue?.() ?? 0;
 
   const handleNewGame = () => {
-    Alert.alert('New Game', 'Start a new game? All progress in this slot will be lost.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'New Game', style: 'destructive', onPress: () => startNewGame?.() },
-    ]);
+    showGameDialog({ title: 'New Game', message: 'Start a new game? All progress in this slot will be lost.', confirmText: 'New Game', destructive: true, onConfirm: () => startNewGame?.() });
   };
 
   return (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ import { inflated } from '../src/engine/economyEngine';
 import housingData from '../src/data/housing.json';
 import carsData from '../src/data/cars.json';
 import foodData from '../src/data/food.json';
+import { showGameDialog } from '../src/components/GameDialog';
 // house upgrades removed
 
 const UTILITY_BASE: Record<string, number> = {
@@ -44,17 +45,7 @@ export default function LifestyleScreen() {
     const dir = idx > currentHIdx ? 'Upgrade' : 'Downgrade';
     const utilCost = inflated(UTILITY_BASE[h?.id] ?? 25, inflationMultiplier);
     const message = `${dir} to ${h?.name}? Rent: ${formatCurrency(inflated(h?.weeklyRent, inflationMultiplier))}/week + Utilities: ${formatCurrency(utilCost)}/week.`;
-    if (Platform.OS === 'web') {
-      if (window.confirm(`${dir} Housing: ${message}`)) changeHousing?.(h?.id);
-      return;
-    }
-    Alert.alert(
-      `${dir} Housing`, message,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: dir, onPress: () => changeHousing?.(h?.id) },
-      ]
-    );
+    showGameDialog({ title: `${dir} Housing`, message, confirmText: dir, onConfirm: () => changeHousing?.(h?.id) });
   };
 
   const handleCar = (c: (typeof carsData)[0]) => {
@@ -64,14 +55,7 @@ export default function LifestyleScreen() {
     const cost = inflatedPurchase - tradeIn;
     const desc = tradeIn > 0 ? `Trade-in: ${formatCurrency(tradeIn)}. Net cost: ${formatCurrency(cost)}.` : `Cost: ${formatCurrency(inflatedPurchase)}.`;
     const message = `Get a ${c?.name}? ${desc} Running cost: ${formatCurrency(inflated(c?.weeklyCost ?? 0, inflationMultiplier))}/week.`;
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Change Vehicle: ${message}`)) changeCar?.(c?.id);
-      return;
-    }
-    Alert.alert('Change Vehicle', message, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Buy', onPress: () => changeCar?.(c?.id) },
-    ]);
+    showGameDialog({ title: 'Change Vehicle', message, confirmText: 'Buy', onConfirm: () => changeCar?.(c?.id) });
   };
 
   const handleFood = (f: (typeof foodData)[0]) => {

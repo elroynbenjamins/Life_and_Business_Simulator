@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/theme/colors';
@@ -12,6 +12,7 @@ import { meetsPositionRequirements } from '../../src/engine/skillEngine';
 import careerPathsData from '../../src/data/career_paths.json';
 import companiesData from '../../src/data/companies.json';
 import coursesData from '../../src/data/courses.json';
+import { showGameDialog } from '../../src/components/GameDialog';
 
 export default function CareerScreen() {
   const career = useGameStore((s) => s?.career);
@@ -48,11 +49,7 @@ export default function CareerScreen() {
   );
 
   const confirmAction = (title: string, msg: string, action: () => void) => {
-    if (Platform.OS === 'web') {
-      if (window.confirm(`${title}: ${msg}`)) action();
-    } else {
-      Alert.alert(title, msg, [{ text: 'Cancel', style: 'cancel' }, { text: 'Confirm', onPress: action }]);
-    }
+    showGameDialog({ title, message: msg, onConfirm: action, destructive: title === 'Quit Job' });
   };
 
   return (

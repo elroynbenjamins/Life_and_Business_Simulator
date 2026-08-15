@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ import { loadRewardedAd, showRewardedAd } from '../src/services/adManager';
 import { AD_GEM_REWARD, GEM_CASH_RATE } from '../src/constants/rewards';
 import { connectStore, disconnectStore, GEM_PRODUCTS, isNativeStoreAvailable, purchaseProduct, REMOVE_ADS_PRODUCT_ID, restoreRemoveAds, StoreProduct } from '../src/services/iapManager';
 import { saveProfile } from '../src/utils/storage';
+import { showGameDialog } from '../src/components/GameDialog';
 
 export default function SupportScreen() {
   const router = useRouter();
@@ -147,11 +148,11 @@ export default function SupportScreen() {
   const handleConvert = () => {
     const amount = parseInt(convertAmount, 10);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid number of gems.');
+      showGameDialog({ title: 'Invalid Amount', message: 'Please enter a valid number of gems.' });
       return;
     }
     if (amount > gems) {
-      Alert.alert('Not Enough Gems', `You only have ${gems} gems.`);
+      showGameDialog({ title: 'Not Enough Gems', message: `You only have ${gems} gems.` });
       return;
     }
     const cashGain = amount * GEM_CASH_RATE;
@@ -160,14 +161,7 @@ export default function SupportScreen() {
       convertGemsToCash?.(amount);
       setConvertAmount('');
     };
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Convert Gems: ${message}`)) convert();
-      return;
-    }
-    Alert.alert('Convert Gems', message, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Convert', onPress: convert },
-    ]);
+    showGameDialog({ title: 'Convert Gems', message, confirmText: 'Convert', onConfirm: convert });
   };
 
   return (

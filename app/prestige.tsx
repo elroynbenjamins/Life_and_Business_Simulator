@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { Colors } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
 import useGameStore from '../src/store/gameStore';
 import { getPrestigeBonuses } from '../src/engine/prestigeEngine';
+import { showGameDialog } from '../src/components/GameDialog';
 
 export default function PrestigeScreen() {
   const router = useRouter();
@@ -15,16 +16,7 @@ export default function PrestigeScreen() {
   const bonuses = getPrestigeBonuses();
 
   const handleUnlock = (bonusId: string, cost: number) => {
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Unlock for ${cost} Prestige Points?`)) {
-        unlockPrestigeBonus?.(bonusId);
-      }
-    } else {
-      Alert.alert('Unlock Bonus', `Spend ${cost} Prestige Points?`, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Unlock', onPress: () => unlockPrestigeBonus?.(bonusId) },
-      ]);
-    }
+    showGameDialog({ title: 'Unlock Bonus', message: `Spend ${cost} Prestige Points?`, confirmText: 'Unlock', onConfirm: () => unlockPrestigeBonus?.(bonusId) });
   };
 
   return (

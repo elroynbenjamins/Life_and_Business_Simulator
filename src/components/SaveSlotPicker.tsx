@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme/colors';
 import useGameStore from '../store/gameStore';
 import { formatCurrency } from '../utils/format';
+import { showGameDialog } from './GameDialog';
 
 export default function SaveSlotPicker() {
   const showSlotPicker = useGameStore((s) => s.showSlotPicker);
@@ -21,10 +22,7 @@ export default function SaveSlotPicker() {
   if (!showSlotPicker) return null;
 
   const handleDelete = (slot: number) => {
-    Alert.alert('Delete Save', `Delete save slot ${slot + 1}? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteSlot(slot) },
-    ]);
+    showGameDialog({ title: 'Delete Save', message: `Delete save slot ${slot + 1}? This cannot be undone.`, confirmText: 'Delete', destructive: true, onConfirm: () => deleteSlot(slot) });
   };
 
   const handleSlotPress = (slot: number, occupied: boolean) => {
