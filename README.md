@@ -79,3 +79,9 @@ Create these one-time products in Google Play Console before testing purchases:
 Google Play automatically derives regional prices from each product's base price. The app displays the store-returned `displayPrice`, including the user's local currency and formatting. Purchases require a development/production build installed through a Google Play testing track; they do not run in Expo Go or on web.
 
 Before production release, validate purchase tokens on a trusted server through the Google Play Developer API. Client-side entitlement handling is suitable for internal testing but must not be the only production purchase validation layer.
+
+## Closed testing
+
+See [CLOSED_TESTING.md](./CLOSED_TESTING.md) for the build, Play Console, tester, and feedback checklist. The repository includes an EAS production profile that creates an Android App Bundle and keeps submissions in draft for review.
+
+The privacy-policy source is [PRIVACY_POLICY.md](./PRIVACY_POLICY.md). Host it at a stable public HTTPS URL before completing the Play Console app-content declarations.

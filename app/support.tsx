@@ -15,6 +15,7 @@ import { AD_GEM_REWARD, GEM_CASH_RATE } from '../src/constants/rewards';
 import { connectStore, disconnectStore, GEM_PRODUCTS, isNativeStoreAvailable, purchaseProduct, REMOVE_ADS_PRODUCT_ID, restoreRemoveAds, StoreProduct } from '../src/services/iapManager';
 import { saveProfile } from '../src/utils/storage';
 import { showGameDialog } from '../src/components/GameDialog';
+import { fulfillPurchase } from '../src/services/purchaseFulfillment';
 
 export default function SupportScreen() {
   const router = useRouter();
@@ -40,23 +41,19 @@ export default function SupportScreen() {
   useEffect(() => {
     let mounted = true;
     connectStore({
-      onSuccess: async (productId, finish) => {
+      onSuccess: async (productId, purchaseId, finish) => {
         try {
-          if (productId === REMOVE_ADS_PRODUCT_ID) {
-            setAdsRemoved();
-            await finish(false);
-            if (mounted) setPurchaseMessage('Ads removed permanently. Thank you!');
-          } else {
-            const pack = GEM_PRODUCTS.find((item) => item.id === productId);
-            if (pack) {
-              const state = useGameStore.getState();
-              const updatedProfile = { ...state.profile, gems: (state.profile.gems ?? 0) + pack.gems };
-              useGameStore.setState({ profile: updatedProfile });
-              await saveProfile(updatedProfile);
-              await finish(true);
-              if (mounted) setPurchaseMessage(`${pack.gems} gems added.`);
-            }
+          const state = useGameStore.getState();
+          const result = fulfillPurchase(state.profile, productId, purchaseId);
+          if (!result.recognized) throw new Error(`Unknown store product: ${productId}`);
+          if (!result.duplicate) {
+            useGameStore.setState({ profile: result.profile, showScheduledAd: result.profile.adsRemoved ? false : state.showScheduledAd });
+            await saveProfile(result.profile);
           }
+          await finish(result.isConsumable);
+          if (mounted) setPurchaseMessage(result.duplicate
+            ? 'This purchase was already applied.'
+            : result.gemsGranted > 0 ? `${result.gemsGranted} gems added.` : 'Ads removed permanently. Thank you!');
         } finally {
           if (mounted) setPurchasing(false);
         }

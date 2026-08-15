@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+# This repository uses Yarn 4 exclusively.
+package-lock.json
 
 # Expo
 .expo/

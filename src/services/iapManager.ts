@@ -12,7 +12,7 @@ export const GEM_PRODUCTS = [
 
 export type StoreProduct = { id: string; displayPrice: string };
 type PurchaseHandlers = {
-  onSuccess: (productId: string, finish: (isConsumable: boolean) => Promise<void>) => void;
+  onSuccess: (productId: string, purchaseId: string, finish: (isConsumable: boolean) => Promise<void>) => void | Promise<void>;
   onError: (message: string) => void;
 };
 
@@ -32,7 +32,9 @@ export async function connectStore(handlers: PurchaseHandlers): Promise<StorePro
     purchaseSub?.remove();
     errorSub?.remove();
     purchaseSub = iap.purchaseUpdatedListener((purchase) => {
-      handlers.onSuccess(purchase.productId, (isConsumable) => iap!.finishTransaction({ purchase, isConsumable }));
+      const purchaseId = purchase.id || purchase.purchaseToken || `${purchase.productId}:${purchase.transactionDate}`;
+      Promise.resolve(handlers.onSuccess(purchase.productId, purchaseId, (isConsumable) => iap!.finishTransaction({ purchase, isConsumable })))
+        .catch(() => handlers.onError('The purchase was received but could not be granted. Please reopen Support to retry.'));
     });
     errorSub = iap.purchaseErrorListener((error) => handlers.onError(error.message));
     const ids = [REMOVE_ADS_PRODUCT_ID, ...GEM_PRODUCTS.map((product) => product.id)];

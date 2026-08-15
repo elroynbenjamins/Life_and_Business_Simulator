@@ -20,7 +20,7 @@ const sections = [
   {
     title: 'Career',
     icon: '💼',
-    content: 'Complete a matching course and meet skill, knowledge, experience and vehicle requirements to apply. Performance checks occur every 5 weeks and successful D20 rolls increase promotion progress. At 100%, you are promoted if you meet the vehicle requirement; level 3 and above require an SUV or better.',
+    content: 'Complete a matching course and meet skill, knowledge, experience, vehicle and housing requirements to apply. Performance checks occur every 5 weeks and successful D20 rolls increase promotion progress. Each level allows up to five 3% performance raises; inflation continues separately. Levels 3–4 require a Studio Apartment or better, levels 5+ require a Small House or better, and level 3+ requires an SUV or better.',
   },
   {
     title: 'Education',
@@ -55,7 +55,7 @@ const sections = [
   {
     title: 'Business Value',
     icon: '🏷️',
-    content: 'A business is valued from annualized revenue using a reputation-dependent multiple between 7× and 15×, plus its available business cash. Strong reputation, market share, profitability and cash reserves make a company more valuable.',
+    content: 'A profitable business is valued at 1.5× its available balance plus 2–5× its total net profit from the latest 20 weeks. Reputation determines the profit multiple. If those 20 weeks produce a loss, valuation equals the available non-negative business balance.',
   },
   {
     title: 'Lifestyle',

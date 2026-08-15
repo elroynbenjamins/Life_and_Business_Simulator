@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -138,6 +138,11 @@ export default function ProfileScreen() {
           <Text style={styles.supportBtnText}>Support (Gems)</Text>
         </Pressable>
 
+        <Pressable style={styles.feedbackBtn} onPress={() => Linking.openURL('https://github.com/elroynbenjamins/Life_and_Business_Simulator/issues/new')}>
+          <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.info} />
+          <Text style={styles.feedbackBtnText}>Tester Feedback / Report a Bug</Text>
+        </Pressable>
+
         <Pressable style={styles.newGameBtn} onPress={handleNewGame}>
           <Text style={styles.newGameText}>New Game</Text>
         </Pressable>
@@ -195,6 +200,8 @@ const styles = StyleSheet.create({
   slotBtnText: { color: Colors.info, fontSize: 16, fontWeight: '600' },
   supportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#8B5CF6', borderRadius: 12, padding: 16, marginTop: 10 },
   supportBtnText: { color: '#8B5CF6', fontSize: 16, fontWeight: '600' },
+  feedbackBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: Colors.info, borderRadius: 12, padding: 16, marginTop: 10 },
+  feedbackBtnText: { color: Colors.info, fontSize: 16, fontWeight: '600' },
   newGameBtn: { borderWidth: 1, borderColor: Colors.negative, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 10 },
   newGameText: { color: Colors.negative, fontSize: 16, fontWeight: '600' },
 });

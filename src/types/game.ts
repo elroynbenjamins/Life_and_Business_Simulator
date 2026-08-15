@@ -684,6 +684,7 @@ export interface PlayerProfile {
   totalXp: number;
   gems: number;
   adsRemoved: boolean;
+  processedPurchaseIds: string[];
   prestigePoints: number;
   unlockedPrestige: string[];
 }
@@ -692,6 +693,7 @@ export const INITIAL_PROFILE: PlayerProfile = {
   totalXp: 0,
   gems: 0,
   adsRemoved: false,
+  processedPurchaseIds: [],
   prestigePoints: 0,
   unlockedPrestige: [],
 };
