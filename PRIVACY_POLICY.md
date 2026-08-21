@@ -1,12 +1,14 @@
-# Privacy Policy — Life & Business Simulator
+# Privacy Policy — Life Empire
 
-Effective date: August 16, 2026
+Effective date: August 21, 2026
 
-Life & Business Simulator stores game progress, save slots, settings, gems, and purchased-entitlement status locally on the player's device. The game does not currently require an account and does not intentionally transmit save-game contents or the player's chosen in-game name to the developer.
+Life Empire stores game progress, save slots, settings, gems, and purchased-entitlement status locally on the player's device. The game does not currently require an account and does not intentionally transmit save-game contents or the player's chosen in-game name to the developer.
 
 ## Advertising
 
 The app uses Google AdMob to display advertisements. AdMob may process device identifiers, advertising identifiers, IP-derived approximate location, ad interactions, diagnostics, and other information needed to deliver, limit, measure, prevent fraud in, and personalize or contextualize advertisements. Google's handling of this information is governed by Google's policies and the consent choices available to the player.
+
+Where required, Life Empire uses Google's User Messaging Platform to request advertising consent before requesting ads. Players can review or change applicable choices through **Privacy and cookie settings** on the Support screen. Withholding or withdrawing consent does not prevent the player from using the game, although ad availability may change.
 
 Players who purchase the permanent Remove Ads product will no longer be shown advertisements by the game.
 

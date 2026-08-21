@@ -16,6 +16,7 @@ import { connectStore, disconnectStore, GEM_PRODUCTS, isNativeStoreAvailable, pu
 import { saveProfile } from '../src/utils/storage';
 import { showGameDialog } from '../src/components/GameDialog';
 import { fulfillPurchase } from '../src/services/purchaseFulfillment';
+import { showAdPrivacyOptions } from '../src/services/adPrivacyManager';
 
 export default function SupportScreen() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function SupportScreen() {
   const [storeProducts, setStoreProducts] = useState<Record<string, StoreProduct>>({});
   const [purchaseMessage, setPurchaseMessage] = useState('');
   const [purchasing, setPurchasing] = useState(false);
+  const [privacyMessage, setPrivacyMessage] = useState('');
 
   const gems = profile?.gems ?? 0;
   const adUsage = getAdUsage?.() ?? { watchedToday: 0, remaining: 5, limitReached: false };
@@ -140,6 +142,14 @@ export default function SupportScreen() {
     } finally {
       setPurchasing(false);
     }
+  };
+
+  const handlePrivacyOptions = async () => {
+    setPrivacyMessage('Opening privacy settings…');
+    const shown = await showAdPrivacyOptions();
+    setPrivacyMessage(shown
+      ? 'Your advertising privacy choices were updated.'
+      : 'Privacy settings are only available when required in an installed Android or iOS build.');
   };
 
   const handleConvert = () => {
@@ -252,6 +262,15 @@ export default function SupportScreen() {
           </View>
           {!adsRemoved && storeAvailable && <Pressable onPress={handleRestore} disabled={purchasing}><Text style={styles.restoreText}>Restore purchase</Text></Pressable>}
           {purchaseMessage !== '' && <Text style={styles.purchaseMessage}>{purchaseMessage}</Text>}
+        </GameCard>
+
+        <GameCard title="Advertising Privacy">
+          <Text style={styles.desc}>Review or change the consent choices used by Google AdMob.</Text>
+          <Pressable style={styles.adBtn} onPress={handlePrivacyOptions}>
+            <Ionicons name="shield-checkmark" size={20} color={Colors.white} />
+            <Text style={styles.adBtnText}>Privacy and cookie settings</Text>
+          </Pressable>
+          {privacyMessage !== '' && <Text style={styles.purchaseMessage}>{privacyMessage}</Text>}
         </GameCard>
 
         {/* Buy Gems */}

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { AD_CONFIG, RewardedAdPlacement } from './adConfig';
+import { canRequestAds } from './adPrivacyManager';
 
 type AdState = 'idle' | 'loading' | 'ready' | 'showing' | 'error';
 type Listener = (state: AdState) => void;
@@ -27,6 +28,7 @@ export function subscribeAdState(fn: Listener): () => void {
 
 export async function loadRewardedAd(placement: RewardedAdPlacement): Promise<boolean> {
   try {
+    if (!(await canRequestAds())) return false;
     // This native module is unavailable in Expo Go. Loading it lazily keeps the
     // rest of the app compatible while development/production builds retain AdMob.
     const { RewardedAd, RewardedAdEventType } = await import('react-native-google-mobile-ads');
@@ -115,6 +117,7 @@ export async function showRewardedAd(onReward: () => void): Promise<boolean> {
 
 export async function loadInterstitialAd(): Promise<boolean> {
   try {
+    if (!(await canRequestAds())) return false;
     const { InterstitialAd, AdEventType } = await import('react-native-google-mobile-ads');
     const unitId = __DEV__
       ? (Platform.OS === 'ios' ? AD_CONFIG.INTERSTITIAL_TEST_AD_UNIT_ID_IOS : AD_CONFIG.INTERSTITIAL_TEST_AD_UNIT_ID_ANDROID)
