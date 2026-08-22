@@ -15,6 +15,7 @@ import EventModal from '../src/components/EventModal';
 import ScheduledAdModal from '../src/components/ScheduledAdModal';
 import MainMenu from '../src/components/MainMenu';
 import GameDialog from '../src/components/GameDialog';
+import TutorialModal from '../src/components/TutorialModal';
 import { initializeAdConsent } from '../src/services/adPrivacyManager';
 
 SplashScreen.preventAutoHideAsync();
@@ -69,6 +70,7 @@ export default function RootLayout() {
       <MainMenu />
       <SaveSlotPicker />
       <NameEntryModal />
+      <TutorialModal />
       <WeekSummarySheet />
       <NegativeCashModal />
       <EventModal />

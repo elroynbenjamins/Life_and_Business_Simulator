@@ -29,6 +29,7 @@ interface GameStore extends GameState {
   showNameModal: boolean;
   showSlotPicker: boolean;
   showMainMenu: boolean;
+  showTutorial: boolean;
   slotPickerMode: 'load' | 'new';
   showNegativeCashModal: boolean;
   showPeriodReport: boolean;
@@ -69,6 +70,8 @@ interface GameStore extends GameState {
   continueGame: () => void;
   openMainMenu: () => void;
   beginNewGame: () => void;
+  openTutorial: () => void;
+  dismissTutorial: () => void;
   selectNewGameSlot: (slot: number) => Promise<void>;
 
   enrollCourse: (courseId: string) => void;
@@ -144,6 +147,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   showNameModal: false,
   showSlotPicker: false,
   showMainMenu: false,
+  showTutorial: false,
   slotPickerMode: 'load',
   showNegativeCashModal: false,
   showPeriodReport: false,
@@ -298,7 +302,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     };
     await saveGame(newState, activeSlot);
     const slotMeta = await loadAllSlotMeta();
-    set({ ...newState, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, slotPickerMode: 'load', lastSummary: null, showSummary: false, slotMeta });
+    set({ ...newState, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showTutorial: true, slotPickerMode: 'load', lastSummary: null, showSummary: false, slotMeta });
   },
 
   deleteSlot: async (slot: number) => {
@@ -534,6 +538,8 @@ const useGameStore = create<GameStore>((set, get) => ({
   closeSlotPicker: () => set({ showSlotPicker: false }),
   continueGame: () => set({ showMainMenu: false }),
   openMainMenu: () => set({ showMainMenu: true }),
+  openTutorial: () => set({ showTutorial: true }),
+  dismissTutorial: () => set({ showTutorial: false }),
   beginNewGame: () => set({ showSlotPicker: true, slotPickerMode: 'new' }),
   selectNewGameSlot: async (slot: number) => {
     await setActiveSlot(slot);

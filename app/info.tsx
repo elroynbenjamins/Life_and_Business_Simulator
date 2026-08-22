@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
+import useGameStore from '../src/store/gameStore';
 
 const sections = [
   {
@@ -96,6 +97,7 @@ const sections = [
 
 export default function InfoScreen() {
   const router = useRouter();
+  const openTutorial = useGameStore((state) => state.openTutorial);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -109,8 +111,13 @@ export default function InfoScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.intro}>
-          Life & Business Simulator is an economic life simulation. Start at age 20 with €10,000 and build your career, invest in stocks, start businesses, and grow your wealth.
+          Life Empire is an economic life simulation. Start at age 20 with €10,000 and build your career, invest in stocks, start businesses, and grow your wealth.
         </Text>
+
+        <Pressable style={styles.tutorialButton} onPress={openTutorial}>
+          <Ionicons name="play-circle-outline" size={21} color={Colors.white} />
+          <Text style={styles.tutorialButtonText}>Replay introductory tutorial</Text>
+        </Pressable>
 
         {sections.map((s) => (
           <GameCard key={s.title}>
@@ -130,6 +137,8 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 40 },
   intro: { color: Colors.textSecondary, fontSize: 14, lineHeight: 22, marginBottom: 16 },
+  tutorialButton: { minHeight: 52, borderRadius: 12, backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginBottom: 16 },
+  tutorialButtonText: { color: Colors.white, fontSize: 15, fontWeight: '800' },
   sectionTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 6 },
   sectionContent: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
 });
