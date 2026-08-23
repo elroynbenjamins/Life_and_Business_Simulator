@@ -9,11 +9,11 @@
 - [x] Google Play Billing product IDs are implemented.
 - [x] Privacy policy identifies Snelroy, Elroy N Benjamins, and the privacy contact.
 - [x] Support email set to `lifeempireapp@gmail.com` in the policy and app.
-- [ ] Push `docs/privacy-policy.md`, verify its public URL without signing in, and add that URL in Play Console.
+- [x] Push `docs/privacy-policy.md`, verify its public URL without signing in, and add that URL in Play Console.
 - [ ] Create and activate Play products: `remove_ads`, `gems_100`, `gems_250`, `gems_500`, `gems_1000`, and `gems_2500`.
 - [ ] Set `remove_ads` to €2.99 or the desired regional base price; Google Play supplies localized prices.
 - [ ] Complete App access, Ads, Content rating, Target audience, Data safety, and Financial features declarations.
-- [ ] Upload a 1024 × 500 feature graphic and at least two phone screenshots.
+- [x] Upload a 1024 × 500 feature graphic and at least two phone screenshots.
 
 ## Build profiles
 
