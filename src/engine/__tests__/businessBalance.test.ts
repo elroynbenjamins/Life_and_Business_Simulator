@@ -1,4 +1,4 @@
-import { calculateValuation, computeMarketShare, createBusiness, getBusinessLevelForMetrics, getStartupRevenueTarget, processBusinessWeek, scaleValuationTargets, startProject } from '../businessEngine';
+import { calculateValuation, canStartBusinessExpansion, computeMarketShare, createBusiness, getBusinessLevelForMetrics, getScaledLocationCosts, getStartupRevenueTarget, processBusinessWeek, scaleValuationTargets, startProject } from '../businessEngine';
 import { createInitialCompetitors } from '../competitorEngine';
 import { OwnedBusiness } from '../../types/game';
 
@@ -90,5 +90,32 @@ describe('business balancing', () => {
     random.mockRestore();
     expect(profits.some((profit) => profit > 0)).toBe(true);
     expect(profits.some((profit) => profit < 0)).toBe(true);
+  });
+
+  test('geographic expansion requires both business level and reputation', () => {
+    const business = createBusiness('coffee_shop', null, 1, 1, 1)!;
+    business.level = 1;
+    business.reputation = 29;
+    expect(canStartBusinessExpansion(business, 'local_branch')).toBe(false);
+    business.reputation = 30;
+    expect(canStartBusinessExpansion(business, 'local_branch')).toBe(true);
+    expect(getScaledLocationCosts(business, 'local_branch', 1)?.purchaseCost).toBeGreaterThan(0);
+  });
+
+  test('completed expansion becomes a persistent revenue-and-cost location', () => {
+    const business = createBusiness('coffee_shop', null, 1, 1, 1)!;
+    business.level = 1;
+    business.reputation = 50;
+    business.employees = [
+      { id: 'e1', name: 'A', roleId: 'worker', weeklySalary: 260, skill: 55, potential: 80, morale: 70, experience: 0, weeksEmployed: 0 },
+      { id: 'e2', name: 'B', roleId: 'skilled_worker', weeklySalary: 400, skill: 55, potential: 80, morale: 70, experience: 0, weeksEmployed: 0 },
+      { id: 'e3', name: 'C', roleId: 'supervisor', weeklySalary: 520, skill: 55, potential: 80, morale: 70, experience: 0, weeksEmployed: 0 },
+    ] as any;
+    business.activeExpansion = { templateId: 'local_branch', weeksRemaining: 1 };
+    const result = processBusinessWeek(business, 1, 2, 1);
+    expect(result.updatedBusiness.activeExpansion).toBeNull();
+    expect(result.updatedBusiness.locations).toHaveLength(1);
+    expect(result.updatedBusiness.locations?.[0].revenueBoost).toBe(0.12);
+    expect(result.updatedBusiness.locations?.[0].weeklyOperatingCost).toBeGreaterThan(0);
   });
 });

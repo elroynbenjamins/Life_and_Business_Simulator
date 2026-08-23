@@ -1,0 +1,8 @@
+[
+  {"id":"local_branch","name":"Local Branch","region":"Nearby City","cost":25000,"weeklyOperatingCost":300,"revenueBoost":0.12,"requiredLevel":1,"requiredReputation":30,"buildWeeks":3},
+  {"id":"regional_branch","name":"Regional Branch","region":"Home Region","cost":75000,"weeklyOperatingCost":700,"revenueBoost":0.20,"requiredLevel":2,"requiredReputation":45,"buildWeeks":5},
+  {"id":"national_office","name":"National Office","region":"National Market","cost":250000,"weeklyOperatingCost":2000,"revenueBoost":0.30,"requiredLevel":3,"requiredReputation":60,"buildWeeks":8},
+  {"id":"european_hub","name":"European Hub","region":"Europe","cost":500000,"weeklyOperatingCost":4000,"revenueBoost":0.40,"requiredLevel":4,"requiredReputation":72,"buildWeeks":10},
+  {"id":"american_hub","name":"American Hub","region":"North America","cost":900000,"weeklyOperatingCost":7500,"revenueBoost":0.50,"requiredLevel":5,"requiredReputation":82,"buildWeeks":12},
+  {"id":"asian_hub","name":"Asian Hub","region":"Asia-Pacific","cost":1500000,"weeklyOperatingCost":12000,"revenueBoost":0.65,"requiredLevel":6,"requiredReputation":90,"buildWeeks":14}
+]

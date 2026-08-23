@@ -10,6 +10,18 @@
         "buildType": "apk"
       }
     },
+    "play-internal": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "closed-testing": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "android": {
@@ -18,6 +30,18 @@
     }
   },
   "submit": {
+    "play-internal": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    },
+    "closed-testing": {
+      "android": {
+        "track": "alpha",
+        "releaseStatus": "draft"
+      }
+    },
     "production": {
       "android": {
         "track": "internal",

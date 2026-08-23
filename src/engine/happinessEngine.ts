@@ -1,7 +1,6 @@
 import { GameState } from '../types/game';
 import housingData from '../data/housing.json';
 import carsData from '../data/cars.json';
-import foodData from '../data/food.json';
 // house upgrades removed
 import coursesData from '../data/courses.json';
 
@@ -15,10 +14,6 @@ export function calculateHappiness(state: GameState): number {
   // Car bonus
   const car = (carsData ?? []).find((c) => c?.id === state?.currentCarId);
   happiness += car?.happiness ?? 0;
-
-  // Food bonus
-  const food = (foodData ?? []).find((f) => f?.id === state?.foodLevel);
-  happiness += food?.happiness ?? 0;
 
   // House upgrades removed
 

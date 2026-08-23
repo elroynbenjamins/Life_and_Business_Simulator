@@ -15,10 +15,7 @@ export default function WeekSummarySheet() {
   const topGainer = [...(summary?.stockChanges ?? [])].sort((a, b) => (b?.change ?? 0) - (a?.change ?? 0))?.[0];
   const topLoser = [...(summary?.stockChanges ?? [])].sort((a, b) => (a?.change ?? 0) - (b?.change ?? 0))?.[0];
   const totalExpenses = (summary?.rentPaid ?? 0) + (summary?.utilityCost ?? 0) + (summary?.foodCost ?? 0) + (summary?.carCost ?? 0) + (summary?.courseCost ?? 0) + (summary?.loanPayments ?? 0);
-  const netFlow = (summary?.salaryEarned ?? 0) + (summary?.dividendIncome ?? 0) - totalExpenses - (summary?.taxAmount ?? 0);
-
-  const formatSkillName = (id: string) =>
-    id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const netFlow = (summary?.salaryEarned ?? 0) + (summary?.partTimeIncome ?? 0) + (summary?.dividendIncome ?? 0) - totalExpenses - (summary?.taxAmount ?? 0);
 
   return (
     <Modal visible transparent animationType="slide">
@@ -32,7 +29,7 @@ export default function WeekSummarySheet() {
             {summary?.inflationEvent && (
               <View style={styles.inflationBox}>
                 <Text style={styles.inflationText}>
-                  📈 Yearly Inflation: +{((summary?.inflationRate ?? 0) * 100).toFixed(0)}% — Costs & salaries adjusted (×{(summary?.inflationMultiplier ?? 1).toFixed(2)})
+                  📈 Yearly Inflation: +{((summary?.inflationRate ?? 0) * 100).toFixed(0)}% — Costs & salaries adjusted
                 </Text>
               </View>
             )}
@@ -40,6 +37,7 @@ export default function WeekSummarySheet() {
             {/* Income */}
             <Text style={styles.sectionLabel}>Income</Text>
             <Row label="Salary" value={summary?.salaryEarned ?? 0} positive />
+            {(summary?.partTimeIncome ?? 0) > 0 && <Row label="Part-time income (tax-free)" value={summary.partTimeIncome} positive />}
             {summary?.salaryReduced && (
               <View style={styles.salaryWarning}>
                 <Text style={styles.salaryWarningText}>⚠️ Salary reduced by 20% (studying advanced course)</Text>
@@ -98,6 +96,19 @@ export default function WeekSummarySheet() {
                 <Text style={[styles.rowValue, { color: Colors.primary }]}>+{formatCurrency(summary?.propertyIncome ?? 0)}</Text>
               </View>
             )}
+
+            {(summary?.auctionResults?.length ?? 0) > 0 && summary.auctionResults.map((result) => (
+              <View key={result.auctionId} style={[styles.eventBox, { backgroundColor: result.won ? `${Colors.primary}22` : `${Colors.negative}22`, borderColor: result.won ? `${Colors.primary}44` : `${Colors.negative}44` }]}>
+                <Text style={styles.eventTitle}>{result.won ? '🔑 Auction Won' : '🏠 Auction Lost'}</Text>
+                <Text style={styles.eventDesc}>{result.propertyName}</Text>
+                <Text style={styles.eventDesc}>Winning bid: {formatCurrency(result.winningBid)}</Text>
+                {result.won ? (
+                  <Text style={[styles.eventEffect, { color: Colors.primary }]}>Potential equity: {formatCurrency(result.estimatedMarketValue - result.winningBid)} (unrealized)</Text>
+                ) : (
+                  <Text style={[styles.eventEffect, { color: Colors.negative }]}>{result.reason === 'insufficient_cash' ? 'Purchase failed: insufficient available cash.' : `Your highest bid: ${formatCurrency(result.playerBid)}`}</Text>
+                )}
+              </View>
+            ))}
 
             {/* Career Events */}
             {summary?.careerRaise && (
@@ -162,18 +173,6 @@ export default function WeekSummarySheet() {
                   {(summary?.realizedProfitLoss ?? 0) >= 0 ? '+' : ''}{formatCurrency(summary?.realizedProfitLoss ?? 0)}
                 </Text>
               </View>
-            )}
-
-            {summary?.skillGains && Object.keys(summary.skillGains).length > 0 && (
-              <>
-                <Text style={styles.sectionLabel}>Skill Growth</Text>
-                {Object.entries(summary.skillGains).map(([id, amount]) => (
-                  <View key={id} style={styles.row}>
-                    <Text style={styles.rowLabel}>{formatSkillName(id)}</Text>
-                    <Text style={[styles.rowValue, { color: Colors.info }]}>+{(amount as number).toFixed(1)}</Text>
-                  </View>
-                ))}
-              </>
             )}
 
             {/* Business Income */}

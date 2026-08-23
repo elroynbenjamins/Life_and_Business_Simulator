@@ -53,7 +53,9 @@ export function getPrestigeEffects(profile: PlayerProfile): Record<string, numbe
   for (const bonusId of profile.unlockedPrestige ?? []) {
     const bonus = (prestigeData as any[]).find((b) => b?.id === bonusId);
     if (bonus?.effect) {
-      effects[bonus.effect.type] = (effects[bonus.effect.type] ?? 0) + bonus.effect.value;
+      effects[bonus.effect.type] = bonus.effect.stacking === 'highest'
+        ? Math.max(effects[bonus.effect.type] ?? 0, bonus.effect.value)
+        : (effects[bonus.effect.type] ?? 0) + bonus.effect.value;
     }
   }
   return effects;

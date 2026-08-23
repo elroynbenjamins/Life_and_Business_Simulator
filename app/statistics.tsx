@@ -20,7 +20,8 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
   const careerIncome = gameState.career?.companyId
     ? getCareerSalary(gameState.career, gameState.inflationMultiplier ?? 1, gameState.profile)
     : getWeeklySalary(gameState);
-  const partTimeIncome = !gameState.career?.companyId && !gameState.currentJobId && gameState.partTimeJob ? 150 : 0;
+  const partTimeIncome = !gameState.career?.companyId && !gameState.currentJobId && gameState.partTimeJob ? 350 : 0;
+  const totalStocksOwned = (gameState.holdings ?? []).reduce((total, holding) => total + (holding.shares ?? 0), 0);
   const weeklyIncome = careerIncome + partTimeIncome;
   const nw = (netWorthHistory ?? []).slice(-1)[0] ?? 0;
   const chartWidth = Math.min(Dimensions.get('window').width - 64, 500);
@@ -118,13 +119,20 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
         <GameCard title="Career">
           <Row label="Jobs Worked" value={`${s?.jobsWorked ?? 0}`} />
           <Row label="Weeks Employed" value={`${s?.weeksEmployed ?? 0}`} />
-          <Row label="Weeks Unemployed" value={`${s?.weeksUnemployed ?? 0}`} />
           <Row label="Total Salary Earned" value={formatCurrency(s?.totalSalaryEarned ?? 0)} tone="positive" />
           <Row label="Total Taxes Paid" value={formatCurrency(s?.totalTaxesPaid ?? 0)} tone="negative" />
         </GameCard>
 
         <GameCard title="Education">
           <Row label="Courses Completed" value={`${s?.coursesCompleted ?? 0}`} />
+        </GameCard>
+
+        <GameCard title="Stocks">
+          <Row label="Total Dividends Received" value={formatCurrency(s?.totalDividendsReceived ?? 0)} tone="positive" />
+          <Row label="Highest Profit on a Sold Stock" value={`${(s?.highestSoldStockProfitPercent ?? 0).toFixed(1)}%`} tone="positive" />
+          <Row label="Lifetime Realized Profit / Loss" value={formatCurrency(s?.totalRealizedProfitLoss ?? 0)} amount={s?.totalRealizedProfitLoss ?? 0} />
+          <Row label="Total Stocks Owned" value={`${totalStocksOwned} shares`} />
+          <Row label="Highest Stock Portfolio Value" value={formatCurrency(s?.highestStockPortfolioValue ?? 0)} tone="positive" />
         </GameCard>
 
         <GameCard title="Living">

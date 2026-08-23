@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Life Empire",
-    "slug": "abacusai-mobile-apps",
+    "slug": "life-empire",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/life-empire-icon.png",
@@ -17,24 +17,8 @@
         "foregroundImage": "./assets/life-empire-icon.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.abacusai.lifebusinesssim.t1785763284",
-      "versionCode": 1,
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "abacusai1785763284",
-              "host": "*"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
-      ]
+      "package": "com.elroybenjamins.lifeempire",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/life-empire-icon.png",
@@ -51,6 +35,13 @@
         }
       ]
     ],
-    "scheme": "abacusai1785763284"
+    "scheme": "lifeempire",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "06ffa4bf-df57-42d1-af16-d33510455be2"
+      }
+    },
+    "owner": "snelroy"
   }
 }

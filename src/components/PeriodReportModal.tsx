@@ -60,7 +60,6 @@ export default function PeriodReportModal() {
             {/* Career */}
             <Text style={styles.sectionLabel}>Career</Text>
             <Row label="Weeks Employed" value={r.weeksEmployed} count />
-            <Row label="Weeks Unemployed" value={r.weeksUnemployed} count />
             {r.jobChanges > 0 && <Row label="Job Changes" value={r.jobChanges} count />}
 
             {/* Education */}

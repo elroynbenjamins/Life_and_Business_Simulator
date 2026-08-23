@@ -12,10 +12,11 @@ import {
   getLevelName, getBusinessType, getUpgrade, getEmployeeRole, getAutomationScore, getDemandLabel,
   getAllMoraleActions, getAllTraining, getAllProjects, computeMarketShare, meetsMinStaffing, MIN_EMPLOYEES_REQUIRED,
   TIER_CONFIG, getProjectDifficulty, getProjectOdds,
-  BUSINESS_LEVEL_REPUTATION_REQUIREMENTS,
+  BUSINESS_LEVEL_REPUTATION_REQUIREMENTS, getAllBusinessLocationTemplates, getScaledLocationCosts, canStartBusinessExpansion,
 } from '../../src/engine/businessEngine';
 import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
+import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
 
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -34,9 +35,9 @@ const AD_OPTIONS: { key: 'none' | 'basic' | 'moderate' | 'aggressive'; label: st
 ];
 
 const LOAN_OPTIONS = [
-  { amount: 10000, rate: 0.12, weeks: 26, label: '€10K • 12% • 26wk' },
-  { amount: 25000, rate: 0.10, weeks: 40, label: '€25K • 10% • 40wk' },
-  { amount: 50000, rate: 0.08, weeks: 52, label: '€50K • 8% • 52wk' },
+  { amount: 10000, rate: 0.14, weeks: 26, label: '€10K • 14% • 26wk' },
+  { amount: 25000, rate: 0.12, weeks: 40, label: '€25K • 12% • 40wk' },
+  { amount: 50000, rate: 0.10, weeks: 52, label: '€50K • 10% • 52wk' },
 ];
 
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
@@ -48,10 +49,12 @@ export default function BusinessDetailScreen() {
   const cash = useGameStore((s) => s?.cash ?? 0);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const competitors = useGameStore((s) => s?.competitors ?? {});
+  const profile = useGameStore((s) => s.profile);
+  const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
     sellBusiness, openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
     setBusinessPricing, setBusinessAdvertising,
-    buyBusinessUpgrade, takeBusinessLoan,
+    buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
     injectCashIntoBusiness, withdrawFromBusiness,
     applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, resolveBusinessRetention,
   } = useGameStore();
@@ -96,6 +99,7 @@ export default function BusinessDetailScreen() {
   const allMoraleActions = getAllMoraleActions();
   const allTraining = getAllTraining();
   const allProjects = getAllProjects();
+  const locationTemplates = getAllBusinessLocationTemplates();
 
   // Market share pie chart data
   const bizCompetitors = competitors[biz.id] ?? [];
@@ -245,6 +249,25 @@ export default function BusinessDetailScreen() {
                 absolute={false}
               />
             </View>
+          </GameCard>
+        )}
+
+        {bizCompetitors.length > 0 && (
+          <GameCard title="Rival CEOs">
+            <Text style={styles.sectionHint}>These CEOs persist in this save, grow their companies, and make a strategic decision every four weeks.</Text>
+            {bizCompetitors.map((rival) => (
+              <View key={rival.id} style={styles.rivalRow}>
+                <View style={styles.rivalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rivalName}>{rival.ceoName ?? 'Unknown CEO'}</Text>
+                    <Text style={styles.rivalCompany}>{rival.name} · {(rival.personality ?? 'conservative').replace('_', ' ')}</Text>
+                  </View>
+                  <Text style={styles.rivalStrength}>Strength {Math.round(rival.strength)}</Text>
+                </View>
+                <Text style={styles.rivalMeta}>Cash {formatCurrency(rival.cash ?? 0)} · Reputation {Math.round(rival.reputation ?? 0)}</Text>
+                <Text style={styles.rivalAction}>Latest: {rival.lastDecision ?? 'Building the company'}</Text>
+              </View>
+            ))}
           </GameCard>
         )}
 
@@ -523,6 +546,34 @@ export default function BusinessDetailScreen() {
           </GameCard>
         )}
 
+        <GameCard title="Expansion & Locations">
+          <Text style={styles.sectionHint}>Open new locations to increase capacity. Every branch adds revenue and recurring operating costs. Reputation and business level unlock larger markets.</Text>
+          {biz.activeExpansion && (() => {
+            const active = locationTemplates.find((location) => location.id === biz.activeExpansion?.templateId);
+            return <View style={styles.expansionActive}><Text style={styles.expansionActiveTitle}>🏗️ Opening {active?.name ?? 'new location'}</Text><Text style={styles.rivalMeta}>{biz.activeExpansion.weeksRemaining} weeks remaining</Text></View>;
+          })()}
+          {(biz.locations ?? []).map((location) => (
+            <View key={location.id} style={styles.locationOwned}>
+              <View style={{ flex: 1 }}><Text style={styles.upgradeName}>{location.name}</Text><Text style={styles.upgradeDesc}>{location.region}</Text></View>
+              <View style={{ alignItems: 'flex-end' }}><Text style={styles.upgradeBoost}>+{Math.round(location.revenueBoost * 100)}% capacity</Text><Text style={styles.rivalMeta}>-{formatCurrency(location.weeklyOperatingCost)}/wk</Text></View>
+            </View>
+          ))}
+          {locationTemplates.filter((template) => !(biz.locations ?? []).some((location) => location.templateId === template.id)).map((template) => {
+            const costs = getScaledLocationCosts(biz, template.id, inflationMultiplier);
+            const requirementsMet = canStartBusinessExpansion(biz, template.id);
+            const affordable = !!costs && biz.balance >= costs.purchaseCost;
+            const enabled = requirementsMet && affordable && !biz.activeExpansion;
+            return <Pressable key={template.id} style={[styles.upgradeRow, !enabled && styles.disabledRow]} disabled={!enabled} onPress={() => confirmAction('Open New Location', `Invest ${formatCurrency(costs?.purchaseCost ?? 0)} from the business balance to open ${template.name}? It will add ${Math.round(template.revenueBoost * 100)}% revenue capacity and ${formatCurrency(costs?.weeklyOperatingCost ?? 0)} weekly operating costs.`, () => startBusinessExpansion(biz.id, template.id))}>
+              <View style={styles.upgradeInfo}>
+                <Text style={styles.upgradeName}>{template.name} · {template.region}</Text>
+                <Text style={styles.upgradeDesc}>Requires level {template.requiredLevel + 1} and {template.requiredReputation} reputation · {template.buildWeeks} weeks</Text>
+                <Text style={styles.upgradeBoost}>+{Math.round(template.revenueBoost * 100)}% capacity · -{formatCurrency(costs?.weeklyOperatingCost ?? 0)}/wk</Text>
+              </View>
+              <Text style={[styles.upgradeCost, { color: enabled ? Colors.warning : Colors.textMuted }]}>{formatCurrency(costs?.purchaseCost ?? 0)}</Text>
+            </Pressable>;
+          })}
+        </GameCard>
+
         {/* Business Loans */}
         <GameCard title="Business Loans">
           {(biz.businessLoans ?? []).map((loan) => (
@@ -539,7 +590,7 @@ export default function BusinessDetailScreen() {
                   style={styles.loanBtn}
                   onPress={() => takeBusinessLoan(biz.id, opt.amount, opt.rate, opt.weeks)}
                 >
-                  <Text style={styles.loanBtnText}>{opt.label}</Text>
+                  <Text style={styles.loanBtnText}>{formatCurrency(opt.amount)} · {(Math.max(0, opt.rate - loanRateReduction) * 100).toFixed(0)}% · {opt.weeks}wk</Text>
                 </Pressable>
               ))}
             </View>
@@ -751,7 +802,7 @@ export default function BusinessDetailScreen() {
             <Pressable style={styles.modalClose} onPress={() => { setShowFundingNotice(false); setShowTransferModal('inject'); }}>
               <Text style={styles.modalCloseText}>Inject cash</Text>
             </Pressable>
-            <Pressable style={[styles.modalClose, { backgroundColor: Colors.info }]} onPress={() => { takeBusinessLoan(biz.id, 50000, 0.08, 52); setShowFundingNotice(false); }}>
+            <Pressable style={[styles.modalClose, { backgroundColor: Colors.info }]} onPress={() => { takeBusinessLoan(biz.id, 50000, 0.10, 52); setShowFundingNotice(false); }}>
               <Text style={styles.modalCloseText}>Take €50K business loan</Text>
             </Pressable>
             <Pressable style={[styles.modalClose, { backgroundColor: Colors.cardBorder }]} onPress={() => setShowFundingNotice(false)}>
@@ -855,6 +906,13 @@ const styles = StyleSheet.create({
   statRowLabel: { color: Colors.textSecondary, fontSize: 14 },
   statRowValue: { fontSize: 14, fontWeight: '600' },
   chartWrap: { alignItems: 'center', marginVertical: 4 },
+  rivalRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  rivalHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  rivalName: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  rivalCompany: { color: Colors.textSecondary, fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
+  rivalStrength: { color: Colors.warning, fontSize: 12, fontWeight: '700' },
+  rivalMeta: { color: Colors.textMuted, fontSize: 11, marginTop: 5 },
+  rivalAction: { color: Colors.info, fontSize: 12, marginTop: 4 },
   cashBtnRow: { flexDirection: 'row', gap: 12 },
   cashBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.elevated, borderRadius: 10, padding: 12 },
   cashBtnText: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
@@ -901,6 +959,9 @@ const styles = StyleSheet.create({
   cantAfford: { color: Colors.negative, fontSize: 10, marginTop: 2 },
   purchasedUpgrade: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   purchasedUpgradeName: { color: Colors.textSecondary, fontSize: 14 },
+  expansionActive: { padding: 10, backgroundColor: `${Colors.warning}18`, borderRadius: 8, marginBottom: 8 },
+  expansionActiveTitle: { color: Colors.warning, fontWeight: '700', fontSize: 13 },
+  locationOwned: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   loanRow: { paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   loanAmount: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
   loanPayment: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },

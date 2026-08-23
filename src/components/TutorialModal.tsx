@@ -37,7 +37,7 @@ const STEPS = [
     icon: 'business-outline' as const,
     color: Colors.happiness,
     title: 'Build a business carefully',
-    text: 'A new business has its own balance, three competitors and 10% market share. Inject personal cash before recruiting. Employees, pricing, upgrades, reputation and market share determine growth.',
+    text: 'A new business has its own balance, three competitors and 10% market share. Inject personal cash before recruiting. Employees determine operating scale, while pricing, upgrades, reputation and market share determine growth. Strong reputation unlocks higher levels and new locations around the world.',
     tip: 'Business purchases use business cash—not your personal cash.',
   },
   {

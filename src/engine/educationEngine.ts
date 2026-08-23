@@ -11,7 +11,7 @@ export interface EducationResult {
   completedCourses: CompletedCourse[];
   courseProgress: string | null;
   justCompleted: boolean;
-  completedCourseData: { skillRewards?: Record<string, number>; knowledgeRewards?: Record<string, number> } | null;
+  completedCourseData: { id: string; name: string; baseId?: string; skillRewards?: Record<string, number>; knowledgeRewards?: Record<string, number> } | null;
 }
 
 /**
@@ -37,8 +37,8 @@ export function processEducation(state: GameState, currentWeek: number, partTime
     weeksCompleted += 1;
     const courseData = (coursesData as any[]).find((c) => c?.id === courseId);
     const baseDuration = courseData?.duration ?? 1;
-    // Part-time job increases study time by 50%
-    const duration = partTimeJob ? Math.ceil(baseDuration * 1.5) : baseDuration;
+    // Part-time work increases study time by 25%.
+    const duration = partTimeJob ? Math.ceil(baseDuration * 1.25) : baseDuration;
     const courseName = courseData?.name ?? 'Course';
 
     if (weeksCompleted >= duration) {
@@ -46,6 +46,9 @@ export function processEducation(state: GameState, currentWeek: number, partTime
       courseProgress = `${courseName} completed!`;
       justCompleted = true;
       completedCourseData = {
+        id: courseData?.id ?? courseId,
+        name: courseName,
+        baseId: courseData?.baseId,
         skillRewards: courseData?.skillRewards ?? undefined,
         knowledgeRewards: courseData?.knowledgeRewards ?? undefined,
       };

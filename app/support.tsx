@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Platform, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,8 @@ export default function SupportScreen() {
   const grantAdReward = useGameStore((s) => s?.grantAdReward);
   const getAdUsage = useGameStore((s) => s?.getAdUsage);
   const setAdsRemoved = useGameStore((s) => s.setAdsRemoved);
+  const getDailyLoginStatus = useGameStore((s) => s.getDailyLoginStatus);
+  const claimDailyLoginReward = useGameStore((s) => s.claimDailyLoginReward);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const [convertAmount, setConvertAmount] = useState('');
   const [adState, setAdState] = useState<'idle' | 'loading' | 'showing' | 'success' | 'error'>('idle');
@@ -33,12 +35,14 @@ export default function SupportScreen() {
   const [purchaseMessage, setPurchaseMessage] = useState('');
   const [purchasing, setPurchasing] = useState(false);
   const [privacyMessage, setPrivacyMessage] = useState('');
+  const [loginMessage, setLoginMessage] = useState('');
 
   const gems = profile?.gems ?? 0;
   const adUsage = getAdUsage?.() ?? { watchedToday: 0, remaining: 5, limitReached: false };
   const useSimulatedAd = Platform.OS === 'web' || Constants.expoGoConfig != null;
   const storeAvailable = isNativeStoreAvailable();
   const adsRemoved = profile?.adsRemoved ?? false;
+  const loginStatus = getDailyLoginStatus();
 
   useEffect(() => {
     let mounted = true;
@@ -171,6 +175,11 @@ export default function SupportScreen() {
     showGameDialog({ title: 'Convert Gems', message, confirmText: 'Convert', onConfirm: convert });
   };
 
+  const handleDailyLogin = () => {
+    const reward = claimDailyLoginReward();
+    setLoginMessage(reward > 0 ? `Claimed ${reward} gems! Come back tomorrow to continue your streak.` : 'Today’s reward has already been claimed.');
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -196,6 +205,16 @@ export default function SupportScreen() {
               <Text style={styles.balanceLabel}>Cash</Text>
             </View>
           </View>
+        </GameCard>
+
+        <GameCard title="Daily Login Reward">
+          <Text style={styles.desc}>Login streak: {loginStatus.streak} day{loginStatus.streak === 1 ? '' : 's'}. Consecutive days add 5 gems to the reward.</Text>
+          <Pressable style={[styles.adBtn, !loginStatus.available && styles.disabledBtn]} onPress={handleDailyLogin} disabled={!loginStatus.available}>
+            <Ionicons name="gift" size={21} color={Colors.white} />
+            <Text style={styles.adBtnText}>{loginStatus.available ? `Claim ${loginStatus.reward} gems` : 'Claimed today'}</Text>
+            {loginStatus.available && <View style={styles.claimDot} />}
+          </Pressable>
+          {loginMessage !== '' && <Text style={styles.purchaseMessage}>{loginMessage}</Text>}
         </GameCard>
 
         {/* Watch Ad */}
@@ -264,15 +283,6 @@ export default function SupportScreen() {
           {purchaseMessage !== '' && <Text style={styles.purchaseMessage}>{purchaseMessage}</Text>}
         </GameCard>
 
-        <GameCard title="Advertising Privacy">
-          <Text style={styles.desc}>Review or change the consent choices used by Google AdMob.</Text>
-          <Pressable style={styles.adBtn} onPress={handlePrivacyOptions}>
-            <Ionicons name="shield-checkmark" size={20} color={Colors.white} />
-            <Text style={styles.adBtnText}>Privacy and cookie settings</Text>
-          </Pressable>
-          {privacyMessage !== '' && <Text style={styles.purchaseMessage}>{privacyMessage}</Text>}
-        </GameCard>
-
         {/* Buy Gems */}
         <GameCard title="Purchase Gems">
           <Text style={styles.desc}>{storeAvailable ? 'Prices below come directly from Google Play for your account region.' : 'Store prices are shown after installing a Google Play testing build.'}</Text>
@@ -287,6 +297,23 @@ export default function SupportScreen() {
               </View>
             </Pressable>
           ))}
+        </GameCard>
+
+        <GameCard title="Advertising Privacy">
+          <Text style={styles.desc}>Review or change the consent choices used by Google AdMob.</Text>
+          <Pressable style={styles.adBtn} onPress={handlePrivacyOptions}>
+            <Ionicons name="shield-checkmark" size={20} color={Colors.white} />
+            <Text style={styles.adBtnText}>Privacy and cookie settings</Text>
+          </Pressable>
+          <Pressable style={styles.adBtn} onPress={() => Linking.openURL('https://github.com/elroynbenjamins/Life_and_Business_Simulator/blob/main/docs/privacy-policy.md')}>
+            <Ionicons name="document-text" size={20} color={Colors.white} />
+            <Text style={styles.adBtnText}>Read Privacy Policy</Text>
+          </Pressable>
+          <Pressable style={styles.adBtn} onPress={() => Linking.openURL('mailto:lifeempireapp@gmail.com')}>
+            <Ionicons name="mail" size={20} color={Colors.white} />
+            <Text style={styles.adBtnText}>Contact Support</Text>
+          </Pressable>
+          {privacyMessage !== '' && <Text style={styles.purchaseMessage}>{privacyMessage}</Text>}
         </GameCard>
       </ScrollView>
     </SafeAreaView>
@@ -324,4 +351,5 @@ const styles = StyleSheet.create({
   removeAdsTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 4 },
   restoreText: { color: Colors.primary, fontSize: 13, fontWeight: '700', marginTop: 10, textAlign: 'center' },
   purchaseMessage: { color: Colors.textSecondary, fontSize: 13, marginTop: 10, textAlign: 'center' },
+  claimDot: { position: 'absolute', top: 8, right: 8, width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.negative },
 });

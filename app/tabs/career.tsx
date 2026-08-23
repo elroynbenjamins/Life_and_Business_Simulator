@@ -64,7 +64,7 @@ export default function CareerScreen() {
           <GameCard style={styles.currentCard}>
             <Text style={styles.currentLabel}>Current Position</Text>
             <Text style={styles.currentTitle}>{currentPosition?.title ?? 'Unknown'}</Text>
-            <Text style={styles.currentCompany}>{currentCompany?.name ?? ''} • {currentPath?.name ?? ''}</Text>
+            <Text style={styles.currentCompany}>{currentPath?.name ?? ''}</Text>
             <Text style={styles.currentSalary}>{formatCurrency(currentSalary)}/week</Text>
             <View style={styles.perfRow}>
               <Text style={styles.perfLabel}>Performance</Text>
@@ -79,7 +79,7 @@ export default function CareerScreen() {
             </View>
             <View style={styles.statsRow}>
               <Text style={styles.statItem}>📅 {career?.weeksInPosition ?? 0}w in role</Text>
-              <Text style={styles.statItem}>🏢 {career?.weeksAtCompany ?? 0}w at company</Text>
+              <Text style={styles.statItem}>🏢 {career?.weeksAtCompany ?? 0}w employed</Text>
               <Text style={styles.statItem}>🤝 Network: {Math.round(career?.networkingScore ?? 0)}</Text>
             </View>
             <Pressable style={styles.quitBtn} onPress={() => confirmAction('Quit Job', 'Are you sure?', () => quitCareerJob?.())}>
@@ -98,7 +98,7 @@ export default function CareerScreen() {
         ) : (
           <GameCard style={styles.currentCard}>
             <Text style={styles.currentLabel}>Unemployed</Text>
-            <Text style={styles.hint}>Complete a course to unlock career paths, then apply at a company below.</Text>
+            <Text style={styles.hint}>Complete a course to unlock a career path, then apply below.</Text>
           </GameCard>
         )}
 
@@ -118,7 +118,7 @@ export default function CareerScreen() {
                 <View style={styles.pathHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.pathName, !hasBase && styles.lockedText]}>{path.name}</Text>
-                    <Text style={styles.pathLevels}>{path.positions.length} levels • {companies.length} companies</Text>
+                    <Text style={styles.pathLevels}>{path.positions.length} career levels</Text>
                   </View>
                   {hasBase ? (
                     <Ionicons name={isSelected ? 'chevron-up' : 'chevron-down'} size={20} color={Colors.textSecondary} />
@@ -152,9 +152,6 @@ export default function CareerScreen() {
                         <Text style={[styles.posLevel, (requirementsMet || reachedInCurrentCareer) && { color: Colors.primary }]}>L{pos.level}</Text>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.posTitle}>{pos.title}{isCurrentPosition ? ' • Current' : ''}</Text>
-                          {reqParts.length > 0 && (
-                            <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>Req: {reqParts.join(', ')}</Text>
-                          )}
                           <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>
                             Course lvl {reqCourseLvl} · {carLabel} · Housing: {housingLabel}
                           </Text>
@@ -172,7 +169,7 @@ export default function CareerScreen() {
                   })}
 
                   {/* Companies */}
-                  <Text style={[styles.subTitle, { marginTop: 12 }]}>Available Companies</Text>
+                  <Text style={[styles.subTitle, { marginTop: 12 }]}>Career Application</Text>
                   {companies.map((company: any) => {
                     const entryPos = (path.positions as any[])[0];
                     const meetsEntry = meetsPositionRequirements(entryPos, knowledge, skills, totalWeeksWorked);
@@ -212,9 +209,8 @@ export default function CareerScreen() {
                     return (
                       <View key={company.id} style={styles.companyRow}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.companyName}>{company.name}</Text>
-                          <Text style={styles.companyIndustry}>{company.industry} • {company.size}</Text>
-                          <Text style={styles.companySalary}>Salary: {Math.round(company.salaryMultiplier * 100)}% • Promo: {Math.round(company.promotionSpeed * 100)}%</Text>
+                          <Text style={styles.companyName}>{path.name}</Text>
+                          <Text style={styles.companyIndustry}>Standard career position</Text>
                           {!canApply && blockReason ? (
                             <Text style={{ color: Colors.negative, fontSize: 11, marginTop: 2 }}>⚠ {blockReason}</Text>
                           ) : null}
@@ -231,7 +227,7 @@ export default function CareerScreen() {
                         ) : canApply && isEmployed ? (
                           <Pressable
                             style={[styles.applyBtn, { backgroundColor: '#F59E0B' }]}
-                            onPress={() => confirmAction('Switch Jobs', `Leave current position for ${company.name}?`, () => {
+                            onPress={() => confirmAction('Switch Jobs', `Leave your current position for ${path.name}?`, () => {
                               if (hasCareerV2) quitCareerJob?.();
                               else quitJob?.();
                               setTimeout(() => applyForCareerJob?.(company.id, path.id, entryPos.level), 100);
@@ -264,7 +260,7 @@ function PartTimeCard() {
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flex: 1 }}>
           <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '700' }}>🕒 Part-Time Job</Text>
-          <Text style={{ color: Colors.textMuted, fontSize: 12, marginTop: 2 }}>€200–350/week • Slows study by 50%</Text>
+          <Text style={{ color: Colors.textMuted, fontSize: 12, marginTop: 2 }}>€275–425/week • Slows study by 25%</Text>
           {hasFullTimeJob && <Text style={{ color: Colors.warning, fontSize: 11, marginTop: 2 }}>Unavailable while working a full-time job</Text>}
         </View>
         <Pressable

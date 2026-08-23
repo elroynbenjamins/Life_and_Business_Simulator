@@ -72,10 +72,6 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   // Career level 7 (C-Suite)
   check('career_level_7', (state?.career?.positionLevel ?? 0) >= 7);
 
-  // Happiness
-  check('happiness_80', (state?.happiness ?? 0) >= 80);
-  check('happiness_90', (state?.happiness ?? 0) >= 90);
-
   // Loans
   const everHadLoan = (state?.statistics?.loansTaken ?? 0) > 0;
   check('debt_free_after_loan', everHadLoan && (state?.loans ?? []).length === 0);
@@ -107,6 +103,8 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   check('survive_52_weeks', weeksPlayed >= 20);  // 1 year = 20 weeks
   check('five_years', weeksPlayed >= 100);        // 5 years = 100 weeks
   check('ten_years', weeksPlayed >= 200);          // 10 years = 200 weeks
+  check('twenty_five_years', weeksPlayed >= 500);
+  check('fifty_years', weeksPlayed >= 1000);
 
   // Portfolio value tiers
   const portfolioValue = getPortfolioValue(state?.stocks ?? [], state?.holdings ?? []);
@@ -114,6 +112,9 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   check('portfolio_250k', portfolioValue >= 250000);
   check('portfolio_500k', portfolioValue >= 500000);
   check('portfolio_1m', portfolioValue >= 1000000);
+  check('portfolio_5m', portfolioValue >= 5000000);
+  check('portfolio_10m', portfolioValue >= 10000000);
+  check('portfolio_25m', portfolioValue >= 25000000);
 
   // Stock profit 25% on any position
   const hasStock25 = (state?.holdings ?? []).some((h) => {
@@ -132,6 +133,9 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
 
   // Realized profit
   check('realized_profit_100k', (state?.totalRealizedProfitLoss ?? 0) >= 100000);
+  check('realized_profit_1m', (state?.totalRealizedProfitLoss ?? 0) >= 1000000);
+  check('realized_profit_2_5m', (state?.totalRealizedProfitLoss ?? 0) >= 2500000);
+  check('realized_profit_5m', (state?.totalRealizedProfitLoss ?? 0) >= 5000000);
 
   // New achievements
   check('multi_business_3', (state?.businesses?.length ?? 0) >= 3);

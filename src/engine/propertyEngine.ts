@@ -73,13 +73,19 @@ export function renovateProperty(property: OwnedProperty, inflationMultiplier: n
   const typeData = (propertiesData as any[]).find((p) => p?.id === property.typeId);
   if (!typeData) return null;
 
-  const cost = inflated(typeData.renovationCost, inflationMultiplier);
+  const cost = property.acquisitionType === 'auction' && (property.auctionCosts ?? 0) > 0
+    ? Math.round(property.auctionCosts ?? 0)
+    : inflated(typeData.renovationCost, inflationMultiplier);
   const boostPercent = typeData.renovationValueBoost ?? 0.15;
   const updated = {
     ...property,
     isRenovated: true,
     currentValue: Math.round(property.currentValue * (1 + boostPercent)),
     weeklyIncome: Math.round((property.weeklyIncome ?? 0) * 1.15), // 15% more rent
+    weeklyMaintenance: Math.round((property.weeklyMaintenance ?? 0) * 0.8),
+    conditionScore: property.acquisitionType === 'auction' ? Math.max(92, property.conditionScore ?? 92) : property.conditionScore,
+    hiddenIssue: null,
+    auctionCosts: 0,
   };
 
   return { property: updated, cost };

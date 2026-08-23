@@ -113,6 +113,60 @@ export interface OwnedProperty {
   purchaseYear: number;
   weeklyIncome: number;
   weeklyMaintenance: number;
+  acquisitionType?: 'listing' | 'auction';
+  conditionScore?: number;
+  hiddenIssue?: string | null;
+  auctionCosts?: number;
+  inspectionCostPaid?: number;
+}
+
+export type AuctionType = 'Foreclosure' | 'Estate Sale' | 'Bank Repossession' | 'Government Auction' | 'Luxury Auction' | 'Commercial Auction' | 'Development Land Auction';
+export interface AuctionBidder {
+  id: string;
+  name: string;
+  personality: 'Conservative' | 'Professional' | 'Aggressive' | 'Wealthy Collector';
+  maxBid: number;
+  active: boolean;
+}
+export interface RealEstateAuction {
+  id: string;
+  propertyName: string;
+  propertyTypeId: string;
+  location: string;
+  auctionType: AuctionType;
+  marketValue: number;
+  estimatedValueMin: number;
+  estimatedValueMax: number;
+  startingBid: number;
+  currentBid: number;
+  minimumBidIncrease: number;
+  expectedWeeklyRent: number;
+  conditionScore: number;
+  conditionKnown: boolean;
+  estimatedRenovationCostMin: number;
+  estimatedRenovationCostMax: number;
+  actualRenovationCost: number;
+  inspectionPurchased: boolean;
+  inspectionCostPaid: number;
+  tenantStatus: string;
+  tenantStatusKnown: boolean;
+  auctionEndWeek: number;
+  aiBidders: AuctionBidder[];
+  playerHighestBid: number;
+  playerIsHighestBidder: boolean;
+  hiddenIssue: string | null;
+  hiddenIssueKnown?: boolean;
+  rareOpportunity: boolean;
+}
+
+export interface AuctionResult {
+  auctionId: string;
+  propertyName: string;
+  won: boolean;
+  winningBid: number;
+  playerBid: number;
+  estimatedMarketValue: number;
+  reason?: 'outbid' | 'insufficient_cash';
 }
 
 // ── Prestige ──
@@ -122,15 +176,24 @@ export interface PrestigeBonus {
   description: string;
   icon: string;
   cost: number;
-  effect: { type: string; value: number };
+  effect: { type: string; value: number; stacking?: 'additive' | 'highest' };
 }
 
 // ── Competitor AI ──
 export interface BusinessCompetitor {
   id: string;
+  /** Company name retained for backwards compatibility with existing saves. */
   name: string;
   strength: number; // 0-100
   enteredWeek: number;
+  ceoName?: string;
+  personality?: 'conservative' | 'innovator' | 'aggressive' | 'premium' | 'expansionist';
+  strategy?: 'cost_leadership' | 'innovation' | 'price_war' | 'premium_brand' | 'expansion';
+  cash?: number;
+  reputation?: number;
+  lastDecisionWeek?: number;
+  lastDecision?: string;
+  decisionHistory?: { week: number; action: string }[];
 }
 
 export interface CourseData {
@@ -255,6 +318,14 @@ export interface ActiveLoan {
   weeksRemaining: number;
 }
 
+export interface BankDeposit {
+  id: string;
+  amount: number;
+  durationWeeks: 20 | 40 | 60;
+  weeksRemaining: number;
+  interestRate: number;
+}
+
 export interface LifetimeStatistics {
   weeksPlayed: number;
   totalSalaryEarned: number;
@@ -273,6 +344,8 @@ export interface LifetimeStatistics {
   loansRepaid: number;
   totalRealizedProfitLoss: number;
   totalDividendsReceived: number;
+  highestSoldStockProfitPercent: number;
+  highestStockPortfolioValue: number;
 }
 
 export const INITIAL_STATISTICS: LifetimeStatistics = {
@@ -293,7 +366,15 @@ export const INITIAL_STATISTICS: LifetimeStatistics = {
   loansRepaid: 0,
   totalRealizedProfitLoss: 0,
   totalDividendsReceived: 0,
+  highestSoldStockProfitPercent: 0,
+  highestStockPortfolioValue: 0,
 };
+
+export interface EducationCareerReminder {
+  courseName: string;
+  jobTitle: string;
+  missingRequirements: string[];
+}
 
 export interface WeekSummary {
   salaryEarned: number;
@@ -323,6 +404,7 @@ export interface WeekSummary {
   businessEvents: { businessName: string; eventTitle: string; icon: string }[];
   // Property summary
   propertyIncome: number;
+  auctionResults: AuctionResult[];
   // Career summary
   careerRaise: boolean;
   careerPromotion: string | null;
@@ -339,6 +421,7 @@ export interface WeekSummary {
   dividendIncome: number;
   // Part-time income
   partTimeIncome: number;
+  educationCareerReminder: EducationCareerReminder | null;
 }
 
 /** Yearly summary (every 20 weeks) - combines period report + tax */
@@ -433,7 +516,7 @@ export interface BusinessTimelineEntry {
   year: number;
   title: string;
   icon?: string;
-  kind?: 'founded' | 'level' | 'project' | 'event' | 'hire' | 'season' | 'upgrade';
+  kind?: 'founded' | 'level' | 'project' | 'event' | 'hire' | 'season' | 'upgrade' | 'expansion';
 }
 
 /** Active business project (marketing campaign, R&D, etc.) */
@@ -514,6 +597,8 @@ export interface OwnedBusiness {
   // Upgrades
   purchasedUpgrades: string[];
   activeUpgrade?: { upgradeId: string; weeksRemaining: number } | null;
+  locations?: BusinessLocation[];
+  activeExpansion?: { templateId: string; weeksRemaining: number } | null;
   // Loans
   businessLoans: BusinessLoan[];
   // Active events
@@ -542,6 +627,16 @@ export interface OwnedBusiness {
   timeline?: BusinessTimelineEntry[];
   lastBusinessEventWeek?: number;
   businessEventCooldowns?: Record<string, number>;
+}
+
+export interface BusinessLocation {
+  id: string;
+  templateId: string;
+  name: string;
+  region: string;
+  revenueBoost: number;
+  weeklyOperatingCost: number;
+  openedWeek: number;
 }
 
 /** Triggered life event for display */
@@ -584,6 +679,7 @@ export interface GameState {
   houseUpgrades: string[];
   housingHistory: string[];
   currentCarId: string;
+  pendingCarDelivery: { carId: string; weeksRemaining: number } | null;
   foodLevel: string;
   currentCourseId: string | null;
   courseWeeksCompleted: number;
@@ -594,6 +690,7 @@ export interface GameState {
   stocks: StockState[];
   holdings: StockHolding[];
   loans: ActiveLoan[];
+  bankDeposits: BankDeposit[];
   happiness: number;
   netWorthHistory: number[];
   earningsSinceLastTax: number;
@@ -616,6 +713,7 @@ export interface GameState {
   career: CareerState;
   // Real Estate
   properties: OwnedProperty[];
+  activeAuctions: RealEstateAuction[];
   // Competitor AI
   competitors: Record<string, BusinessCompetitor[]>; // businessId → competitors
   // Market Sentiment & Events
@@ -642,6 +740,7 @@ export const INITIAL_GAME_STATE: GameState = {
   houseUpgrades: [],
   housingHistory: ['cheap_apartment'],
   currentCarId: 'none',
+  pendingCarDelivery: null,
   foodLevel: 'basic',
   currentCourseId: null,
   courseWeeksCompleted: 0,
@@ -652,6 +751,7 @@ export const INITIAL_GAME_STATE: GameState = {
   stocks: [],
   holdings: [],
   loans: [],
+  bankDeposits: [],
   happiness: 30,
   netWorthHistory: [10000],
   earningsSinceLastTax: 0,
@@ -669,6 +769,7 @@ export const INITIAL_GAME_STATE: GameState = {
   knowledge: {},
   career: { ...INITIAL_CAREER_STATE },
   properties: [],
+  activeAuctions: [],
   competitors: {},
   activeMarketSentiment: null,
   activeMarketEvents: [],
@@ -687,6 +788,8 @@ export interface PlayerProfile {
   processedPurchaseIds: string[];
   prestigePoints: number;
   unlockedPrestige: string[];
+  lastLoginClaimDate: string;
+  loginStreak: number;
 }
 
 export const INITIAL_PROFILE: PlayerProfile = {
@@ -696,6 +799,8 @@ export const INITIAL_PROFILE: PlayerProfile = {
   processedPurchaseIds: [],
   prestigePoints: 0,
   unlockedPrestige: [],
+  lastLoginClaimDate: '',
+  loginStreak: 0,
 };
 
 /** Save slot metadata */

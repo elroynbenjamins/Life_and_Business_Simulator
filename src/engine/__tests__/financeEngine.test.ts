@@ -4,6 +4,7 @@ import {
   getPortfolioValue,
   getUnrealizedProfitLoss,
   getWeeklyUtilityCost,
+  getWeeklyFoodCost,
   processLoans,
   processTaxes,
 } from '../financeEngine';
@@ -20,6 +21,12 @@ describe('financeEngine', () => {
   test('charges utilities at 15% of inflation-adjusted housing rent', () => {
     expect(getWeeklyUtilityCost(state({ currentHousingId: 'studio_apartment', inflationMultiplier: 1 }))).toBe(75);
     expect(getWeeklyUtilityCost(state({ currentHousingId: 'small_house', inflationMultiplier: 1.2 }))).toBe(162);
+  });
+
+  test('scales food costs by €25 for each career level', () => {
+    expect(getWeeklyFoodCost(state())).toBe(50);
+    expect(getWeeklyFoodCost(state({ career: { ...INITIAL_GAME_STATE.career, companyId: 'company', positionLevel: 4 } }))).toBe(125);
+    expect(getWeeklyFoodCost(state({ career: { ...INITIAL_GAME_STATE.career, companyId: 'company', positionLevel: 6 }, inflationMultiplier: 1.2 }))).toBe(210);
   });
 
   test.each([

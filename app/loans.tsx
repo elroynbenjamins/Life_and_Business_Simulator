@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { formatCurrency } from '../src/utils/format';
 import { getNetWorth } from '../src/engine/financeEngine';
 import loansData from '../src/data/loans.json';
 import { showGameDialog } from '../src/components/GameDialog';
+import { getPrestigeEffects } from '../src/engine/prestigeEngine';
 
 export default function LoansScreen() {
   const router = useRouter();
@@ -21,17 +22,26 @@ export default function LoansScreen() {
   const career = useGameStore((s) => s?.career);
   const takeLoan = useGameStore((s) => s?.takeLoan);
   const payOffLoan = useGameStore((s) => s?.payOffLoan);
+  const bankDeposits = useGameStore((s) => s?.bankDeposits ?? []);
+  const openBankDeposit = useGameStore((s) => s.openBankDeposit);
+  const [activeTab, setActiveTab] = useState<'loans' | 'deposits'>('loans');
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositTerm, setDepositTerm] = useState<20 | 40 | 60>(20);
   const hasJob = !!(currentJobId || career?.companyId);
   const state = useGameStore();
   const netWorth = getNetWorth(state);
+  const prestigeEffects = getPrestigeEffects(state.profile);
+  const loanRateReduction = prestigeEffects.loan_rate_reduction ?? 0;
+  const depositInterestBonus = prestigeEffects.bank_deposit_interest_bonus ?? 0;
 
   const totalDebt = loans.reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
   const totalWeeklyPayments = loans.reduce((t, l) => t + (l?.weeklyPayment ?? 0), 0);
 
   const handleTakeLoan = (template: (typeof loansData)[0]) => {
-    const totalRepayment = (template?.amount ?? 0) * (1 + (template?.interestRate ?? 0));
+    const effectiveRate = Math.max(0, (template?.interestRate ?? 0) - loanRateReduction);
+    const totalRepayment = (template?.amount ?? 0) * (1 + effectiveRate);
     const weeklyPayment = Math.ceil(totalRepayment / (template?.durationWeeks ?? 1));
-    showGameDialog({ title: 'Take Loan', message: `Borrow ${formatCurrency(template?.amount)}?\n\nInterest: ${((template?.interestRate ?? 0) * 100).toFixed(0)}%\nDuration: ${template?.durationWeeks} weeks\nWeekly payment: ${formatCurrency(weeklyPayment)}\nTotal repayment: ${formatCurrency(Math.round(totalRepayment))}`, confirmText: 'Borrow', onConfirm: () => takeLoan?.(template?.id) });
+    showGameDialog({ title: 'Take Loan', message: `Borrow ${formatCurrency(template?.amount)}?\n\nInterest: ${(effectiveRate * 100).toFixed(0)}%${loanRateReduction > 0 ? ` (Prestige reduced by ${(loanRateReduction * 100).toFixed(0)}%)` : ''}\nDuration: ${template?.durationWeeks} weeks\nWeekly payment: ${formatCurrency(weeklyPayment)}\nTotal repayment: ${formatCurrency(Math.round(totalRepayment))}`, confirmText: 'Borrow', onConfirm: () => takeLoan?.(template?.id) });
   };
 
   const handlePayOff = (loan: (typeof loans)[0]) => {
@@ -44,10 +54,15 @@ export default function LoansScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>Loans</Text>
+        <Text style={styles.headerTitle}>Bank</Text>
       </View>
       <GameStatusBar />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.tabs}>
+          <Pressable style={[styles.tab, activeTab === 'loans' && styles.activeTab]} onPress={() => setActiveTab('loans')}><Text style={[styles.tabText, activeTab === 'loans' && styles.activeTabText]}>Loans</Text></Pressable>
+          <Pressable style={[styles.tab, activeTab === 'deposits' && styles.activeTab]} onPress={() => setActiveTab('deposits')}><Text style={[styles.tabText, activeTab === 'deposits' && styles.activeTabText]}>Deposits</Text></Pressable>
+        </View>
+        {activeTab === 'loans' && <>
         {/* Summary */}
         <GameCard>
           <View style={styles.summaryRow}>
@@ -113,7 +128,7 @@ export default function LoansScreen() {
               <Text style={styles.loanName}>{template?.name}</Text>
               <View style={styles.loanRow}>
                 <Text style={styles.loanMeta}>Amount: {formatCurrency(template?.amount)}</Text>
-                <Text style={styles.loanMeta}>Interest: {((template?.interestRate ?? 0) * 100).toFixed(0)}%</Text>
+                <Text style={styles.loanMeta}>Interest: {(Math.max(0, (template?.interestRate ?? 0) - loanRateReduction) * 100).toFixed(0)}%</Text>
               </View>
               <Text style={styles.loanMeta}>Duration: {template?.durationWeeks} weeks</Text>
               <Text style={styles.loanMeta}>Required net worth: {formatCurrency(template?.amount)}</Text>
@@ -127,6 +142,37 @@ export default function LoansScreen() {
             </GameCard>
           );
         })}
+        </>}
+
+        {activeTab === 'deposits' && <>
+          <GameCard>
+            <Text style={styles.loanName}>Fixed-Term Deposits</Text>
+            <Text style={styles.loanMeta}>Lock personal cash for a guaranteed return. Up to three deposits can be active at once.</Text>
+            <Text style={styles.loanCount}>{bankDeposits.length}/3 deposit slots used</Text>
+          </GameCard>
+          {bankDeposits.map((deposit) => (
+            <GameCard key={deposit.id}>
+              <Text style={styles.loanName}>{deposit.durationWeeks}-Week Deposit</Text>
+              <View style={styles.loanRow}><Text style={styles.loanMeta}>Principal: {formatCurrency(deposit.amount)}</Text><Text style={styles.loanMeta}>{deposit.weeksRemaining} weeks left</Text></View>
+              <Text style={[styles.loanMeta, { color: Colors.primary }]}>Maturity value: {formatCurrency(Math.round(deposit.amount * (1 + deposit.interestRate)))}</Text>
+              <ProgressBar progress={1 - deposit.weeksRemaining / deposit.durationWeeks} color={Colors.primary} />
+            </GameCard>
+          ))}
+          <GameCard title="Open Deposit">
+            <TextInput style={styles.input} value={depositAmount} onChangeText={setDepositAmount} keyboardType="number-pad" placeholder="Amount to deposit" placeholderTextColor={Colors.textMuted} />
+            <View style={styles.termRow}>
+              {([20, 40, 60] as const).map((term) => {
+                const rate = (term === 20 ? 5 : term === 40 ? 9 : 14) + depositInterestBonus * 100;
+                return <Pressable key={term} style={[styles.term, depositTerm === term && styles.activeTerm]} onPress={() => setDepositTerm(term)}><Text style={styles.termTitle}>{term} weeks</Text><Text style={styles.termRate}>+{rate}%</Text></Pressable>;
+              })}
+            </View>
+            <Pressable
+              style={[styles.payOffBtn, (bankDeposits.length >= 3 || Number(depositAmount) <= 0 || Number(depositAmount) > cash) && { opacity: 0.45 }]}
+              disabled={bankDeposits.length >= 3 || Number(depositAmount) <= 0 || Number(depositAmount) > cash}
+              onPress={() => showGameDialog({ title: 'Open Deposit', message: `Lock ${formatCurrency(Number(depositAmount))} for ${depositTerm} weeks?`, confirmText: 'Deposit', onConfirm: () => { openBankDeposit(Number(depositAmount), depositTerm); setDepositAmount(''); } })}
+            ><Text style={styles.payOffText}>Open Fixed-Term Deposit</Text></Pressable>
+          </GameCard>
+        </>}
       </ScrollView>
     </SafeAreaView>
   );
@@ -153,4 +199,15 @@ const styles = StyleSheet.create({
   unavailable: { color: Colors.textMuted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
   noJobBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: `${Colors.warning}15`, borderRadius: 8, padding: 12 },
   noJobText: { color: Colors.warning, fontSize: 14, fontWeight: '600', flex: 1 },
+  tabs: { flexDirection: 'row', backgroundColor: Colors.card, borderRadius: 10, padding: 4, marginBottom: 12 },
+  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  activeTab: { backgroundColor: Colors.primary },
+  tabText: { color: Colors.textSecondary, fontWeight: '700' },
+  activeTabText: { color: Colors.white },
+  input: { backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 12, color: Colors.textPrimary, marginBottom: 12 },
+  termRow: { flexDirection: 'row', gap: 8 },
+  term: { flex: 1, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, paddingVertical: 10, alignItems: 'center' },
+  activeTerm: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}18` },
+  termTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700' },
+  termRate: { color: Colors.primary, fontSize: 12, marginTop: 2 },
 });

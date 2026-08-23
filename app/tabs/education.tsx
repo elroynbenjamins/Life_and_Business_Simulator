@@ -14,13 +14,17 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { loadRewardedAd, showRewardedAd } from '../../src/services/adManager';
 
-const CATEGORIES = ['Sales', 'Administration', 'Finance', 'Marketing', 'Technology'];
+const CATEGORIES = ['Sales', 'Administration', 'Finance', 'Marketing', 'Technology', 'Healthcare', 'Legal', 'Logistics', 'Hospitality'];
 const CATEGORY_ICONS: Record<string, string> = {
   Sales: 'cart',
   Administration: 'briefcase',
   Finance: 'calculator',
   Marketing: 'megaphone',
   Technology: 'code-slash',
+  Healthcare: 'medkit',
+  Legal: 'document-text',
+  Logistics: 'cube',
+  Hospitality: 'bed',
 };
 
 export default function EducationScreen() {
@@ -34,6 +38,7 @@ export default function EducationScreen() {
   const [adMessage, setAdMessage] = useState('');
   const [simulatedAdReady, setSimulatedAdReady] = useState(false);
   const [simulatedAdPlaying, setSimulatedAdPlaying] = useState(false);
+  const [courseLevel, setCourseLevel] = useState<1 | 2 | 3>(1);
   const weeksEmployed = useGameStore((s) => s?.statistics?.weeksEmployed ?? 0);
   const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
   const adsRemoved = useGameStore((s) => s.profile?.adsRemoved ?? false);
@@ -89,7 +94,7 @@ export default function EducationScreen() {
             <Text style={styles.currentTitle}>{currentCourse.name}</Text>
             <Text style={styles.currentCategory}>{currentCourse.category} • Level {currentCourse.level}</Text>
             {(() => {
-              const adjDur = partTimeJob ? Math.ceil((currentCourse.duration ?? 1) * 1.5) : (currentCourse.duration ?? 1);
+              const adjDur = partTimeJob ? Math.ceil((currentCourse.duration ?? 1) * 1.25) : (currentCourse.duration ?? 1);
               return (<>
                 <ProgressBar progress={courseWeeksCompleted / adjDur} />
                 <Text style={styles.progressText}>Week {courseWeeksCompleted}/{adjDur}{partTimeJob ? ' (slower — part-time)' : ''}</Text>
@@ -100,18 +105,6 @@ export default function EducationScreen() {
                 {!!adMessage && <Text style={styles.adMessage}>{adMessage}</Text>}
               </>);
             })()}
-            {/* Show what you'll learn */}
-            {(currentCourse.skillRewards || currentCourse.knowledgeRewards) && (
-              <View style={styles.rewardsPreview}>
-                <Text style={styles.rewardsLabel}>On completion you'll gain:</Text>
-                {Object.entries(currentCourse.skillRewards ?? {}).map(([k, v]) => (
-                  <Text key={k} style={styles.rewardItem}>⭐ +{v as number} {k.replace(/_/g, ' ')}</Text>
-                ))}
-                {Object.entries(currentCourse.knowledgeRewards ?? {}).map(([k, v]) => (
-                  <Text key={k} style={[styles.rewardItem, { color: '#3B82F6' }]}>📚 +{v as number} {k.replace(/_/g, ' ')}</Text>
-                ))}
-              </View>
-            )}
           </GameCard>
         ) : (
           <GameCard style={styles.currentCard}>
@@ -130,9 +123,17 @@ export default function EducationScreen() {
           </GameCard>
         )}
 
+        <View style={styles.levelTabs}>
+          {([{ level: 1, label: 'Basics' }, { level: 2, label: 'Advanced' }, { level: 3, label: 'Expert' }] as const).map((tab) => (
+            <Pressable key={tab.level} style={[styles.levelTab, courseLevel === tab.level && styles.levelTabActive]} onPress={() => setCourseLevel(tab.level)}>
+              <Text style={[styles.levelTabText, courseLevel === tab.level && styles.levelTabTextActive]}>{tab.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
         {/* Course Categories */}
         {CATEGORIES.map((cat) => {
-          const courses = groupedCourses[cat] ?? [];
+          const courses = (groupedCourses[cat] ?? []).filter((course) => course.level === courseLevel);
           if (courses.length === 0) return null;
           return (
             <View key={cat}>
@@ -158,15 +159,6 @@ export default function EducationScreen() {
                           <Text style={styles.courseLevel}>Lvl {course.level}</Text>
                         </View>
                         <Text style={styles.courseDuration}>{course.duration} weeks • {cost > 0 ? formatCurrency(cost) : 'Free'}{course.weeklyCost > 0 ? ` + ${formatCurrency(course.weeklyCost)}/wk` : ''}{!hasExp ? ` • Requires ${course.level === 2 ? 75 : 150}wks exp` : ''}</Text>
-                        {/* Skill/Knowledge rewards */}
-                        <View style={styles.rewardTags}>
-                          {Object.entries(course.skillRewards ?? {}).map(([k, v]) => (
-                            <Text key={k} style={styles.rewardTag}>+{v as number} {k.replace(/_/g, ' ')}</Text>
-                          ))}
-                          {Object.entries(course.knowledgeRewards ?? {}).map(([k, v]) => (
-                            <Text key={k} style={[styles.rewardTag, styles.knowledgeTag]}>+{v as number} {k.replace(/_/g, ' ')}</Text>
-                          ))}
-                        </View>
                       </View>
                       <View style={styles.courseRight}>
                         {isDone ? (
@@ -235,4 +227,9 @@ const styles = StyleSheet.create({
   adButton: { marginTop: 10, backgroundColor: '#3B82F6', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
   adMessage: { color: Colors.textSecondary, textAlign: 'center', marginTop: 6, fontSize: 12 },
   lockText: { color: Colors.textMuted, fontSize: 11 },
+  levelTabs: { flexDirection: 'row', backgroundColor: Colors.card, padding: 4, borderRadius: 10, marginTop: 8, marginBottom: 4 },
+  levelTab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8 },
+  levelTabActive: { backgroundColor: Colors.primary },
+  levelTabText: { color: Colors.textSecondary, fontWeight: '700', fontSize: 13 },
+  levelTabTextActive: { color: Colors.white },
 });

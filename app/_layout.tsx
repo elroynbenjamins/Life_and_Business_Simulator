@@ -17,6 +17,7 @@ import MainMenu from '../src/components/MainMenu';
 import GameDialog from '../src/components/GameDialog';
 import TutorialModal from '../src/components/TutorialModal';
 import { initializeAdConsent } from '../src/services/adPrivacyManager';
+import EducationCareerReminderModal from '../src/components/EducationCareerReminderModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -62,7 +63,6 @@ export default function RootLayout() {
         <Stack.Screen name="loans" />
         <Stack.Screen name="support" />
         <Stack.Screen name="business" />
-        <Stack.Screen name="skills" />
         <Stack.Screen name="prestige" />
         <Stack.Screen name="properties" />
         <Stack.Screen name="info" />
@@ -76,6 +76,7 @@ export default function RootLayout() {
       <EventModal />
       <PeriodReportModal />
       <ScheduledAdModal />
+      <EducationCareerReminderModal />
       <GameDialog />
     </SafeAreaProvider>
   );

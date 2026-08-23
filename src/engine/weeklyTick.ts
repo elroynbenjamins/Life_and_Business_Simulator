@@ -1,4 +1,4 @@
-import { GameState, WeekSummary, LifetimeStatistics, INITIAL_STATISTICS, INITIAL_CAREER_STATE, TriggeredEvent, TempHappinessEffect, PendingInvestment } from '../types/game';
+import { GameState, WeekSummary, LifetimeStatistics, INITIAL_STATISTICS, INITIAL_CAREER_STATE, TriggeredEvent, TempHappinessEffect, PendingInvestment, AuctionResult, RealEstateAuction } from '../types/game';
 import { processEconomy } from './economyEngine';
 import { processNews } from './newsEngine';
 import { processStocks, rollMarketSentiment, rollMarketEvent, processDividends } from './stockEngine';
@@ -12,13 +12,16 @@ import { calculateValuation, processAllBusinesses } from './businessEngine';
 import { processSkillGrowth, applyEducationRewards } from './skillEngine';
 import { processCareerTick, getCareerSalary } from './careerEngine';
 import { processProperties } from './propertyEngine';
+import { auctionToProperty, ensureAuctions } from './auctionEngine';
 import { processCompetitors } from './competitorEngine';
+import jobsData from '../data/jobs.json';
+import housingData from '../data/housing.json';
 
 /**
  * Deterministic weekly tick pipeline with all systems.
  * Aging: every 20 weeks = 1 year.
  */
-export function weeklyTick(state: GameState): { newState: GameState; summary: WeekSummary } {
+export function weeklyTick(state: GameState, prestigeEffects: Record<string, number> = {}): { newState: GameState; summary: WeekSummary } {
   // ---------- Step 1: Advance Clock ----------
   let newWeek = (state?.week ?? 0) + 1;
   let newYear = state?.year ?? 1;
@@ -42,6 +45,15 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
     age: newAge,
   };
 
+  // Purchased vehicles arrive after this week's progression has completed.
+  if (state.pendingCarDelivery) {
+    const weeksRemaining = state.pendingCarDelivery.weeksRemaining - 1;
+    stateWithInflation.pendingCarDelivery = weeksRemaining <= 0
+      ? null
+      : { ...state.pendingCarDelivery, weeksRemaining };
+    if (weeksRemaining <= 0) stateWithInflation.currentCarId = state.pendingCarDelivery.carId;
+  }
+
   // ---------- Step 2.5: Market Sentiment & Events ----------
   const newSentiment = rollMarketSentiment(globalWeek, state?.activeMarketSentiment ?? null);
   const { updatedEvents: newMarketEvents, newEvent: newMarketEvent } = rollMarketEvent(state?.activeMarketEvents ?? []);
@@ -55,7 +67,8 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
   const stockResult = processStocks(stateWithInflation, news);
 
   // ---------- Step 4.5: Dividends ----------
-  const dividendIncome = processDividends({ ...stateWithInflation, stocks: stockResult.stocks }, globalWeek);
+  const baseDividendIncome = processDividends({ ...stateWithInflation, stocks: stockResult.stocks }, globalWeek);
+  const dividendIncome = Math.round(baseDividendIncome * (1 + (prestigeEffects.dividend_boost ?? 0)));
 
   // ---------- Step 5: Education ----------
   const edu = processEducation(stateWithInflation, newWeek, partTimeActive);
@@ -107,16 +120,67 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
   const taxes = processTaxes(stateWithInflation, salary, globalWeek);
 
   // ---------- Step 11.5: Part-Time Income ----------
-  const partTimeIncome = partTimeActive ? Math.round(100 + Math.random() * 100) : 0;
+  const partTimeIncome = partTimeActive ? Math.floor(275 + Math.random() * 151) : 0;
+
+  // ---------- Step 11.6: Mature fixed-term bank deposits ----------
+  let bankDepositMaturityIncome = 0;
+  const updatedBankDeposits = (state.bankDeposits ?? []).flatMap((deposit) => {
+    const weeksRemaining = (deposit.weeksRemaining ?? 1) - 1;
+    if (weeksRemaining <= 0) {
+      bankDepositMaturityIncome += Math.round(deposit.amount * (1 + deposit.interestRate));
+      return [];
+    }
+    return [{ ...deposit, weeksRemaining }];
+  });
 
   // ---------- Step 12: Cash Settlement ----------
   const totalExpenses = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + expenses.courseCost + loanResult.totalPaid;
-  let newCash = (state?.cash ?? 0) + salary + partTimeIncome + dividendIncome - totalExpenses - taxes.taxAmount;
+  let newCash = (state?.cash ?? 0) + salary + partTimeIncome + dividendIncome + bankDepositMaturityIncome - totalExpenses - taxes.taxAmount;
 
   // ---------- Step 12.3: Property Income ----------
   const propResult = processProperties(state?.properties ?? [], economy.inflationMultiplier);
   const propertyNetIncome = propResult.totalIncome - propResult.totalMaintenance;
   newCash += propertyNetIncome;
+
+  // ---------- Step 12.4: Real-estate auctions ----------
+  const auctionResults: AuctionResult[] = [];
+  const auctionProperties = [...propResult.updatedProperties];
+  const openAuctions: RealEstateAuction[] = [];
+  for (const existing of state.activeAuctions ?? []) {
+    let auction = existing;
+    // AI bidders can still react between player visits, but do not jump straight to their maximum.
+    if (globalWeek < auction.auctionEndWeek && auction.playerIsHighestBidder && Math.random() < 0.35) {
+      const counter = auction.aiBidders.find((bidder) => bidder.active && bidder.maxBid >= auction.currentBid + auction.minimumBidIncrease);
+      if (counter) {
+        auction = {
+          ...auction,
+          currentBid: Math.min(counter.maxBid, auction.currentBid + auction.minimumBidIncrease),
+          playerIsHighestBidder: false,
+        };
+      }
+    }
+    if (globalWeek < auction.auctionEndWeek) {
+      openAuctions.push(auction);
+      continue;
+    }
+    const won = auction.playerIsHighestBidder && auction.playerHighestBid > 0 && newCash >= auction.currentBid;
+    if (won) {
+      newCash -= auction.currentBid;
+      auctionProperties.push(auctionToProperty(auction, newWeek, newYear));
+    }
+    if (auction.playerHighestBid > 0) {
+      auctionResults.push({
+        auctionId: auction.id,
+        propertyName: auction.propertyName,
+        won,
+        winningBid: auction.currentBid,
+        playerBid: auction.playerHighestBid,
+        estimatedMarketValue: auction.marketValue,
+        reason: won ? undefined : auction.playerIsHighestBidder ? 'insufficient_cash' : 'outbid',
+      });
+    }
+  }
+  const activeAuctions = ensureAuctions(openAuctions, globalWeek, economy.inflationMultiplier, getNetWorth(stateWithInflation));
 
   // Life events removed
   let triggeredEvent: TriggeredEvent | null = null;
@@ -142,7 +206,9 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
   }
 
   // ---------- Step 12.65: Business Processing ----------
-  const bizResult = processAllBusinesses(state?.businesses ?? [], economy.inflationMultiplier, newWeek, newYear);
+  const bizResult = processAllBusinesses(state?.businesses ?? [], economy.inflationMultiplier, newWeek, newYear, {
+    businessCostReduction: prestigeEffects.business_cost_reduction ?? 0,
+  });
   triggeredEvent = bizResult.decisionEvent;
   let adjustedBizProfit = bizResult.totalProfit;
   const adjustedBusinesses = bizResult.updatedBusinesses.map((b) => {
@@ -173,12 +239,15 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
     age: newAge,
     cash: newCash,
     inflationMultiplier: economy.inflationMultiplier,
+    currentCarId: stateWithInflation.currentCarId,
+    pendingCarDelivery: stateWithInflation.pendingCarDelivery,
     stocks: stockResult.stocks,
     currentCourseId: edu.currentCourseId,
     courseWeeksCompleted: edu.courseWeeksCompleted,
     completedCourses: edu.completedCourses,
     totalWeeksWorked: jobs.totalWeeksWorked,
     loans: loanResult.loans,
+    bankDeposits: updatedBankDeposits,
     earningsSinceLastTax: taxes.newEarningsSinceLastTax,
     totalTaxPaid: (state?.totalTaxPaid ?? 0) + taxes.taxAmount,
     currentHeadline: news.headline,
@@ -190,7 +259,8 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
     skills: updatedSkills,
     knowledge: updatedKnowledge,
     career: careerTick.updatedCareer,
-    properties: propResult.updatedProperties,
+    properties: auctionProperties,
+    activeAuctions,
     competitors: compResult.updatedCompetitors,
     activeMarketSentiment: newSentiment,
     activeMarketEvents: newMarketEvents,
@@ -218,6 +288,8 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
   const livingCosts = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost;
   const isEmployed = hasCareerV2 || !!state?.currentJobId;
   const stats: LifetimeStatistics = {
+    ...INITIAL_STATISTICS,
+    ...prevStats,
     weeksPlayed: prevStats.weeksPlayed + 1,
     totalSalaryEarned: prevStats.totalSalaryEarned + salary,
     totalTaxesPaid: prevStats.totalTaxesPaid + taxes.taxAmount,
@@ -235,6 +307,11 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
     loansRepaid: prevStats.loansRepaid + loanResult.loansRepaid,
     totalRealizedProfitLoss: prevStats.totalRealizedProfitLoss ?? 0,
     totalDividendsReceived: (prevStats.totalDividendsReceived ?? 0) + dividendIncome,
+    highestSoldStockProfitPercent: prevStats.highestSoldStockProfitPercent ?? 0,
+    highestStockPortfolioValue: Math.max(
+      prevStats.highestStockPortfolioValue ?? 0,
+      getPortfolioValue(tempState.stocks ?? [], tempState.holdings ?? []),
+    ),
   };
   tempState.statistics = stats;
 
@@ -243,6 +320,21 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
   tempState.unlockedAchievements = [...(tempState?.unlockedAchievements ?? []), ...newAchievements];
 
   // ---------- Build Summary ----------
+  const completedJob = edu.completedCourseData
+    ? (jobsData as any[]).find((job) => job.requiredCourse === edu.completedCourseData?.id)
+    : null;
+  const housingIndex = (housingData as any[]).findIndex((housing) => housing.id === tempState.currentHousingId);
+  const studioIndex = (housingData as any[]).findIndex((housing) => housing.id === 'studio_apartment');
+  const smallHouseIndex = (housingData as any[]).findIndex((housing) => housing.id === 'small_house');
+  const requiredHousing = completedJob?.level >= 5 ? { index: smallHouseIndex, name: 'Small House' }
+    : completedJob?.level >= 3 ? { index: studioIndex, name: 'Studio Apartment' }
+      : null;
+  const missingRequirements: string[] = [];
+  if (completedJob?.requiresCar && tempState.currentCarId === 'none') {
+    missingRequirements.push(tempState.pendingCarDelivery ? 'Wait for your vehicle delivery' : 'Buy a vehicle');
+  }
+  if (requiredHousing && housingIndex < requiredHousing.index) missingRequirements.push(`Move into a ${requiredHousing.name} or better`);
+
   const summary: WeekSummary = {
     salaryEarned: salary,
     rentPaid: expenses.rent,
@@ -269,6 +361,7 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
     businessTotalProfit: adjustedBizProfit,
     businessEvents: bizResult.events,
     propertyIncome: propertyNetIncome,
+    auctionResults,
     careerRaise: careerTick.gotRaise,
     careerPromotion: careerTick.promotionTitle,
     promotionBlockedReason: careerTick.promotionBlockedReason,
@@ -279,6 +372,11 @@ export function weeklyTick(state: GameState): { newState: GameState; summary: We
     realizedProfitLoss: 0,
     dividendIncome,
     partTimeIncome,
+    educationCareerReminder: edu.completedCourseData ? {
+      courseName: edu.completedCourseData.name,
+      jobTitle: completedJob?.title ?? 'a matching career',
+      missingRequirements,
+    } : null,
   };
 
   return { newState: tempState, summary };

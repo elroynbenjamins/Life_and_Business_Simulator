@@ -26,12 +26,7 @@ const sections = [
   {
     title: 'Education',
     icon: '📚',
-    content: 'Courses unlock career paths and award skills and knowledge. Basic courses are available immediately; advanced courses require 75 worked weeks and expert courses require 150. Advanced and expert courses also require their preceding course. A part-time job slows study progress by 50%.',
-  },
-  {
-    title: 'Skills & Knowledge',
-    icon: '🧠',
-    content: 'Education provides large skill and knowledge gains, while working develops abilities related to your career. Higher positions check these values. Review the Skills screen for your progress and the Career screen for each position’s requirements.',
+    content: 'Courses unlock career paths and award skills and knowledge. Basic courses are available immediately; advanced courses require 75 worked weeks and expert courses require 150. Advanced and expert courses also require their preceding course. A part-time job slows study progress by 25%.',
   },
   {
     title: 'Stock Market',
@@ -46,7 +41,7 @@ const sections = [
   {
     title: 'Businesses',
     icon: '🏢',
-    content: 'Found a business, hire employees, choose pricing and advertising, and buy unique upgrades. Every new business starts with 10% market share and three competitors. Revenue, reputation, market share, staffing costs, rent, morale and random events all affect weekly results.',
+    content: 'Found a business, hire employees, choose pricing and advertising, and buy unique upgrades. Every new business starts with 10% market share and three competitors. Reputation increases customer demand, protects against rivals, affects valuation, unlocks business levels, and is required to open local, national, and international locations. Every location adds revenue capacity and recurring operating costs.',
   },
   {
     title: 'Business Morale & Reputation',
@@ -61,7 +56,7 @@ const sections = [
   {
     title: 'Lifestyle',
     icon: '🚗',
-    content: 'Housing, food and vehicles create weekly expenses. Better vehicles can unlock career promotions. Changing vehicles applies the purchase cost and any eligible trade-in value. Keep enough cash for recurring rent, utilities, food and running costs.',
+    content: 'Housing, food and vehicles create weekly expenses. Food starts at €50 per week at job level 1 and increases by €25 per job level. Better vehicles can unlock career promotions. A purchased vehicle is delivered after advancing one week; the purchase cost and any eligible trade-in value are applied immediately. Keep enough cash for recurring rent, utilities, food and running costs.',
   },
   {
     title: 'Properties',
@@ -81,7 +76,7 @@ const sections = [
   {
     title: 'Gems',
     icon: '💎',
-    content: 'Earn gems from difficult achievements or receive 10 gems for watching a rewarded ad. Gems can be converted to in-game cash at €200 per gem through the Support screen.',
+    content: 'Earn gems from difficult achievements or receive 10 gems for watching a rewarded ad. Gems can be converted to in-game cash at €100 per gem through the Support screen.',
   },
   {
     title: 'Inflation',

@@ -9,33 +9,21 @@ import GameCard from '../src/components/GameCard';
 import StatusPill from '../src/components/StatusPill';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
-import { getWeeklyUtilityCost } from '../src/engine/financeEngine';
 import { inflated } from '../src/engine/economyEngine';
 import housingData from '../src/data/housing.json';
 import carsData from '../src/data/cars.json';
-import foodData from '../src/data/food.json';
 import { showGameDialog } from '../src/components/GameDialog';
 // house upgrades removed
-
-const UTILITY_BASE: Record<string, number> = {
-  cheap_apartment: 25,
-  studio_apartment: 35,
-  small_house: 50,
-  family_house: 70,
-  luxury_villa: 120,
-  mansion: 200,
-};
 
 export default function LifestyleScreen() {
   const router = useRouter();
   const currentHousingId = useGameStore((s) => s?.currentHousingId);
   const currentCarId = useGameStore((s) => s?.currentCarId ?? 'none');
-  const foodLevel = useGameStore((s) => s?.foodLevel ?? 'basic');
+  const pendingCarDelivery = useGameStore((s) => s?.pendingCarDelivery);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const changeHousing = useGameStore((s) => s?.changeHousing);
   const changeCar = useGameStore((s) => s?.changeCar);
-  const changeFoodLevel = useGameStore((s) => s?.changeFoodLevel);
   // buyHouseUpgrade removed
 
   const currentHIdx = (housingData ?? []).findIndex((h) => h?.id === currentHousingId);
@@ -43,7 +31,7 @@ export default function LifestyleScreen() {
   const handleHousing = (h: (typeof housingData)[0]) => {
     const idx = (housingData ?? []).findIndex((hh) => hh?.id === h?.id);
     const dir = idx > currentHIdx ? 'Upgrade' : 'Downgrade';
-    const utilCost = inflated(UTILITY_BASE[h?.id] ?? 25, inflationMultiplier);
+    const utilCost = Math.round(inflated(h?.weeklyRent ?? 0, inflationMultiplier) * 0.15);
     const message = `${dir} to ${h?.name}? Rent: ${formatCurrency(inflated(h?.weeklyRent, inflationMultiplier))}/week + Utilities: ${formatCurrency(utilCost)}/week.`;
     showGameDialog({ title: `${dir} Housing`, message, confirmText: dir, onConfirm: () => changeHousing?.(h?.id) });
   };
@@ -54,12 +42,8 @@ export default function LifestyleScreen() {
     const inflatedPurchase = inflated(c?.purchaseCost ?? 0, inflationMultiplier);
     const cost = inflatedPurchase - tradeIn;
     const desc = tradeIn > 0 ? `Trade-in: ${formatCurrency(tradeIn)}. Net cost: ${formatCurrency(cost)}.` : `Cost: ${formatCurrency(inflatedPurchase)}.`;
-    const message = `Get a ${c?.name}? ${desc} Running cost: ${formatCurrency(inflated(c?.weeklyCost ?? 0, inflationMultiplier))}/week.`;
+    const message = `Get a ${c?.name}? ${desc} Running cost: ${formatCurrency(inflated(c?.weeklyCost ?? 0, inflationMultiplier))}/week. It will be delivered after you advance one week.`;
     showGameDialog({ title: 'Change Vehicle', message, confirmText: 'Buy', onConfirm: () => changeCar?.(c?.id) });
-  };
-
-  const handleFood = (f: (typeof foodData)[0]) => {
-    changeFoodLevel?.(f?.id);
   };
 
   // handleUpgrade removed
@@ -79,8 +63,7 @@ export default function LifestyleScreen() {
         {(housingData ?? []).map((h, idx) => {
           const isCurrent = h?.id === currentHousingId;
           const isUpgrade = idx > currentHIdx;
-          const utilBase = UTILITY_BASE[h?.id] ?? 25;
-          const utilCost = inflated(utilBase, inflationMultiplier);
+          const utilCost = Math.round(inflated(h?.weeklyRent ?? 0, inflationMultiplier) * 0.15);
           return (
             <GameCard key={h?.id}>
               <View style={styles.row}>
@@ -103,6 +86,12 @@ export default function LifestyleScreen() {
 
         {/* CARS */}
         <Text style={styles.sectionHeader}>🚗 Vehicle</Text>
+        {pendingCarDelivery && (
+          <GameCard>
+            <Text style={styles.deliveryTitle}>Vehicle delivery pending</Text>
+            <Text style={styles.desc}>{carsData.find((car) => car.id === pendingCarDelivery.carId)?.name ?? 'Your vehicle'} arrives after advancing one week.</Text>
+          </GameCard>
+        )}
         {(carsData ?? []).map((c) => {
           const isCurrent = c?.id === currentCarId;
           const oldCar = (carsData ?? []).find((cc) => cc?.id === currentCarId);
@@ -121,13 +110,13 @@ export default function LifestyleScreen() {
                 </View>
                 {isCurrent ? <StatusPill label="Current" color={Colors.info} /> : null}
               </View>
-              {!isCurrent && c?.id !== 'none' && canAfford && (
+              {!pendingCarDelivery && !isCurrent && c?.id !== 'none' && canAfford && (
                 <Pressable style={[styles.actionBtn, { borderColor: Colors.primary }]} onPress={() => handleCar(c)}>
                   <Text style={[styles.actionText, { color: Colors.primary }]}>Buy{tradeIn > 0 ? ` (Net: ${formatCurrency(netCost)})` : ''}</Text>
                 </Pressable>
               )}
-              {!isCurrent && c?.id !== 'none' && !canAfford && <Text style={styles.cantAfford}>Can't afford</Text>}
-              {!isCurrent && c?.id === 'none' && currentCarId !== 'none' && (
+              {!pendingCarDelivery && !isCurrent && c?.id !== 'none' && !canAfford && <Text style={styles.cantAfford}>Can't afford</Text>}
+              {!pendingCarDelivery && !isCurrent && c?.id === 'none' && currentCarId !== 'none' && (
                 <Pressable style={[styles.actionBtn, { borderColor: Colors.warning }]} onPress={() => changeCar?.('none')}>
                   <Text style={[styles.actionText, { color: Colors.warning }]}>Sell Car</Text>
                 </Pressable>
@@ -136,29 +125,6 @@ export default function LifestyleScreen() {
           );
         })}
 
-        {/* FOOD */}
-        <Text style={styles.sectionHeader}>🍔 Food Allowance</Text>
-        {(foodData ?? []).map((f) => {
-          const isCurrent = f?.id === foodLevel;
-          return (
-            <GameCard key={f?.id}>
-              <View style={styles.row}>
-                <View style={styles.info}>
-                  <Text style={styles.name}>{f?.name}</Text>
-                  <Text style={styles.desc}>{f?.description}</Text>
-                  <Text style={styles.cost}>{formatCurrency(inflated(f?.weeklyCost ?? 0, inflationMultiplier))}/week</Text>
-                  {/* happiness hidden */}
-                </View>
-                {isCurrent ? <StatusPill label="Current" color={Colors.info} /> : null}
-              </View>
-              {!isCurrent && (
-                <Pressable style={[styles.actionBtn, { borderColor: Colors.primary }]} onPress={() => handleFood(f)}>
-                  <Text style={[styles.actionText, { color: Colors.primary }]}>Select</Text>
-                </Pressable>
-              )}
-            </GameCard>
-          );
-        })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -181,4 +147,5 @@ const styles = StyleSheet.create({
   actionBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginTop: 10 },
   actionText: { fontWeight: '600', fontSize: 14 },
   cantAfford: { color: Colors.textMuted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
+  deliveryTitle: { color: Colors.warning, fontSize: 15, fontWeight: '700', marginBottom: 4 },
 });

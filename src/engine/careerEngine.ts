@@ -190,7 +190,7 @@ export function processCareerTick(
 }
 
 export function getCompaniesForPath(pathId: string): any[] {
-  return (companiesData as any[]).filter((c) => (c.careerPaths ?? []).includes(pathId));
+  return (companiesData as any[]).filter((c) => c.id === 'career_employer' && (c.careerPaths ?? []).includes(pathId));
 }
 
 export function getCareerPath(pathId: string): any | null {

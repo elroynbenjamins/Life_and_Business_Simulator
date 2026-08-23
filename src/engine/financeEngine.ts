@@ -3,7 +3,6 @@ import { inflated } from './economyEngine';
 import housingData from '../data/housing.json';
 import jobsData from '../data/jobs.json';
 import carsData from '../data/cars.json';
-import foodData from '../data/food.json';
 import coursesData from '../data/courses.json';
 
 /**
@@ -51,8 +50,11 @@ export function getWeeklyCarCost(state: GameState): number {
 }
 
 export function getWeeklyFoodCost(state: GameState): number {
-  const food = (foodData ?? []).find((f) => f?.id === state?.foodLevel);
-  return inflated(food?.weeklyCost ?? 50, state?.inflationMultiplier ?? 1);
+  const legacyJob = (jobsData ?? []).find((job) => job?.id === state?.currentJobId);
+  const jobLevel = state?.career?.companyId
+    ? Math.max(1, state.career.positionLevel ?? 1)
+    : Math.max(1, legacyJob?.level ?? 1);
+  return inflated(50 + (jobLevel - 1) * 25, state?.inflationMultiplier ?? 1);
 }
 
 export function getWeeklyCourseCost(state: GameState): number {
@@ -182,6 +184,7 @@ export function getUnrealizedProfitLoss(stocks: StockState[], holdings: StockHol
 export function getNetWorth(state: GameState): number {
   const portfolioValue = getPortfolioValue(state?.stocks ?? [], state?.holdings ?? []);
   const loanDebt = (state?.loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
+  const lockedDeposits = (state?.bankDeposits ?? []).reduce((total, deposit) => total + (deposit?.amount ?? 0), 0);
   // Business values
   // Valuation already includes available business cash.
   const businessValue = (state?.businesses ?? []).reduce((t, b) => t + (b?.valuation ?? 0), 0);
@@ -190,5 +193,5 @@ export function getNetWorth(state: GameState): number {
   }, 0);
   // Property values
   const propertyValue = (state?.properties ?? []).reduce((t, p) => t + (p?.currentValue ?? 0), 0);
-  return (state?.cash ?? 0) + portfolioValue + businessValue + propertyValue - loanDebt - businessLoanDebt;
+  return (state?.cash ?? 0) + lockedDeposits + portfolioValue + businessValue + propertyValue - loanDebt - businessLoanDebt;
 }

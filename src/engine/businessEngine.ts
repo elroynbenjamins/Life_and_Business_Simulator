@@ -100,6 +100,7 @@ import trainingData from '../data/employee_training.json';
 import projectsData from '../data/business_projects.json';
 import moraleEventsData from '../data/business_morale_events.json';
 import choiceEventsData from '../data/business_choice_events.json';
+import businessLocationsData from '../data/business_locations.json';
 
 export const MIN_EMPLOYEES_REQUIRED = 3;
 export const BUSINESS_LEVEL_REPUTATION_REQUIREMENTS = [0, 20, 30, 40, 52, 65, 78, 90];
@@ -117,7 +118,9 @@ export function getBusinessLevelForMetrics(thresholds: number[], valuation: numb
 }
 
 export function getStartupRevenueTarget(baseExpenses: number, rent: number, salaries: number, advertising: number, randomRoll: number): number {
-  return Math.round((baseExpenses + rent + salaries + advertising) * (0.86 + Math.max(0, Math.min(1, randomRoll)) * 0.30));
+  // Young companies should alternate between modest wins and losses instead of
+  // entering an unavoidable downward spiral before reputation can grow.
+  return Math.round((baseExpenses + rent + salaries + advertising) * (0.94 + Math.max(0, Math.min(1, randomRoll)) * 0.28));
 }
 
 // --- Constants ---
@@ -130,9 +133,9 @@ const PRICING_MULTIPLIERS: Record<string, { revenue: number; demand: number; rep
 
 const ADVERTISING_COSTS: Record<string, { weeklyCost: number; demandBoost: number; reputationBoost: number }> = {
   none: { weeklyCost: 0, demandBoost: 0, reputationBoost: 0 },
-  basic: { weeklyCost: 500, demandBoost: 0.10, reputationBoost: 0.3 },
-  moderate: { weeklyCost: 1000, demandBoost: 0.22, reputationBoost: 0.6 },
-  aggressive: { weeklyCost: 1500, demandBoost: 0.36, reputationBoost: 1.0 },
+  basic: { weeklyCost: 200, demandBoost: 0.10, reputationBoost: 0.24 },
+  moderate: { weeklyCost: 500, demandBoost: 0.22, reputationBoost: 0.45 },
+  aggressive: { weeklyCost: 1200, demandBoost: 0.36, reputationBoost: 0.70 },
 };
 
 const LEVEL_NAMES = [
@@ -175,6 +178,30 @@ export function getTrainingOption(trainingId: string) {
 
 export function getProject(projectId: string) {
   return (projectsData ?? []).find((p: any) => p?.id === projectId);
+}
+
+export function getBusinessLocationTemplate(templateId: string) {
+  return (businessLocationsData as any[]).find((location) => location.id === templateId) ?? null;
+}
+
+export function getAllBusinessLocationTemplates() { return businessLocationsData as any[]; }
+
+export function getScaledLocationCosts(biz: OwnedBusiness, templateId: string, inflationMultiplier: number): { purchaseCost: number; weeklyOperatingCost: number } | null {
+  const template = getBusinessLocationTemplate(templateId);
+  const type = getBusinessType(biz.typeId);
+  if (!template || !type) return null;
+  const scale = Math.max(0.7, Math.pow((type.startupCost ?? 75_000) / 75_000, 0.45));
+  return {
+    purchaseCost: Math.round(template.cost * scale * inflationMultiplier),
+    weeklyOperatingCost: Math.round(template.weeklyOperatingCost * scale),
+  };
+}
+
+export function canStartBusinessExpansion(biz: OwnedBusiness, templateId: string): boolean {
+  const template = getBusinessLocationTemplate(templateId);
+  if (!template || biz.activeExpansion) return false;
+  if ((biz.locations ?? []).some((location) => location.templateId === templateId)) return false;
+  return (biz.level ?? 0) >= template.requiredLevel && (biz.reputation ?? 0) >= template.requiredReputation;
 }
 
 export function getAllMoraleActions() { return moraleActionsData as any[]; }
@@ -326,6 +353,8 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     advertisingLevel: 'none',
     employees: [],
     purchasedUpgrades: [],
+    locations: [],
+    activeExpansion: null,
     businessLoans: [],
     activeEvents: [],
     weeklyProfitHistory: [],
@@ -355,6 +384,11 @@ export interface BusinessTickResult {
   newRetention: { businessName: string; employeeName: string; type: string } | null;
 }
 
+export interface BusinessSimulationModifiers {
+  /** Decimal reduction, e.g. 0.075 means 7.5% lower operating expenses. */
+  businessCostReduction?: number;
+}
+
 /**
  * Process a single business for one week.
  */
@@ -363,6 +397,7 @@ export function processBusinessWeek(
   inflationMultiplier: number,
   currentWeek: number,
   currentYear: number,
+  modifiers: BusinessSimulationModifiers = {},
 ): BusinessTickResult {
   const type = getBusinessType(biz.typeId);
   if (!type) {
@@ -423,10 +458,14 @@ export function processBusinessWeek(
   const buffAgg = aggregateEmployeeBuffs(biz.employees ?? []);
   const productivityMultiplier = Math.max(0.4, 0.4 + totalProductivity * 0.14) * buffAgg.productivityMult;
 
-  const upgradeRevenueBoost = [...new Set(biz.purchasedUpgrades ?? [])].reduce((t, uid) => {
+  const rawUpgradeRevenueBoost = [...new Set(biz.purchasedUpgrades ?? [])].reduce((t, uid) => {
     const u = getUpgrade(uid);
     return t + (u?.revenueBoost ?? 0);
   }, 0);
+  // Preserve every listed upgrade benefit while preventing five additive boosts
+  // from turning into a risk-free exponential late-game advantage.
+  const upgradeRevenueBoost = 1 - Math.exp(-rawUpgradeRevenueBoost);
+  const locationRevenueBoost = (biz.locations ?? []).reduce((total, location) => total + (location.revenueBoost ?? 0), 0);
 
   // Active event & project multipliers
   let eventRevenueMultiplier = 1;
@@ -443,39 +482,51 @@ export function processBusinessWeek(
   }
 
   // Base revenue reduced by 3% from the previous balance pass.
-  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121;
+  // Very small businesses cannot add more than three employees, so they receive
+  // a compact-operation boost that substitutes for unavailable staff scaling.
+  const compactBusinessRevenueBoost = (type.maxEmployees ?? 4) <= 3 ? 1.18 : (type.maxEmployees ?? 6) <= 5 ? 1.45 : 1;
+  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121 * compactBusinessRevenueBoost;
   const levelBonus = 1 + biz.level * 0.1;
   let revenue = Math.round(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
-    (1 + upgradeRevenueBoost) * levelBonus * eventRevenueMultiplier * buffAgg.revenueMult
+    (1 + upgradeRevenueBoost + locationRevenueBoost) * levelBonus * eventRevenueMultiplier * buffAgg.revenueMult
   );
+  // Mature companies still encounter occasional weak demand weeks. This keeps
+  // late-game firms strong without making every single week guaranteed green.
+  const matureDemandShockChance = Math.max(0.04, 0.13 - (biz.reputation ?? 0) * 0.0007);
+  if ((biz.reputation ?? 0) >= 55 && Math.random() < matureDemandShockChance) {
+    revenue = Math.round(revenue * (0.08 + Math.random() * 0.20));
+  }
 
   // Expenses (detailed breakdown) — variable costs SCALE with actual revenue.
-  const baseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.97;
+  const prestigeCostMultiplier = 1 - Math.max(0, Math.min(0.5, modifiers.businessCostReduction ?? 0));
+  const baseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier;
   // Revenue scaling factor: if revenue is 5x the expected base, variable costs go up ~4x
   let revScale = baseRev > 0 ? revenue / baseRev : 1;
   // Variable-cost scaling: 60% fixed baseline + 40% × revScale (dampened)
   let variableScale = 0.6 + 0.4 * Math.min(6, revScale);
   // Rent scales with revenue: base rent + 2% of revenue above baseline
-  const baseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier;
+  const baseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier * prestigeCostMultiplier;
   let rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
   let rent = Math.round(rentScale);
   const salaries = Math.round((biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0));
-  const adCost = Math.round((adMod.weeklyCost ?? 0) * inflationMultiplier);
-  if ((biz.level ?? 0) === 0 && (biz.employees?.length ?? 0) === MIN_EMPLOYEES_REQUIRED && (biz.reputation ?? 0) < 40) {
-    revenue = Math.max(revenue, getStartupRevenueTarget(baseExp, baseRent, salaries, adCost, Math.random()));
+  const adCost = Math.round((adMod.weeklyCost ?? 0) * inflationMultiplier * prestigeCostMultiplier);
+  if ((biz.level ?? 0) === 0 && (biz.employees?.length ?? 0) >= MIN_EMPLOYEES_REQUIRED && (biz.reputation ?? 0) < 45) {
+    revenue = Math.max(revenue, getStartupRevenueTarget(baseExp * eventExpenseMultiplier, baseRent, salaries, adCost, Math.random()));
     revScale = baseRev > 0 ? revenue / baseRev : 1;
     variableScale = 0.6 + 0.4 * Math.min(6, revScale);
     rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
     rent = Math.round(rentScale);
   }
-  // COGS is highly variable — scales strongly with revenue (11% of revenue floor)
-  const cogs = Math.round(Math.max(baseExp * 0.45, revenue * 0.11) * eventExpenseMultiplier * buffAgg.expenseMult);
+  // COGS and delivery costs rise with scale, preventing unrealistically large
+  // margins once employee and upgrade multipliers compound.
+  const cogs = Math.round(Math.max(baseExp * 0.45, revenue * 0.17) * eventExpenseMultiplier * buffAgg.expenseMult);
   // Utilities/maintenance/misc scale moderately, insurance is mostly fixed
   const utilities = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
   const insurance = Math.round(baseExp * 0.10 * (0.8 + 0.2 * variableScale) * eventExpenseMultiplier * buffAgg.expenseMult);
   const maintenance = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
-  const misc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
+  const locationOperatingCosts = Math.round((biz.locations ?? []).reduce((total, location) => total + (location.weeklyOperatingCost ?? 0), 0) * inflationMultiplier * prestigeCostMultiplier);
+  const misc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult) + locationOperatingCosts;
 
   let loanInterest = 0;
   const updatedLoans: BusinessLoan[] = [];
@@ -601,8 +652,9 @@ export function processBusinessWeek(
   }
 
   // Reputation update
-  const repGrowth = (type.reputationGrowthRate ?? 0.5) * (profit > 0 ? 0.3 : -0.15);
-  const adRepBoost = adMod.reputationBoost ?? 0;
+  const reputationHeadroom = Math.max(0, 1 - (biz.reputation ?? 25) / 100);
+  const repGrowth = (type.reputationGrowthRate ?? 0.5) * (profit > 0 ? 0.24 * reputationHeadroom : -0.07);
+  const adRepBoost = (adMod.reputationBoost ?? 0) * reputationHeadroom * (profit >= 0 ? 1 : 0.35);
   const pricingRepEffect = pricingMod.reputation ?? 0;
   const projectRepBoost = updatedProjects
     .filter((project) => project.resolved && project.succeeded && !biz.activeProjects?.find((old) => old.id === project.id)?.resolved)
@@ -736,6 +788,22 @@ export function processBusinessWeek(
     }
   }
 
+  // Geographic expansion timer. New locations start affecting finances next week.
+  let activeExpansion = biz.activeExpansion ? { ...biz.activeExpansion } : null;
+  let locations = [...(biz.locations ?? [])];
+  if (activeExpansion) {
+    activeExpansion.weeksRemaining = Math.max(0, activeExpansion.weeksRemaining - 1);
+    if (activeExpansion.weeksRemaining <= 0) {
+      const template = getBusinessLocationTemplate(activeExpansion.templateId);
+      const costs = getScaledLocationCosts(biz, activeExpansion.templateId, inflationMultiplier);
+      if (template && costs && !locations.some((location) => location.templateId === template.id)) {
+        locations.push({ id: `location_${biz.id}_${template.id}`, templateId: template.id, name: template.name, region: template.region, revenueBoost: template.revenueBoost, weeklyOperatingCost: costs.weeklyOperatingCost, openedWeek: globalWeek });
+        timelineAdds.push({ week: currentWeek, year: currentYear, title: `Opened ${template.name} in ${template.region}`, icon: '🌍', kind: 'expansion' });
+      }
+      activeExpansion = null;
+    }
+  }
+
   // Level-up timeline entry
   if (newLevel > (biz.level ?? 0)) {
     timelineAdds.push({ week: currentWeek, year: currentYear, title: `Reached level ${newLevel + 1}`, icon: '⭐', kind: 'level' });
@@ -783,6 +851,8 @@ export function processBusinessWeek(
     recruitProgress,
     timeline,
     activeUpgrade,
+    activeExpansion,
+    locations,
     purchasedUpgrades: [...new Set([
       ...(biz.purchasedUpgrades ?? []),
       ...(completedUpgradeId ? [completedUpgradeId] : []),
@@ -1019,6 +1089,7 @@ export function processAllBusinesses(
   inflationMultiplier: number,
   currentWeek: number,
   currentYear: number,
+  modifiers: BusinessSimulationModifiers = {},
 ): {
   updatedBusinesses: OwnedBusiness[];
   totalProfit: number;
@@ -1036,7 +1107,7 @@ export function processAllBusinesses(
   const updatedBusinesses: OwnedBusiness[] = [];
 
   for (const biz of businesses ?? []) {
-    const result = processBusinessWeek(biz, inflationMultiplier, currentWeek, currentYear);
+    const result = processBusinessWeek(biz, inflationMultiplier, currentWeek, currentYear, modifiers);
     updatedBusinesses.push(result.updatedBusiness);
     totalProfit += result.weeklyProfit;
     totalDividend += result.playerDividend;

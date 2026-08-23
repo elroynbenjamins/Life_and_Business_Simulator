@@ -28,6 +28,7 @@ export default function DashboardScreen() {
   const getPortfolioValueTotal = useGameStore((s) => s?.getPortfolioValueTotal);
   const gems = useGameStore((s) => s?.profile?.gems ?? 0);
   const prestigePoints = useGameStore((s) => s?.profile?.prestigePoints ?? 0);
+  const loginRewardAvailable = useGameStore((s) => s.getDailyLoginStatus().available);
   const state = useGameStore();
 
   const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
@@ -54,7 +55,7 @@ export default function DashboardScreen() {
     : (currentJobId
         ? require('../../src/data/jobs.json')?.find((j: any) => j?.id === currentJobId)?.title
         : (partTimeJob ? 'Part-Time' : null));
-  const displayIncome = isEmployed ? weeklyIncome : (partTimeJob ? 150 : 0); // avg part-time ~€150
+  const displayIncome = isEmployed ? weeklyIncome : (partTimeJob ? 350 : 0);
   const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
   const weeksUntilTax = 20 - (globalWeek % 20);
 
@@ -95,18 +96,18 @@ export default function DashboardScreen() {
 
         {/* Income vs Expenses */}
         <View style={styles.statsRow}>
-          <GameCard style={styles.statCard} onPress={() => router.push('/tabs/career')}>
+          <View style={styles.statCardWrap}><GameCard style={styles.statCard} onPress={() => router.push('/tabs/career')}>
             <Text style={styles.statLabel}>Weekly Income</Text>
             <Text style={[styles.statValue, { color: hasIncome ? Colors.primary : Colors.warning }]}>
               {hasIncome ? (isEmployed ? formatCurrency(weeklyIncome) : '~' + formatCurrency(displayIncome)) : 'Unemployed'}
             </Text>
             <Text style={styles.statCaption}>{jobTitle ?? 'No job'}</Text>
-          </GameCard>
-          <GameCard style={styles.statCard} onPress={() => router.push('/tabs/statistics')}>
+          </GameCard></View>
+          <View style={styles.statCardWrap}><GameCard style={styles.statCard} onPress={() => router.push('/tabs/statistics')}>
             <Text style={styles.statLabel}>Weekly Expenses</Text>
             <Text style={[styles.statValue, { color: Colors.negative }]}>{formatCurrency(weeklyExpenses)}</Text>
             <Text style={styles.statCaption}>Rent + Utils + Food + Car{loanPayments > 0 ? ' + Loans' : ''}</Text>
-          </GameCard>
+          </GameCard></View>
         </View>
 
         {/* Tax reminder */}
@@ -123,7 +124,7 @@ export default function DashboardScreen() {
         {/* Course Progress */}
         {course ? (() => {
           const baseDur = course?.duration ?? 1;
-          const adjustedDur = partTimeJob ? Math.ceil(baseDur * 1.5) : baseDur;
+          const adjustedDur = partTimeJob ? Math.ceil(baseDur * 1.25) : baseDur;
           return (
             <GameCard title="Course Progress" onPress={() => router.push('/tabs/education')}>
               <Text style={styles.courseTitle}>{course?.name}</Text>
@@ -189,13 +190,12 @@ export default function DashboardScreen() {
         <View style={styles.linksRow}>
           <QuickLink icon="home" label="Lifestyle" onPress={() => router.push('/housing')} />
           <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} />
-          <QuickLink icon="card" label="Loans" onPress={() => router.push('/loans')} />
+          <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} />
           <QuickLink icon="pie-chart" label="Portfolio" onPress={() => router.push('/portfolio')} />
           <QuickLink icon="business" label="Business" onPress={() => router.push('/business')} color="#06B6D4" />
-          <QuickLink icon="star" label="Skills" onPress={() => router.push('/skills')} color="#F59E0B" />
           <QuickLink icon="home-outline" label="Properties" onPress={() => router.push('/properties')} color="#06B6D4" />
           <QuickLink icon="ribbon" label="Prestige" onPress={() => router.push('/prestige')} color="#EC4899" />
-          <QuickLink icon="diamond" label="Support" onPress={() => router.push('/support')} color="#8B5CF6" />
+          <QuickLink icon="diamond" label="Support" onPress={() => router.push('/support')} color="#8B5CF6" notification={loginRewardAvailable} />
           <QuickLink icon="information-circle" label="Info" onPress={() => router.push('/info')} color="#3B82F6" />
           <QuickLink icon="stats-chart" label="Statistics" onPress={() => router.push('/tabs/statistics')} color="#10B981" />
           <QuickLink icon="newspaper" label="News" onPress={() => router.push('/news')} color="#F59E0B" />
@@ -206,11 +206,12 @@ export default function DashboardScreen() {
   );
 }
 
-function QuickLink({ icon, label, onPress, color }: { icon: string; label: string; onPress: () => void; color?: string }) {
+function QuickLink({ icon, label, onPress, color, notification }: { icon: string; label: string; onPress: () => void; color?: string; notification?: boolean }) {
   return (
     <Pressable style={styles.quickLink} onPress={onPress}>
       <Ionicons name={icon as any} size={20} color={color ?? Colors.primary} />
       <Text style={styles.quickLinkText}>{label}</Text>
+      {notification && <View style={styles.notificationDot} />}
     </Pressable>
   );
 }
@@ -229,6 +230,7 @@ const styles = StyleSheet.create({
   newsText: { color: Colors.warning, fontSize: 14, fontStyle: 'italic', flex: 1 },
   statsRow: { flexDirection: 'row', gap: 12 },
   statCard: { flex: 1 },
+  statCardWrap: { flex: 1, minWidth: 0 },
   statLabel: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
   statValue: { fontSize: 20, fontWeight: '700' },
   statCaption: { color: Colors.textMuted, fontSize: 12, marginTop: 4 },
@@ -240,6 +242,7 @@ const styles = StyleSheet.create({
   linksRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginVertical: 4 },
   quickLink: { flexBasis: '30%', flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   quickLinkText: { color: Colors.textPrimary, fontSize: 13, fontWeight: '500' },
+  notificationDot: { position: 'absolute', top: 7, right: 7, width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.negative },
   nextWeekButton: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   nextWeekText: { color: Colors.white, fontSize: 17, fontWeight: '700' },
 });

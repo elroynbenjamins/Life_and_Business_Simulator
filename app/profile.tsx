@@ -84,7 +84,6 @@ export default function ProfileScreen() {
           <View style={styles.divider} />
           <StatRow label="Jobs Worked" value={`${statistics.jobsWorked}`} />
           <StatRow label="Weeks Employed" value={`${statistics.weeksEmployed}`} />
-          <StatRow label="Weeks Unemployed" value={`${statistics.weeksUnemployed}`} />
           <StatRow label="Loans Taken" value={`${statistics.loansTaken}`} />
           <StatRow label="Loans Repaid" value={`${statistics.loansRepaid}`} />
           {inflationMultiplier > 1 && (
@@ -138,9 +137,9 @@ export default function ProfileScreen() {
           <Text style={styles.supportBtnText}>Support (Gems)</Text>
         </Pressable>
 
-        <Pressable style={styles.feedbackBtn} onPress={() => Linking.openURL('https://github.com/elroynbenjamins/Life_and_Business_Simulator/issues/new')}>
-          <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.info} />
-          <Text style={styles.feedbackBtnText}>Tester Feedback / Report a Bug</Text>
+        <Pressable style={styles.discordBtn} onPress={() => Linking.openURL('https://discord.gg/Qud94umGuq')}>
+          <Ionicons name="logo-discord" size={18} color={Colors.white} />
+          <Text style={styles.discordBtnText}>Join Discord</Text>
         </Pressable>
 
         <Pressable style={styles.newGameBtn} onPress={handleNewGame}>
@@ -200,8 +199,8 @@ const styles = StyleSheet.create({
   slotBtnText: { color: Colors.info, fontSize: 16, fontWeight: '600' },
   supportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#8B5CF6', borderRadius: 12, padding: 16, marginTop: 10 },
   supportBtnText: { color: '#8B5CF6', fontSize: 16, fontWeight: '600' },
-  feedbackBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: Colors.info, borderRadius: 12, padding: 16, marginTop: 10 },
-  feedbackBtnText: { color: Colors.info, fontSize: 16, fontWeight: '600' },
+  discordBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#5865F2', borderRadius: 12, padding: 16, marginTop: 10 },
+  discordBtnText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
   newGameBtn: { borderWidth: 1, borderColor: Colors.negative, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 10 },
   newGameText: { color: Colors.negative, fontSize: 16, fontWeight: '600' },
 });

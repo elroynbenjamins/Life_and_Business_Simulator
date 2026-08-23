@@ -96,14 +96,6 @@
     "icon": "rocket"
   },
   {
-    "id": "happiness_80",
-    "name": "Living the Dream",
-    "description": "Reach 80 happiness",
-    "xpReward": 40,
-    "gemReward": 0,
-    "icon": "heart"
-  },
-  {
     "id": "debt_free_after_loan",
     "name": "Debt Free",
     "description": "Pay off all your loans",
@@ -200,14 +192,6 @@
     "icon": "library"
   },
   {
-    "id": "happiness_90",
-    "name": "Pure Bliss",
-    "description": "Reach 90 happiness",
-    "xpReward": 80,
-    "gemReward": 20,
-    "icon": "happy"
-  },
-  {
     "id": "stock_profit_25",
     "name": "Market Genius",
     "description": "Achieve 25% profit on a stock position",
@@ -278,6 +262,70 @@
     "xpReward": 100,
     "gemReward": 10,
     "icon": "time"
+  },
+  {
+    "id": "twenty_five_years",
+    "name": "Quarter-Century Legacy",
+    "description": "Play for 25 years (500 weeks)",
+    "xpReward": 250,
+    "gemReward": 15,
+    "icon": "time"
+  },
+  {
+    "id": "fifty_years",
+    "name": "Lifetime Empire",
+    "description": "Play for 50 years (1,000 weeks)",
+    "xpReward": 500,
+    "gemReward": 30,
+    "icon": "hourglass"
+  },
+  {
+    "id": "portfolio_5m",
+    "name": "Portfolio Diamond",
+    "description": "Portfolio value reaches €5,000,000",
+    "xpReward": 225,
+    "gemReward": 10,
+    "icon": "pie-chart"
+  },
+  {
+    "id": "portfolio_10m",
+    "name": "Portfolio Empire",
+    "description": "Portfolio value reaches €10,000,000",
+    "xpReward": 350,
+    "gemReward": 20,
+    "icon": "pie-chart"
+  },
+  {
+    "id": "portfolio_25m",
+    "name": "Institutional Investor",
+    "description": "Portfolio value reaches €25,000,000",
+    "xpReward": 600,
+    "gemReward": 40,
+    "icon": "pie-chart"
+  },
+  {
+    "id": "realized_profit_1m",
+    "name": "Market Millionaire",
+    "description": "Realize €1,000,000 in stock profits",
+    "xpReward": 225,
+    "gemReward": 10,
+    "icon": "trending-up"
+  },
+  {
+    "id": "realized_profit_2_5m",
+    "name": "Trading Tycoon",
+    "description": "Realize €2,500,000 in stock profits",
+    "xpReward": 350,
+    "gemReward": 20,
+    "icon": "trending-up"
+  },
+  {
+    "id": "realized_profit_5m",
+    "name": "Market Legend",
+    "description": "Realize €5,000,000 in stock profits",
+    "xpReward": 500,
+    "gemReward": 30,
+    "icon": "trending-up"
   },
   {
     "id": "career_level_7",
