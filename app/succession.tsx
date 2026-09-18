@@ -32,6 +32,12 @@ export default function SuccessionScreen() {
   const selectedChild = children.find((child) => child.id === selectedChildId) ?? null;
   const preview = selectedChildId ? getSuccessionPreview(state, selectedChildId, assetStrategy) : null;
 
+  const finishSuccession = (financeTaxWithLoan: boolean) => {
+    if (!selectedChildId || !preview?.willingToSucceed) return;
+    continueAsChild(selectedChildId, financeTaxWithLoan, assetStrategy);
+    router.replace('/tabs');
+  };
+
   if (!state.lifecycle?.isDead) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -215,17 +221,17 @@ export default function SuccessionScreen() {
               <Pressable style={styles.secondary} onPress={() => setStep(1)}><Text style={styles.secondaryText}>← Heir</Text></Pressable>
               <View style={{ flex: 1, gap: 8 }}>
                 {preview.inheritanceTax <= preview.taxCashAvailable && preview.inheritanceTax > 0 && (
-                  <Pressable style={styles.primaryFlex} onPress={() => continueAsChild(selectedChild.id, false, assetStrategy)}>
+                  <Pressable style={styles.primaryFlex} onPress={() => finishSuccession(false)}>
                     <Text style={styles.primaryText}>Pay Tax in Cash & Continue</Text>
                   </Pressable>
                 )}
                 {preview.inheritanceTax > 0 && (
-                  <Pressable style={styles.loanButton} onPress={() => continueAsChild(selectedChild.id, true, assetStrategy)}>
+                  <Pressable style={styles.loanButton} onPress={() => finishSuccession(true)}>
                     <Text style={styles.loanText}>Finance Tax over 80 Weeks</Text>
                   </Pressable>
                 )}
                 {preview.inheritanceTax <= 0 && (
-                  <Pressable style={styles.primaryFlex} onPress={() => continueAsChild(selectedChild.id, false, assetStrategy)}>
+                  <Pressable style={styles.primaryFlex} onPress={() => finishSuccession(false)}>
                     <Text style={styles.primaryText}>Continue as {selectedChild.name}</Text>
                   </Pressable>
                 )}
