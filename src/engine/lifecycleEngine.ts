@@ -206,6 +206,12 @@ export function getSuccessionPreview(
   const beneficiary = (estate.beneficiaries ?? []).find((item) => item.id === childId);
   const distributableShare = Math.max(0, beneficiary?.amount ?? 0);
   const existingSavings = Math.max(0, child.savings ?? 0);
+  const existingBusinessStakeValue = (state.businesses ?? []).reduce((sum, business) => {
+    const childPct = (business.ownership ?? [])
+      .filter((stake) => stake.ownerType === 'child' && stake.ownerId === child.id)
+      .reduce((stakeSum, stake) => stakeSum + (stake.percent ?? 0), 0);
+    return sum + Math.max(0, business.valuation ?? 0) * childPct / 100;
+  }, 0);
   const inheritedBusinessValue = estate.successorName === child.name ? estate.businessValue : 0;
 
   const portfolioValue = Math.max(0, getPortfolioValue(state.stocks ?? [], state.holdings ?? []));
@@ -238,6 +244,7 @@ export function getSuccessionPreview(
     childName: child.name,
     childAge: childCurrentAge(child, state),
     existingSavings,
+    existingBusinessStakeValue,
     assetStrategy,
     inheritedCash,
     inheritedStockValue,
