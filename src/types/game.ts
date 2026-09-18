@@ -101,6 +101,7 @@ export interface SuccessionPreview {
   childId: string;
   childName: string;
   childAge: number;
+  existingSavings: number;
   inheritedCash: number;
   inheritedBusinessValue: number;
   inheritanceTaxBase: number;
