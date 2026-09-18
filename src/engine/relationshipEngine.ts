@@ -487,6 +487,7 @@ function launchAdultChild(child: RelationshipChild, state: GameState, gw: number
       savings: Math.round(weeklyIncome * 4),
       homeStatus: 'renting',
       partnerName: null,
+      partnerGender: null,
       childrenCount: 0,
     },
     milestone: `${child.name} became independent and started work as ${occupation.title}.`,
@@ -506,11 +507,16 @@ function progressAdultChild(
   let savings = Math.round((child.savings ?? 0) + weeklyIncome * 20 * 0.12);
   let homeStatus = child.homeStatus ?? 'renting';
   let partnerName = child.partnerName ?? null;
+  let partnerGender = child.partnerGender ?? null;
   let childrenCount = child.childrenCount ?? 0;
 
   if (!partnerName && (child.age ?? 18) >= 22 && Math.random() < 0.18) {
     const allNames = [...((namesData as any).women as string[]), ...((namesData as any).men as string[])];
-    partnerName = randomOf(allNames.filter((name) => name !== child.name));
+    const women = (namesData as any).women as string[];
+    const men = (namesData as any).men as string[];
+    partnerGender = Math.random() < 0.5 ? 'woman' : 'man';
+    const partnerPool = partnerGender === 'woman' ? women : men;
+    partnerName = randomOf(partnerPool.filter((name) => name !== child.name));
     milestones.push(`${child.name} started a serious relationship with ${partnerName}.`);
   }
 
@@ -540,6 +546,7 @@ function progressAdultChild(
       savings,
       homeStatus,
       partnerName,
+      partnerGender,
       childrenCount,
     },
     milestones,
