@@ -44,6 +44,8 @@ export default function RelationshipsScreen() {
   const fundChildEducation = useGameStore((s) => s.fundChildEducation);
   const endDatingConnection = useGameStore((s) => s.endDatingConnection);
   const endPartnership = useGameStore((s) => s.endPartnership);
+  const divorcePartner = useGameStore((s) => s.divorcePartner);
+  const relationshipCounseling = useGameStore((s) => s.relationshipCounseling);
   const feedback = useGameStore((s) => s.relationshipFeedback);
   const dismissFeedback = useGameStore((s) => s.dismissRelationshipFeedback);
 
@@ -237,7 +239,7 @@ export default function RelationshipsScreen() {
               {partner.stage === 'engaged' && (
                 <View style={styles.majorBox}>
                   <Text style={styles.majorTitle}>Plan the Wedding</Text>
-                  <Text style={styles.meta}>Your partner can cover part of the wedding from their own savings. Your financial agreement is stored with the marriage for future settlement and estate systems; it does not merge your playable cash today.</Text>
+                  <Text style={styles.meta}>Your partner can cover part of the wedding from their own savings. Choose how a future divorce settlement treats wealth built after marriage. This does not merge your playable cash while married.</Text>
 
                   <Text style={styles.subheading}>Financial agreement</Text>
                   <View style={styles.choiceRow}>
@@ -248,6 +250,9 @@ export default function RelationshipsScreen() {
                       <Text style={[styles.choiceText, marriageAgreement === 'shared_future' && styles.choiceTextSelected]}>Share Future Growth</Text>
                     </Pressable>
                   </View>
+                  <Text style={styles.agreementHelp}>
+                    Separate Assets: only legal fees on divorce. Share Future Growth: 50% of positive net-worth growth since marriage is settled with your spouse.
+                  </Text>
 
                   <Text style={styles.subheading}>Wedding</Text>
                   {(['courthouse', 'standard', 'luxury'] as const).map((wedding) => {
@@ -299,10 +304,37 @@ export default function RelationshipsScreen() {
                 </View>
               )}
 
+              {partner.relationship < 65 && (
+                <View style={styles.majorBox}>
+                  <Text style={styles.majorTitle}>Relationship Under Strain</Text>
+                  <Text style={styles.meta}>Counseling costs {formatCurrency(Math.round(1200 * state.inflationMultiplier))} and can rebuild part of the relationship.</Text>
+                  <Pressable
+                    disabled={actionUsed || state.cash < Math.round(1200 * state.inflationMultiplier)}
+                    style={[styles.secondaryButton, (actionUsed || state.cash < Math.round(1200 * state.inflationMultiplier)) && styles.disabled]}
+                    onPress={relationshipCounseling}
+                  >
+                    <Text style={styles.secondaryText}>Relationship Counseling</Text>
+                  </Pressable>
+                </View>
+              )}
+
               {partner.stage !== 'married' && (
                 <Pressable style={styles.dangerLink} onPress={endPartnership}>
                   <Text style={styles.dangerText}>End Relationship</Text>
                 </Pressable>
+              )}
+              {partner.stage === 'married' && (
+                <View style={styles.divorceBox}>
+                  <Text style={styles.divorceTitle}>Divorce</Text>
+                  <Text style={styles.meta}>
+                    {partner.marriageAgreement === 'shared_future'
+                      ? 'A divorce would settle 50% of positive net-worth growth since the wedding, plus legal fees, over a payment schedule.'
+                      : 'Your separate-assets agreement preserves your assets; divorce still creates legal fees.'}
+                  </Text>
+                  <Pressable style={styles.dangerButton} onPress={divorcePartner}>
+                    <Text style={styles.dangerButtonText}>File for Divorce</Text>
+                  </Pressable>
+                </View>
               )}
             </ConnectionCard>
           </>
@@ -387,6 +419,43 @@ export default function RelationshipsScreen() {
             {(relationship.weeklyCandidates ?? []).length === 0 && (
               <GameCard><Text style={styles.helper}>No new profiles right now. Advance a week to refresh the pool.</Text></GameCard>
             )}
+          </>
+        )}
+
+        {(relationship.financialObligations ?? []).length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Financial Obligations</Text>
+            <GameCard>
+              {(relationship.financialObligations ?? []).map((obligation) => (
+                <View key={obligation.id} style={styles.obligationRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.compactTitle}>{obligation.label}</Text>
+                    <Text style={styles.meta}>{obligation.weeksRemaining} weeks remaining</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.costText}>-{formatCurrency(Math.min(obligation.weeklyPayment, obligation.remainingAmount))}/wk</Text>
+                    <Text style={styles.meta}>{formatCurrency(obligation.remainingAmount)} left</Text>
+                  </View>
+                </View>
+              ))}
+            </GameCard>
+          </>
+        )}
+
+        {(relationship.formerPartners ?? []).length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Former Partners</Text>
+            <GameCard>
+              {[...(relationship.formerPartners ?? [])].reverse().map((former) => (
+                <View key={former.id + '_' + (former.endedWeek ?? 0)} style={styles.obligationRow}>
+                  <View style={styles.smallAvatar}><Ionicons name="person-outline" size={18} color={Colors.textMuted} /></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.compactTitle}>{former.name}</Text>
+                    <Text style={styles.meta}>{former.stage === 'married' ? 'Former spouse' : 'Former partner'} • Relationship ended</Text>
+                  </View>
+                </View>
+              ))}
+            </GameCard>
           </>
         )}
 
@@ -550,6 +619,7 @@ const styles = StyleSheet.create({
   miniValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 2 },
   financeBox: { backgroundColor: `${Colors.primary}0D`, borderWidth: 1, borderColor: `${Colors.primary}33`, borderRadius: 10, padding: 10, marginTop: 10 },
   financeTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '800', marginBottom: 5 },
+  agreementHelp: { color: Colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 7 },
   financeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 5 },
   actionGrid: { flexDirection: 'row', gap: 8 },
   actionTile: { flex: 1, minHeight: 48, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 6 },
@@ -568,6 +638,12 @@ const styles = StyleSheet.create({
   compactTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', textAlign: 'center' },
   weddingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 10, marginTop: 7 },
   familyProgress: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 8 },
+  obligationRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
+  smallAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  divorceBox: { marginTop: 14, padding: 11, borderRadius: 10, borderWidth: 1, borderColor: `${Colors.negative}44`, backgroundColor: `${Colors.negative}0B` },
+  divorceTitle: { color: Colors.negative, fontSize: 13, fontWeight: '800' },
+  dangerButton: { borderWidth: 1, borderColor: Colors.negative, borderRadius: 9, minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 9 },
+  dangerButtonText: { color: Colors.negative, fontSize: 12, fontWeight: '800' },
   dangerLink: { alignItems: 'center', paddingVertical: 11, marginTop: 9 },
   dangerText: { color: Colors.negative, fontSize: 12, fontWeight: '700' },
   historyRow: { flexDirection: 'row', gap: 10, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
