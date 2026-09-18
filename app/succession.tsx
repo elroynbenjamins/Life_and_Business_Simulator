@@ -96,6 +96,16 @@ export default function SuccessionScreen() {
                   </>
                 )}
 
+                {(state.relationshipState?.familyTrustCash ?? 0) > 0 && (
+                  <View style={styles.trustEstateRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.beneficiaryName}>Family Trust Reserve</Text>
+                      <Text style={styles.meta}>Outside the player’s personal estate; remains with the dynasty.</Text>
+                    </View>
+                    <Text style={styles.money}>{formatCurrency(state.relationshipState.familyTrustCash)}</Text>
+                  </View>
+                )}
+
                 {estate.businessValue > 0 && (
                   <View style={styles.callout}>
                     <Text style={styles.calloutTitle}>Family Business Succession</Text>
@@ -153,6 +163,7 @@ export default function SuccessionScreen() {
                   <View style={styles.grid}>
                     <Mini label="Parent bond" value={`${heir.parentRelationship}%`} />
                     <Mini label="Savings" value={formatCurrency(heir.existingSavings)} />
+                    <Mini label="Company equity" value={heir.existingBusinessStakeValue > 0 ? formatCurrency(heir.existingBusinessStakeValue) : 'None'} />
                     <Mini label="Housing" value={child.homeStatus === 'homeowner' ? 'Owner' : 'Renting'} />
                     <Mini label="Family" value={child.partnerName ? `${child.descendants?.length ?? child.childrenCount ?? 0} child` : 'Single'} />
                   </View>
@@ -206,6 +217,7 @@ export default function SuccessionScreen() {
 
               <Text style={styles.subheading}>Result</Text>
               <MoneyRow label="Existing savings" value={preview.existingSavings} />
+              {preview.existingBusinessStakeValue > 0 && <MoneyRow label="Company equity already owned" value={preview.existingBusinessStakeValue} />}
               <MoneyRow label="Cash inherited" value={preview.inheritedCash} />
               {preview.inheritedStockValue > 0 && <MoneyRow label="Stocks retained" value={preview.inheritedStockValue} />}
               {preview.inheritedPropertyValue > 0 && <MoneyRow label="Property retained" value={preview.inheritedPropertyValue} />}
@@ -299,6 +311,7 @@ const styles = StyleSheet.create({
   beneficiary: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   beneficiaryName: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
   meta: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
+  trustEstateRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
   callout: { marginTop: 10, backgroundColor: `${Colors.warning}10`, borderRadius: 9, padding: 10, borderWidth: 1, borderColor: `${Colors.warning}28` },
   calloutTitle: { color: Colors.warning, fontSize: 12, fontWeight: '800' },
   calloutText: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
