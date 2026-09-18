@@ -35,6 +35,7 @@ describe('business strategy, crises and ownership', () => {
     expect(result.updatedBusiness.pendingDecision?.kind).toBe('strategy');
     expect(result.updatedBusiness.pendingDecision?.choices.length).toBeGreaterThanOrEqual(2);
     expect(result.updatedBusiness.nextStrategicDecisionWeek).toBeGreaterThan(2);
+    expect((result.updatedBusiness.pendingDecision?.deadlineGlobalWeek ?? 0) - (result.updatedBusiness.pendingDecision?.createdGlobalWeek ?? 0)).toBe(5);
   });
 
   test('can create a business crisis when the crisis check is due', () => {
@@ -48,6 +49,7 @@ describe('business strategy, crises and ownership', () => {
     expect(result.updatedBusiness.pendingDecision).not.toBeNull();
     expect(result.updatedBusiness.pendingDecision?.kind).toBe('crisis');
     expect(result.updatedBusiness.pendingDecision?.choices.length).toBe(3);
+    expect((result.updatedBusiness.pendingDecision?.deadlineGlobalWeek ?? 0) - (result.updatedBusiness.pendingDecision?.createdGlobalWeek ?? 0)).toBe(3);
   });
 
   test('margin strategy lowers comparable weekly operating expenses', () => {
@@ -185,5 +187,35 @@ describe('business strategy, crises and ownership', () => {
     const estate = calculateEstateSettlement(state);
     expect(estate.businessValue).toBe(600_000);
     expect(estate.successorName).toBe('Mila');
+  });
+
+  test('ignored crises auto-resolve into their fallback consequence after the deadline', () => {
+    const business = staffedBusiness();
+    business.pendingDecision = {
+      id: 'expired-crisis',
+      kind: 'crisis',
+      title: 'Major Customer Lost',
+      description: 'A major account disappeared.',
+      icon: '💼',
+      createdGlobalWeek: 1,
+      deadlineGlobalWeek: 2,
+      defaultChoiceId: 'ride_out',
+      choices: [
+        { id: 'sales_push', text: 'Launch Sales Push', description: 'Spend to replace the revenue.', businessCashCost: 8_000, revenueMultiplier: 0.98, durationWeeks: 7 },
+        { id: 'ride_out', text: 'Ride It Out', description: 'Accept the temporary hit.', revenueMultiplier: 0.82, durationWeeks: 6 },
+      ],
+    };
+    business.nextStrategicDecisionWeek = 999;
+    business.nextCrisisCheckWeek = 999;
+    jest.spyOn(Math, 'random').mockReturnValue(0.7);
+
+    const result = processBusinessWeek(business, 1, 3, 1);
+
+    expect(result.updatedBusiness.pendingDecision).toBeNull();
+    expect(result.updatedBusiness.strategyModifiers?.some((modifier) =>
+      modifier.id.includes('expired-crisis:ride_out:auto')
+      && modifier.revenueMultiplier === 0.82
+    )).toBe(true);
+    expect(result.updatedBusiness.timeline?.some((entry) => entry.title.includes('no response'))).toBe(true);
   });
 });
