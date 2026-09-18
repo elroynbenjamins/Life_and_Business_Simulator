@@ -13,7 +13,7 @@ import { createInitialFamilyTree, syncFamilyTree, transitionFamilyTreeToChild } 
 import { getCareerSalary } from '../engine/careerEngine';
 import { applyEducationRewards } from '../engine/skillEngine';
 import { createInitialCompetitors, migrateBusinessCompetitors } from '../engine/competitorEngine';
-import { generateRelationshipCandidates, getDateConnectionGain, getDateCost, getFamilyFormationProfile, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
+import { generateRelationshipCandidates, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
 import coursesData from '../data/courses.json';
 import jobsData from '../data/jobs.json';
@@ -272,7 +272,16 @@ const useGameStore = create<GameStore>((set, get) => ({
           formerPartners: saved.relationshipState?.formerPartners ?? [],
           financialObligations: saved.relationshipState?.financialObligations ?? [],
           timeline: saved.relationshipState?.timeline ?? [],
-          children: saved.relationshipState?.children ?? [],
+          children: (saved.relationshipState?.children ?? []).map((child) => ({
+            ...child,
+            parentRelationship: child.parentRelationship ?? 75,
+            personality: child.personality ?? getChildPersonality(child.id),
+            descendants: child.descendants ?? [],
+            childrenCount: child.childrenCount ?? child.descendants?.length ?? 0,
+            debt: child.debt ?? 0,
+            failureCount: child.failureCount ?? 0,
+            businessValue: child.businessValue ?? 0,
+          })),
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
           pendingEvent: saved.relationshipState?.pendingEvent ?? null,
           financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
@@ -362,7 +371,16 @@ const useGameStore = create<GameStore>((set, get) => ({
           formerPartners: saved.relationshipState?.formerPartners ?? [],
           financialObligations: saved.relationshipState?.financialObligations ?? [],
           timeline: saved.relationshipState?.timeline ?? [],
-          children: saved.relationshipState?.children ?? [],
+          children: (saved.relationshipState?.children ?? []).map((child) => ({
+            ...child,
+            parentRelationship: child.parentRelationship ?? 75,
+            personality: child.personality ?? getChildPersonality(child.id),
+            descendants: child.descendants ?? [],
+            childrenCount: child.childrenCount ?? child.descendants?.length ?? 0,
+            debt: child.debt ?? 0,
+            failureCount: child.failureCount ?? 0,
+            businessValue: child.businessValue ?? 0,
+          })),
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
           pendingEvent: saved.relationshipState?.pendingEvent ?? null,
           financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
@@ -1821,6 +1839,7 @@ const useGameStore = create<GameStore>((set, get) => ({
           descendants: [],
           otherParentId: successorPartner?.id ?? null,
           parentRelationship: 78,
+          personality: getChildPersonality(descendant.id),
         }))
       : Array.from({ length: child.childrenCount ?? 0 }, (_, index) => {
           const childAge = Math.min(17, Math.max(0, preview.childAge - 25 - index * 2));
@@ -1847,6 +1866,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             descendants: [],
             otherParentId: successorPartner?.id ?? null,
             parentRelationship: 78,
+            personality: getChildPersonality(`generation_child_${nextGeneration}_${index}`),
           };
         });
 
