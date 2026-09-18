@@ -242,16 +242,33 @@ export function transitionFamilyTreeToChild(
   const target = synced.people.find((person) => person.id === targetId);
   if (!target) return synced;
 
+  const siblingWealth = new Map(
+    (state.relationshipState?.children ?? [])
+      .filter((child) => child.id !== childId)
+      .map((child) => [
+        childTreeId(child.id),
+        Math.max(0, (child.savings ?? 0) + (child.businessValue ?? 0)),
+      ])
+  );
+
   return {
     currentPlayerId: targetId,
     people: synced.people.map((person) => {
-      if (person.id !== targetId) return person;
-      return {
-        ...person,
-        generation: nextGeneration,
-        playableGeneration: nextGeneration,
-        status: 'living',
-      };
+      if (person.id === targetId) {
+        return {
+          ...person,
+          generation: nextGeneration,
+          playableGeneration: nextGeneration,
+          status: 'living',
+        };
+      }
+      if (siblingWealth.has(person.id)) {
+        return {
+          ...person,
+          liquidWealth: Math.max(person.liquidWealth ?? 0, siblingWealth.get(person.id) ?? 0),
+        };
+      }
+      return person;
     }),
   };
 }
