@@ -69,6 +69,12 @@ export default function BusinessPortfolioScreen() {
                     <View style={styles.bizInfo}>
                       <Text style={styles.bizName}>{biz.name}</Text>
                       <Text style={styles.bizLevel}>{getLevelName(biz.level)} • {type?.industry ?? ''}</Text>
+                      {biz.familyBusiness?.isFamilyBusiness && (
+                        <View style={styles.familyBadge}>
+                          <Ionicons name="people" size={11} color={Colors.warning} />
+                          <Text style={styles.familyBadgeText}>Family Business • G{biz.familyBusiness.generationsOwned}</Text>
+                        </View>
+                      )}
                     </View>
                     <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
                   </View>
@@ -137,6 +143,8 @@ const styles = StyleSheet.create({
   bizInfo: { flex: 1 },
   bizName: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
   bizLevel: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
+  familyBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, backgroundColor: `${Colors.warning}15` },
+  familyBadgeText: { color: Colors.warning, fontSize: 9, fontWeight: '800' },
   bizStats: { flexDirection: 'row', marginTop: 12, gap: 8 },
   bizStat: { flex: 1 },
   bizStatLabel: { color: Colors.textMuted, fontSize: 11 },
