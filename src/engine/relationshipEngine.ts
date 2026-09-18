@@ -685,7 +685,10 @@ function progressAdultChild(
   let homeStatus = child.homeStatus ?? 'renting';
   let partnerName = child.partnerName ?? null;
   let partnerGender = child.partnerGender ?? null;
-  let descendants = [...(child.descendants ?? [])];
+  let descendants = (child.descendants ?? []).map((descendant) => ({
+    ...descendant,
+    age: Math.max(0, Math.floor((globalWeek(state) - descendant.birthGlobalWeek) / 20)),
+  }));
 
   const resilienceRecovery = personality.resilience === 'resilient' ? 0.78
     : personality.resilience === 'fragile' ? 0.48 : 0.62;
@@ -952,7 +955,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
         );
         partnerInheritance = Math.max(0, Math.round((partnerCandidate.savings ?? 0) - adminCost));
       }
-      formerPartners.push({ ...partnerCandidate, isCohabiting: false, endedWeek: gw });
+      formerPartners.push({ ...partnerCandidate, isCohabiting: false, endedWeek: gw, endedReason: 'death' });
       activeConnections = activeConnections.filter((item) => item.id !== partnerCandidate.id);
       activePartnerId = null;
       partnerCareerEvent = null;
