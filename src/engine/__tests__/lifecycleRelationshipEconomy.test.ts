@@ -1,5 +1,6 @@
 import { INITIAL_GAME_STATE, INITIAL_RELATIONSHIP_STATE, RelationshipConnection } from '../../types/game';
 import { annualDeathChance } from '../lifecycleEngine';
+import { getNetWorth } from '../financeEngine';
 import { processEconomy } from '../economyEngine';
 import { getChildWeeklyCost, getProposalCost, getWeddingCost, processRelationships } from '../relationshipEngine';
 
@@ -133,6 +134,26 @@ describe('expanded relationship progression', () => {
       },
     });
     expect(result.state.activeConnections[0].savings).toBeGreaterThan(10000);
+  });
+
+  it('counts relationship settlements as net-worth liabilities', () => {
+    const base = { ...INITIAL_GAME_STATE, cash: 20000 };
+    const withSettlement = {
+      ...base,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        financialObligations: [{
+          id: 'settlement-nw',
+          type: 'divorce_settlement' as const,
+          label: 'Settlement',
+          remainingAmount: 10000,
+          weeklyPayment: 1000,
+          weeksRemaining: 10,
+        }],
+      },
+    };
+    expect(getNetWorth(withSettlement)).toBe(getNetWorth(base) - 10000);
   });
 
   it('processes relationship legal obligations as weekly costs', () => {
