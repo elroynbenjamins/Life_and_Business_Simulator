@@ -28,6 +28,8 @@ export default function ProfileScreen() {
   const beginNewGame = useGameStore((s) => s?.beginNewGame);
   const openSlotPicker = useGameStore((s) => s?.openSlotPicker);
   const activeSlot = useGameStore((s) => s?.activeSlot ?? 0);
+  const generation = useGameStore((s) => s?.generation ?? 1);
+  const familyLegacy = useGameStore((s) => s?.familyLegacy ?? []);
   const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
   const relationshipState = useGameStore((s) => s?.relationshipState);
   const setRelationshipModeEnabled = useGameStore((s) => s?.setRelationshipModeEnabled);
@@ -56,7 +58,7 @@ export default function ProfileScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <GameCard>
           <Text style={styles.playerName}>{playerName}</Text>
-          <Text style={styles.playerMeta}>Age {age} • Week {week} • Year {year} • Slot {activeSlot + 1}</Text>
+          <Text style={styles.playerMeta}>Age {age} • Week {week} • Year {year} • Generation {generation} • Slot {activeSlot + 1}</Text>
           <View style={styles.statsGrid}>
             <StatItem label="Net Worth" value={formatCurrency(netWorth)} color={Colors.primary} />
             <StatItem label="Weeks Played" value={`${statistics.weeksPlayed}`} color={Colors.info} />
@@ -102,6 +104,25 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         </GameCard>
+
+        {familyLegacy.length > 0 && (
+          <GameCard title="Family Legacy">
+            {[...familyLegacy].reverse().slice(0, 6).map((entry) => (
+              <View key={entry.generation} style={styles.historyRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historyTitle}>Generation {entry.generation} • {entry.name}</Text>
+                  <Text style={styles.historyMeta}>
+                    Died age {entry.deathAge} • Year {entry.deathYear}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[styles.statRowValue, { color: Colors.primary }]}>{formatCurrency(entry.finalNetWorth)}</Text>
+                  {entry.successorName && <Text style={styles.historyMeta}>→ {entry.successorName}</Text>}
+                </View>
+              </View>
+            ))}
+          </GameCard>
+        )}
 
         {/* Lifetime Statistics */}
         <GameCard title="Lifetime Statistics">
