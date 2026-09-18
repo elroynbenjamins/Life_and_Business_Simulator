@@ -2669,7 +2669,6 @@ const useGameStore = create<GameStore>((set, get) => ({
       if (!child) return;
       ownerId = child.id;
       ownerName = child.name;
-      const stakeValue = Math.round((business.valuation ?? 0) * transferPct / 100);
       relationshipState = {
         ...state.relationshipState,
         children: (state.relationshipState.children ?? []).map((item) =>
