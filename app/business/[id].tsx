@@ -50,9 +50,11 @@ export default function BusinessDetailScreen() {
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const competitors = useGameStore((s) => s?.competitors ?? {});
   const profile = useGameStore((s) => s.profile);
+  const relationshipState = useGameStore((s) => s.relationshipState);
+  const generation = useGameStore((s) => s.generation ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
-    sellBusiness, openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
+    sellBusiness, designateFamilyBusiness, openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
     setBusinessPricing, setBusinessAdvertising,
     buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
     injectCashIntoBusiness, withdrawFromBusiness,
@@ -202,6 +204,57 @@ export default function BusinessDetailScreen() {
             <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 8 }}>
               Next level requires reputation {BUSINESS_LEVEL_REPUTATION_REQUIREMENTS[biz.level + 1]} and the valuation target.
             </Text>
+          )}
+        </GameCard>
+
+        {/* Family Business */}
+        <GameCard title="Family Business">
+          {biz.familyBusiness?.isFamilyBusiness ? (
+            <>
+              <View style={styles.familyBusinessHeader}>
+                <Ionicons name="people" size={22} color={Colors.warning} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.familyBusinessTitle}>{biz.familyBusiness.familyName}</Text>
+                  <Text style={styles.sectionHint}>
+                    Owned across {biz.familyBusiness.generationsOwned} generation{biz.familyBusiness.generationsOwned === 1 ? '' : 's'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.familyBusinessStats}>
+                <View style={styles.familyBusinessStat}>
+                  <Text style={styles.bizStatLabel}>Founder Gen</Text>
+                  <Text style={styles.bizStatValue}>G{biz.familyBusiness.founderGeneration}</Text>
+                </View>
+                <View style={styles.familyBusinessStat}>
+                  <Text style={styles.bizStatLabel}>Controller</Text>
+                  <Text style={styles.bizStatValue} numberOfLines={1}>{biz.familyBusiness.controllerName}</Text>
+                </View>
+                <View style={styles.familyBusinessStat}>
+                  <Text style={styles.bizStatLabel}>Family Ownership</Text>
+                  <Text style={styles.bizStatValue}>{Math.round(biz.familyBusiness.familyOwnershipPct)}%</Text>
+                </View>
+              </View>
+              <Text style={styles.sectionHint}>
+                If this business is inherited by your named child successor, its history, employees, competitors and family-business generation continue.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.sectionHint}>
+                Designate this company as part of your family legacy. This does not change current ownership or profit; it records multi-generation continuity.
+              </Text>
+              <Pressable
+                disabled={!relationshipState?.partnerId && (relationshipState?.children?.length ?? 0) === 0 && generation <= 1}
+                style={[
+                  styles.familyBusinessButton,
+                  !relationshipState?.partnerId && (relationshipState?.children?.length ?? 0) === 0 && generation <= 1 && { opacity: 0.35 },
+                ]}
+                onPress={() => designateFamilyBusiness(biz.id)}
+              >
+                <Ionicons name="ribbon-outline" size={18} color={Colors.warning} />
+                <Text style={styles.familyBusinessButtonText}>Designate Family Business</Text>
+              </Pressable>
+            </>
           )}
         </GameCard>
 
