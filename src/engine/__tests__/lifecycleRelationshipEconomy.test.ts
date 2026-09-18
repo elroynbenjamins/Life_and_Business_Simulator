@@ -531,7 +531,18 @@ describe('expanded relationship progression', () => {
   });
 
   it('lets independent adult children progress into homes, partners, businesses and children', () => {
-    jest.spyOn(Math, 'random').mockReturnValue(0);
+    const random = jest.spyOn(Math, 'random');
+    random
+      .mockReturnValueOnce(0.99) // avoid layoff
+      .mockReturnValueOnce(0.01) // meet partner
+      .mockReturnValueOnce(0.01) // partner gender
+      .mockReturnValueOnce(0.01) // partner name
+      .mockReturnValueOnce(0.01) // start business
+      .mockReturnValueOnce(0.01) // buy home
+      .mockReturnValueOnce(0.01) // have child
+      .mockReturnValueOnce(0.01) // child gender
+      .mockReturnValueOnce(0.01) // child name
+      .mockReturnValue(0.99);
     const result = processRelationships({
       ...INITIAL_GAME_STATE,
       year: 31,
