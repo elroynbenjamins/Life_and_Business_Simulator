@@ -114,14 +114,38 @@ export default function DeathModal() {
                       {needsLoan && (
                         <EstateRow label="Estate loan required" value={preview.loanNeeded} />
                       )}
-                      <Pressable
-                        style={[styles.primary, { marginTop: 10 }]}
-                        onPress={() => continueAsChild(child.id, needsLoan)}
-                      >
-                        <Text style={styles.primaryText}>
-                          {needsLoan ? 'Take Estate Loan & Continue' : `Pay Tax & Continue as ${child.name}`}
-                        </Text>
-                      </Pressable>
+                      {preview.inheritanceTax <= 0 ? (
+                        <Pressable
+                          style={[styles.primary, { marginTop: 10 }]}
+                          onPress={() => continueAsChild(child.id, false)}
+                        >
+                          <Text style={styles.primaryText}>Continue as {child.name}</Text>
+                        </Pressable>
+                      ) : (
+                        <>
+                          <Pressable
+                            disabled={preview.taxCashAvailable < preview.inheritanceTax}
+                            style={[
+                              styles.primary,
+                              { marginTop: 10 },
+                              preview.taxCashAvailable < preview.inheritanceTax && styles.disabledButton,
+                            ]}
+                            onPress={() => continueAsChild(child.id, false)}
+                          >
+                            <Text style={styles.primaryText}>
+                              Pay {formatCurrency(preview.inheritanceTax)} Cash & Continue
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            style={styles.secondary}
+                            onPress={() => continueAsChild(child.id, true)}
+                          >
+                            <Text style={styles.secondaryText}>
+                              Finance Tax over 80 Weeks
+                            </Text>
+                          </Pressable>
+                        </>
+                      )}
                     </View>
                   );
                 })}
@@ -197,4 +221,5 @@ const styles = StyleSheet.create({
   primaryText: { color: Colors.white, fontSize: 15, fontWeight: '800' },
   secondary: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 11, minHeight: 46, justifyContent: 'center', alignItems: 'center', marginTop: 9 },
   secondaryText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '700' },
+  disabledButton: { opacity: 0.35 },
 });
