@@ -2652,11 +2652,6 @@ const useGameStore = create<GameStore>((set, get) => ({
     const playerIndex = ownership.findIndex((stake) => stake.ownerType === 'player');
     const playerStake = playerIndex >= 0 ? ownership[playerIndex] : null;
     if (!playerStake) return;
-    // V1 governance keeps the playable owner in legal control. A later board/
-    // holding-company pass can support minority-control structures.
-    const maxTransferable = Math.max(0, playerStake.votingPercent - 51);
-    const transferPct = Math.min(requestedPct, maxTransferable, playerStake.percent);
-    if (transferPct <= 0) return;
 
     let ownerId = '';
     let ownerName = '';
@@ -2664,47 +2659,78 @@ const useGameStore = create<GameStore>((set, get) => ({
     let relationshipState = state.relationshipState;
     let capitalRaised = 0;
 
-    if (targetType === 'child') {
-      const child = (state.relationshipState?.children ?? []).find((item) => item.id === targetId && (item.age ?? 0) >= 18);
-      if (!child) return;
-      ownerId = child.id;
-      ownerName = child.name;
-      relationshipState = {
-        ...state.relationshipState,
-        children: (state.relationshipState.children ?? []).map((item) =>
-          item.id === child.id
-            ? {
-                ...item,
-                parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + 2),
-              }
-            : item
-        ),
-      };
-    } else if (targetType === 'family_trust') {
-      if (state.relationshipState?.estatePlan?.structure !== 'family_trust') return;
-      ownerId = 'family_trust';
-      ownerName = 'Family Trust';
-    } else {
+    if (targetType === 'investor') {
+      // New-equity issuance: all existing holders dilute proportionally and the
+      // company receives the capital. The player must remain above 51% voting.
+      const maxIssuePct = Math.max(0, (1 - 51 / Math.max(0.0001, playerStake.votingPercent)) * 100);
+      const issuePct = Math.min(requestedPct, maxIssuePct);
+      if (issuePct <= 0) return;
+      const dilution = 1 - issuePct / 100;
+      for (let index = 0; index < ownership.length; index += 1) {
+        ownership[index] = {
+          ...ownership[index],
+          percent: ownership[index].percent * dilution,
+          votingPercent: ownership[index].votingPercent * dilution,
+        };
+      }
       ownerId = 'outside_investors';
       ownerName = 'Outside Investors';
-      capitalRaised = Math.round((business.valuation ?? 0) * (transferPct / 100) * 0.90);
-    }
-
-    ownership[playerIndex] = {
-      ...playerStake,
-      ownerName: state.playerName,
-      percent: Math.max(0, playerStake.percent - transferPct),
-      votingPercent: Math.max(0, playerStake.votingPercent - transferPct),
-    };
-    const existingIndex = ownership.findIndex((stake) => stake.ownerType === ownerType && stake.ownerId === ownerId);
-    if (existingIndex >= 0) {
-      ownership[existingIndex] = {
-        ...ownership[existingIndex],
-        percent: ownership[existingIndex].percent + transferPct,
-        votingPercent: ownership[existingIndex].votingPercent + transferPct,
-      };
+      const existingInvestor = ownership.findIndex((stake) => stake.ownerType === 'investor' && stake.ownerId === ownerId);
+      if (existingInvestor >= 0) {
+        ownership[existingInvestor] = {
+          ...ownership[existingInvestor],
+          percent: ownership[existingInvestor].percent + issuePct,
+          votingPercent: ownership[existingInvestor].votingPercent + issuePct,
+        };
+      } else {
+        ownership.push({ ownerType, ownerId, ownerName, percent: issuePct, votingPercent: issuePct });
+      }
+      capitalRaised = Math.round((business.valuation ?? 0) * (issuePct / 100) * 0.90);
     } else {
-      ownership.push({ ownerType, ownerId, ownerName, percent: transferPct, votingPercent: transferPct });
+      // Family gifts/trust funding transfer existing player shares and therefore
+      // do not create cash inside the company.
+      const maxTransferable = Math.max(0, playerStake.votingPercent - 51);
+      const transferPct = Math.min(requestedPct, maxTransferable, playerStake.percent);
+      if (transferPct <= 0) return;
+
+      if (targetType === 'child') {
+        const child = (state.relationshipState?.children ?? []).find((item) => item.id === targetId && (item.age ?? 0) >= 18);
+        if (!child) return;
+        ownerId = child.id;
+        ownerName = child.name;
+        relationshipState = {
+          ...state.relationshipState,
+          children: (state.relationshipState.children ?? []).map((item) =>
+            item.id === child.id
+              ? {
+                  ...item,
+                  parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + 2),
+                }
+              : item
+          ),
+        };
+      } else {
+        if (state.relationshipState?.estatePlan?.structure !== 'family_trust') return;
+        ownerId = 'family_trust';
+        ownerName = 'Family Trust';
+      }
+
+      ownership[playerIndex] = {
+        ...playerStake,
+        ownerName: state.playerName,
+        percent: Math.max(0, playerStake.percent - transferPct),
+        votingPercent: Math.max(0, playerStake.votingPercent - transferPct),
+      };
+      const existingIndex = ownership.findIndex((stake) => stake.ownerType === ownerType && stake.ownerId === ownerId);
+      if (existingIndex >= 0) {
+        ownership[existingIndex] = {
+          ...ownership[existingIndex],
+          percent: ownership[existingIndex].percent + transferPct,
+          votingPercent: ownership[existingIndex].votingPercent + transferPct,
+        };
+      } else {
+        ownership.push({ ownerType, ownerId, ownerName, percent: transferPct, votingPercent: transferPct });
+      }
     }
 
     const familyOwnershipPct = ownership
@@ -2724,8 +2750,8 @@ const useGameStore = create<GameStore>((set, get) => ({
           week: state.week,
           year: state.year,
           title: targetType === 'investor'
-            ? `📈 Sold ${transferPct}% to outside investors`
-            : `👪 Transferred ${transferPct}% to ${ownerName}`,
+            ? `📈 Issued ${requestedPct}% target equity to outside investors`
+            : `👪 Transferred ${requestedPct}% to ${ownerName}`,
           icon: targetType === 'investor' ? '📈' : '👪',
           kind: 'event' as const,
         },
@@ -2750,17 +2776,19 @@ const useGameStore = create<GameStore>((set, get) => ({
     const cost = Math.round((business.valuation ?? 0) * (buyPct / 100) * 1.05);
     if ((business.balance ?? 0) < cost) return;
 
-    ownership[investorIndex] = {
-      ...ownership[investorIndex],
-      percent: ownership[investorIndex].percent - buyPct,
-      votingPercent: ownership[investorIndex].votingPercent - buyPct,
-    };
-    ownership[playerIndex] = {
-      ...ownership[playerIndex],
-      percent: ownership[playerIndex].percent + buyPct,
-      votingPercent: ownership[playerIndex].votingPercent + buyPct,
-    };
-    const cleaned = ownership.filter((stake) => stake.percent > 0.01);
+    const remainingRaw = ownership.map((stake, index) => ({
+      ...stake,
+      percent: index === investorIndex ? Math.max(0, stake.percent - buyPct) : stake.percent,
+      votingPercent: index === investorIndex ? Math.max(0, stake.votingPercent - buyPct) : stake.votingPercent,
+    }));
+    const rawTotal = remainingRaw.reduce((sum, stake) => sum + stake.percent, 0);
+    const voteTotal = remainingRaw.reduce((sum, stake) => sum + stake.votingPercent, 0);
+    const normalized = remainingRaw.map((stake) => ({
+      ...stake,
+      percent: rawTotal > 0 ? stake.percent / rawTotal * 100 : 0,
+      votingPercent: voteTotal > 0 ? stake.votingPercent / voteTotal * 100 : 0,
+    }));
+    const cleaned = normalized.filter((stake) => stake.percent > 0.01);
     const updated = {
       ...business,
       balance: (business.balance ?? 0) - cost,
