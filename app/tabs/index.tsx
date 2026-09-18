@@ -41,6 +41,8 @@ export default function DashboardScreen() {
   const portfolioValue = getPortfolioValueTotal?.() ?? 0;
   const hasHoldings = (holdings?.length ?? 0) > 0;
   const totalLoanDebt = (loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
+  const businessAttentionCount = businesses.filter((business) => !!business.pendingDecision).length;
+  const businessCrisisCount = businesses.filter((business) => business.pendingDecision?.kind === 'crisis').length;
 
   // Use career v2 salary if available, otherwise legacy
   const hasCareerV2 = !!career?.companyId;
@@ -203,6 +205,12 @@ export default function DashboardScreen() {
             <Text style={styles.statCaption}>
               Weekly P&L: {(() => { const p = businesses.reduce((t, b) => t + (b?.lastWeekProfit ?? 0), 0); return `${p >= 0 ? '+' : ''}${formatCurrency(p)}`; })()}
             </Text>
+            {businessAttentionCount > 0 && (
+              <Text style={[styles.statCaption, { color: businessCrisisCount > 0 ? Colors.negative : Colors.warning, fontWeight: '700' }]}>
+                {businessAttentionCount} compan{businessAttentionCount === 1 ? 'y needs' : 'ies need'} attention
+                {businessCrisisCount > 0 ? ` • ${businessCrisisCount} crisis${businessCrisisCount === 1 ? '' : 'es'}` : ''}
+              </Text>
+            )}
           </GameCard>
         ) : null}
 
@@ -225,7 +233,7 @@ export default function DashboardScreen() {
           <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} />
           <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} />
           <QuickLink icon="pie-chart" label="Portfolio" onPress={() => router.push('/portfolio')} />
-          <QuickLink icon="business" label="Business" onPress={() => router.push('/business')} color="#06B6D4" />
+          <QuickLink icon="business" label="Business" onPress={() => router.push('/business')} color="#06B6D4" notification={businessAttentionCount > 0} />
           <QuickLink icon="home-outline" label="Properties" onPress={() => router.push('/properties')} color="#06B6D4" />
           <QuickLink icon="ribbon" label="Prestige" onPress={() => router.push('/prestige')} color="#EC4899" />
           <QuickLink icon="diamond" label="Support" onPress={() => router.push('/support')} color="#8B5CF6" notification={loginRewardAvailable} />
