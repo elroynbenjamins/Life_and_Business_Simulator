@@ -132,7 +132,7 @@ export function getHouseholdSize(state: GameState): number {
   const partner = state.relationshipState?.partnerId
     ? (state.relationshipState?.activeConnections ?? []).find((c) => c.id === state.relationshipState.partnerId)
     : null;
-  const partnerAtHome = partner && ['living_together', 'engaged', 'married'].includes(partner.stage) ? 1 : 0;
+  const partnerAtHome = partner && (partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married') ? 1 : 0;
   const dependentChildren = (state.relationshipState?.children ?? []).filter((child) => getChildAge(child, globalWeek(state)) < 18).length;
   return 1 + partnerAtHome + dependentChildren;
 }
@@ -148,7 +148,7 @@ export function calculatePartnerContribution(
   const children = state.relationshipState?.children ?? [];
   const familyCost = children.reduce((total, child) => total + getChildWeeklyCost(child, state), 0);
 
-  if (!connection || !['living_together', 'engaged', 'married'].includes(connection.stage)) {
+  if (!connection || !(connection.isCohabiting || connection.stage === 'living_together' || connection.stage === 'married')) {
     return { contribution: 0, householdExtraCost: 0, familyCost };
   }
 
