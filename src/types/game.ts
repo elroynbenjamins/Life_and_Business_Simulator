@@ -5,7 +5,10 @@ export type FinancialStyle = 'frugal' | 'balanced' | 'luxury';
 export type RiskTolerance = 'cautious' | 'balanced' | 'risk_taking';
 export type AmbitionLevel = 'relaxed' | 'career_minded' | 'driven';
 export type FamilyGoal = 'no_children' | 'unsure' | 'wants_children';
+export type FamilyPlan = 'not_discussed' | 'no_children' | 'later' | 'trying';
 export type RelationshipStage = 'dating' | 'partner' | 'living_together' | 'engaged' | 'married';
+export type HouseholdSplit = 'equal' | 'proportional' | 'player_pays_most';
+export type MarriageAgreement = 'separate' | 'shared_future';
 
 export interface RelationshipCandidate {
   id: string;
@@ -31,13 +34,53 @@ export interface RelationshipConnection extends RelationshipCandidate {
   weeksKnown: number;
   becamePartnerWeek?: number;
   movedInWeek?: number;
-  householdSplit?: 'equal' | 'proportional' | 'player_pays_most';
+  engagedWeek?: number;
+  marriedWeek?: number;
+  householdSplit?: HouseholdSplit;
+  marriageAgreement?: MarriageAgreement;
+  netWorthAtMarriage?: number;
+}
+
+export interface RelationshipChild {
+  id: string;
+  name: string;
+  gender: 'girl' | 'boy';
+  birthGlobalWeek: number;
+  age: number;
+  educationFund: number;
 }
 
 export interface RelationshipTimelineEntry {
   week: number;
   year: number;
   title: string;
+}
+
+export interface RelationshipFinancialSnapshot {
+  globalWeek: number;
+  netWorth: number;
+  cash: number;
+  personalDebt: number;
+  businessValue: number;
+  businessCount: number;
+  housingId: string;
+  carId: string;
+}
+
+export interface RelationshipEventChoice {
+  text: string;
+  cost?: number;
+  relationship?: number;
+  happiness?: number;
+  happinessDuration?: number;
+}
+
+export interface RelationshipEvent {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  choices: RelationshipEventChoice[];
 }
 
 export interface RelationshipState {
@@ -51,6 +94,12 @@ export interface RelationshipState {
   partnerId: string | null;
   personalActionWeek: number;
   timeline: RelationshipTimelineEntry[];
+  children: RelationshipChild[];
+  familyPlan: FamilyPlan;
+  familyExpansionWeeksRemaining: number;
+  lastRelationshipEventWeek: number;
+  pendingEvent: RelationshipEvent | null;
+  financialSnapshot: RelationshipFinancialSnapshot | null;
 }
 
 export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
@@ -64,6 +113,12 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   partnerId: null,
   personalActionWeek: 0,
   timeline: [],
+  children: [],
+  familyPlan: 'not_discussed',
+  familyExpansionWeeksRemaining: 0,
+  lastRelationshipEventWeek: 0,
+  pendingEvent: null,
+  financialSnapshot: null,
 };
 
 export interface LifecycleState {
@@ -511,6 +566,9 @@ export interface WeekSummary {
   relationshipChange: number;
   relationshipHeadline: string | null;
   relationshipHouseholdCost: number;
+  familyCost: number;
+  relationshipEventTitle: string | null;
+  childBornName: string | null;
   // Macro correction
   crashEvent: { title: string; inflationReduction: number; stockShock: number } | null;
   // Lifecycle
