@@ -2,6 +2,7 @@ import { GameState, WeekSummary, LifetimeStatistics, INITIAL_STATISTICS, INITIAL
 import { processEconomy } from './economyEngine';
 import { processRelationships } from './relationshipEngine';
 import { processLifecycle } from './lifecycleEngine';
+import { syncFamilyTree } from './familyTreeEngine';
 import { processNews } from './newsEngine';
 import { processStocks, rollMarketSentiment, rollMarketEvent, processDividends } from './stockEngine';
 import { processEducation } from './educationEngine';
@@ -310,6 +311,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
       estateSettlement: lifecycleResult.estateSettlement,
     };
   }
+  tempState.familyTree = syncFamilyTree(tempState);
 
   // ---------- Step 14: Net Worth ----------
   const nw = getNetWorth(tempState);
