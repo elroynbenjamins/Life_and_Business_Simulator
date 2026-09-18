@@ -14,8 +14,8 @@ export default function WeekSummarySheet() {
 
   const topGainer = [...(summary?.stockChanges ?? [])].sort((a, b) => (b?.change ?? 0) - (a?.change ?? 0))?.[0];
   const topLoser = [...(summary?.stockChanges ?? [])].sort((a, b) => (a?.change ?? 0) - (b?.change ?? 0))?.[0];
-  const totalExpenses = (summary?.rentPaid ?? 0) + (summary?.utilityCost ?? 0) + (summary?.foodCost ?? 0) + (summary?.carCost ?? 0) + (summary?.courseCost ?? 0) + (summary?.loanPayments ?? 0);
-  const netFlow = (summary?.salaryEarned ?? 0) + (summary?.partTimeIncome ?? 0) + (summary?.dividendIncome ?? 0) - totalExpenses - (summary?.taxAmount ?? 0);
+  const totalExpenses = (summary?.rentPaid ?? 0) + (summary?.utilityCost ?? 0) + (summary?.foodCost ?? 0) + (summary?.carCost ?? 0) + (summary?.courseCost ?? 0) + (summary?.loanPayments ?? 0) + (summary?.relationshipHouseholdCost ?? 0);
+  const netFlow = (summary?.salaryEarned ?? 0) + (summary?.partTimeIncome ?? 0) + (summary?.dividendIncome ?? 0) + (summary?.partnerContribution ?? 0) - totalExpenses - (summary?.taxAmount ?? 0);
 
   return (
     <Modal visible transparent animationType="slide">
@@ -25,11 +25,19 @@ export default function WeekSummarySheet() {
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
             <Text style={styles.headline}>"{summary?.headline ?? ''}"</Text>
 
-            {/* Inflation Event */}
+            {/* Inflation / Macro Event */}
             {summary?.inflationEvent && (
               <View style={styles.inflationBox}>
                 <Text style={styles.inflationText}>
                   📈 Yearly Inflation: +{((summary?.inflationRate ?? 0) * 100).toFixed(0)}% — Costs & salaries adjusted
+                </Text>
+              </View>
+            )}
+            {summary?.crashEvent && (
+              <View style={[styles.eventBox, { backgroundColor: `${Colors.negative}18`, borderColor: `${Colors.negative}44` }]}>
+                <Text style={styles.eventTitle}>📉 {summary.crashEvent.title}</Text>
+                <Text style={styles.eventDesc}>
+                  Price pressure eased by {((summary.crashEvent.inflationReduction ?? 0) * 100).toFixed(1)}%. Markets sold off sharply this week.
                 </Text>
               </View>
             )}
@@ -38,6 +46,7 @@ export default function WeekSummarySheet() {
             <Text style={styles.sectionLabel}>Income</Text>
             <Row label="Salary" value={summary?.salaryEarned ?? 0} positive />
             {(summary?.partTimeIncome ?? 0) > 0 && <Row label="Part-time income (tax-free)" value={summary.partTimeIncome} positive />}
+            {(summary?.partnerContribution ?? 0) > 0 && <Row label="Partner household contribution" value={summary.partnerContribution} positive />}
             {summary?.salaryReduced && (
               <View style={styles.salaryWarning}>
                 <Text style={styles.salaryWarningText}>⚠️ Salary reduced by 20% (studying advanced course)</Text>
@@ -47,6 +56,9 @@ export default function WeekSummarySheet() {
             {/* Expenses */}
             <Text style={styles.sectionLabel}>Expenses</Text>
             <Row label="Total Expenses" value={totalExpenses} />
+            {(summary?.relationshipHouseholdCost ?? 0) > 0 && (
+              <Text style={styles.eventPending}>Includes {formatCurrency(summary.relationshipHouseholdCost)} in additional household costs.</Text>
+            )}
 
             {/* Tax */}
             {summary?.isTaxWeek && (
@@ -213,6 +225,26 @@ export default function WeekSummarySheet() {
                 {(summary.lifeEvent.type === 'choice' || summary.lifeEvent.type === 'opportunity') && (
                   <Text style={styles.eventPending}>Choices available after this summary →</Text>
                 )}
+              </View>
+            )}
+
+
+            {(summary?.relationshipHeadline || (summary?.relationshipChange ?? 0) !== 0) && (
+              <View style={[styles.eventBox, { backgroundColor: `${Colors.happiness}12`, borderColor: `${Colors.happiness}33` }]}>
+                <Text style={styles.eventTitle}>❤️ Personal Life</Text>
+                {summary?.relationshipHeadline && <Text style={styles.eventDesc}>{summary.relationshipHeadline}</Text>}
+                {(summary?.relationshipChange ?? 0) !== 0 && (
+                  <Text style={[styles.eventEffect, { color: (summary.relationshipChange ?? 0) >= 0 ? Colors.happiness : Colors.negative }]}>
+                    Relationship {(summary.relationshipChange ?? 0) > 0 ? '+' : ''}{summary.relationshipChange}
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {summary?.diedThisWeek && (
+              <View style={[styles.eventBox, { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: Colors.cardBorder }]}>
+                <Text style={styles.eventTitle}>🕯️ Life Complete</Text>
+                <Text style={styles.eventDesc}>This was your final week. Your legacy summary will open after continuing.</Text>
               </View>
             )}
 
