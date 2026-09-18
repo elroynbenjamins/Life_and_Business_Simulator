@@ -80,10 +80,6 @@ export function generateRelationshipCandidates(state: GameState, count = 3): Rel
       ambition: randomOf(AMBITION),
       familyGoal: randomOf(FAMILY),
       visibleTraits: [],
-      employmentStatus: 'employed',
-      unemploymentWeeks: 0,
-      careerLevel: 1,
-      lastCareerEventWeek: 0,
     });
   }
   return candidates;
