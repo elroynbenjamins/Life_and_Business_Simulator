@@ -2565,7 +2565,16 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!state.relationshipModeEnabled || state.lifecycle?.isDead) return;
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId && (item.age ?? 0) >= 18);
-    if (!business || !child) return;
+    if (!business || !child || (child.parentRelationship ?? 75) < 30) return;
+
+    const operationalRole = role === 'manager' || role === 'executive' || role === 'successor';
+    const hasOtherOperatingRole = operationalRole && (state.businesses ?? []).some((otherBusiness) =>
+      otherBusiness.id !== businessId
+      && (otherBusiness.familyRoles ?? []).some((familyRole) =>
+        familyRole.childId === childId && familyRole.role !== 'board'
+      )
+    );
+    if (hasOtherOperatingRole) return;
 
     const personality = child.personality ?? getChildPersonality(child.id);
     let performance = 50;
@@ -2615,7 +2624,6 @@ const useGameStore = create<GameStore>((set, get) => ({
           }
         : item
     );
-    const operationalRole = role === 'manager' || role === 'executive' || role === 'successor';
     const relationshipState = {
       ...state.relationshipState,
       children: (state.relationshipState.children ?? []).map((item) =>
