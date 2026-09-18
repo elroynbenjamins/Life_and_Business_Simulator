@@ -74,7 +74,7 @@ export default function BusinessDetailScreen() {
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
     sellBusiness, designateFamilyBusiness, setBusinessStrategicFocus, resolveBusinessDecision,
-    appointChildToBusiness, transferBusinessShares, buyBackInvestorShares,
+    appointChildToBusiness, transferBusinessShares, buyBackInvestorShares, investFamilyTrustCashInBusiness,
     openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
     setBusinessPricing, setBusinessAdvertising,
     buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
@@ -138,6 +138,7 @@ export default function BusinessDetailScreen() {
   const familyTrustPct = ownership
     .filter((stake) => stake.ownerType === 'family_trust')
     .reduce((sum, stake) => sum + (stake.percent ?? 0), 0);
+  const familyTrustCash = relationshipState?.familyTrustCash ?? 0;
   const pendingDecision = biz.pendingDecision ?? null;
   const globalGameWeek = ((gameYear - 1) * 20) + gameWeek;
   const decisionWeeksLeft = pendingDecision
@@ -490,6 +491,38 @@ export default function BusinessDetailScreen() {
               }}>
               <Text style={styles.buybackText}>Buy Back {Math.min(5, investorOwnershipPct).toFixed(0)}% Investor Shares</Text>
             </Pressable>
+          )}
+
+          {biz.familyBusiness?.isFamilyBusiness && familyTrustCash > 0 && (
+            <View style={styles.trustReserveBox}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ownerName}>Family Trust Reserve</Text>
+                <Text style={styles.ownerType}>{formatCurrency(familyTrustCash)} available for family-company capital</Text>
+              </View>
+              <View style={styles.trustCapitalButtons}>
+                {[10000, 50000].filter((amount) => amount <= familyTrustCash).map((amount) => (
+                  <Pressable
+                    key={amount}
+                    style={styles.smallShareButton}
+                    onPress={() => confirmAction(
+                      'Trust Capital',
+                      `Invest ${formatCurrency(amount)} from the Family Trust into ${biz.name}? This money stays inside the family company.`,
+                      () => investFamilyTrustCashInBusiness(biz.id, amount),
+                    )}
+                  >
+                    <Text style={styles.smallShareText}>{formatCurrency(amount)}</Text>
+                  </Pressable>
+                ))}
+                {familyTrustCash < 10000 && (
+                  <Pressable
+                    style={styles.smallShareButton}
+                    onPress={() => investFamilyTrustCashInBusiness(biz.id, familyTrustCash)}
+                  >
+                    <Text style={styles.smallShareText}>All</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
           )}
         </GameCard>
 
@@ -1310,6 +1343,8 @@ const styles = StyleSheet.create({
   smallShareText: { color: Colors.info, fontSize: 10, fontWeight: '700' },
   buybackButton: { borderWidth: 1, borderColor: `${Colors.primary}66`, borderRadius: 9, paddingVertical: 10, alignItems: 'center', marginTop: 10 },
   buybackText: { color: Colors.primary, fontSize: 11, fontWeight: '800' },
+  trustReserveBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, backgroundColor: `${Colors.warning}0D`, borderRadius: 8, padding: 9, borderWidth: 1, borderColor: `${Colors.warning}28` },
+  trustCapitalButtons: { flexDirection: 'row', gap: 5 },
   governanceChild: { paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   governanceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   governanceButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
