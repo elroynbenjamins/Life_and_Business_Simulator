@@ -10,7 +10,8 @@ import {
 import namesData from '../data/relationship_names.json';
 import occupationsData from '../data/relationship_occupations.json';
 import housingData from '../data/housing.json';
-import { getNetWorth } from './financeEngine';
+import { getNetWorth, getWeeklySalary } from './financeEngine';
+import { getCareerSalary } from './careerEngine';
 
 const FINANCIAL_STYLES = ['frugal', 'balanced', 'luxury'] as const;
 const RISK = ['cautious', 'balanced', 'risk_taking'] as const;
@@ -172,7 +173,14 @@ export function calculatePartnerContribution(
 
   const existingSharedCosts = Math.round(rent * 1.15 + 50 * (state.inflationMultiplier ?? 1));
   const sharedTotal = existingSharedCosts + householdExtraCost + familyCost;
-  const playerIncomeEstimate = Math.max(350, state.cash > 0 ? 750 : 350);
+  const playerEmploymentIncome = state.career?.companyId
+    ? getCareerSalary(state.career, state.inflationMultiplier ?? 1)
+    : state.currentJobId
+      ? getWeeklySalary(state)
+      : state.partTimeJob
+        ? 350
+        : 0;
+  const playerIncomeEstimate = Math.max(350, playerEmploymentIncome);
   const partnerIncome = Math.max(0, connection.weeklyIncome ?? 0);
 
   let contribution: number;
