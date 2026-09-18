@@ -30,6 +30,7 @@ export default function ProfileScreen() {
   const activeSlot = useGameStore((s) => s?.activeSlot ?? 0);
   const generation = useGameStore((s) => s?.generation ?? 1);
   const familyLegacy = useGameStore((s) => s?.familyLegacy ?? []);
+  const familyTree = useGameStore((s) => s?.familyTree);
   const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
   const relationshipState = useGameStore((s) => s?.relationshipState);
   const setRelationshipModeEnabled = useGameStore((s) => s?.setRelationshipModeEnabled);
@@ -105,7 +106,7 @@ export default function ProfileScreen() {
           </View>
         </GameCard>
 
-        {relationshipModeEnabled && (
+        {(relationshipModeEnabled || (familyTree?.people?.length ?? 0) > 1 || familyLegacy.length > 0) && (
           <GameCard title="Family Tree" onPress={() => router.push('/family-tree')}>
             <View style={styles.treeLinkRow}>
               <Ionicons name="git-network-outline" size={24} color={Colors.info} />
