@@ -169,6 +169,7 @@ interface GameStore extends GameState {
   appointChildToBusiness: (businessId: string, childId: string, role: BusinessGovernanceRole) => void;
   transferBusinessShares: (businessId: string, targetType: 'child' | 'family_trust' | 'investor', targetId: string | null, percent: number) => void;
   buyBackInvestorShares: (businessId: string, percent: number) => void;
+  investFamilyTrustCashInBusiness: (businessId: string, amount: number) => void;
   openCandidatePool: (businessId: string, roleId: string) => void;
   hireCandidate: (businessId: string, candidateId: string) => void;
   cancelCandidatePool: (businessId: string) => void;
@@ -2817,6 +2818,41 @@ const useGameStore = create<GameStore>((set, get) => ({
     const businesses = (state.businesses ?? []).map((item) => item.id === businessId ? updated : item);
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  investFamilyTrustCashInBusiness: (businessId, amount) => {
+    const state = get();
+    if (state.lifecycle?.isDead || !Number.isFinite(amount) || amount <= 0) return;
+    const available = state.relationshipState?.familyTrustCash ?? 0;
+    const investAmount = Math.min(Math.round(amount), available);
+    if (investAmount <= 0) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business?.familyBusiness?.isFamilyBusiness) return;
+
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            balance: (item.balance ?? 0) + investAmount,
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: `🏛️ Family Trust invested ${formatCurrencySafe(investAmount)}`,
+                icon: '🏛️',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    const relationshipState = {
+      ...state.relationshipState,
+      familyTrustCash: Math.max(0, available - investAmount),
+    };
+    set({ businesses, relationshipState });
+    saveGame(extractGameState({ ...state, businesses, relationshipState }), state.activeSlot);
   },
 
   sellBusiness: (businessId: string) => {
