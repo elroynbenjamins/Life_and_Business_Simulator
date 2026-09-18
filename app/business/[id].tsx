@@ -334,6 +334,8 @@ export default function BusinessDetailScreen() {
                     <Text style={styles.decisionChoiceDesc}>{choice.description}</Text>
                     <Text style={styles.decisionEffects}>
                       {choice.durationWeeks && choice.durationWeeks > 1 ? `${choice.durationWeeks}wk effect` : 'Immediate'}
+                      {choice.revenueMultiplier && choice.revenueMultiplier !== 1 ? ` • Revenue ${choice.revenueMultiplier > 1 ? '+' : ''}${Math.round((choice.revenueMultiplier - 1) * 100)}%` : ''}
+                      {choice.expenseMultiplier && choice.expenseMultiplier !== 1 ? ` • Costs ${choice.expenseMultiplier > 1 ? '+' : ''}${Math.round((choice.expenseMultiplier - 1) * 100)}%` : ''}
                       {choice.reputationDelta ? ` • Rep ${choice.reputationDelta > 0 ? '+' : ''}${choice.reputationDelta}` : ''}
                       {choice.marketShareDelta ? ` • Share ${choice.marketShareDelta > 0 ? '+' : ''}${choice.marketShareDelta}` : ''}
                       {choice.moraleDelta ? ` • Morale ${choice.moraleDelta > 0 ? '+' : ''}${choice.moraleDelta}` : ''}
