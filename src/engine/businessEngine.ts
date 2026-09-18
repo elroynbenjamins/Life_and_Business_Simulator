@@ -929,16 +929,6 @@ export function processBusinessWeek(
       .reduce((sum, distribution) => sum + distribution.amount, 0);
     newBalance -= totalDividend;
   }
-  ownershipDistributions.push(
-    ...(biz.familyRoles ?? [])
-      .filter((role) => (role.weeklySalary ?? 0) > 0)
-      .map((role) => ({
-        ownerType: 'child' as const,
-        ownerId: role.childId,
-        ownerName: role.childName,
-        amount: Math.round(role.weeklySalary ?? 0),
-      }))
-  );
   valuation = calculateValuation({
     ...biz,
     balance: newBalance,
