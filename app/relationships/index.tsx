@@ -448,6 +448,11 @@ export default function RelationshipsScreen() {
               <Text style={styles.helper}>
                 Decide how your estate is divided when this life ends. These settings do not transfer playable cash during your lifetime.
               </Text>
+              <View style={styles.taxInfoBox}>
+                <Text style={styles.compactTitle}>Child inheritance tax</Text>
+                <Text style={styles.meta}>Game balance rule: first €50k free, then 10% / 15% / 20% / 25% progressive bands.</Text>
+                <Text style={styles.meta}>A child can pay from existing savings + inherited cash, or finance the tax over 80 weeks. Spouse inheritance is not taxed by this game system.</Text>
+              </View>
 
               <Text style={styles.subheading}>Inheritance Split</Text>
               <View style={styles.estateOptionGrid}>
@@ -918,6 +923,7 @@ const styles = StyleSheet.create({
   dangerButtonText: { color: Colors.negative, fontSize: 12, fontWeight: '800' },
   dangerLink: { alignItems: 'center', paddingVertical: 11, marginTop: 9 },
   dangerText: { color: Colors.negative, fontSize: 12, fontWeight: '700' },
+  taxInfoBox: { backgroundColor: `${Colors.warning}10`, borderRadius: 9, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: `${Colors.warning}28` },
   estateOptionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   estateChoice: { flexBasis: '47%', flexGrow: 1, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, paddingVertical: 10, paddingHorizontal: 8, alignItems: 'center' },
   estateStructureList: { gap: 7 },
