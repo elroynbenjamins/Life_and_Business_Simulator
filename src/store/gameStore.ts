@@ -1567,20 +1567,21 @@ const useGameStore = create<GameStore>((set, get) => ({
     const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
     const preview = getSuccessionPreview(state, childId);
     if (!child || !preview) return;
-    if (preview.loanNeeded > 0 && !financeTaxWithLoan) return;
+    if (!financeTaxWithLoan && preview.taxCashAvailable < preview.inheritanceTax) return;
 
     const inheritedBusinesses = preview.inheritedBusinessValue > 0
       ? (state.businesses ?? [])
       : [];
 
-    const inheritanceLoan: ActiveLoan | null = preview.loanNeeded > 0
+    const inheritanceLoanPrincipal = financeTaxWithLoan ? preview.inheritanceTax : 0;
+    const inheritanceLoan: ActiveLoan | null = inheritanceLoanPrincipal > 0
       ? (() => {
-          const totalRepayment = Math.ceil(preview.loanNeeded * 1.06);
+          const totalRepayment = Math.ceil(inheritanceLoanPrincipal * 1.06);
           const durationWeeks = 80;
           return {
             loanId: `inheritance_tax_g${(state.generation ?? 1) + 1}`,
             name: 'Inheritance Tax Loan',
-            originalAmount: preview.loanNeeded,
+            originalAmount: inheritanceLoanPrincipal,
             remainingAmount: totalRepayment,
             weeklyPayment: Math.ceil(totalRepayment / durationWeeks),
             weeksRemaining: durationWeeks,
@@ -1588,7 +1589,9 @@ const useGameStore = create<GameStore>((set, get) => ({
         })()
       : null;
 
-    const cashAfterTax = Math.max(0, preview.inheritedCash - preview.inheritanceTax);
+    const cashAfterTax = financeTaxWithLoan
+      ? preview.inheritedCash
+      : Math.max(0, preview.inheritedCash - preview.inheritanceTax);
     const nextGeneration = (state.generation ?? 1) + 1;
     const legacyEntry = {
       generation: state.generation ?? 1,
@@ -1611,6 +1614,14 @@ const useGameStore = create<GameStore>((set, get) => ({
     const inheritedCompetitors = Object.fromEntries(
       inheritedBusinesses.map((business) => [business.id, state.competitors?.[business.id] ?? []])
     );
+    const inheritedJob = inheritedJobId ? (jobsData as any[]).find((job) => job.id === inheritedJobId) : null;
+    const inheritedCourse = inheritedJob
+      ? (coursesData as any[]).find((course) => course.id === inheritedJob.requiredCourse)
+      : null;
+    const inheritedCompletedCourses = inheritedCourse
+      ? [{ courseId: inheritedCourse.id, name: inheritedCourse.name, completedWeek: state.week }]
+      : [];
+
 
     const relationshipState = {
       ...INITIAL_RELATIONSHIP_STATE,
@@ -1632,8 +1643,9 @@ const useGameStore = create<GameStore>((set, get) => ({
       foodLevel: 'basic',
       currentJobId: inheritedJobId,
       careerHistory: [],
+      completedCourses: inheritedCompletedCourses,
       totalWeeksWorked: 0,
-      stocks: mergeStocks([]),
+      stocks: state.stocks ?? [],
       holdings: [],
       loans: inheritanceLoan ? [inheritanceLoan] : [],
       bankDeposits: [],
@@ -1658,7 +1670,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       knowledge: {},
       career: { ...INITIAL_CAREER_STATE },
       properties: [],
-      activeAuctions: [],
+      activeAuctions: state.activeAuctions ?? [],
       competitors: inheritedCompetitors,
       activeMarketSentiment: state.activeMarketSentiment,
       activeMarketEvents: state.activeMarketEvents,
@@ -1683,8 +1695,8 @@ const useGameStore = create<GameStore>((set, get) => ({
       showRelationshipEventModal: false,
       relationshipFeedback: {
         title: `Generation ${nextGeneration}`,
-        message: preview.loanNeeded > 0
-          ? `${child.name} inherited the estate and financed ${formatCurrencySafe(preview.loanNeeded)} of inheritance tax with an 80-week estate loan.`
+        message: financeTaxWithLoan
+          ? `${child.name} inherited the estate and financed ${formatCurrencySafe(preview.inheritanceTax)} of inheritance tax with an 80-week estate loan.`
           : `${child.name} inherited the estate and paid ${formatCurrencySafe(preview.inheritanceTax)} inheritance tax in cash.`,
         positive: true,
       },
