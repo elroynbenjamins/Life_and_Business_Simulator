@@ -1,10 +1,10 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
 import { inflated } from '../engine/economyEngine';
-import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts } from '../engine/businessEngine';
+import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts } from '../engine/businessEngine';
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
 import { ensureAuctions, getInspectionCost, inspectAuction, leaveAuction, placeAuctionBid } from '../engine/auctionEngine';
 import { unlockPrestige, getPrestigeEffects } from '../engine/prestigeEngine';
@@ -164,6 +164,11 @@ interface GameStore extends GameState {
   foundBusiness: (typeId: string, customName: string | null) => void;
   sellBusiness: (businessId: string) => void;
   designateFamilyBusiness: (businessId: string) => void;
+  setBusinessStrategicFocus: (businessId: string, focus: BusinessStrategicFocus) => void;
+  resolveBusinessDecision: (businessId: string, choiceId: string) => void;
+  appointChildToBusiness: (businessId: string, childId: string, role: BusinessGovernanceRole) => void;
+  transferBusinessShares: (businessId: string, targetType: 'child' | 'family_trust' | 'investor', targetId: string | null, percent: number) => void;
+  buyBackInvestorShares: (businessId: string, percent: number) => void;
   openCandidatePool: (businessId: string, roleId: string) => void;
   hireCandidate: (businessId: string, candidateId: string) => void;
   cancelCandidatePool: (businessId: string) => void;
@@ -2393,6 +2398,267 @@ const useGameStore = create<GameStore>((set, get) => ({
           }
         : item
     );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  setBusinessStrategicFocus: (businessId, focus) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const businesses = (state.businesses ?? []).map((business) =>
+      business.id === businessId
+        ? {
+            ...business,
+            strategicFocus: focus,
+            timeline: [
+              ...(business.timeline ?? []),
+              { week: state.week, year: state.year, title: `Strategic focus: ${focus.replace(/_/g, ' ')}`, icon: '🧭', kind: 'event' as const },
+            ].slice(-50),
+          }
+        : business
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  resolveBusinessDecision: (businessId, choiceId) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    const decision = business?.pendingDecision;
+    const choice = decision?.choices?.find((item) => item.id === choiceId);
+    if (!business || !decision || !choice) return;
+    const cost = Math.max(0, Math.round((choice.businessCashCost ?? 0) * (state.inflationMultiplier ?? 1)));
+    if ((business.balance ?? 0) < cost) return;
+
+    const modifier = (choice.durationWeeks ?? 0) > 1
+      ? {
+          id: `${decision.id}:${choice.id}`,
+          title: `${decision.title} — ${choice.text}`,
+          revenueMultiplier: choice.revenueMultiplier ?? 1,
+          expenseMultiplier: choice.expenseMultiplier ?? 1,
+          reputationPerWeek: (choice.reputationDelta ?? 0) / Math.max(1, choice.durationWeeks ?? 1),
+          moralePerWeek: (choice.moraleDelta ?? 0) / Math.max(1, choice.durationWeeks ?? 1),
+          weeksRemaining: choice.durationWeeks ?? 1,
+        }
+      : null;
+
+    const employees = (business.employees ?? []).map((employee) => ({
+      ...employee,
+      morale: Math.max(10, Math.min(100, (employee.morale ?? 50) + (choice.moraleDelta ?? 0))),
+    }));
+    const updated = {
+      ...business,
+      balance: (business.balance ?? 0) - cost,
+      reputation: Math.max(0, Math.min(100, (business.reputation ?? 0) + (choice.reputationDelta ?? 0))),
+      marketShareModifier: Math.max(-30, Math.min(30, (business.marketShareModifier ?? 0) + (choice.marketShareDelta ?? 0))),
+      employees,
+      strategyModifiers: modifier ? [...(business.strategyModifiers ?? []), modifier] : (business.strategyModifiers ?? []),
+      pendingDecision: null,
+      timeline: [
+        ...(business.timeline ?? []),
+        { week: state.week, year: state.year, title: `${decision.kind === 'crisis' ? '⚠️' : '🧭'} ${decision.title}: ${choice.text}`, icon: decision.icon, kind: 'event' as const },
+      ].slice(-50),
+    };
+    updated.valuation = calculateValuation(updated);
+
+    const businesses = (state.businesses ?? []).map((item) => item.id === businessId ? updated : item);
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  appointChildToBusiness: (businessId, childId, role) => {
+    const state = get();
+    if (!state.relationshipModeEnabled || state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId && (item.age ?? 0) >= 18);
+    if (!business || !child) return;
+
+    const personality = child.personality ?? getChildPersonality(child.id);
+    let performance = 50;
+    if (personality.ambition === 'driven') performance += 12;
+    else if (personality.ambition === 'career_minded') performance += 6;
+    else performance -= 4;
+    if (personality.resilience === 'resilient') performance += 7;
+    else if (personality.resilience === 'fragile') performance -= 6;
+    if (child.educationOutcome === 'elite') performance += 10;
+    else if (child.educationOutcome === 'strong') performance += 6;
+    if (personality.riskTolerance === 'risk_taking') performance += role === 'executive' ? 4 : -1;
+    if (personality.riskTolerance === 'cautious') performance += role === 'board' ? 4 : 1;
+    performance += Math.round(((child.parentRelationship ?? 75) - 70) * 0.12);
+    performance = Math.max(20, Math.min(95, performance));
+
+    let roles = (business.familyRoles ?? []).filter((item) => item.childId !== childId);
+    if (role === 'successor') roles = roles.filter((item) => item.role !== 'successor');
+    roles.push({
+      childId,
+      childName: child.name,
+      role,
+      appointedYear: state.year,
+      experienceWeeks: 0,
+      performance,
+    });
+
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            familyRoles: roles,
+            timeline: [
+              ...(item.timeline ?? []),
+              { week: state.week, year: state.year, title: `👪 ${child.name} appointed as ${role}`, icon: '👪', kind: 'event' as const },
+            ].slice(-50),
+          }
+        : item
+    );
+    const relationshipState = role === 'successor'
+      ? {
+          ...state.relationshipState,
+          estatePlan: { ...state.relationshipState.estatePlan, successorId: childId, updatedGlobalWeek: ((state.year - 1) * 20) + state.week },
+        }
+      : state.relationshipState;
+    set({ businesses, relationshipState });
+    saveGame(extractGameState({ ...state, businesses, relationshipState }), state.activeSlot);
+  },
+
+  transferBusinessShares: (businessId, targetType, targetId, percent) => {
+    const state = get();
+    if (state.lifecycle?.isDead || !Number.isFinite(percent) || percent <= 0) return;
+    const transferPct = Math.min(25, Math.round(percent * 10) / 10);
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business) return;
+
+    const ownership = business.ownership?.length
+      ? [...business.ownership]
+      : [{ ownerType: 'player' as const, ownerId: 'player', ownerName: state.playerName, percent: 100, votingPercent: 100 }];
+    const playerIndex = ownership.findIndex((stake) => stake.ownerType === 'player');
+    const playerStake = playerIndex >= 0 ? ownership[playerIndex] : null;
+    if (!playerStake || playerStake.percent < transferPct) return;
+
+    let ownerId = '';
+    let ownerName = '';
+    let ownerType: 'child' | 'family_trust' | 'investor' = targetType;
+    let relationshipState = state.relationshipState;
+    let capitalRaised = 0;
+
+    if (targetType === 'child') {
+      const child = (state.relationshipState?.children ?? []).find((item) => item.id === targetId && (item.age ?? 0) >= 18);
+      if (!child) return;
+      ownerId = child.id;
+      ownerName = child.name;
+      const stakeValue = Math.round((business.valuation ?? 0) * transferPct / 100);
+      relationshipState = {
+        ...state.relationshipState,
+        children: (state.relationshipState.children ?? []).map((item) =>
+          item.id === child.id
+            ? {
+                ...item,
+                businessValue: (item.businessValue ?? 0) + stakeValue,
+                parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + 2),
+              }
+            : item
+        ),
+      };
+    } else if (targetType === 'family_trust') {
+      if (state.relationshipState?.estatePlan?.structure !== 'family_trust') return;
+      ownerId = 'family_trust';
+      ownerName = 'Family Trust';
+    } else {
+      ownerId = 'outside_investors';
+      ownerName = 'Outside Investors';
+      capitalRaised = Math.round((business.valuation ?? 0) * (transferPct / 100) * 0.90);
+    }
+
+    ownership[playerIndex] = {
+      ...playerStake,
+      ownerName: state.playerName,
+      percent: Math.max(0, playerStake.percent - transferPct),
+      votingPercent: Math.max(0, playerStake.votingPercent - transferPct),
+    };
+    const existingIndex = ownership.findIndex((stake) => stake.ownerType === ownerType && stake.ownerId === ownerId);
+    if (existingIndex >= 0) {
+      ownership[existingIndex] = {
+        ...ownership[existingIndex],
+        percent: ownership[existingIndex].percent + transferPct,
+        votingPercent: ownership[existingIndex].votingPercent + transferPct,
+      };
+    } else {
+      ownership.push({ ownerType, ownerId, ownerName, percent: transferPct, votingPercent: transferPct });
+    }
+
+    const familyOwnershipPct = ownership
+      .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
+      .reduce((sum, stake) => sum + stake.percent, 0);
+
+    const updated = {
+      ...business,
+      balance: (business.balance ?? 0) + capitalRaised,
+      ownership,
+      familyBusiness: business.familyBusiness?.isFamilyBusiness
+        ? { ...business.familyBusiness, familyOwnershipPct }
+        : business.familyBusiness,
+      timeline: [
+        ...(business.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: targetType === 'investor'
+            ? `📈 Sold ${transferPct}% to outside investors`
+            : `👪 Transferred ${transferPct}% to ${ownerName}`,
+          icon: targetType === 'investor' ? '📈' : '👪',
+          kind: 'event' as const,
+        },
+      ].slice(-50),
+    };
+    updated.valuation = calculateValuation(updated);
+    const businesses = (state.businesses ?? []).map((item) => item.id === businessId ? updated : item);
+    set({ businesses, relationshipState });
+    saveGame(extractGameState({ ...state, businesses, relationshipState }), state.activeSlot);
+  },
+
+  buyBackInvestorShares: (businessId, percent) => {
+    const state = get();
+    if (state.lifecycle?.isDead || !Number.isFinite(percent) || percent <= 0) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business) return;
+    const ownership = business.ownership?.length ? [...business.ownership] : [];
+    const investorIndex = ownership.findIndex((stake) => stake.ownerType === 'investor');
+    const playerIndex = ownership.findIndex((stake) => stake.ownerType === 'player');
+    if (investorIndex < 0 || playerIndex < 0) return;
+    const buyPct = Math.min(ownership[investorIndex].percent, Math.min(25, Math.round(percent * 10) / 10));
+    const cost = Math.round((business.valuation ?? 0) * (buyPct / 100) * 1.05);
+    if ((business.balance ?? 0) < cost) return;
+
+    ownership[investorIndex] = {
+      ...ownership[investorIndex],
+      percent: ownership[investorIndex].percent - buyPct,
+      votingPercent: ownership[investorIndex].votingPercent - buyPct,
+    };
+    ownership[playerIndex] = {
+      ...ownership[playerIndex],
+      percent: ownership[playerIndex].percent + buyPct,
+      votingPercent: ownership[playerIndex].votingPercent + buyPct,
+    };
+    const cleaned = ownership.filter((stake) => stake.percent > 0.01);
+    const updated = {
+      ...business,
+      balance: (business.balance ?? 0) - cost,
+      ownership: cleaned,
+      familyBusiness: business.familyBusiness?.isFamilyBusiness
+        ? {
+            ...business.familyBusiness,
+            familyOwnershipPct: cleaned
+              .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
+              .reduce((sum, stake) => sum + stake.percent, 0),
+          }
+        : business.familyBusiness,
+      timeline: [
+        ...(business.timeline ?? []),
+        { week: state.week, year: state.year, title: `📈 Bought back ${buyPct}% from investors`, icon: '📈', kind: 'event' as const },
+      ].slice(-50),
+    };
+    updated.valuation = calculateValuation(updated);
+    const businesses = (state.businesses ?? []).map((item) => item.id === businessId ? updated : item);
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
