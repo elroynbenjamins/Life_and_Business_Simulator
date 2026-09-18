@@ -2631,9 +2631,9 @@ const useGameStore = create<GameStore>((set, get) => ({
             }
           : item
       ),
-      estatePlan: role === 'successor'
-        ? { ...state.relationshipState.estatePlan, successorId: childId, updatedGlobalWeek: ((state.year - 1) * 20) + state.week }
-        : state.relationshipState.estatePlan,
+      // Governance successor is a development role. Legal business inheritance
+      // remains an explicit Estate Planning decision.
+      estatePlan: state.relationshipState.estatePlan,
     };
     set({ businesses, relationshipState });
     saveGame(extractGameState({ ...state, businesses, relationshipState }), state.activeSlot);
@@ -2642,7 +2642,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   transferBusinessShares: (businessId, targetType, targetId, percent) => {
     const state = get();
     if (state.lifecycle?.isDead || !Number.isFinite(percent) || percent <= 0) return;
-    const transferPct = Math.min(25, Math.round(percent * 10) / 10);
+    const requestedPct = Math.min(25, Math.round(percent * 10) / 10);
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business) return;
 
@@ -2651,7 +2651,12 @@ const useGameStore = create<GameStore>((set, get) => ({
       : [{ ownerType: 'player' as const, ownerId: 'player', ownerName: state.playerName, percent: 100, votingPercent: 100 }];
     const playerIndex = ownership.findIndex((stake) => stake.ownerType === 'player');
     const playerStake = playerIndex >= 0 ? ownership[playerIndex] : null;
-    if (!playerStake || playerStake.percent < transferPct) return;
+    if (!playerStake) return;
+    // V1 governance keeps the playable owner in legal control. A later board/
+    // holding-company pass can support minority-control structures.
+    const maxTransferable = Math.max(0, playerStake.votingPercent - 51);
+    const transferPct = Math.min(requestedPct, maxTransferable, playerStake.percent);
+    if (transferPct <= 0) return;
 
     let ownerId = '';
     let ownerName = '';
@@ -2671,7 +2676,6 @@ const useGameStore = create<GameStore>((set, get) => ({
           item.id === child.id
             ? {
                 ...item,
-                businessValue: (item.businessValue ?? 0) + stakeValue,
                 parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + 2),
               }
             : item
@@ -2785,6 +2789,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     const biz = (state?.businesses ?? []).find((b) => b?.id === businessId);
     if (!biz) return;
+    if (getPlayerOwnershipPct(biz) < 99.9) return;
     const salePrice = biz.valuation ?? 0;
     const updates = {
       cash: (state?.cash ?? 0) + salePrice,
