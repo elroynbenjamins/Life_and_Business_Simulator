@@ -237,7 +237,7 @@ export default function RelationshipsScreen() {
               {partner.stage === 'engaged' && (
                 <View style={styles.majorBox}>
                   <Text style={styles.majorTitle}>Plan the Wedding</Text>
-                  <Text style={styles.meta}>Your partner can cover part of the wedding from their own savings. Marriage also records how future wealth is treated.</Text>
+                  <Text style={styles.meta}>Your partner can cover part of the wedding from their own savings. Your financial agreement is stored with the marriage for future settlement and estate systems; it does not merge your playable cash today.</Text>
 
                   <Text style={styles.subheading}>Financial agreement</Text>
                   <View style={styles.choiceRow}>
@@ -268,7 +268,7 @@ export default function RelationshipsScreen() {
                 </View>
               )}
 
-              {(cohabiting || partner.stage === 'engaged' || partner.stage === 'married') && partner.relationship >= 70 && (
+              {(cohabiting || partner.stage === 'married') && partner.relationship >= 70 && (
                 <View style={styles.majorBox}>
                   <Text style={styles.majorTitle}>Family Plans</Text>
                   {relationship.familyExpansionWeeksRemaining > 0 ? (
