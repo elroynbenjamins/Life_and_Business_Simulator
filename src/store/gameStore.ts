@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -11,6 +11,7 @@ import { unlockPrestige, getPrestigeEffects } from '../engine/prestigeEngine';
 import { getCareerSalary } from '../engine/careerEngine';
 import { applyEducationRewards } from '../engine/skillEngine';
 import { createInitialCompetitors, migrateBusinessCompetitors } from '../engine/competitorEngine';
+import { generateRelationshipCandidates, getDateConnectionGain, getDateCost, getProposalCost, getWeddingCost, revealNextTrait } from '../engine/relationshipEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
 import coursesData from '../data/courses.json';
 import jobsData from '../data/jobs.json';
@@ -36,6 +37,7 @@ interface GameStore extends GameState {
   showPeriodReport: boolean;
   showScheduledAd: boolean;
   showEducationCareerReminder: boolean;
+  showRelationshipEventModal: boolean;
   educationCareerReminder: EducationCareerReminder | null;
   periodReport: PeriodReport | null;
 
@@ -107,6 +109,17 @@ interface GameStore extends GameState {
   planDate: (connectionId: string, kind: 'coffee' | 'dinner' | 'activity') => void;
   askBecomePartners: (connectionId: string) => void;
   moveInWithPartner: (split: 'equal' | 'proportional' | 'player_pays_most') => void;
+  spendTimeWithPartner: () => void;
+  givePartnerGift: (tier: 'small' | 'nice' | 'luxury') => void;
+  discussFinancesWithPartner: () => void;
+  proposeToPartner: (ring: 'simple' | 'classic' | 'luxury') => void;
+  marryPartner: (wedding: 'courthouse' | 'standard' | 'luxury', agreement: MarriageAgreement) => void;
+  setFamilyPlan: (plan: Exclude<FamilyPlan, 'not_discussed'>) => void;
+  fundChildEducation: (childId: string, amount: number) => void;
+  endDatingConnection: (connectionId: string) => void;
+  endPartnership: () => void;
+  dismissRelationshipEventModal: () => void;
+  handleRelationshipEventChoice: (choiceIndex: number) => void;
 
   // Events
   showEventModal: boolean;
@@ -172,6 +185,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   showPeriodReport: false,
   showScheduledAd: false,
   showEducationCareerReminder: false,
+  showRelationshipEventModal: false,
   educationCareerReminder: null,
   periodReport: null,
   periodIncome: 0,
@@ -500,6 +514,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     // If there's a choice/opportunity event, show event modal first
     if (summary?.lifeEvent && (summary.lifeEvent.type === 'choice' || summary.lifeEvent.type === 'opportunity')) {
       set({ showSummary: false, showEventModal: true, pendingEvent: summary.lifeEvent, showScheduledAd: scheduledAd });
+    } else if (state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
+      set({ showSummary: false, showRelationshipEventModal: true, showScheduledAd: scheduledAd });
     } else if (state.periodReport && !state.showPeriodReport) {
       set({ showSummary: false, showPeriodReport: true, showScheduledAd: scheduledAd });
     } else {
@@ -518,8 +534,10 @@ const useGameStore = create<GameStore>((set, get) => ({
   dismissEducationCareerReminder: () => set({ showEducationCareerReminder: false, educationCareerReminder: null }),
   dismissEventModal: () => {
     const state = get();
-    // After event modal, check for period report
-    if (state.periodReport && !state.showPeriodReport) {
+    // After business event, show any pending personal-life decision next.
+    if (state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
+      set({ showEventModal: false, pendingEvent: null, showRelationshipEventModal: true });
+    } else if (state.periodReport && !state.showPeriodReport) {
       set({ showEventModal: false, pendingEvent: null, showPeriodReport: true });
     } else {
       set({ showEventModal: false, pendingEvent: null, showEducationCareerReminder: !state.showScheduledAd && !!state.educationCareerReminder });
@@ -594,7 +612,9 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
 
     // Dismiss event modal
-    if (state.periodReport && !state.showPeriodReport) {
+    if (state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
+      set({ showEventModal: false, pendingEvent: null, showRelationshipEventModal: true });
+    } else if (state.periodReport && !state.showPeriodReport) {
       set({ showEventModal: false, pendingEvent: null, showPeriodReport: true });
     } else {
       set({ showEventModal: false, pendingEvent: null });
@@ -888,7 +908,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const nextRelationshipState = enabled && !relationshipState.preferencesSet
       ? { ...relationshipState, weeklyCandidates: [] }
       : relationshipState;
-    const updates = { relationshipModeEnabled: enabled, relationshipState: nextRelationshipState };
+    const updates = { relationshipModeEnabled: enabled, relationshipState: nextRelationshipState, ...(enabled ? {} : { showRelationshipEventModal: false }) };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
@@ -1006,10 +1026,18 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!get().relationshipModeEnabled) return;
     const state = get();
     const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
-    if (!partner || partner.stage !== 'partner' || partner.relationship < 75 || partner.weeksKnown < 8) return;
+    if (!partner || !['partner', 'engaged'].includes(partner.stage) || partner.relationship < 75 || partner.weeksKnown < 8) return;
     const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     const connections = (state.relationshipState?.activeConnections ?? []).map((item) =>
-      item.id === partner.id ? { ...item, stage: 'living_together' as const, householdSplit: split, movedInWeek: gw } : item
+      item.id === partner.id
+        ? {
+            ...item,
+            stage: item.stage === 'partner' ? 'living_together' as const : item.stage,
+            isCohabiting: true,
+            householdSplit: split,
+            movedInWeek: item.movedInWeek ?? gw,
+          }
+        : item
     );
     const relationshipState = {
       ...state.relationshipState,
@@ -1018,6 +1046,307 @@ const useGameStore = create<GameStore>((set, get) => ({
     };
     set({ relationshipState });
     saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
+  },
+
+  spendTimeWithPartner: () => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner) return;
+    const connections = (state.relationshipState?.activeConnections ?? []).map((item) =>
+      item.id === partner.id ? { ...item, relationship: Math.min(100, (item.relationship ?? 70) + 4) } : item
+    );
+    const relationshipState = { ...state.relationshipState, activeConnections: connections, personalActionWeek: gw };
+    const tempHappinessEffects = [...(state.tempHappinessEffects ?? []), { amount: 3, weeksRemaining: 2, source: 'Quality Time' }];
+    const updates = { relationshipState, tempHappinessEffects };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  givePartnerGift: (tier) => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner) return;
+    const base = tier === 'small' ? 100 : tier === 'nice' ? 500 : 2500;
+    const cost = Math.round(base * (state.inflationMultiplier ?? 1));
+    if ((state.cash ?? 0) < cost) return;
+
+    let gain = tier === 'small' ? 2 : tier === 'nice' ? 4 : 7;
+    if (partner.financialStyle === 'frugal' && tier === 'luxury') gain = 2;
+    if (partner.financialStyle === 'frugal' && tier === 'small') gain = 4;
+    if (partner.financialStyle === 'luxury' && tier === 'luxury') gain = 9;
+    if (partner.financialStyle === 'luxury' && tier === 'small') gain = 1;
+
+    const connections = (state.relationshipState?.activeConnections ?? []).map((item) =>
+      item.id === partner.id ? { ...item, relationship: Math.min(100, (item.relationship ?? 70) + gain) } : item
+    );
+    const relationshipState = { ...state.relationshipState, activeConnections: connections, personalActionWeek: gw };
+    const updates = { cash: (state.cash ?? 0) - cost, relationshipState };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  discussFinancesWithPartner: () => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner) return;
+    const connections = (state.relationshipState?.activeConnections ?? []).map((item) =>
+      item.id === partner.id
+        ? {
+            ...item,
+            relationship: Math.min(100, (item.relationship ?? 70) + 2),
+            visibleTraits: ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'] as RelationshipConnection['visibleTraits'],
+          }
+        : item
+    );
+    const relationshipState = { ...state.relationshipState, activeConnections: connections, personalActionWeek: gw };
+    set({ relationshipState });
+    saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
+  },
+
+  proposeToPartner: (ring) => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner || !['partner', 'living_together'].includes(partner.stage) || partner.relationship < 82 || partner.weeksKnown < 12) return;
+
+    const cost = getProposalCost(ring, state.inflationMultiplier ?? 1);
+    if ((state.cash ?? 0) < cost) return;
+    const ringBonus = ring === 'simple' ? 0 : ring === 'classic' ? 0.05 : 0.08;
+    const styleBonus = partner.financialStyle === 'frugal' && ring === 'simple' ? 0.05
+      : partner.financialStyle === 'frugal' && ring === 'luxury' ? -0.04
+        : partner.financialStyle === 'luxury' && ring === 'luxury' ? 0.05 : 0;
+    const chance = Math.max(0.55, Math.min(0.97, 0.65 + (partner.relationship - 82) * 0.012 + ringBonus + styleBonus));
+    const accepted = Math.random() < chance;
+
+    const connections = (state.relationshipState?.activeConnections ?? []).map((item) => {
+      if (item.id !== partner.id) return item;
+      if (!accepted) return { ...item, relationship: Math.max(0, item.relationship - 8) };
+      const relationshipBoost = ring === 'luxury' ? 6 : ring === 'classic' ? 4 : 3;
+      return {
+        ...item,
+        stage: 'engaged' as const,
+        engagedWeek: gw,
+        relationship: Math.min(100, item.relationship + relationshipBoost),
+        isCohabiting: item.isCohabiting || item.stage === 'living_together',
+      };
+    });
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections: connections,
+      personalActionWeek: gw,
+      timeline: accepted
+        ? [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Got engaged to ${partner.name}` }]
+        : state.relationshipState.timeline,
+    };
+    const updates = { cash: (state.cash ?? 0) - cost, relationshipState };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  marryPartner: (wedding, agreement) => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner || partner.stage !== 'engaged' || partner.relationship < 80) return;
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if (gw - (partner.engagedWeek ?? gw) < 3) return;
+
+    const totalCost = getWeddingCost(wedding, state.inflationMultiplier ?? 1);
+    const partnerShare = Math.min(Math.round(totalCost * 0.25), Math.round((partner.savings ?? 0) * 0.35));
+    const playerCost = Math.max(0, totalCost - partnerShare);
+    if ((state.cash ?? 0) < playerCost) return;
+
+    const connections = (state.relationshipState?.activeConnections ?? []).map((item) => {
+      if (item.id !== partner.id) return item;
+      const weddingBoost = wedding === 'luxury' ? 7 : wedding === 'standard' ? 5 : 3;
+      const styleAdjustment = item.financialStyle === 'frugal' && wedding === 'luxury' ? -2
+        : item.financialStyle === 'luxury' && wedding === 'luxury' ? 2 : 0;
+      return {
+        ...item,
+        stage: 'married' as const,
+        isCohabiting: true,
+        householdSplit: item.householdSplit ?? 'proportional',
+        marriageAgreement: agreement,
+        marriedWeek: gw,
+        netWorthAtMarriage: getNetWorth(state),
+        savings: Math.max(0, (item.savings ?? 0) - partnerShare),
+        relationship: Math.min(100, item.relationship + weddingBoost + styleAdjustment),
+      };
+    });
+
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections: connections,
+      timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Married ${partner.name}` }],
+    };
+    const tempHappinessEffects = [...(state.tempHappinessEffects ?? []), { amount: 10, weeksRemaining: 4, source: 'Wedding' }];
+    const updates = { cash: (state.cash ?? 0) - playerCost, relationshipState, tempHappinessEffects };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  setFamilyPlan: (plan) => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner || !['living_together', 'engaged', 'married'].includes(partner.stage) || partner.relationship < 70) return;
+
+    let acceptedPlan: FamilyPlan = plan;
+    let relationshipDelta = 0;
+    let familyExpansionWeeksRemaining = state.relationshipState.familyExpansionWeeksRemaining ?? 0;
+    let cash = state.cash ?? 0;
+
+    if (plan === 'trying') {
+      if ((state.relationshipState.children?.length ?? 0) >= 4 || familyExpansionWeeksRemaining > 0) return;
+      const setupCost = Math.round(1000 * (state.inflationMultiplier ?? 1));
+      if (cash < setupCost) return;
+
+      if (partner.familyGoal === 'no_children') {
+        acceptedPlan = 'no_children';
+        relationshipDelta = -8;
+      } else if (partner.familyGoal === 'unsure' && Math.random() >= 0.6) {
+        acceptedPlan = 'later';
+        relationshipDelta = -2;
+      } else {
+        cash -= setupCost;
+        familyExpansionWeeksRemaining = 6;
+        relationshipDelta = partner.familyGoal === 'wants_children' ? 5 : 2;
+      }
+    } else if (plan === 'no_children') {
+      relationshipDelta = partner.familyGoal === 'wants_children' ? -6 : 3;
+    } else if (plan === 'later') {
+      relationshipDelta = partner.familyGoal === 'wants_children' ? 1 : 2;
+    }
+
+    const connections = (state.relationshipState?.activeConnections ?? []).map((item) =>
+      item.id === partner.id ? { ...item, relationship: Math.max(0, Math.min(100, item.relationship + relationshipDelta)) } : item
+    );
+    const timeline = acceptedPlan === 'trying' && familyExpansionWeeksRemaining > 0
+      ? [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Decided with ${partner.name} to grow the family` }]
+      : state.relationshipState.timeline;
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections: connections,
+      familyPlan: acceptedPlan,
+      familyExpansionWeeksRemaining,
+      personalActionWeek: gw,
+      timeline,
+    };
+    const updates = { cash, relationshipState };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  fundChildEducation: (childId, amount) => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    if (!Number.isFinite(amount) || amount <= 0 || amount > (state.cash ?? 0)) return;
+    const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
+    if (!child) return;
+    const children = (state.relationshipState?.children ?? []).map((item) =>
+      item.id === childId ? { ...item, educationFund: (item.educationFund ?? 0) + Math.floor(amount) } : item
+    );
+    const relationshipState = { ...state.relationshipState, children };
+    const updates = { cash: (state.cash ?? 0) - Math.floor(amount), relationshipState };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  endDatingConnection: (connectionId) => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const connection = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === connectionId);
+    if (!connection || connection.stage !== 'dating') return;
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections: (state.relationshipState?.activeConnections ?? []).filter((item) => item.id !== connectionId),
+      timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Stopped dating ${connection.name}` }],
+    };
+    set({ relationshipState });
+    saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
+  },
+
+  endPartnership: () => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner || partner.stage === 'married') return; // Divorce/settlements are a later pass.
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections: (state.relationshipState?.activeConnections ?? []).filter((item) => item.id !== partner.id),
+      partnerId: null,
+      familyPlan: 'not_discussed' as const,
+      familyExpansionWeeksRemaining: 0,
+      pendingEvent: null,
+      timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Relationship with ${partner.name} ended` }],
+    };
+    set({ relationshipState });
+    saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
+  },
+
+  dismissRelationshipEventModal: () => {
+    const state = get();
+    if (state.periodReport && !state.showPeriodReport) {
+      set({ showRelationshipEventModal: false, showPeriodReport: true });
+    } else {
+      set({ showRelationshipEventModal: false, showEducationCareerReminder: !state.showScheduledAd && !!state.educationCareerReminder });
+    }
+  },
+
+  handleRelationshipEventChoice: (choiceIndex) => {
+    const state = get();
+    const event = state.relationshipState?.pendingEvent;
+    if (!event) return;
+    const choice = event.choices?.[choiceIndex];
+    if (!choice) return;
+    const cost = choice.cost ?? 0;
+    if (cost > (state.cash ?? 0)) return;
+
+    const partnerId = state.relationshipState.partnerId;
+    const activeConnections = (state.relationshipState.activeConnections ?? []).map((item) =>
+      item.id === partnerId
+        ? { ...item, relationship: Math.max(0, Math.min(100, (item.relationship ?? 70) + (choice.relationship ?? 0))) }
+        : item
+    );
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections,
+      pendingEvent: null,
+    };
+    const tempHappinessEffects = choice.happiness
+      ? [...(state.tempHappinessEffects ?? []), {
+          amount: choice.happiness,
+          weeksRemaining: choice.happinessDuration ?? 1,
+          source: event.title,
+        }]
+      : state.tempHappinessEffects;
+
+    const updates = {
+      cash: (state.cash ?? 0) - cost,
+      relationshipState,
+      tempHappinessEffects,
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+
+    if (state.periodReport && !state.showPeriodReport) {
+      set({ showRelationshipEventModal: false, showPeriodReport: true });
+    } else {
+      set({ showRelationshipEventModal: false });
+    }
   },
 
   takeLoan: (loanId: string) => {
