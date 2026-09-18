@@ -270,7 +270,10 @@ const useGameStore = create<GameStore>((set, get) => ({
             percent: 100,
             votingPercent: 100,
           }],
-          familyRoles: business.familyRoles ?? [],
+          familyRoles: (business.familyRoles ?? []).map((role) => ({
+            ...role,
+            weeklySalary: role.weeklySalary ?? 0,
+          })),
         })),
         skills: saved.skills ?? {},
         knowledge: saved.knowledge ?? {},
@@ -384,7 +387,10 @@ const useGameStore = create<GameStore>((set, get) => ({
             percent: 100,
             votingPercent: 100,
           }],
-          familyRoles: business.familyRoles ?? [],
+          familyRoles: (business.familyRoles ?? []).map((role) => ({
+            ...role,
+            weeklySalary: role.weeklySalary ?? 0,
+          })),
         })),
         skills: saved.skills ?? {},
         knowledge: saved.knowledge ?? {},
@@ -2524,8 +2530,8 @@ const useGameStore = create<GameStore>((set, get) => ({
           title: `${decision.title} — ${choice.text}`,
           revenueMultiplier: choice.revenueMultiplier ?? 1,
           expenseMultiplier: choice.expenseMultiplier ?? 1,
-          reputationPerWeek: (choice.reputationDelta ?? 0) / Math.max(1, choice.durationWeeks ?? 1),
-          moralePerWeek: (choice.moraleDelta ?? 0) / Math.max(1, choice.durationWeeks ?? 1),
+          reputationPerWeek: 0,
+          moralePerWeek: 0,
           weeksRemaining: choice.durationWeeks ?? 1,
         }
       : null;
@@ -2577,6 +2583,16 @@ const useGameStore = create<GameStore>((set, get) => ({
 
     let roles = (business.familyRoles ?? []).filter((item) => item.childId !== childId);
     if (role === 'successor') roles = roles.filter((item) => item.role !== 'successor');
+    const baseRoleSalary = role === 'executive' ? 1300
+      : role === 'manager' ? 800
+        : role === 'successor' ? 1000
+          : 350;
+    const weeklySalary = Math.round(
+      baseRoleSalary
+      * (1 + (business.level ?? 0) * 0.08)
+      * (state.inflationMultiplier ?? 1)
+    );
+
     roles.push({
       childId,
       childName: child.name,
@@ -2584,6 +2600,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       appointedYear: state.year,
       experienceWeeks: 0,
       performance,
+      weeklySalary,
     });
 
     const businesses = (state.businesses ?? []).map((item) =>
@@ -2598,12 +2615,26 @@ const useGameStore = create<GameStore>((set, get) => ({
           }
         : item
     );
-    const relationshipState = role === 'successor'
-      ? {
-          ...state.relationshipState,
-          estatePlan: { ...state.relationshipState.estatePlan, successorId: childId, updatedGlobalWeek: ((state.year - 1) * 20) + state.week },
-        }
-      : state.relationshipState;
+    const operationalRole = role === 'manager' || role === 'executive' || role === 'successor';
+    const relationshipState = {
+      ...state.relationshipState,
+      children: (state.relationshipState.children ?? []).map((item) =>
+        item.id === childId
+          ? {
+              ...item,
+              occupationTitle: operationalRole
+                ? `${business.name} ${role === 'successor' ? 'Successor' : role === 'executive' ? 'Executive' : 'Manager'}`
+                : item.occupationTitle,
+              weeklyIncome: operationalRole ? weeklySalary : item.weeklyIncome,
+              adultStatus: operationalRole ? 'employed' as const : item.adultStatus,
+              parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + 1),
+            }
+          : item
+      ),
+      estatePlan: role === 'successor'
+        ? { ...state.relationshipState.estatePlan, successorId: childId, updatedGlobalWeek: ((state.year - 1) * 20) + state.week }
+        : state.relationshipState.estatePlan,
+    };
     set({ businesses, relationshipState });
     saveGame(extractGameState({ ...state, businesses, relationshipState }), state.activeSlot);
   },
