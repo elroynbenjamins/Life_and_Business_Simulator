@@ -193,5 +193,8 @@ export function getNetWorth(state: GameState): number {
   }, 0);
   // Property values
   const propertyValue = (state?.properties ?? []).reduce((t, p) => t + (p?.currentValue ?? 0), 0);
-  return (state?.cash ?? 0) + lockedDeposits + portfolioValue + businessValue + propertyValue - loanDebt - businessLoanDebt;
+  // Relationship/legal obligations are real liabilities once incurred.
+  const relationshipDebt = (state?.relationshipState?.financialObligations ?? [])
+    .reduce((total, obligation) => total + (obligation?.remainingAmount ?? 0), 0);
+  return (state?.cash ?? 0) + lockedDeposits + portfolioValue + businessValue + propertyValue - loanDebt - businessLoanDebt - relationshipDebt;
 }
