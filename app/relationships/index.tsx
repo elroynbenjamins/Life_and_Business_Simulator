@@ -12,6 +12,7 @@ import { formatCurrency } from '../../src/utils/format';
 import {
   getChildAge,
   getChildWeeklyCost,
+  getChildFuturePotential,
   getDateCost,
   getFamilyFormationProfile,
   getNormalizedDatingAgeBounds,
@@ -44,6 +45,7 @@ export default function RelationshipsScreen() {
   const marry = useGameStore((s) => s.marryPartner);
   const setFamilyPlan = useGameStore((s) => s.setFamilyPlan);
   const fundChildEducation = useGameStore((s) => s.fundChildEducation);
+  const spendTimeWithChild = useGameStore((s) => s.spendTimeWithChild);
   const endDatingConnection = useGameStore((s) => s.endDatingConnection);
   const endPartnership = useGameStore((s) => s.endPartnership);
   const divorcePartner = useGameStore((s) => s.divorcePartner);
@@ -564,12 +566,28 @@ export default function RelationshipsScreen() {
           </>
         )}
 
+        <GameCard>
+          <Pressable style={styles.familyTreeLink} onPress={() => router.push('/family-tree')}>
+            <View style={styles.familyTreeIcon}>
+              <Ionicons name="git-network-outline" size={22} color={Colors.info} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.compactTitle}>Family Tree</Text>
+              <Text style={styles.meta}>View your full dynasty, previous generations, partners, siblings and grandchildren.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+          </Pressable>
+        </GameCard>
+
         {(relationship.children ?? []).length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Family</Text>
             {(relationship.children ?? []).map((child) => {
               const age = getChildAge(child, gw);
               const weeklyCost = getChildWeeklyCost(child, state);
+              const personality = child.personality;
+              const potential = age >= 18 ? getChildFuturePotential(child) : null;
+              const parentRelationship = Math.round(child.parentRelationship ?? 75);
               return (
                 <GameCard key={child.id}>
                   <View style={styles.profileTop}>
@@ -580,52 +598,97 @@ export default function RelationshipsScreen() {
                     </View>
                     {weeklyCost > 0 && <Text style={styles.costText}>-{formatCurrency(weeklyCost)}/wk</Text>}
                   </View>
-                  {age < 18 ? (
-                    <View style={styles.financeRow}>
-                      <Text style={styles.meta}>Education fund</Text>
-                      <Text style={styles.moneyText}>{formatCurrency(child.educationFund ?? 0)}</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.financeBox}>
-                      <Text style={styles.financeTitle}>Independent Life</Text>
-                      <View style={styles.financeRow}>
-                        <Text style={styles.meta}>Career</Text>
-                        <Text style={styles.moneyText}>{child.occupationTitle ?? 'Getting established'}</Text>
-                      </View>
-                      <View style={styles.financeRow}>
-                        <Text style={styles.meta}>Income</Text>
-                        <Text style={styles.moneyText}>{formatCurrency(child.weeklyIncome ?? 0)}/wk</Text>
-                      </View>
-                      <View style={styles.financeRow}>
-                        <Text style={styles.meta}>Education start</Text>
-                        <Text style={styles.moneyText}>{childEducationLabel(child.educationOutcome)}</Text>
-                      </View>
-                      <View style={styles.financeRow}>
-                        <Text style={styles.meta}>Savings</Text>
-                        <Text style={styles.moneyText}>{formatCurrency(child.savings ?? 0)}</Text>
-                      </View>
-                      <View style={styles.financeRow}>
-                        <Text style={styles.meta}>Housing</Text>
-                        <Text style={styles.moneyText}>{child.homeStatus === 'homeowner' ? 'Homeowner' : 'Renting'}</Text>
-                      </View>
-                      <View style={styles.financeRow}>
-                        <Text style={styles.meta}>Partner</Text>
-                        <Text style={styles.moneyText}>{child.partnerName ?? 'Single'}</Text>
-                      </View>
-                      <View style={styles.financeRow}>
-                        <Text style={styles.meta}>Children</Text>
-                        <Text style={styles.moneyText}>{child.childrenCount ?? 0}</Text>
-                      </View>
+
+                  <Text style={styles.progressLabel}>Parent Relationship {parentRelationship}%</Text>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${parentRelationship}%`,
+                          backgroundColor: parentRelationship >= 70 ? Colors.happiness : parentRelationship >= 40 ? Colors.warning : Colors.negative,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  {personality && (
+                    <View style={styles.childTraits}>
+                      <TraitChip label={capitalize(personality.ambition.replace('_', ' '))} />
+                      <TraitChip label={capitalize(personality.financialStyle.replace('_', ' '))} />
+                      <TraitChip label={capitalize(personality.riskTolerance.replace('_', ' '))} />
+                      <TraitChip label={capitalize(personality.independence)} />
+                      <TraitChip label={capitalize(personality.resilience)} />
                     </View>
                   )}
-                  {age < 18 && (
-                    <View style={styles.threeRow}>
-                      {[1000, 5000, 10000].map((amount) => (
-                        <Pressable key={amount} disabled={state.cash < amount} style={[styles.compactButton, state.cash < amount && styles.disabled]} onPress={() => fundChildEducation(child.id, amount)}>
-                          <Text style={styles.compactTitle}>Add</Text>
-                          <Text style={styles.dateCost}>{formatCurrency(amount)}</Text>
-                        </Pressable>
-                      ))}
+
+                  <Pressable
+                    disabled={actionUsed}
+                    style={[styles.childTimeButton, actionUsed && styles.disabled]}
+                    onPress={() => spendTimeWithChild(child.id)}
+                  >
+                    <Ionicons name="heart-outline" size={16} color={actionUsed ? Colors.textMuted : Colors.happiness} />
+                    <Text style={styles.childTimeText}>Spend Time</Text>
+                  </Pressable>
+
+                  {age < 18 ? (
+                    <>
+                      <View style={styles.financeRow}>
+                        <Text style={styles.meta}>Education fund</Text>
+                        <Text style={styles.moneyText}>{formatCurrency(child.educationFund ?? 0)}</Text>
+                      </View>
+                      <View style={styles.threeRow}>
+                        {[1000, 5000, 10000].map((amount) => (
+                          <Pressable
+                            key={amount}
+                            disabled={state.cash < amount}
+                            style={[styles.compactButton, state.cash < amount && styles.disabled]}
+                            onPress={() => fundChildEducation(child.id, amount)}
+                          >
+                            <Text style={styles.compactTitle}>Add</Text>
+                            <Text style={styles.dateCost}>{formatCurrency(amount)}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </>
+                  ) : (
+                    <View style={styles.financeBox}>
+                      <View style={styles.adultHeaderRow}>
+                        <View>
+                          <Text style={styles.financeTitle}>Independent Life</Text>
+                          <Text style={styles.meta}>
+                            {child.adultStatus === 'unemployed' ? 'Currently unemployed'
+                              : child.adultStatus === 'entrepreneur' ? 'Entrepreneur'
+                                : 'Employed'}
+                          </Text>
+                        </View>
+                        {potential && (
+                          <View style={styles.potentialBadge}>
+                            <Text style={styles.potentialScore}>{potential.score}</Text>
+                            <Text style={styles.potentialLabel}>{potential.label}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.financeRow}><Text style={styles.meta}>Career</Text><Text style={styles.moneyText}>{child.occupationTitle ?? 'Getting established'}</Text></View>
+                      <View style={styles.financeRow}><Text style={styles.meta}>Income</Text><Text style={styles.moneyText}>{formatCurrency(child.weeklyIncome ?? 0)}/wk</Text></View>
+                      <View style={styles.financeRow}><Text style={styles.meta}>Savings</Text><Text style={styles.moneyText}>{formatCurrency(child.savings ?? 0)}</Text></View>
+                      {(child.debt ?? 0) > 0 && <View style={styles.financeRow}><Text style={styles.meta}>Debt</Text><Text style={[styles.moneyText, { color: Colors.negative }]}>{formatCurrency(child.debt ?? 0)}</Text></View>}
+                      {(child.businessValue ?? 0) > 0 && <View style={styles.financeRow}><Text style={styles.meta}>Own business</Text><Text style={styles.moneyText}>{formatCurrency(child.businessValue ?? 0)}</Text></View>}
+                      <View style={styles.financeRow}><Text style={styles.meta}>Housing</Text><Text style={styles.moneyText}>{child.homeStatus === 'homeowner' ? 'Homeowner' : 'Renting'}</Text></View>
+                      <View style={styles.financeRow}><Text style={styles.meta}>Partner</Text><Text style={styles.moneyText}>{child.partnerName ?? 'Single'}</Text></View>
+                      <View style={styles.financeRow}><Text style={styles.meta}>Children</Text><Text style={styles.moneyText}>{child.descendants?.length ?? child.childrenCount ?? 0}</Text></View>
+                      {(child.failureCount ?? 0) > 0 && (
+                        <Text style={[styles.meta, { color: Colors.warning, marginTop: 7 }]}>
+                          {child.failureCount} major setback{child.failureCount === 1 ? '' : 's'} survived.
+                        </Text>
+                      )}
+                      {(child.descendants ?? []).length > 0 && (
+                        <View style={styles.descendantList}>
+                          {(child.descendants ?? []).map((descendant) => (
+                            <Text key={descendant.id} style={styles.descendantText}>• {descendant.name}, age {descendant.age}</Text>
+                          ))}
+                        </View>
+                      )}
                     </View>
                   )}
                 </GameCard>
@@ -796,6 +859,10 @@ function DateButtons({ disabled, cash, inflation, onDate, firstDate }: { disable
   </View>;
 }
 
+function TraitChip({ label }: { label: string }) {
+  return <View style={styles.childTraitChip}><Text style={styles.childTraitText}>{label}</Text></View>;
+}
+
 function MiniStat({ label, value }: { label: string; value: string }) {
   return <View style={styles.miniStat}><Text style={styles.miniLabel}>{label}</Text><Text style={styles.miniValue} numberOfLines={1}>{value}</Text></View>;
 }
@@ -962,6 +1029,19 @@ const styles = StyleSheet.create({
   successorList: { gap: 7 },
   successorRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 10 },
   successorSelected: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}10` },
+  familyTreeLink: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  familyTreeIcon: { width: 42, height: 42, borderRadius: 10, backgroundColor: `${Colors.info}14`, alignItems: 'center', justifyContent: 'center' },
+  childTraits: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  childTraitChip: { backgroundColor: `${Colors.info}12`, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 4 },
+  childTraitText: { color: Colors.info, fontSize: 10, fontWeight: '700' },
+  childTimeButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: `${Colors.happiness}55`, borderRadius: 9, paddingVertical: 9, marginTop: 10 },
+  childTimeText: { color: Colors.happiness, fontSize: 12, fontWeight: '700' },
+  adultHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  potentialBadge: { minWidth: 58, alignItems: 'center', backgroundColor: `${Colors.primary}12`, borderRadius: 9, paddingVertical: 6, paddingHorizontal: 8 },
+  potentialScore: { color: Colors.primary, fontSize: 16, fontWeight: '900' },
+  potentialLabel: { color: Colors.textSecondary, fontSize: 9, fontWeight: '700' },
+  descendantList: { marginTop: 7, paddingTop: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  descendantText: { color: Colors.textSecondary, fontSize: 11, marginTop: 2 },
   goalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   goalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   historyRow: { flexDirection: 'row', gap: 10, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
