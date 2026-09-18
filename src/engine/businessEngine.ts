@@ -694,7 +694,9 @@ export function processBusinessWeek(
   const baseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier * prestigeCostMultiplier;
   let rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
   let rent = Math.round(rentScale);
-  const salaries = Math.round((biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0));
+  const employeeSalaries = (biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0);
+  const familyGovernanceSalaries = (biz.familyRoles ?? []).reduce((t, role) => t + (role.weeklySalary ?? 0), 0);
+  const salaries = Math.round(employeeSalaries + familyGovernanceSalaries);
   const adCost = Math.round((adMod.weeklyCost ?? 0) * inflationMultiplier * prestigeCostMultiplier);
   if ((biz.level ?? 0) === 0 && (biz.employees?.length ?? 0) >= MIN_EMPLOYEES_REQUIRED && (biz.reputation ?? 0) < 45) {
     revenue = Math.max(revenue, getStartupRevenueTarget(baseExp * eventExpenseMultiplier, baseRent, salaries, adCost, Math.random()));
@@ -1357,19 +1359,10 @@ export function processAllBusinesses(
     if (result.newRetention) retentionEvents.push(result.newRetention);
   }
 
-  const globalWeek = ((currentYear - 1) * 20) + currentWeek;
-  const decisionEvent = rollBusinessChoiceEvent(updatedBusinesses, globalWeek);
-  if (decisionEvent?.businessId) {
-    const idx = updatedBusinesses.findIndex((business) => business.id === decisionEvent.businessId);
-    if (idx >= 0) {
-      const templateId = String(decisionEvent.id).replace(`_${decisionEvent.businessId}`, '');
-      updatedBusinesses[idx] = {
-        ...updatedBusinesses[idx],
-        lastBusinessEventWeek: globalWeek,
-        businessEventCooldowns: { ...(updatedBusinesses[idx].businessEventCooldowns ?? {}), [templateId]: globalWeek },
-      };
-    }
-  }
+  // Strategic decisions and crises now live persistently on each company as
+  // pendingDecision. The older random choice-event roll is intentionally
+  // disabled to avoid stacking multiple decision systems on the player.
+  const decisionEvent: TriggeredEvent | null = null;
   return { updatedBusinesses, totalProfit, totalDividend, ownershipDistributions, totalTaxRefund, events, retentionEvents, decisionEvent };
 }
 
