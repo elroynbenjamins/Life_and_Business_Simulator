@@ -119,6 +119,8 @@ interface GameStore extends GameState {
   fundChildEducation: (childId: string, amount: number) => void;
   endDatingConnection: (connectionId: string) => void;
   endPartnership: () => void;
+  divorcePartner: () => void;
+  relationshipCounseling: () => void;
   dismissRelationshipEventModal: () => void;
   handleRelationshipEventChoice: (choiceIndex: number) => void;
   dismissRelationshipFeedback: () => void;
@@ -258,6 +260,8 @@ const useGameStore = create<GameStore>((set, get) => ({
           ...(saved.relationshipState ?? {}),
           weeklyCandidates: saved.relationshipState?.weeklyCandidates ?? [],
           activeConnections: saved.relationshipState?.activeConnections ?? [],
+          formerPartners: saved.relationshipState?.formerPartners ?? [],
+          financialObligations: saved.relationshipState?.financialObligations ?? [],
           timeline: saved.relationshipState?.timeline ?? [],
           children: saved.relationshipState?.children ?? [],
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
@@ -335,6 +339,8 @@ const useGameStore = create<GameStore>((set, get) => ({
           ...(saved.relationshipState ?? {}),
           weeklyCandidates: saved.relationshipState?.weeklyCandidates ?? [],
           activeConnections: saved.relationshipState?.activeConnections ?? [],
+          formerPartners: saved.relationshipState?.formerPartners ?? [],
+          financialObligations: saved.relationshipState?.financialObligations ?? [],
           timeline: saved.relationshipState?.timeline ?? [],
           children: saved.relationshipState?.children ?? [],
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
@@ -432,7 +438,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // Accumulate period stats
-    const totalExp = summary.rentPaid + summary.utilityCost + summary.foodCost + summary.carCost + summary.courseCost + summary.loanPayments + (summary.relationshipHouseholdCost ?? 0) + (summary.familyCost ?? 0);
+    const totalExp = summary.rentPaid + summary.utilityCost + summary.foodCost + summary.carCost + summary.courseCost + summary.loanPayments + (summary.relationshipHouseholdCost ?? 0) + (summary.familyCost ?? 0) + (summary.relationshipObligationCost ?? 0);
     const newPeriodIncome = (state.periodIncome ?? 0) + summary.salaryEarned + (summary.partTimeIncome ?? 0) + (summary.partnerContribution ?? 0);
     const newPeriodExpenses = (state.periodExpenses ?? 0) + totalExp;
     const newPeriodTax = (state.periodTax ?? 0) + summary.taxAmount;
@@ -1303,18 +1309,101 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!get().relationshipModeEnabled) return;
     const state = get();
     const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
-    if (!partner || partner.stage === 'married') return; // Divorce/settlements are a later pass.
+    if (!partner || partner.stage === 'married') return;
+    const endedWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const formerPartner = { ...partner, isCohabiting: false, endedWeek };
     const relationshipState = {
       ...state.relationshipState,
       activeConnections: (state.relationshipState?.activeConnections ?? []).filter((item) => item.id !== partner.id),
+      formerPartners: [...(state.relationshipState?.formerPartners ?? []), formerPartner],
       partnerId: null,
       familyPlan: 'not_discussed' as const,
       familyExpansionWeeksRemaining: 0,
       pendingEvent: null,
       timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Relationship with ${partner.name} ended` }],
     };
-    set({ relationshipState });
+    set({
+      relationshipState,
+      relationshipFeedback: { title: 'Relationship Ended', message: `You and ${partner.name} have separated.`, positive: false },
+    });
     saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
+  },
+
+  divorcePartner: () => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner || partner.stage !== 'married') return;
+
+    const currentNetWorth = getNetWorth(extractGameState(state));
+    const marriageStartNetWorth = partner.netWorthAtMarriage ?? currentNetWorth;
+    const maritalGrowth = Math.max(0, currentNetWorth - marriageStartNetWorth);
+    const inflation = state.inflationMultiplier ?? 1;
+    const legalFees = Math.round(5000 * inflation);
+    const sharedGrowthSettlement = partner.marriageAgreement === 'shared_future' ? Math.round(maritalGrowth * 0.5) : 0;
+    const settlementTotal = legalFees + sharedGrowthSettlement;
+    const durationWeeks = sharedGrowthSettlement > 0 ? 40 : 10;
+    const obligation = settlementTotal > 0 ? {
+      id: `divorce_${Date.now()}`,
+      type: (sharedGrowthSettlement > 0 ? 'divorce_settlement' : 'legal_fees') as const,
+      label: sharedGrowthSettlement > 0 ? `Divorce settlement with ${partner.name}` : `Divorce legal fees`,
+      remainingAmount: settlementTotal,
+      weeklyPayment: Math.max(1, Math.ceil(settlementTotal / durationWeeks)),
+      weeksRemaining: durationWeeks,
+    } : null;
+
+    const endedWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const formerPartner = { ...partner, isCohabiting: false, endedWeek };
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections: (state.relationshipState?.activeConnections ?? []).filter((item) => item.id !== partner.id),
+      formerPartners: [...(state.relationshipState?.formerPartners ?? []), formerPartner],
+      partnerId: null,
+      familyPlan: 'not_discussed' as const,
+      familyExpansionWeeksRemaining: 0,
+      pendingEvent: null,
+      financialObligations: obligation
+        ? [...(state.relationshipState?.financialObligations ?? []), obligation]
+        : (state.relationshipState?.financialObligations ?? []),
+      timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Divorced ${partner.name}` }],
+    };
+    set({
+      relationshipState,
+      relationshipFeedback: {
+        title: 'Divorce Finalized',
+        message: partner.marriageAgreement === 'shared_future'
+          ? `Future-growth agreement: ${formatCurrencySafe(sharedGrowthSettlement)} of marital growth plus legal fees will be paid over ${durationWeeks} weeks.`
+          : `Separate assets were preserved. Legal fees of ${formatCurrencySafe(legalFees)} will be paid over ${durationWeeks} weeks.`,
+        positive: false,
+      },
+    });
+    saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
+  },
+
+  relationshipCounseling: () => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner || partner.relationship >= 65) return;
+    const cost = Math.round(1200 * (state.inflationMultiplier ?? 1));
+    if ((state.cash ?? 0) < cost) return;
+    const activeConnections = (state.relationshipState?.activeConnections ?? []).map((item) =>
+      item.id === partner.id ? { ...item, relationship: Math.min(100, (item.relationship ?? 0) + 12) } : item
+    );
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections,
+      personalActionWeek: gw,
+      timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Worked on relationship with ${partner.name}` }],
+    };
+    const updates = { cash: (state.cash ?? 0) - cost, relationshipState };
+    set({
+      ...updates,
+      relationshipFeedback: { title: 'Relationship Counseling', message: 'You made time to work through the problems together.', positive: true },
+    });
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
   dismissRelationshipEventModal: () => {
@@ -1959,6 +2048,10 @@ const useGameStore = create<GameStore>((set, get) => ({
     return getPortfolioValue(state?.stocks ?? [], state?.holdings ?? []);
   },
 }));
+
+function formatCurrencySafe(value: number): string {
+  return '€' + Math.round(value).toLocaleString('en-US');
+}
 
 function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameState {
   return {
