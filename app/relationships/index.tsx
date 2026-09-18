@@ -71,6 +71,12 @@ export default function RelationshipsScreen() {
   const sharedGoalProgress = getSharedGoalProgress(sharedGoal, state);
   const estatePlan = relationship?.estatePlan;
   const adultChildren = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) >= 18);
+  const youngestChildBirthWeek = (relationship?.children ?? []).reduce((latest, child) => Math.max(latest, child.birthGlobalWeek ?? 0), 0);
+  const familyLimitReached = (relationship?.children?.length ?? 0) >= 4;
+  const familySpacingBlocked = youngestChildBirthWeek > 0 && gw - youngestChildBirthWeek < 20;
+  const familyAgeBlocked = !!partner && ((state.age ?? 20) >= 55 || (partner.age ?? 20) >= 55);
+  const canGrowFamily = !familyLimitReached && !familySpacingBlocked && !familyAgeBlocked && (relationship?.familyExpansionWeeksRemaining ?? 0) <= 0;
+
   const estateSuccessors = [
     ...(partner?.stage === 'married' ? [{ id: partner.id, name: partner.name, role: 'Spouse' }] : []),
     ...adultChildren.map((child) => ({ id: child.id, name: child.name, role: child.occupationTitle ? `Adult child • ${child.occupationTitle}` : 'Adult child' })),
@@ -310,6 +316,17 @@ export default function RelationshipsScreen() {
                   ) : (
                     <>
                       <Text style={styles.meta}>Discussing children can strengthen or strain the relationship depending on your partner's goals.</Text>
+                      {!canGrowFamily && (
+                        <Text style={[styles.meta, { color: Colors.warning, marginTop: 5 }]}>
+                          {familyLimitReached
+                            ? 'Maximum four children reached for this generation.'
+                            : familyAgeBlocked
+                              ? 'Family expansion closes once either partner reaches age 55.'
+                              : familySpacingBlocked
+                                ? 'Wait one in-game year between children.'
+                                : 'Your family is already growing.'}
+                        </Text>
+                      )}
                       <View style={styles.threeRow}>
                         <Pressable disabled={actionUsed} style={[styles.compactButton, actionUsed && styles.disabled]} onPress={() => setFamilyPlan('no_children')}>
                           <Text style={styles.compactTitle}>No Children</Text>
@@ -317,7 +334,14 @@ export default function RelationshipsScreen() {
                         <Pressable disabled={actionUsed} style={[styles.compactButton, actionUsed && styles.disabled]} onPress={() => setFamilyPlan('later')}>
                           <Text style={styles.compactTitle}>Maybe Later</Text>
                         </Pressable>
-                        <Pressable disabled={actionUsed || state.cash < Math.round(1000 * state.inflationMultiplier)} style={[styles.compactButton, (actionUsed || state.cash < Math.round(1000 * state.inflationMultiplier)) && styles.disabled]} onPress={() => setFamilyPlan('trying')}>
+                        <Pressable
+                          disabled={actionUsed || !canGrowFamily || state.cash < Math.round(1000 * state.inflationMultiplier)}
+                          style={[
+                            styles.compactButton,
+                            (actionUsed || !canGrowFamily || state.cash < Math.round(1000 * state.inflationMultiplier)) && styles.disabled,
+                          ]}
+                          onPress={() => setFamilyPlan('trying')}
+                        >
                           <Text style={styles.compactTitle}>Grow Family</Text>
                           <Text style={styles.dateCost}>{formatCurrency(Math.round(1000 * state.inflationMultiplier))}</Text>
                         </Pressable>
@@ -540,6 +564,22 @@ export default function RelationshipsScreen() {
                       <View style={styles.financeRow}>
                         <Text style={styles.meta}>Education start</Text>
                         <Text style={styles.moneyText}>{childEducationLabel(child.educationOutcome)}</Text>
+                      </View>
+                      <View style={styles.financeRow}>
+                        <Text style={styles.meta}>Savings</Text>
+                        <Text style={styles.moneyText}>{formatCurrency(child.savings ?? 0)}</Text>
+                      </View>
+                      <View style={styles.financeRow}>
+                        <Text style={styles.meta}>Housing</Text>
+                        <Text style={styles.moneyText}>{child.homeStatus === 'homeowner' ? 'Homeowner' : 'Renting'}</Text>
+                      </View>
+                      <View style={styles.financeRow}>
+                        <Text style={styles.meta}>Partner</Text>
+                        <Text style={styles.moneyText}>{child.partnerName ?? 'Single'}</Text>
+                      </View>
+                      <View style={styles.financeRow}>
+                        <Text style={styles.meta}>Children</Text>
+                        <Text style={styles.moneyText}>{child.childrenCount ?? 0}</Text>
                       </View>
                     </View>
                   )}
