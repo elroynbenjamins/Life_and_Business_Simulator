@@ -1400,7 +1400,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (!Number.isFinite(amount) || amount <= 0 || amount > (state.cash ?? 0)) return;
     const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
-    if (!child) return;
+    if (!child || (child.age ?? 0) >= 18) return;
     const relationshipGain = amount >= 10000 ? 3 : amount >= 5000 ? 2 : 1;
     const children = (state.relationshipState?.children ?? []).map((item) =>
       item.id === childId
@@ -2358,6 +2358,7 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   designateFamilyBusiness: (businessId) => {
     const state = get();
+    if (state.lifecycle?.isDead) return;
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business) return;
     const hasFamily = (state.relationshipState?.children?.length ?? 0) > 0
