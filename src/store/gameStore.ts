@@ -60,7 +60,7 @@ interface GameStore extends GameState {
 
   loadSavedGame: () => Promise<void>;
   loadSlot: (slot: number) => Promise<void>;
-  startNewGame: (name?: string) => Promise<void>;
+  startNewGame: (name?: string, relationshipModeEnabled?: boolean) => Promise<void>;
   deleteSlot: (slot: number) => Promise<void>;
   setPlayerName: (name: string) => void;
   advanceWeek: () => void;
@@ -101,6 +101,7 @@ interface GameStore extends GameState {
   openBankDeposit: (amount: number, durationWeeks: 20 | 40 | 60) => void;
 
   // Personal life
+  setRelationshipModeEnabled: (enabled: boolean) => void;
   setDatingPreferences: (preference: DatingPreference, minAge: number, maxAge: number) => void;
   inviteOnDate: (candidateId: string, kind: 'coffee' | 'dinner' | 'activity') => void;
   planDate: (connectionId: string, kind: 'coffee' | 'dinner' | 'activity') => void;
@@ -234,6 +235,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         activeMarketSentiment: saved.activeMarketSentiment ?? null,
         activeMarketEvents: saved.activeMarketEvents ?? [],
         totalRealizedProfitLoss: saved.totalRealizedProfitLoss ?? 0,
+        relationshipModeEnabled: saved.relationshipModeEnabled ?? false,
         relationshipState: {
           ...INITIAL_RELATIONSHIP_STATE,
           ...(saved.relationshipState ?? {}),
@@ -306,6 +308,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         activeMarketSentiment: saved.activeMarketSentiment ?? null,
         activeMarketEvents: saved.activeMarketEvents ?? [],
         totalRealizedProfitLoss: saved.totalRealizedProfitLoss ?? 0,
+        relationshipModeEnabled: saved.relationshipModeEnabled ?? false,
         relationshipState: {
           ...INITIAL_RELATIONSHIP_STATE,
           ...(saved.relationshipState ?? {}),
@@ -336,7 +339,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  startNewGame: async (name?: string) => {
+  startNewGame: async (name?: string, relationshipModeEnabled = false) => {
     const { activeSlot, profile } = get();
     await clearGame(activeSlot);
     const stocks = initializeStocks();
@@ -349,6 +352,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       stocks,
       cash: startingCash,
       netWorthHistory: [startingCash],
+      relationshipModeEnabled,
       activeAuctions: ensureAuctions([], 1, 1, startingCash),
     };
     await saveGame(newState, activeSlot);
@@ -878,7 +882,19 @@ const useGameStore = create<GameStore>((set, get) => ({
   },
 
 
+  setRelationshipModeEnabled: (enabled) => {
+    const state = get();
+    const relationshipState = state.relationshipState ?? { ...INITIAL_RELATIONSHIP_STATE };
+    const nextRelationshipState = enabled && !relationshipState.preferencesSet
+      ? { ...relationshipState, weeklyCandidates: [] }
+      : relationshipState;
+    const updates = { relationshipModeEnabled: enabled, relationshipState: nextRelationshipState };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
   setDatingPreferences: (preference, minAge, maxAge) => {
+    if (!get().relationshipModeEnabled) return;
     const state = get();
     const nextRelationship = {
       ...state.relationshipState,
@@ -895,6 +911,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   },
 
   inviteOnDate: (candidateId, kind) => {
+    if (!get().relationshipModeEnabled) return;
     const state = get();
     const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
@@ -927,6 +944,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   },
 
   planDate: (connectionId, kind) => {
+    if (!get().relationshipModeEnabled) return;
     const state = get();
     const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
@@ -958,6 +976,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   },
 
   askBecomePartners: (connectionId) => {
+    if (!get().relationshipModeEnabled) return;
     const state = get();
     const connection = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === connectionId);
     if (!connection || connection.stage !== 'dating' || connection.connection < 60 || connection.dates < 3) return;
@@ -984,6 +1003,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   },
 
   moveInWithPartner: (split) => {
+    if (!get().relationshipModeEnabled) return;
     const state = get();
     const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
     if (!partner || partner.stage !== 'partner' || partner.relationship < 75 || partner.weeksKnown < 8) return;
@@ -1639,6 +1659,7 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     partTimeJob: (state as any)?.partTimeJob ?? false,
     adWatchedToday: (state as any)?.adWatchedToday ?? 0,
     adLastWatchDate: (state as any)?.adLastWatchDate ?? '',
+    relationshipModeEnabled: state?.relationshipModeEnabled ?? false,
     relationshipState: state?.relationshipState ?? { ...INITIAL_RELATIONSHIP_STATE },
     lifecycle: state?.lifecycle ?? { ...INITIAL_LIFECYCLE_STATE },
     lastMacroCrashWeek: state?.lastMacroCrashWeek ?? 0,
