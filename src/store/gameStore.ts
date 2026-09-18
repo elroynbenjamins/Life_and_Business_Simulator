@@ -12,7 +12,7 @@ import { getSuccessionPreview } from '../engine/lifecycleEngine';
 import { getCareerSalary } from '../engine/careerEngine';
 import { applyEducationRewards } from '../engine/skillEngine';
 import { createInitialCompetitors, migrateBusinessCompetitors } from '../engine/competitorEngine';
-import { generateRelationshipCandidates, getDateConnectionGain, getDateCost, getProposalCost, getWeddingCost, revealNextTrait } from '../engine/relationshipEngine';
+import { generateRelationshipCandidates, getDateConnectionGain, getDateCost, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
 import coursesData from '../data/courses.json';
 import jobsData from '../data/jobs.json';
@@ -977,12 +977,19 @@ const useGameStore = create<GameStore>((set, get) => ({
   setDatingPreferences: (preference, minAge, maxAge) => {
     if (!get().relationshipModeEnabled) return;
     const state = get();
+    const bounds = getNormalizedDatingAgeBounds(state.age ?? 20);
+    const safeMin = Math.max(bounds.min, Math.min(minAge, maxAge));
+    const safeMax = Math.min(bounds.max, Math.max(minAge, maxAge));
+    const normalizedMin = safeMin <= safeMax ? safeMin : bounds.min;
+    const normalizedMax = safeMin <= safeMax ? safeMax : bounds.max;
     const nextRelationship = {
       ...state.relationshipState,
       preferencesSet: true,
       preference,
-      minAge: Math.max(18, Math.min(minAge, maxAge)),
-      maxAge: Math.max(18, Math.max(minAge, maxAge)),
+      minAge: normalizedMin,
+      maxAge: normalizedMax,
+      minAgeOffset: normalizedMin - (state.age ?? 20),
+      maxAgeOffset: normalizedMax - (state.age ?? 20),
     };
     const baseState = { ...extractGameState(state), relationshipState: nextRelationship };
     nextRelationship.weeklyCandidates = generateRelationshipCandidates(baseState, 3);
@@ -998,7 +1005,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
     if ((state.relationshipState?.activeConnections?.length ?? 0) >= 3) return;
     const candidate = (state.relationshipState?.weeklyCandidates ?? []).find((item) => item.id === candidateId);
-    if (!candidate) return;
+    if (!candidate || !isNormalizedAgeMatch(state.age ?? 20, candidate.age ?? 18)) return;
     const cost = getDateCost(kind, state.inflationMultiplier ?? 1);
     if ((state.cash ?? 0) < cost) return;
 
@@ -1060,7 +1067,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!get().relationshipModeEnabled) return;
     const state = get();
     const connection = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === connectionId);
-    if (!connection || connection.stage !== 'dating' || connection.connection < 60 || connection.dates < 3) return;
+    if (!connection || connection.stage !== 'dating' || connection.connection < 60 || connection.dates < 3 || !isNormalizedAgeMatch(state.age ?? 20, connection.age ?? 18)) return;
 
     const acceptanceChance = Math.min(0.92, 0.62 + Math.max(0, connection.connection - 60) / 100);
     const accepted = Math.random() < acceptanceChance;
@@ -1181,7 +1188,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
     const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
-    if (!partner || !['partner', 'living_together'].includes(partner.stage) || partner.relationship < 82 || partner.weeksKnown < 12) return;
+    if (!partner || !['partner', 'living_together'].includes(partner.stage) || partner.relationship < 82 || partner.weeksKnown < 12 || !isNormalizedAgeMatch(state.age ?? 20, partner.age ?? 18)) return;
 
     const cost = getProposalCost(ring, state.inflationMultiplier ?? 1);
     if ((state.cash ?? 0) < cost) return;
@@ -1223,7 +1230,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!get().relationshipModeEnabled) return;
     const state = get();
     const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
-    if (!partner || partner.stage !== 'engaged' || partner.relationship < 80) return;
+    if (!partner || partner.stage !== 'engaged' || partner.relationship < 80 || !isNormalizedAgeMatch(state.age ?? 20, partner.age ?? 18)) return;
     const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     if (gw - (partner.engagedWeek ?? gw) < 3) return;
 
@@ -1277,36 +1284,60 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (plan === 'trying') {
       const children = state.relationshipState.children ?? [];
       const youngestBirthWeek = children.reduce((latest, child) => Math.max(latest, child.birthGlobalWeek ?? 0), 0);
-      const tooSoonAfterLastChild = youngestBirthWeek > 0 && gw - youngestBirthWeek < 20;
-      const ageLimitReached = (state.age ?? 20) >= 55 || (partner.age ?? 20) >= 55;
-      if (children.length >= 4 || familyExpansionWeeksRemaining > 0 || tooSoonAfterLastChild || ageLimitReached) {
+      const tooSoonAfterLastChild = youngestBirthWeek > 0 && gw - youngestBirthWeek < 40;
+      const tooSoonAfterAttempt = (state.relationshipState.lastFamilyAttemptWeek ?? 0) > 0
+        && gw - (state.relationshipState.lastFamilyAttemptWeek ?? 0) < 10;
+      const playerAge = state.age ?? 20;
+      const partnerAge = partner.age ?? 20;
+      const ageLimitReached = playerAge > 42 || partnerAge > 42;
+      const tooYoung = playerAge < 21 || partnerAge < 21;
+
+      if (children.length >= 3 || familyExpansionWeeksRemaining > 0 || tooSoonAfterLastChild || tooSoonAfterAttempt || ageLimitReached || tooYoung) {
         set({
           relationshipFeedback: {
             title: 'Family Plans',
-            message: children.length >= 4
-              ? 'This generation has reached the maximum of four children.'
+            message: children.length >= 3
+              ? 'This generation has reached the maximum of three children.'
               : ageLimitReached
-                ? 'New family expansion is no longer available once either partner reaches age 55.'
-                : tooSoonAfterLastChild
-                  ? 'Wait at least one in-game year between children.'
-                  : 'Your family is already growing.',
+                ? 'New family expansion is no longer available after age 42.'
+                : tooYoung
+                  ? 'Family expansion becomes available from age 21.'
+                  : tooSoonAfterLastChild
+                    ? 'Wait about two in-game years between children.'
+                    : tooSoonAfterAttempt
+                      ? 'Give it some time before trying again.'
+                      : 'Your family is already growing.',
             positive: false,
           },
         });
         return;
       }
+
       const setupCost = Math.round(1000 * (state.inflationMultiplier ?? 1));
       if (cash < setupCost) return;
+
+      let successChance = Math.max(playerAge, partnerAge) <= 34 ? 0.85
+        : Math.max(playerAge, partnerAge) <= 39 ? 0.60
+          : 0.25;
+      if (children.length === 1) successChance *= 0.85;
+      if (children.length === 2) successChance *= 0.55;
+      if (partner.familyGoal === 'wants_children') successChance = Math.min(0.95, successChance * 1.10);
+      if (partner.familyGoal === 'unsure') successChance *= 0.70;
+
+      const attemptSucceeded = partner.familyGoal !== 'no_children' && Math.random() < successChance;
+      cash -= setupCost;
 
       if (partner.familyGoal === 'no_children') {
         acceptedPlan = 'no_children';
         relationshipDelta = -8;
-      } else if (partner.familyGoal === 'unsure' && Math.random() >= 0.6) {
+      } else if (!attemptSucceeded) {
         acceptedPlan = 'later';
-        relationshipDelta = -2;
+        relationshipDelta = partner.familyGoal === 'wants_children' ? 0 : -1;
       } else {
-        cash -= setupCost;
-        familyExpansionWeeksRemaining = 6;
+        acceptedPlan = 'trying';
+        familyExpansionWeeksRemaining = Math.max(playerAge, partnerAge) <= 34 ? 6
+          : Math.max(playerAge, partnerAge) <= 39 ? 8
+            : 10;
         relationshipDelta = partner.familyGoal === 'wants_children' ? 5 : 2;
       }
     } else if (plan === 'no_children') {
@@ -1326,6 +1357,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       activeConnections: connections,
       familyPlan: acceptedPlan,
       familyExpansionWeeksRemaining,
+      lastFamilyAttemptWeek: plan === 'trying' ? gw : (state.relationshipState.lastFamilyAttemptWeek ?? 0),
       personalActionWeek: gw,
       timeline,
     };
@@ -1333,7 +1365,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const familyFeedback = plan === 'trying'
       ? (acceptedPlan === 'trying' && familyExpansionWeeksRemaining > 0
         ? { title: 'Family Plans', message: `${partner.name} agrees. Your family will grow in the coming weeks.`, positive: true }
-        : { title: 'Family Plans', message: `${partner.name} is not ready to grow the family right now.`, positive: false })
+        : { title: 'Family Plans', message: partner.familyGoal === 'no_children' ? `${partner.name} does not want children.` : `It did not work out this time. You can try again later.`, positive: false })
       : { title: 'Family Plans', message: 'You discussed what you both want for the future.', positive: relationshipDelta >= 0 };
     set({ ...updates, relationshipFeedback: familyFeedback });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
