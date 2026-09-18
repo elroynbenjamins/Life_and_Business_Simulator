@@ -1274,7 +1274,26 @@ const useGameStore = create<GameStore>((set, get) => ({
     let cash = state.cash ?? 0;
 
     if (plan === 'trying') {
-      if ((state.relationshipState.children?.length ?? 0) >= 4 || familyExpansionWeeksRemaining > 0) return;
+      const children = state.relationshipState.children ?? [];
+      const youngestBirthWeek = children.reduce((latest, child) => Math.max(latest, child.birthGlobalWeek ?? 0), 0);
+      const tooSoonAfterLastChild = youngestBirthWeek > 0 && gw - youngestBirthWeek < 20;
+      const ageLimitReached = (state.age ?? 20) >= 55 || (partner.age ?? 20) >= 55;
+      if (children.length >= 4 || familyExpansionWeeksRemaining > 0 || tooSoonAfterLastChild || ageLimitReached) {
+        set({
+          relationshipFeedback: {
+            title: 'Family Plans',
+            message: children.length >= 4
+              ? 'This generation has reached the maximum of four children.'
+              : ageLimitReached
+                ? 'New family expansion is no longer available once either partner reaches age 55.'
+                : tooSoonAfterLastChild
+                  ? 'Wait at least one in-game year between children.'
+                  : 'Your family is already growing.',
+            positive: false,
+          },
+        });
+        return;
+      }
       const setupCost = Math.round(1000 * (state.inflationMultiplier ?? 1));
       if (cash < setupCost) return;
 
