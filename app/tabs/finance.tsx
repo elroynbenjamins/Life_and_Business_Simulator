@@ -34,6 +34,8 @@ export default function FinanceScreen() {
   const netWorthHistory = state?.netWorthHistory ?? [];
   const totalTaxPaid = state?.totalTaxPaid ?? 0;
   const loanDebt = (state?.loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
+  const relationshipDebt = (state?.relationshipState?.financialObligations ?? [])
+    .reduce((total, obligation) => total + (obligation?.remainingAmount ?? 0), 0);
 
   const last8 = netWorthHistory.slice(-8);
   const chartWidth = Math.min(Dimensions.get('window').width - 64, 500);
@@ -126,6 +128,7 @@ export default function FinanceScreen() {
           <FRow label="Cash" value={state?.cash ?? 0} color={Colors.textPrimary} />
           <FRow label="Stock Portfolio" value={portfolioValue} color={Colors.textPrimary} />
           {loanDebt > 0 && <FRow label="Loan Debt" value={-loanDebt} color={Colors.negative} />}
+          {relationshipDebt > 0 && <FRow label="Relationship / Legal Liability" value={-relationshipDebt} color={Colors.negative} />}
           <View style={styles.divider} />
           <View style={styles.row}>
             <Text style={[styles.label, { fontWeight: '700' }]}>Total Net Worth</Text>
