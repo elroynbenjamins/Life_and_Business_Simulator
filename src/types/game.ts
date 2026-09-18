@@ -136,6 +136,7 @@ export interface SuccessionPreview {
   childName: string;
   childAge: number;
   existingSavings: number;
+  existingBusinessStakeValue: number;
   assetStrategy: SuccessionAssetStrategy;
   inheritedCash: number;
   inheritedStockValue: number;
@@ -168,6 +169,7 @@ export interface FamilyTreePerson {
   childIds: string[];
   playableGeneration?: number | null;
   finalNetWorth?: number | null;
+  liquidWealth?: number;
 }
 
 export interface FamilyTreeState {
