@@ -683,6 +683,14 @@ function progressAdultChild(
   let debt = Math.max(0, child.debt ?? 0);
   let failureCount = child.failureCount ?? 0;
   let businessValue = Math.max(0, child.businessValue ?? 0);
+  const operatingFamilyRole = (state.businesses ?? [])
+    .flatMap((business) => (business.familyRoles ?? []).map((role) => ({ business, role })))
+    .find(({ role }) => role.childId === child.id && role.role !== 'board') ?? null;
+  if (operatingFamilyRole) {
+    adultStatus = 'employed';
+    occupationTitle = `${operatingFamilyRole.business.name} ${operatingFamilyRole.role.role === 'successor' ? 'Successor' : operatingFamilyRole.role.role === 'executive' ? 'Executive' : 'Manager'}`;
+    weeklyIncome = Math.max(0, operatingFamilyRole.role.weeklySalary ?? weeklyIncome);
+  }
   let homeStatus = child.homeStatus ?? 'renting';
   let partnerName = child.partnerName ?? null;
   let partnerGender = child.partnerGender ?? null;
@@ -696,53 +704,55 @@ function progressAdultChild(
   const ambitionBonus = personality.ambition === 'driven' ? 0.10
     : personality.ambition === 'career_minded' ? 0.05 : 0;
 
-  if (adultStatus === 'unemployed') {
-    if (Math.random() < Math.min(0.92, resilienceRecovery + ambitionBonus)) {
-      const occupation = randomOf(occupationsData as any[]);
-      adultStatus = 'employed';
-      occupationTitle = occupation.title;
-      weeklyIncome = Math.max(400, Math.round((occupation.baseWeeklyIncome ?? 700) * 0.95));
-      milestones.push(`${child.name} recovered from a setback and found work as ${occupation.title}.`);
+  if (!operatingFamilyRole) {
+    if (adultStatus === 'unemployed') {
+      if (Math.random() < Math.min(0.92, resilienceRecovery + ambitionBonus)) {
+        const occupation = randomOf(occupationsData as any[]);
+        adultStatus = 'employed';
+        occupationTitle = occupation.title;
+        weeklyIncome = Math.max(400, Math.round((occupation.baseWeeklyIncome ?? 700) * 0.95));
+        milestones.push(`${child.name} recovered from a setback and found work as ${occupation.title}.`);
+      } else {
+        debt += Math.round(2500 * (state.inflationMultiplier ?? 1));
+        savings = Math.max(0, savings - Math.round(1500 * (state.inflationMultiplier ?? 1)));
+      }
+    } else if (adultStatus === 'entrepreneur') {
+      const failureChance = 0.08
+        + (personality.riskTolerance === 'risk_taking' ? 0.05 : personality.riskTolerance === 'cautious' ? -0.02 : 0)
+        + (personality.resilience === 'fragile' ? 0.04 : personality.resilience === 'resilient' ? -0.02 : 0);
+      if (Math.random() < Math.max(0.03, failureChance)) {
+        adultStatus = 'unemployed';
+        occupationTitle = 'Between Ventures';
+        weeklyIncome = 0;
+        savings = Math.max(0, Math.round(savings * 0.72));
+        debt += Math.round(8000 * (state.inflationMultiplier ?? 1));
+        businessValue = 0;
+        failureCount += 1;
+        milestones.push(`${child.name}'s business failed. They are rebuilding after a serious financial setback.`);
+      } else {
+        const growth = personality.ambition === 'driven' ? 1.16 : 1.10;
+        businessValue = Math.max(
+          Math.round(25000 * (state.inflationMultiplier ?? 1)),
+          Math.round((businessValue || 25000 * (state.inflationMultiplier ?? 1)) * growth),
+        );
+        weeklyIncome = Math.max(weeklyIncome, Math.round(businessValue * 0.0018));
+      }
     } else {
-      debt += Math.round(2500 * (state.inflationMultiplier ?? 1));
-      savings = Math.max(0, savings - Math.round(1500 * (state.inflationMultiplier ?? 1)));
-    }
-  } else if (adultStatus === 'entrepreneur') {
-    const failureChance = 0.08
-      + (personality.riskTolerance === 'risk_taking' ? 0.05 : personality.riskTolerance === 'cautious' ? -0.02 : 0)
-      + (personality.resilience === 'fragile' ? 0.04 : personality.resilience === 'resilient' ? -0.02 : 0);
-    if (Math.random() < Math.max(0.03, failureChance)) {
-      adultStatus = 'unemployed';
-      occupationTitle = 'Between Ventures';
-      weeklyIncome = 0;
-      savings = Math.max(0, Math.round(savings * 0.72));
-      debt += Math.round(8000 * (state.inflationMultiplier ?? 1));
-      businessValue = 0;
-      failureCount += 1;
-      milestones.push(`${child.name}'s business failed. They are rebuilding after a serious financial setback.`);
-    } else {
-      const growth = personality.ambition === 'driven' ? 1.16 : 1.10;
-      businessValue = Math.max(
-        Math.round(25000 * (state.inflationMultiplier ?? 1)),
-        Math.round((businessValue || 25000 * (state.inflationMultiplier ?? 1)) * growth),
-      );
-      weeklyIncome = Math.max(weeklyIncome, Math.round(businessValue * 0.0018));
-    }
-  } else {
-    const layoffChance = 0.055
-      + (personality.resilience === 'fragile' ? 0.025 : personality.resilience === 'resilient' ? -0.015 : 0)
-      - (personality.ambition === 'driven' ? 0.01 : 0);
-    if (Math.random() < Math.max(0.02, layoffChance)) {
-      adultStatus = 'unemployed';
-      occupationTitle = `Former ${occupationTitle}`;
-      weeklyIncome = 0;
-      failureCount += 1;
-      milestones.push(`${child.name} lost their job and is temporarily unemployed.`);
-    } else {
-      const raiseRate = outcome === 'elite' ? 0.05 : outcome === 'strong' ? 0.04 : outcome === 'solid' ? 0.03 : 0.02;
-      const ambitionMultiplier = personality.ambition === 'driven' ? 1.35
-        : personality.ambition === 'career_minded' ? 1.15 : 0.85;
-      weeklyIncome = Math.round(Math.max(350, weeklyIncome || 350) * (1 + raiseRate * ambitionMultiplier));
+      const layoffChance = 0.055
+        + (personality.resilience === 'fragile' ? 0.025 : personality.resilience === 'resilient' ? -0.015 : 0)
+        - (personality.ambition === 'driven' ? 0.01 : 0);
+      if (Math.random() < Math.max(0.02, layoffChance)) {
+        adultStatus = 'unemployed';
+        occupationTitle = `Former ${occupationTitle}`;
+        weeklyIncome = 0;
+        failureCount += 1;
+        milestones.push(`${child.name} lost their job and is temporarily unemployed.`);
+      } else {
+        const raiseRate = outcome === 'elite' ? 0.05 : outcome === 'strong' ? 0.04 : outcome === 'solid' ? 0.03 : 0.02;
+        const ambitionMultiplier = personality.ambition === 'driven' ? 1.35
+          : personality.ambition === 'career_minded' ? 1.15 : 0.85;
+        weeklyIncome = Math.round(Math.max(350, weeklyIncome || 350) * (1 + raiseRate * ambitionMultiplier));
+      }
     }
   }
 
@@ -771,6 +781,7 @@ function progressAdultChild(
   }
 
   if (
+    !operatingFamilyRole &&
     adultStatus === 'employed' &&
     occupationTitle !== 'Entrepreneur' &&
     (child.age ?? 18) >= 25 &&
