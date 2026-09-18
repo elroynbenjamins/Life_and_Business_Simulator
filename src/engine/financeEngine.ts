@@ -1,4 +1,5 @@
 import { GameState, StockState, StockHolding, ActiveLoan } from '../types/game';
+import { getPlayerOwnershipPct } from './businessEngine';
 import { inflated } from './economyEngine';
 import housingData from '../data/housing.json';
 import jobsData from '../data/jobs.json';
@@ -187,7 +188,7 @@ export function getNetWorth(state: GameState): number {
   const lockedDeposits = (state?.bankDeposits ?? []).reduce((total, deposit) => total + (deposit?.amount ?? 0), 0);
   // Business values
   // Valuation already includes available business cash.
-  const businessValue = (state?.businesses ?? []).reduce((t, b) => t + (b?.valuation ?? 0), 0);
+  const businessValue = (state?.businesses ?? []).reduce((t, b) => t + (b?.valuation ?? 0) * (getPlayerOwnershipPct(b) / 100), 0);
   const businessLoanDebt = (state?.businesses ?? []).reduce((t, b) => {
     return t + (b?.businessLoans ?? []).reduce((lt, l) => lt + (l?.remainingAmount ?? 0), 0);
   }, 0);
