@@ -1,6 +1,7 @@
 import { GameState, RelationshipCandidate, RelationshipConnection, RelationshipState } from '../types/game';
 import namesData from '../data/relationship_names.json';
 import occupationsData from '../data/relationship_occupations.json';
+import housingData from '../data/housing.json';
 
 const FINANCIAL_STYLES = ['frugal', 'balanced', 'luxury'] as const;
 const RISK = ['cautious', 'balanced', 'risk_taking'] as const;
@@ -93,7 +94,8 @@ export function calculatePartnerContribution(connection: RelationshipConnection 
 
   // Extra food + utility use from a second adult. The partner only contributes
   // toward shared household costs; their remaining income is not player income.
-  const rent = Math.round(300 * (state.inflationMultiplier ?? 1));
+  const housing = (housingData as any[]).find((item) => item.id === state.currentHousingId);
+  const rent = Math.round((housing?.weeklyRent ?? 300) * (state.inflationMultiplier ?? 1));
   const extraFood = Math.round(60 * (state.inflationMultiplier ?? 1));
   const extraUtilities = Math.round(rent * 0.05);
   const householdExtraCost = extraFood + extraUtilities;
