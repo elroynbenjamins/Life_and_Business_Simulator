@@ -1,5 +1,5 @@
 import { INITIAL_GAME_STATE, INITIAL_RELATIONSHIP_STATE, RelationshipConnection } from '../../types/game';
-import { annualDeathChance } from '../lifecycleEngine';
+import { annualDeathChance, calculateEstateSettlement } from '../lifecycleEngine';
 import { getNetWorth } from '../financeEngine';
 import { processEconomy } from '../economyEngine';
 import { getChildWeeklyCost, getProposalCost, getWeddingCost, processRelationships } from '../relationshipEngine';
@@ -314,5 +314,128 @@ describe('expanded relationship progression', () => {
 
     expect(result.partnerContribution).toBe(0);
     expect(result.state.activeConnections[0].employmentStatus).toBe('unemployed');
+  });
+
+  it('distributes a default estate between spouse and children', () => {
+    const spouse: RelationshipConnection = {
+      id: 'spouse-estate',
+      name: 'Sophie',
+      gender: 'woman',
+      age: 70,
+      occupationId: 'accounting',
+      occupationTitle: 'Assistant Accountant',
+      weeklyIncome: 1000,
+      savings: 40000,
+      financialStyle: 'frugal',
+      riskTolerance: 'balanced',
+      ambition: 'career_minded',
+      familyGoal: 'wants_children',
+      visibleTraits: ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'],
+      stage: 'married',
+      connection: 90,
+      relationship: 90,
+      dates: 10,
+      weeksKnown: 200,
+      isCohabiting: true,
+      householdSplit: 'equal',
+      marriageAgreement: 'separate',
+    };
+    const state = {
+      ...INITIAL_GAME_STATE,
+      cash: 100000,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        partnerId: spouse.id,
+        activeConnections: [spouse],
+        children: [
+          { id: 'child-1', name: 'Mila', gender: 'girl' as const, birthGlobalWeek: 1, age: 25, educationFund: 0 },
+          { id: 'child-2', name: 'Finn', gender: 'boy' as const, birthGlobalWeek: 1, age: 23, educationFund: 0 },
+        ],
+      },
+    };
+    const estate = calculateEstateSettlement(state);
+    const spouseShare = estate.beneficiaries.find((item) => item.id === spouse.id);
+    const childShares = estate.beneficiaries.filter((item) => item.relationship === 'child');
+
+    expect(spouseShare?.share).toBeCloseTo(0.5);
+    expect(childShares).toHaveLength(2);
+    expect(childShares[0].share).toBeCloseTo(0.25);
+    expect(estate.netEstate).toBeLessThan(estate.grossEstate);
+  });
+
+  it('reduces estate administration cost when a family trust exists', () => {
+    const baseState = {
+      ...INITIAL_GAME_STATE,
+      cash: 1000000,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [{ id: 'child', name: 'Mila', gender: 'girl' as const, birthGlobalWeek: 1, age: 30, educationFund: 0 }],
+      },
+    };
+    const withoutPlan = calculateEstateSettlement(baseState);
+    const withTrust = calculateEstateSettlement({
+      ...baseState,
+      relationshipState: {
+        ...baseState.relationshipState,
+        estatePlan: {
+          ...baseState.relationshipState.estatePlan,
+          structure: 'family_trust' as const,
+        },
+      },
+    });
+
+    expect(withTrust.administrationCost).toBeLessThan(withoutPlan.administrationCost);
+    expect(withTrust.netEstate).toBeGreaterThan(withoutPlan.netEstate);
+  });
+
+  it('can end an elderly marriage when the partner dies and transfers spouse savings', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+    const spouse: RelationshipConnection = {
+      id: 'elder-spouse',
+      name: 'Sophie',
+      gender: 'woman',
+      age: 125,
+      occupationId: 'accounting',
+      occupationTitle: 'Assistant Accountant',
+      weeklyIncome: 1000,
+      savings: 50000,
+      financialStyle: 'frugal',
+      riskTolerance: 'balanced',
+      ambition: 'career_minded',
+      familyGoal: 'wants_children',
+      visibleTraits: ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'],
+      stage: 'married',
+      connection: 90,
+      relationship: 90,
+      dates: 10,
+      weeksKnown: 200,
+      isCohabiting: true,
+      householdSplit: 'equal',
+      marriageAgreement: 'separate',
+      employmentStatus: 'employed',
+      careerLevel: 3,
+      lastCareerEventWeek: 1,
+    };
+
+    const result = processRelationships({
+      ...INITIAL_GAME_STATE,
+      year: 20,
+      week: 1,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        preferencesSet: true,
+        partnerId: spouse.id,
+        activeConnections: [spouse],
+        personalActionWeek: 381,
+      },
+    });
+
+    expect(result.partnerDiedName).toBe('Sophie');
+    expect(result.partnerInheritance).toBeGreaterThan(0);
+    expect(result.state.partnerId).toBeNull();
+    expect(result.state.formerPartners).toHaveLength(1);
   });
 });
