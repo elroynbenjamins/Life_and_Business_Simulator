@@ -1599,14 +1599,14 @@ const useGameStore = create<GameStore>((set, get) => ({
       successorName: child.name,
     };
 
-    const occupationToLegacyJob: Record<string, string> = {
-      retail: 'cashier',
-      admin: 'office_assistant',
-      accounting: 'accountant',
-      marketing: 'marketing_specialist',
-      developer: 'software_developer',
+    const occupationTitleToLegacyJob: Record<string, string> = {
+      'Retail Employee': 'cashier',
+      'Administrative Assistant': 'office_assistant',
+      'Assistant Accountant': 'accountant',
+      'Marketing Specialist': 'marketing_specialist',
+      'Software Developer': 'software_developer',
     };
-    const inheritedJobId = occupationToLegacyJob[(child as any).occupationTitle === 'Assistant Accountant' ? 'accounting' : ''] ?? null;
+    const inheritedJobId = occupationTitleToLegacyJob[child.occupationTitle ?? ''] ?? null;
 
     const inheritedCompetitors = Object.fromEntries(
       inheritedBusinesses.map((business) => [business.id, state.competitors?.[business.id] ?? []])
