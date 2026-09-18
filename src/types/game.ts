@@ -99,6 +99,7 @@ export interface RelationshipState {
   familyPlan: FamilyPlan;
   familyExpansionWeeksRemaining: number;
   lastRelationshipEventWeek: number;
+  recentRelationshipEventIds: string[];
   pendingEvent: RelationshipEvent | null;
   financialSnapshot: RelationshipFinancialSnapshot | null;
 }
@@ -118,6 +119,7 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   familyPlan: 'not_discussed',
   familyExpansionWeeksRemaining: 0,
   lastRelationshipEventWeek: 0,
+  recentRelationshipEventIds: [],
   pendingEvent: null,
   financialSnapshot: null,
 };
