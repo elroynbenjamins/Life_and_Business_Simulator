@@ -137,6 +137,7 @@ export default function BusinessDetailScreen() {
     .filter((stake) => stake.ownerType === 'family_trust')
     .reduce((sum, stake) => sum + (stake.percent ?? 0), 0);
   const pendingDecision = biz.pendingDecision ?? null;
+  const equityStructuringUnlocked = (biz.level ?? 0) >= 3;
 
 
   // Market share pie chart data
@@ -384,7 +385,14 @@ export default function BusinessDetailScreen() {
             </View>
           ))}
 
-          {playerOwnershipPct > 0 && (
+          {!equityStructuringUnlocked && (
+            <View style={styles.lockedEquity}>
+              <Ionicons name="lock-closed-outline" size={15} color={Colors.textMuted} />
+              <Text style={styles.lockedEquityText}>New share transfers unlock when the company reaches Regional scale.</Text>
+            </View>
+          )}
+
+          {playerOwnershipPct > 0 && equityStructuringUnlocked && (
             <>
               <Text style={styles.subHeading}>Raise / Transfer Equity</Text>
               <View style={styles.shareActions}>
@@ -1230,6 +1238,8 @@ const styles = StyleSheet.create({
   ownershipSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   controlNote: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginBottom: 7 },
   ownershipValue: { color: Colors.info, fontSize: 15, fontWeight: '800' },
+  lockedEquity: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.elevated, borderRadius: 8, padding: 8, marginVertical: 7 },
+  lockedEquityText: { color: Colors.textMuted, fontSize: 9, flex: 1 },
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   ownerName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700' },
   ownerType: { color: Colors.textMuted, fontSize: 9, textTransform: 'capitalize', marginTop: 2 },
