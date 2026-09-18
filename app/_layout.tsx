@@ -18,6 +18,7 @@ import GameDialog from '../src/components/GameDialog';
 import TutorialModal from '../src/components/TutorialModal';
 import { initializeAdConsent } from '../src/services/adPrivacyManager';
 import EducationCareerReminderModal from '../src/components/EducationCareerReminderModal';
+import DeathModal from '../src/components/DeathModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -66,6 +67,7 @@ export default function RootLayout() {
         <Stack.Screen name="prestige" />
         <Stack.Screen name="properties" />
         <Stack.Screen name="info" />
+        <Stack.Screen name="relationships" />
       </Stack>
       <MainMenu />
       <SaveSlotPicker />
@@ -77,6 +79,7 @@ export default function RootLayout() {
       <PeriodReportModal />
       <ScheduledAdModal />
       <EducationCareerReminderModal />
+      <DeathModal />
       <GameDialog />
     </SafeAreaProvider>
   );
