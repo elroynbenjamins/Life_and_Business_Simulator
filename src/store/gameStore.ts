@@ -38,6 +38,7 @@ interface GameStore extends GameState {
   showScheduledAd: boolean;
   showEducationCareerReminder: boolean;
   showRelationshipEventModal: boolean;
+  relationshipFeedback: { title: string; message: string; positive: boolean } | null;
   educationCareerReminder: EducationCareerReminder | null;
   periodReport: PeriodReport | null;
 
@@ -120,6 +121,7 @@ interface GameStore extends GameState {
   endPartnership: () => void;
   dismissRelationshipEventModal: () => void;
   handleRelationshipEventChoice: (choiceIndex: number) => void;
+  dismissRelationshipFeedback: () => void;
 
   // Events
   showEventModal: boolean;
@@ -186,6 +188,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   showScheduledAd: false,
   showEducationCareerReminder: false,
   showRelationshipEventModal: false,
+  relationshipFeedback: null,
   educationCareerReminder: null,
   periodReport: null,
   periodIncome: 0,
@@ -959,7 +962,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `First date with ${candidate.name}` }],
     };
     const updates = { cash: (state.cash ?? 0) - cost, relationshipState };
-    set(updates);
+    set({ ...updates, relationshipFeedback: { title: 'First Date', message: `The date with ${candidate.name} increased your connection by ${gain} points.`, positive: true } });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -991,7 +994,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     });
     const relationshipState = { ...state.relationshipState, activeConnections: connections, personalActionWeek: gw };
     const updates = { cash: (state.cash ?? 0) - cost, relationshipState };
-    set(updates);
+    set({ ...updates, relationshipFeedback: { title: 'Date Complete', message: `You spent time together and the relationship improved.`, positive: true } });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -1018,7 +1021,9 @@ const useGameStore = create<GameStore>((set, get) => ({
       );
     }
     const relationshipState = { ...state.relationshipState, activeConnections: connections, partnerId, timeline };
-    set({ relationshipState });
+    set({ relationshipState, relationshipFeedback: accepted
+      ? { title: 'New Relationship', message: `${connection.name} said yes. You are now officially partners.`, positive: true }
+      : { title: 'Not Yet', message: `${connection.name} is not ready to become exclusive yet.`, positive: false } });
     saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
   },
 
@@ -1044,7 +1049,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       activeConnections: connections,
       timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Moved in with ${partner.name}` }],
     };
-    set({ relationshipState });
+    set({ relationshipState, relationshipFeedback: { title: 'Living Together', message: `You and ${partner.name} now share a household.`, positive: true } });
     saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
   },
 
@@ -1150,7 +1155,9 @@ const useGameStore = create<GameStore>((set, get) => ({
         : state.relationshipState.timeline,
     };
     const updates = { cash: (state.cash ?? 0) - cost, relationshipState };
-    set(updates);
+    set({ ...updates, relationshipFeedback: accepted
+      ? { title: 'Engaged!', message: `${partner.name} accepted your proposal.`, positive: true }
+      : { title: 'Proposal Declined', message: `${partner.name} is not ready for marriage. The relationship took a hit.`, positive: false } });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -1192,7 +1199,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     };
     const tempHappinessEffects = [...(state.tempHappinessEffects ?? []), { amount: 10, weeksRemaining: 4, source: 'Wedding' }];
     const updates = { cash: (state.cash ?? 0) - playerCost, relationshipState, tempHappinessEffects };
-    set(updates);
+    set({ ...updates, relationshipFeedback: { title: 'Married', message: `You and ${partner.name} are now married.`, positive: true } });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -1246,7 +1253,12 @@ const useGameStore = create<GameStore>((set, get) => ({
       timeline,
     };
     const updates = { cash, relationshipState };
-    set(updates);
+    const familyFeedback = plan === 'trying'
+      ? (acceptedPlan === 'trying' && familyExpansionWeeksRemaining > 0
+        ? { title: 'Family Plans', message: `${partner.name} agrees. Your family will grow in the coming weeks.`, positive: true }
+        : { title: 'Family Plans', message: `${partner.name} is not ready to grow the family right now.`, positive: false })
+      : { title: 'Family Plans', message: 'You discussed what you both want for the future.', positive: relationshipDelta >= 0 };
+    set({ ...updates, relationshipFeedback: familyFeedback });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -1348,6 +1360,8 @@ const useGameStore = create<GameStore>((set, get) => ({
       set({ showRelationshipEventModal: false });
     }
   },
+
+  dismissRelationshipFeedback: () => set({ relationshipFeedback: null }),
 
   takeLoan: (loanId: string) => {
     const state = get();
