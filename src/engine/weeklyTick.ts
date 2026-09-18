@@ -237,6 +237,27 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   });
   newCash += bizResult.totalDividend;
 
+  const childDividendMap = new Map<string, number>();
+  let familyTrustDistribution = 0;
+  for (const distribution of bizResult.ownershipDistributions ?? []) {
+    if (distribution.ownerType === 'child') {
+      childDividendMap.set(
+        distribution.ownerId,
+        (childDividendMap.get(distribution.ownerId) ?? 0) + (distribution.amount ?? 0),
+      );
+    } else if (distribution.ownerType === 'family_trust') {
+      familyTrustDistribution += distribution.amount ?? 0;
+    }
+  }
+  const relationshipStateAfterBusiness = {
+    ...relationshipTick.state,
+    children: (relationshipTick.state.children ?? []).map((child) => ({
+      ...child,
+      savings: (child.savings ?? 0) + (childDividendMap.get(child.id) ?? 0),
+    })),
+    familyTrustCash: (relationshipTick.state.familyTrustCash ?? 0) + familyTrustDistribution,
+  };
+
   // ---------- Step 12.7: Tick Temp Happiness Effects ----------
   const updatedTempEffects: TempHappinessEffect[] = [];
   for (const eff of state?.tempHappinessEffects ?? []) {
@@ -293,7 +314,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
       return next.length > 40 ? next.slice(next.length - 40) : next;
     })(),
     partTimeJob: partTimeActive,
-    relationshipState: relationshipTick.state,
+    relationshipState: relationshipStateAfterBusiness,
     lifecycle: state?.lifecycle,
     lastMacroCrashWeek: economy.crashEvent ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
   };
