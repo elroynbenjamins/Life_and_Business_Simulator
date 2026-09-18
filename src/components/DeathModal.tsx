@@ -7,6 +7,10 @@ import { formatCurrency } from '../utils/format';
 export default function DeathModal() {
   const lifecycle = useGameStore((s) => s.lifecycle);
   const showMainMenu = useGameStore((s) => s.showMainMenu);
+  const showSummary = useGameStore((s) => s.showSummary);
+  const showEventModal = useGameStore((s) => s.showEventModal);
+  const showRelationshipEventModal = useGameStore((s) => s.showRelationshipEventModal);
+  const showPeriodReport = useGameStore((s) => s.showPeriodReport);
   const beginNewGame = useGameStore((s) => s.beginNewGame);
   const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
   const [reviewLegacy, setReviewLegacy] = useState(false);
@@ -15,7 +19,7 @@ export default function DeathModal() {
     if (!lifecycle?.isDead) setReviewLegacy(false);
   }, [lifecycle?.isDead]);
 
-  if (!lifecycle?.isDead || showMainMenu || reviewLegacy) return null;
+  if (!lifecycle?.isDead || showMainMenu || reviewLegacy || showSummary || showEventModal || showRelationshipEventModal || showPeriodReport) return null;
 
   return (
     <Modal visible transparent animationType="fade">
