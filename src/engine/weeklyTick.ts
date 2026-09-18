@@ -306,7 +306,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
 
   // ---------- Step 15: Statistics ----------
   const prevStats: LifetimeStatistics = state?.statistics ?? { ...INITIAL_STATISTICS };
-  const livingCosts = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + relationshipTick.householdExtraCost + relationshipTick.familyCost + relationshipTick.obligationCost;
+  const livingCosts = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + relationshipTick.householdExtraCost + relationshipTick.familyCost;
   const isEmployed = hasCareerV2 || !!state?.currentJobId;
   const stats: LifetimeStatistics = {
     ...INITIAL_STATISTICS,
