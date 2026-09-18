@@ -7,7 +7,7 @@ import { Colors } from '../../src/theme/colors';
 import GameStatusBar from '../../src/components/StatusBar';
 import GameCard from '../../src/components/GameCard';
 import useGameStore from '../../src/store/gameStore';
-import { DatingPreference, MarriageAgreement, RelationshipConnection } from '../../src/types/game';
+import { DatingPreference, EstatePlanType, EstateStructureType, MarriageAgreement, RelationshipConnection } from '../../src/types/game';
 import { formatCurrency } from '../../src/utils/format';
 import {
   getChildAge,
@@ -48,6 +48,7 @@ export default function RelationshipsScreen() {
   const relationshipCounseling = useGameStore((s) => s.relationshipCounseling);
   const setSharedGoal = useGameStore((s) => s.setSharedRelationshipGoal);
   const cancelSharedGoal = useGameStore((s) => s.cancelSharedRelationshipGoal);
+  const setEstatePlan = useGameStore((s) => s.setEstatePlan);
   const feedback = useGameStore((s) => s.relationshipFeedback);
   const dismissFeedback = useGameStore((s) => s.dismissRelationshipFeedback);
 
@@ -68,6 +69,12 @@ export default function RelationshipsScreen() {
   const pendingRelationshipEvent = relationship?.pendingEvent ?? null;
   const sharedGoal = relationship?.sharedGoal ?? null;
   const sharedGoalProgress = getSharedGoalProgress(sharedGoal, state);
+  const estatePlan = relationship?.estatePlan;
+  const adultChildren = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) >= 18);
+  const estateSuccessors = [
+    ...(partner?.stage === 'married' ? [{ id: partner.id, name: partner.name, role: 'Spouse' }] : []),
+    ...adultChildren.map((child) => ({ id: child.id, name: child.name, role: 'Adult child' })),
+  ];
 
   if (!enabled) {
     return (
@@ -410,6 +417,91 @@ export default function RelationshipsScreen() {
           </>
         )}
 
+        {(partner?.stage === 'married' || (relationship.children ?? []).length > 0) && estatePlan && (
+          <>
+            <Text style={styles.sectionTitle}>Estate Planning</Text>
+            <GameCard>
+              <Text style={styles.helper}>
+                Decide how your estate is divided when this life ends. These settings do not transfer playable cash during your lifetime.
+              </Text>
+
+              <Text style={styles.subheading}>Inheritance Split</Text>
+              <View style={styles.estateOptionGrid}>
+                {([
+                  ['default', 'Family Default'],
+                  ['spouse_first', 'Spouse First'],
+                  ['children_first', 'Children First'],
+                  ['equal_family', 'Equal Family'],
+                ] as Array<[EstatePlanType, string]>).map(([type, label]) => (
+                  <Pressable
+                    key={type}
+                    style={[styles.estateChoice, estatePlan.planType === type && styles.choiceSelected]}
+                    onPress={() => setEstatePlan(type, estatePlan.structure, estatePlan.successorId)}
+                  >
+                    <Text style={[styles.choiceText, estatePlan.planType === type && styles.choiceTextSelected]}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.agreementHelp}>{estatePlanDescription(estatePlan.planType, !!(partner?.stage === 'married'), relationship.children?.length ?? 0)}</Text>
+
+              <Text style={styles.subheading}>Estate Structure</Text>
+              <View style={styles.estateStructureList}>
+                {([
+                  ['none', 'No Formal Plan', 0, 'Highest administration cost at death.'],
+                  ['will', 'Documented Will', Math.round(2000 * state.inflationMultiplier), 'Lower estate administration cost.'],
+                  ['family_trust', 'Family Trust', Math.round(25000 * state.inflationMultiplier), 'Lowest administration cost; expensive to establish.'],
+                ] as Array<[EstateStructureType, string, number, string]>).map(([type, label, cost, desc]) => {
+                  const changing = estatePlan.structure !== type;
+                  const unavailable = changing && state.cash < cost;
+                  return (
+                    <Pressable
+                      key={type}
+                      disabled={unavailable}
+                      style={[styles.estateStructureRow, estatePlan.structure === type && styles.estateStructureSelected, unavailable && styles.disabled]}
+                      onPress={() => setEstatePlan(estatePlan.planType, type, estatePlan.successorId)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.compactTitle}>{label}</Text>
+                        <Text style={styles.meta}>{desc}</Text>
+                      </View>
+                      <Text style={styles.moneyText}>
+                        {estatePlan.structure === type ? 'Active' : cost > 0 ? formatCurrency(cost) : 'Free'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.subheading}>Business Successor</Text>
+              {estateSuccessors.length > 0 ? (
+                <View style={styles.successorList}>
+                  <Pressable
+                    style={[styles.successorRow, !estatePlan.successorId && styles.successorSelected]}
+                    onPress={() => setEstatePlan(estatePlan.planType, estatePlan.structure, null)}
+                  >
+                    <Text style={styles.compactTitle}>No named successor</Text>
+                  </Pressable>
+                  {estateSuccessors.map((candidate) => (
+                    <Pressable
+                      key={candidate.id}
+                      style={[styles.successorRow, estatePlan.successorId === candidate.id && styles.successorSelected]}
+                      onPress={() => setEstatePlan(estatePlan.planType, estatePlan.structure, candidate.id)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.compactTitle}>{candidate.name}</Text>
+                        <Text style={styles.meta}>{candidate.role}</Text>
+                      </View>
+                      {estatePlan.successorId === candidate.id && <Ionicons name="checkmark-circle" size={19} color={Colors.primary} />}
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.helper}>A spouse or adult child is required before you can name a business successor.</Text>
+              )}
+            </GameCard>
+          </>
+        )}
+
         {(relationship.children ?? []).length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Family</Text>
@@ -619,6 +711,16 @@ function ActionTile({ icon, label, disabled, onPress }: { icon: string; label: s
   </Pressable>;
 }
 
+function estatePlanDescription(type: EstatePlanType, hasSpouse: boolean, childCount: number) {
+  if (!hasSpouse && childCount === 0) return 'No family beneficiaries are currently available.';
+  if (!hasSpouse) return 'Your children divide the estate equally.';
+  if (childCount === 0) return 'Your spouse receives the estate.';
+  if (type === 'spouse_first') return '75% to your spouse; 25% divided equally among children.';
+  if (type === 'children_first') return '25% to your spouse; 75% divided equally among children.';
+  if (type === 'equal_family') return 'Your spouse and each child receive equal shares.';
+  return '50% to your spouse; 50% divided equally among children.';
+}
+
 function getSharedGoalProgress(goal: any, state: any): number {
   if (!goal) return 0;
   if (goal.type === 'cash_buffer') return Math.max(0, state.cash ?? 0);
@@ -747,6 +849,14 @@ const styles = StyleSheet.create({
   dangerButtonText: { color: Colors.negative, fontSize: 12, fontWeight: '800' },
   dangerLink: { alignItems: 'center', paddingVertical: 11, marginTop: 9 },
   dangerText: { color: Colors.negative, fontSize: 12, fontWeight: '700' },
+  estateOptionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  estateChoice: { flexBasis: '47%', flexGrow: 1, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, paddingVertical: 10, paddingHorizontal: 8, alignItems: 'center' },
+  estateStructureList: { gap: 7 },
+  estateStructureRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 10 },
+  estateStructureSelected: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}10` },
+  successorList: { gap: 7 },
+  successorRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 10 },
+  successorSelected: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}10` },
   goalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   goalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   historyRow: { flexDirection: 'row', gap: 10, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
