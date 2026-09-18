@@ -19,6 +19,7 @@ import TutorialModal from '../src/components/TutorialModal';
 import { initializeAdConsent } from '../src/services/adPrivacyManager';
 import EducationCareerReminderModal from '../src/components/EducationCareerReminderModal';
 import DeathModal from '../src/components/DeathModal';
+import RelationshipEventModal from '../src/components/RelationshipEventModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -79,6 +80,7 @@ export default function RootLayout() {
       <PeriodReportModal />
       <ScheduledAdModal />
       <EducationCareerReminderModal />
+      <RelationshipEventModal />
       <DeathModal />
       <GameDialog />
     </SafeAreaProvider>
