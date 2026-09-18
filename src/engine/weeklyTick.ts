@@ -296,6 +296,12 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   // Mortality is checked only when the player ages, never on every weekly advance.
   const lifecycleResult = processLifecycle(tempState, state?.age ?? 20);
   tempState.lifecycle = lifecycleResult.lifecycle;
+  if (lifecycleResult.estateSettlement) {
+    tempState.relationshipState = {
+      ...tempState.relationshipState,
+      estateSettlement: lifecycleResult.estateSettlement,
+    };
+  }
 
   // ---------- Step 14: Net Worth ----------
   const nw = getNetWorth(tempState);
