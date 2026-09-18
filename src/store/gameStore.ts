@@ -421,8 +421,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // Accumulate period stats
-    const totalExp = summary.rentPaid + summary.utilityCost + summary.foodCost + summary.carCost + summary.courseCost + summary.loanPayments;
-    const newPeriodIncome = (state.periodIncome ?? 0) + summary.salaryEarned + (summary.partTimeIncome ?? 0);
+    const totalExp = summary.rentPaid + summary.utilityCost + summary.foodCost + summary.carCost + summary.courseCost + summary.loanPayments + (summary.relationshipHouseholdCost ?? 0) + (summary.familyCost ?? 0);
+    const newPeriodIncome = (state.periodIncome ?? 0) + summary.salaryEarned + (summary.partTimeIncome ?? 0) + (summary.partnerContribution ?? 0);
     const newPeriodExpenses = (state.periodExpenses ?? 0) + totalExp;
     const newPeriodTax = (state.periodTax ?? 0) + summary.taxAmount;
     const isEmployed = !!(gameState.career?.companyId || gameState.currentJobId);
