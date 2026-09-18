@@ -138,6 +138,9 @@ export default function BusinessDetailScreen() {
     .reduce((sum, stake) => sum + (stake.percent ?? 0), 0);
   const pendingDecision = biz.pendingDecision ?? null;
   const equityStructuringUnlocked = (biz.level ?? 0) >= 3;
+  const canIssue5 = playerOwnershipPct * 0.95 >= 51;
+  const canIssue10 = playerOwnershipPct * 0.90 >= 51;
+  const canTransfer5 = playerOwnershipPct >= 56;
 
 
   // Market share pie chart data
@@ -397,16 +400,16 @@ export default function BusinessDetailScreen() {
               <Text style={styles.subHeading}>Raise / Transfer Equity</Text>
               <View style={styles.shareActions}>
                 <Pressable
-                  disabled={playerOwnershipPct < 56}
-                  style={[styles.shareButton, playerOwnershipPct < 56 && { opacity: 0.35 }]}
+                  disabled={!canIssue5}
+                  style={[styles.shareButton, !canIssue5 && { opacity: 0.35 }]}
                   onPress={() => transferBusinessShares(biz.id, 'investor', null, 5)}
                 >
                   <Text style={styles.shareButtonTitle}>Sell 5%</Text>
                   <Text style={styles.shareButtonMeta}>Outside investor</Text>
                 </Pressable>
                 <Pressable
-                  disabled={playerOwnershipPct < 61}
-                  style={[styles.shareButton, playerOwnershipPct < 61 && { opacity: 0.35 }]}
+                  disabled={!canIssue10}
+                  style={[styles.shareButton, !canIssue10 && { opacity: 0.35 }]}
                   onPress={() => transferBusinessShares(biz.id, 'investor', null, 10)}
                 >
                   <Text style={styles.shareButtonTitle}>Sell 10%</Text>
@@ -417,8 +420,8 @@ export default function BusinessDetailScreen() {
               {relationshipState?.estatePlan?.structure === 'family_trust' && (
                 <View style={styles.shareActions}>
                   <Pressable
-                    disabled={playerOwnershipPct < 56}
-                    style={[styles.shareButton, playerOwnershipPct < 56 && { opacity: 0.35 }]}
+                    disabled={!canTransfer5}
+                    style={[styles.shareButton, !canTransfer5 && { opacity: 0.35 }]}
                     onPress={() => transferBusinessShares(biz.id, 'family_trust', null, 5)}
                   >
                     <Text style={styles.shareButtonTitle}>Trust 5%</Text>
@@ -437,8 +440,8 @@ export default function BusinessDetailScreen() {
                     <Text style={styles.actionDesc}>Parent bond {Math.round(child.parentRelationship ?? 75)}%</Text>
                   </View>
                   <Pressable
-                    disabled={playerOwnershipPct < 56}
-                    style={[styles.smallShareButton, playerOwnershipPct < 56 && { opacity: 0.35 }]}
+                    disabled={!canTransfer5}
+                    style={[styles.smallShareButton, !canTransfer5 && { opacity: 0.35 }]}
                     onPress={() => transferBusinessShares(biz.id, 'child', child.id, 5)}
                   >
                     <Text style={styles.smallShareText}>Give 5%</Text>
