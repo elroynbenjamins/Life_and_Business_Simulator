@@ -12,7 +12,7 @@ import { getSuccessionPreview } from '../engine/lifecycleEngine';
 import { getCareerSalary } from '../engine/careerEngine';
 import { applyEducationRewards } from '../engine/skillEngine';
 import { createInitialCompetitors, migrateBusinessCompetitors } from '../engine/competitorEngine';
-import { generateRelationshipCandidates, getDateConnectionGain, getDateCost, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
+import { generateRelationshipCandidates, getDateConnectionGain, getDateCost, getFamilyFormationProfile, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
 import coursesData from '../data/courses.json';
 import jobsData from '../data/jobs.json';
@@ -1289,13 +1289,14 @@ const useGameStore = create<GameStore>((set, get) => ({
         && gw - (state.relationshipState.lastFamilyAttemptWeek ?? 0) < 10;
       const playerAge = state.age ?? 20;
       const partnerAge = partner.age ?? 20;
+      const familyProfile = getFamilyFormationProfile(playerAge, partnerAge, children.length);
       const oldestAge = Math.max(playerAge, partnerAge);
-      const prospectiveDuration = oldestAge <= 34 ? 6 : oldestAge <= 39 ? 8 : 10;
+      const prospectiveDuration = familyProfile.durationWeeks;
       const wouldCrossAgeLimit = oldestAge === 42 && (state.week ?? 1) + prospectiveDuration > 20;
-      const ageLimitReached = playerAge > 42 || partnerAge > 42 || wouldCrossAgeLimit;
+      const ageLimitReached = !familyProfile.allowedByAge || wouldCrossAgeLimit;
       const tooYoung = playerAge < 21 || partnerAge < 21;
 
-      if (children.length >= 3 || familyExpansionWeeksRemaining > 0 || tooSoonAfterLastChild || tooSoonAfterAttempt || ageLimitReached || tooYoung) {
+      if (children.length >= familyProfile.maxChildren || familyExpansionWeeksRemaining > 0 || tooSoonAfterLastChild || tooSoonAfterAttempt || ageLimitReached || tooYoung) {
         set({
           relationshipFeedback: {
             title: 'Family Plans',
@@ -1319,13 +1320,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       const setupCost = Math.round(1000 * (state.inflationMultiplier ?? 1));
       if (cash < setupCost) return;
 
-      let successChance = oldestAge <= 24 ? 0.25
-        : oldestAge <= 29 ? 0.65
-          : oldestAge <= 34 ? 0.85
-            : oldestAge <= 39 ? 0.60
-              : 0.25;
-      if (children.length === 1) successChance *= 0.85;
-      if (children.length === 2) successChance *= 0.55;
+      let successChance = familyProfile.baseSuccessChance;
       if (partner.familyGoal === 'wants_children') successChance = Math.min(0.95, successChance * 1.10);
       if (partner.familyGoal === 'unsure') successChance *= 0.70;
 
@@ -1340,7 +1335,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         relationshipDelta = partner.familyGoal === 'wants_children' ? 0 : -1;
       } else {
         acceptedPlan = 'trying';
-        familyExpansionWeeksRemaining = prospectiveDuration;
+        familyExpansionWeeksRemaining = familyProfile.durationWeeks;
         relationshipDelta = partner.familyGoal === 'wants_children' ? 5 : 2;
       }
     } else if (plan === 'no_children') {
