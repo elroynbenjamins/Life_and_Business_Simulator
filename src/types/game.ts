@@ -41,6 +41,7 @@ export interface RelationshipConnection extends RelationshipCandidate {
   marriageAgreement?: MarriageAgreement;
   netWorthAtMarriage?: number;
   endedWeek?: number;
+  endedReason?: 'breakup' | 'divorce' | 'death';
   employmentStatus?: 'employed' | 'unemployed';
   unemploymentWeeks?: number;
   careerLevel?: number;
