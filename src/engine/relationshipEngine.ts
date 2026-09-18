@@ -461,13 +461,22 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   const partner = current.partnerId ? activeConnections.find((c) => c.id === current.partnerId) ?? null : null;
   const finances = calculatePartnerContribution(partner, workingState);
 
+  // Partners keep their own money. Their unspent income grows personal savings
+  // according to financial style, which can later support shared major expenses.
+  const savingsConnections = activeConnections.map((connection) => {
+    if (connection.id !== current.partnerId) return connection;
+    const rate = connection.financialStyle === 'frugal' ? 0.20 : connection.financialStyle === 'luxury' ? 0.04 : 0.10;
+    const disposable = Math.max(0, (connection.weeklyIncome ?? 0) - finances.contribution);
+    return { ...connection, savings: Math.round((connection.savings ?? 0) + disposable * rate) };
+  });
+
   let relationshipChange = 0;
   let headline: string | null = childBornName ? `${childBornName} joined your family.` : null;
-  let adjustedConnections = activeConnections;
+  let adjustedConnections = savingsConnections;
   if (partner && gw - (current.personalActionWeek ?? 0) >= 8) {
     relationshipChange = -2;
     headline = `${partner.name} feels you've had little time together lately.`;
-    adjustedConnections = activeConnections.map((c) =>
+    adjustedConnections = savingsConnections.map((c) =>
       c.id === partner.id ? { ...c, relationship: Math.max(0, (c.relationship ?? 70) - 2) } : c
     );
   }
