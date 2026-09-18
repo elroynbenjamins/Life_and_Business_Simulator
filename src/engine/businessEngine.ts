@@ -562,6 +562,7 @@ export interface BusinessTickResult {
   weeklyExpenses: number;
   weeklyProfit: number;
   playerDividend: number;
+  ownershipDistributions: Array<{ ownerType: 'player' | 'child' | 'family_trust' | 'investor'; ownerId: string; ownerName: string; amount: number }>;
   taxRefund: number;
   newEvent: { businessName: string; eventTitle: string; icon: string } | null;
   newRetention: { businessName: string; employeeName: string; type: string } | null;
@@ -584,7 +585,7 @@ export function processBusinessWeek(
 ): BusinessTickResult {
   const type = getBusinessType(biz.typeId);
   if (!type) {
-    return { updatedBusiness: biz, weeklyRevenue: 0, weeklyExpenses: 0, weeklyProfit: 0, playerDividend: 0, taxRefund: 0, newEvent: null, newRetention: null };
+    return { updatedBusiness: biz, weeklyRevenue: 0, weeklyExpenses: 0, weeklyProfit: 0, playerDividend: 0, ownershipDistributions: [], taxRefund: 0, newEvent: null, newRetention: null };
   }
 
   // Minimum staffing check - business earns NOTHING if under staffed
@@ -906,11 +907,24 @@ export function processBusinessWeek(
   // Balance & dividend
   let newBalance = (biz.balance ?? 0) + profit + extraCashDelta;
   let playerDividend = 0;
+  let ownershipDistributions: BusinessTickResult['ownershipDistributions'] = [];
   if (newBalance > 0 && profit > 0) {
     const dividendRate = 0.7;
     const totalDividend = Math.round(Math.max(0, profit * dividendRate));
-    const playerPct = getPlayerOwnershipPct(biz) / 100;
-    playerDividend = Math.round(totalDividend * playerPct);
+    const ownership = biz.ownership?.length
+      ? biz.ownership
+      : [{ ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 100, votingPercent: 100 }];
+    ownershipDistributions = ownership
+      .filter((stake) => (stake.percent ?? 0) > 0)
+      .map((stake) => ({
+        ownerType: stake.ownerType,
+        ownerId: stake.ownerId,
+        ownerName: stake.ownerName,
+        amount: Math.round(totalDividend * (stake.percent ?? 0) / 100),
+      }));
+    playerDividend = ownershipDistributions
+      .filter((distribution) => distribution.ownerType === 'player')
+      .reduce((sum, distribution) => sum + distribution.amount, 0);
     newBalance -= totalDividend;
   }
   valuation = calculateValuation({
@@ -1090,6 +1104,7 @@ export function processBusinessWeek(
     weeklyExpenses: totalExpenses,
     weeklyProfit: profit,
     playerDividend,
+    ownershipDistributions,
     taxRefund,
     newEvent,
     newRetention,
@@ -1317,6 +1332,7 @@ export function processAllBusinesses(
   updatedBusinesses: OwnedBusiness[];
   totalProfit: number;
   totalDividend: number;
+  ownershipDistributions: BusinessTickResult['ownershipDistributions'];
   totalTaxRefund: number;
   events: { businessName: string; eventTitle: string; icon: string }[];
   retentionEvents: { businessName: string; employeeName: string; type: string }[];
@@ -1325,6 +1341,7 @@ export function processAllBusinesses(
   let totalProfit = 0;
   let totalDividend = 0;
   let totalTaxRefund = 0;
+  const ownershipDistributions: BusinessTickResult['ownershipDistributions'] = [];
   const events: { businessName: string; eventTitle: string; icon: string }[] = [];
   const retentionEvents: { businessName: string; employeeName: string; type: string }[] = [];
   const updatedBusinesses: OwnedBusiness[] = [];
@@ -1334,6 +1351,7 @@ export function processAllBusinesses(
     updatedBusinesses.push(result.updatedBusiness);
     totalProfit += result.weeklyProfit;
     totalDividend += result.playerDividend;
+    ownershipDistributions.push(...result.ownershipDistributions);
     totalTaxRefund += result.taxRefund;
     if (result.newEvent) events.push(result.newEvent);
     if (result.newRetention) retentionEvents.push(result.newRetention);
@@ -1352,7 +1370,7 @@ export function processAllBusinesses(
       };
     }
   }
-  return { updatedBusinesses, totalProfit, totalDividend, totalTaxRefund, events, retentionEvents, decisionEvent };
+  return { updatedBusinesses, totalProfit, totalDividend, ownershipDistributions, totalTaxRefund, events, retentionEvents, decisionEvent };
 }
 
 export function getTotalBusinessValue(businesses: OwnedBusiness[]): number {
