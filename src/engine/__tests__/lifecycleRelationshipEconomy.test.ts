@@ -1,5 +1,5 @@
 import { INITIAL_GAME_STATE, INITIAL_RELATIONSHIP_STATE, RelationshipConnection } from '../../types/game';
-import { annualDeathChance, calculateEstateSettlement } from '../lifecycleEngine';
+import { annualDeathChance, calculateChildInheritanceTax, calculateEstateSettlement, getSuccessionPreview } from '../lifecycleEngine';
 import { getNetWorth } from '../financeEngine';
 import { processEconomy } from '../economyEngine';
 import { getChildWeeklyCost, getProposalCost, getWeddingCost, processRelationships } from '../relationshipEngine';
@@ -10,8 +10,8 @@ describe('lifecycle and macro systems', () => {
   });
 
   it('does not introduce mortality before older age', () => {
-    expect(annualDeathChance(59)).toBe(0);
-    expect(annualDeathChance(60)).toBeGreaterThan(0);
+    expect(annualDeathChance(54)).toBe(0);
+    expect(annualDeathChance(55)).toBeGreaterThan(0);
     expect(annualDeathChance(90)).toBeGreaterThan(annualDeathChance(70));
     expect(annualDeathChance(125)).toBe(1);
   });
@@ -467,5 +467,65 @@ describe('expanded relationship progression', () => {
     expect(child.weeklyIncome).toBeGreaterThan(0);
     expect(child.educationOutcome).toBe('elite');
     expect(result.familyMilestones[0]).toContain('became independent');
+  });
+
+  it('applies progressive inheritance tax only to child inheritance above the allowance', () => {
+    expect(calculateChildInheritanceTax(50000)).toBe(0);
+    expect(calculateChildInheritanceTax(150000)).toBe(10000);
+    expect(calculateChildInheritanceTax(500000)).toBe(57500);
+    expect(calculateChildInheritanceTax(6000000)).toBeGreaterThan(calculateChildInheritanceTax(1000000));
+  });
+
+  it('creates an illiquid succession tax bill when a child inherits a business', () => {
+    const child = {
+      id: 'succession-child',
+      name: 'Mila',
+      gender: 'girl' as const,
+      birthGlobalWeek: 1,
+      age: 30,
+      educationFund: 0,
+      status: 'independent' as const,
+      occupationTitle: 'Assistant Accountant',
+      weeklyIncome: 1000,
+      savings: 10000,
+      homeStatus: 'renting' as const,
+      partnerName: null,
+      partnerGender: null,
+      childrenCount: 0,
+    };
+    const state = {
+      ...INITIAL_GAME_STATE,
+      year: 31,
+      week: 1,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [child],
+        estatePlan: {
+          ...INITIAL_RELATIONSHIP_STATE.estatePlan,
+          successorId: child.id,
+        },
+        estateSettlement: {
+          grossEstate: 1000000,
+          outstandingRelationshipObligations: 0,
+          administrationCost: 20000,
+          netEstate: 980000,
+          beneficiaries: [{
+            id: child.id,
+            name: child.name,
+            relationship: 'child' as const,
+            share: 1,
+            amount: 80000,
+          }],
+          successorName: child.name,
+          businessValue: 900000,
+        },
+      },
+    };
+    const preview = getSuccessionPreview(state, child.id);
+    expect(preview).not.toBeNull();
+    expect(preview?.inheritanceTaxBase).toBe(980000);
+    expect(preview?.taxCashAvailable).toBe(90000);
+    expect(preview?.loanNeeded).toBeGreaterThan(0);
   });
 });
