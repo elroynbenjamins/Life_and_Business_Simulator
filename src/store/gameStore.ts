@@ -275,6 +275,7 @@ const useGameStore = create<GameStore>((set, get) => ({
           children: (saved.relationshipState?.children ?? []).map((child) => ({
             ...child,
             parentRelationship: child.parentRelationship ?? 75,
+            lastParentInteractionWeek: child.lastParentInteractionWeek ?? child.birthGlobalWeek ?? 0,
             personality: child.personality ?? getChildPersonality(child.id),
             descendants: child.descendants ?? [],
             childrenCount: child.childrenCount ?? child.descendants?.length ?? 0,
@@ -374,6 +375,7 @@ const useGameStore = create<GameStore>((set, get) => ({
           children: (saved.relationshipState?.children ?? []).map((child) => ({
             ...child,
             parentRelationship: child.parentRelationship ?? 75,
+            lastParentInteractionWeek: child.lastParentInteractionWeek ?? child.birthGlobalWeek ?? 0,
             personality: child.personality ?? getChildPersonality(child.id),
             descendants: child.descendants ?? [],
             childrenCount: child.childrenCount ?? child.descendants?.length ?? 0,
@@ -1408,6 +1410,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             ...item,
             educationFund: (item.educationFund ?? 0) + Math.floor(amount),
             parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + relationshipGain),
+            lastParentInteractionWeek: ((state.year ?? 1) - 1) * 20 + (state.week ?? 1),
           }
         : item
     );
@@ -1434,7 +1437,11 @@ const useGameStore = create<GameStore>((set, get) => ({
     const gain = (child.age ?? 0) < 18 ? 5 : 3;
     const children = (state.relationshipState?.children ?? []).map((item) =>
       item.id === childId
-        ? { ...item, parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + gain) }
+        ? {
+            ...item,
+            parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + gain),
+            lastParentInteractionWeek: gw,
+          }
         : item
     );
     const relationshipState = {
@@ -1853,6 +1860,7 @@ const useGameStore = create<GameStore>((set, get) => ({
           descendants: [],
           otherParentId: successorPartner?.id ?? null,
           parentRelationship: 78,
+          lastParentInteractionWeek: currentGlobalWeek,
           personality: getChildPersonality(descendant.id),
         }))
       : Array.from({ length: child.childrenCount ?? 0 }, (_, index) => {
@@ -1880,6 +1888,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             descendants: [],
             otherParentId: successorPartner?.id ?? null,
             parentRelationship: 78,
+            lastParentInteractionWeek: currentGlobalWeek,
             personality: getChildPersonality(`generation_child_${nextGeneration}_${index}`),
           };
         });
@@ -2025,6 +2034,7 @@ const useGameStore = create<GameStore>((set, get) => ({
                   0,
                   Math.min(100, (child.parentRelationship ?? 75) + (choice.childRelationship ?? 0)),
                 ),
+                lastParentInteractionWeek: ((state.year ?? 1) - 1) * 20 + (state.week ?? 1),
               }
             : child
         )
