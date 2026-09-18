@@ -175,6 +175,8 @@ export interface RelationshipState {
   preference: DatingPreference;
   minAge: number;
   maxAge: number;
+  minAgeOffset: number;
+  maxAgeOffset: number;
   weeklyCandidates: RelationshipCandidate[];
   candidateRefreshWeek: number;
   activeConnections: RelationshipConnection[];
@@ -186,6 +188,7 @@ export interface RelationshipState {
   financialObligations: RelationshipFinancialObligation[];
   familyPlan: FamilyPlan;
   familyExpansionWeeksRemaining: number;
+  lastFamilyAttemptWeek: number;
   lastRelationshipEventWeek: number;
   recentRelationshipEventIds: string[];
   pendingEvent: RelationshipEvent | null;
@@ -199,8 +202,10 @@ export interface RelationshipState {
 export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   preferencesSet: false,
   preference: 'everyone',
-  minAge: 20,
-  maxAge: 35,
+  minAge: 18,
+  maxAge: 24,
+  minAgeOffset: -2,
+  maxAgeOffset: 4,
   weeklyCandidates: [],
   candidateRefreshWeek: 0,
   activeConnections: [],
@@ -212,6 +217,7 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   financialObligations: [],
   familyPlan: 'not_discussed',
   familyExpansionWeeksRemaining: 0,
+  lastFamilyAttemptWeek: 0,
   lastRelationshipEventWeek: 0,
   recentRelationshipEventIds: [],
   pendingEvent: null,
