@@ -417,6 +417,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     partnerCareerEvent: relationshipTick.partnerCareerEvent,
     partnerDiedName: relationshipTick.partnerDiedName,
     partnerInheritance: relationshipTick.partnerInheritance,
+    familyMilestones: relationshipTick.familyMilestones,
     relationshipChange: relationshipTick.relationshipChange,
     relationshipHeadline: relationshipTick.headline,
     crashEvent: economy.crashEvent,
