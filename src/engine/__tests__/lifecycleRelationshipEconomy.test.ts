@@ -1,7 +1,7 @@
 import { INITIAL_GAME_STATE, INITIAL_RELATIONSHIP_STATE, RelationshipConnection } from '../../types/game';
 import { annualDeathChance } from '../lifecycleEngine';
 import { processEconomy } from '../economyEngine';
-import { processRelationships } from '../relationshipEngine';
+import { getChildWeeklyCost, getProposalCost, getWeddingCost, processRelationships } from '../relationshipEngine';
 
 describe('lifecycle and macro systems', () => {
   afterEach(() => {
@@ -73,5 +73,67 @@ describe('optional relationship mode', () => {
     expect(result.partnerContribution).toBe(0);
     expect(result.householdExtraCost).toBe(0);
     expect(result.relationshipChange).toBe(0);
+  });
+});
+
+
+describe('expanded relationship progression', () => {
+  it('scales proposal and wedding costs predictably with inflation', () => {
+    expect(getProposalCost('simple', 2)).toBe(1500);
+    expect(getProposalCost('luxury', 1)).toBe(10000);
+    expect(getWeddingCost('courthouse', 1.5)).toBe(1500);
+    expect(getWeddingCost('luxury', 1)).toBe(40000);
+  });
+
+  it('adds child costs while keeping adult children cost-free', () => {
+    const baby = { id: 'c1', name: 'Mila', gender: 'girl' as const, birthGlobalWeek: 1, age: 0, educationFund: 0 };
+    const adult = { id: 'c2', name: 'Finn', gender: 'boy' as const, birthGlobalWeek: 1, age: 18, educationFund: 0 };
+    const state = { ...INITIAL_GAME_STATE, year: 1, week: 2, inflationMultiplier: 1 };
+    const adultState = { ...INITIAL_GAME_STATE, year: 19, week: 2, inflationMultiplier: 1 };
+    expect(getChildWeeklyCost(baby, state)).toBeGreaterThan(0);
+    expect(getChildWeeklyCost(adult, adultState)).toBe(0);
+  });
+
+  it('creates a child when a family expansion countdown completes', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.2);
+    const partner: RelationshipConnection = {
+      id: 'partner',
+      name: 'Sophie',
+      gender: 'woman',
+      age: 30,
+      occupationId: 'accounting',
+      occupationTitle: 'Assistant Accountant',
+      weeklyIncome: 900,
+      savings: 10000,
+      financialStyle: 'balanced',
+      riskTolerance: 'balanced',
+      ambition: 'career_minded',
+      familyGoal: 'wants_children',
+      visibleTraits: ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'],
+      stage: 'married',
+      connection: 90,
+      relationship: 90,
+      dates: 8,
+      weeksKnown: 30,
+      isCohabiting: true,
+      householdSplit: 'proportional',
+    };
+    const result = processRelationships({
+      ...INITIAL_GAME_STATE,
+      relationshipModeEnabled: true,
+      week: 10,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        preferencesSet: true,
+        partnerId: partner.id,
+        activeConnections: [partner],
+        familyPlan: 'trying',
+        familyExpansionWeeksRemaining: 1,
+        personalActionWeek: 10,
+      },
+    });
+    expect(result.state.children).toHaveLength(1);
+    expect(result.childBornName).toBeTruthy();
+    expect(result.familyCost).toBeGreaterThan(0);
   });
 });
