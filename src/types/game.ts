@@ -89,6 +89,7 @@ export interface RelationshipChild {
   descendants?: RelationshipDescendant[];
   otherParentId?: string | null;
   parentRelationship?: number;
+  lastParentInteractionWeek?: number;
   personality?: ChildPersonality;
   adultStatus?: AdultChildStatus;
   debt?: number;
