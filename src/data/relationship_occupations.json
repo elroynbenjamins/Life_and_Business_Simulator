@@ -1,0 +1,14 @@
+[
+  { "id": "retail", "title": "Retail Employee", "baseWeeklyIncome": 520 },
+  { "id": "admin", "title": "Administrative Assistant", "baseWeeklyIncome": 620 },
+  { "id": "teacher", "title": "Teacher", "baseWeeklyIncome": 780 },
+  { "id": "nurse", "title": "Nurse", "baseWeeklyIncome": 820 },
+  { "id": "accounting", "title": "Assistant Accountant", "baseWeeklyIncome": 850 },
+  { "id": "marketing", "title": "Marketing Specialist", "baseWeeklyIncome": 900 },
+  { "id": "developer", "title": "Software Developer", "baseWeeklyIncome": 1050 },
+  { "id": "engineer", "title": "Engineer", "baseWeeklyIncome": 1100 },
+  { "id": "consultant", "title": "Business Consultant", "baseWeeklyIncome": 1200 },
+  { "id": "manager", "title": "Department Manager", "baseWeeklyIncome": 1250 },
+  { "id": "doctor", "title": "Doctor", "baseWeeklyIncome": 1550 },
+  { "id": "entrepreneur", "title": "Entrepreneur", "baseWeeklyIncome": 1450 }
+]
