@@ -8,7 +8,7 @@ import { createBusiness, generateCandidates, candidateToEmployee, getBusinessTyp
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
 import { ensureAuctions, getInspectionCost, inspectAuction, leaveAuction, placeAuctionBid } from '../engine/auctionEngine';
 import { unlockPrestige, getPrestigeEffects } from '../engine/prestigeEngine';
-import { getSuccessionPreview } from '../engine/lifecycleEngine';
+import { calculateChildInheritanceTax, getSuccessionPreview } from '../engine/lifecycleEngine';
 import { createInitialFamilyTree, syncFamilyTree, transitionFamilyTreeToChild } from '../engine/familyTreeEngine';
 import { getCareerSalary } from '../engine/careerEngine';
 import { applyEducationRewards } from '../engine/skillEngine';
@@ -2663,6 +2663,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     let ownerType: 'child' | 'family_trust' | 'investor' = targetType;
     let relationshipState = state.relationshipState;
     let capitalRaised = 0;
+    let personalTransferTax = 0;
     let executedPct = 0;
 
     if (targetType === 'investor') {
@@ -2706,6 +2707,9 @@ const useGameStore = create<GameStore>((set, get) => ({
         if (!child) return;
         ownerId = child.id;
         ownerName = child.name;
+        const stakeValue = Math.round((business.valuation ?? 0) * transferPct / 100);
+        personalTransferTax = calculateChildInheritanceTax(stakeValue);
+        if ((state.cash ?? 0) < personalTransferTax) return;
         relationshipState = {
           ...state.relationshipState,
           children: (state.relationshipState.children ?? []).map((item) =>
@@ -2721,6 +2725,9 @@ const useGameStore = create<GameStore>((set, get) => ({
         if (state.relationshipState?.estatePlan?.structure !== 'family_trust') return;
         ownerId = 'family_trust';
         ownerName = 'Family Trust';
+        const stakeValue = Math.round((business.valuation ?? 0) * transferPct / 100);
+        personalTransferTax = Math.round(stakeValue * 0.075);
+        if ((state.cash ?? 0) < personalTransferTax) return;
       }
 
       ownership[playerIndex] = {
@@ -2759,7 +2766,7 @@ const useGameStore = create<GameStore>((set, get) => ({
           year: state.year,
           title: targetType === 'investor'
             ? `📈 Issued ${executedPct.toFixed(1)}% equity to outside investors`
-            : `👪 Transferred ${executedPct.toFixed(1)}% to ${ownerName}`,
+            : `👪 Transferred ${executedPct.toFixed(1)}% to ${ownerName}${personalTransferTax > 0 ? ` • transfer tax ${formatCurrencySafe(personalTransferTax)}` : ''}`,
           icon: targetType === 'investor' ? '📈' : '👪',
           kind: 'event' as const,
         },
@@ -2767,8 +2774,9 @@ const useGameStore = create<GameStore>((set, get) => ({
     };
     updated.valuation = calculateValuation(updated);
     const businesses = (state.businesses ?? []).map((item) => item.id === businessId ? updated : item);
-    set({ businesses, relationshipState });
-    saveGame(extractGameState({ ...state, businesses, relationshipState }), state.activeSlot);
+    const cash = (state.cash ?? 0) - personalTransferTax;
+    set({ businesses, relationshipState, cash });
+    saveGame(extractGameState({ ...state, businesses, relationshipState, cash }), state.activeSlot);
   },
 
   buyBackInvestorShares: (businessId, percent) => {
