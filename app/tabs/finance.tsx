@@ -72,7 +72,7 @@ export default function FinanceScreen() {
           </View>
         </GameCard>
 
-        {partner && ['living_together', 'engaged', 'married'].includes(partner.stage) && (
+        {partner && (partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married') && (
           <GameCard title="Household">
             <View style={styles.row}>
               <Text style={styles.label}>Partner</Text>
