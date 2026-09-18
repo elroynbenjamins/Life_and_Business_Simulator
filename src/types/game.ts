@@ -59,6 +59,10 @@ export interface RelationshipChild {
   weeklyIncome?: number;
   educationOutcome?: 'limited' | 'solid' | 'strong' | 'elite';
   launchedGlobalWeek?: number;
+  savings?: number;
+  homeStatus?: 'renting' | 'homeowner';
+  partnerName?: string | null;
+  childrenCount?: number;
 }
 
 export type RelationshipObligationType = 'divorce_settlement' | 'legal_fees';
