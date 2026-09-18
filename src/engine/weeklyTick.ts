@@ -224,7 +224,6 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const bizResult = processAllBusinesses(state?.businesses ?? [], economy.inflationMultiplier, newWeek, newYear, {
     businessCostReduction: prestigeEffects.business_cost_reduction ?? 0,
   });
-  triggeredEvent = bizResult.decisionEvent;
   let adjustedBizProfit = bizResult.totalProfit;
   const adjustedBusinesses = bizResult.updatedBusinesses.map((b) => {
     const mult = compResult.competitorRevenueMultipliers[b.id] ?? 1;
