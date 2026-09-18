@@ -131,6 +131,9 @@ export interface RelationshipWeekResult {
 
 export function processRelationships(state: GameState): RelationshipWeekResult {
   const current = state.relationshipState;
+  if (!state.relationshipModeEnabled) {
+    return { state: current, partnerContribution: 0, householdExtraCost: 0, relationshipChange: 0, headline: null };
+  }
   const gw = globalWeek(state);
   if (!current) {
     return { state: state.relationshipState, partnerContribution: 0, householdExtraCost: 0, relationshipChange: 0, headline: null };
