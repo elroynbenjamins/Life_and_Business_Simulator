@@ -16,11 +16,11 @@ function partnerTreeId(partnerId: string): string {
 }
 
 function childTreeId(childId: string): string {
-  return `child:${childId}`;
+  return `person:${childId}`;
 }
 
 function descendantTreeId(descendantId: string): string {
-  return `descendant:${descendantId}`;
+  return `person:${descendantId}`;
 }
 
 function upsert(people: FamilyTreePerson[], person: FamilyTreePerson): FamilyTreePerson[] {
@@ -101,11 +101,21 @@ export function syncFamilyTree(state: GameState): FamilyTreeState {
   const activePartner = state.relationshipState?.partnerId
     ? (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState.partnerId) ?? null
     : null;
-  const activePartnerId = activePartner ? partnerTreeId(activePartner.id) : null;
+  const activePartnerId = activePartner
+    ? (activePartner.familyTreePersonId ?? partnerTreeId(activePartner.id))
+    : null;
 
-  const childNodes = (state.relationshipState?.children ?? []).map((child) =>
-    makeChildNode(state, child, currentId, activePartnerId)
-  );
+  const childNodes = (state.relationshipState?.children ?? []).map((child) => {
+    const recordedOtherParent = child.otherParentId
+      ? (state.relationshipState?.activeConnections ?? [])
+          .concat(state.relationshipState?.formerPartners ?? [])
+          .find((partner) => partner.id === child.otherParentId)
+      : null;
+    const otherParentId = recordedOtherParent
+      ? (recordedOtherParent.familyTreePersonId ?? partnerTreeId(recordedOtherParent.id))
+      : activePartnerId;
+    return makeChildNode(state, child, currentId, otherParentId);
+  });
 
   const existingCurrent = people.find((person) => person.id === currentId);
   const currentNode: FamilyTreePerson = {
@@ -123,7 +133,7 @@ export function syncFamilyTree(state: GameState): FamilyTreeState {
     partnerIds: [
       ...(existingCurrent?.partnerIds ?? []),
       ...(activePartnerId ? [activePartnerId] : []),
-      ...(state.relationshipState?.formerPartners ?? []).map((partner) => partnerTreeId(partner.id)),
+      ...(state.relationshipState?.formerPartners ?? []).map((partner) => partner.familyTreePersonId ?? partnerTreeId(partner.id)),
     ],
     childIds: [...new Set([...(existingCurrent?.childIds ?? []), ...childNodes.map((child) => child.id)])],
     playableGeneration: generation,
@@ -139,7 +149,7 @@ export function syncFamilyTree(state: GameState): FamilyTreeState {
   ];
   for (const partner of allPartners) {
     if (partner.stage === 'dating') continue;
-    const id = partnerTreeId(partner.id);
+    const id = partner.familyTreePersonId ?? partnerTreeId(partner.id);
     const existing = people.find((person) => person.id === id);
     const isFormer = (state.relationshipState?.formerPartners ?? []).some((item) => item.id === partner.id);
     people = upsert(people, {
@@ -161,7 +171,13 @@ export function syncFamilyTree(state: GameState): FamilyTreeState {
   }
 
   for (const child of state.relationshipState?.children ?? []) {
-    const node = makeChildNode(state, child, currentId, activePartnerId);
+    const recordedOtherParent = child.otherParentId
+      ? allPartners.find((partner) => partner.id === child.otherParentId) ?? null
+      : null;
+    const childOtherParentId = recordedOtherParent
+      ? (recordedOtherParent.familyTreePersonId ?? partnerTreeId(recordedOtherParent.id))
+      : activePartnerId;
+    const node = makeChildNode(state, child, currentId, childOtherParentId);
     const existing = people.find((person) => person.id === node.id);
     people = upsert(people, { ...node, playableGeneration: existing?.playableGeneration ?? null });
 
