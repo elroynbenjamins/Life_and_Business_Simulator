@@ -1384,10 +1384,33 @@ export function processAllBusinesses(
   const events: { businessName: string; eventTitle: string; icon: string }[] = [];
   const retentionEvents: { businessName: string; employeeName: string; type: string }[] = [];
   const updatedBusinesses: OwnedBusiness[] = [];
+  const globalWeek = ((currentYear - 1) * 20) + currentWeek;
+  let createdDecisionThisWeek = false;
 
   for (const biz of businesses ?? []) {
     const result = processBusinessWeek(biz, inflationMultiplier, currentWeek, currentYear, modifiers);
-    updatedBusinesses.push(result.updatedBusiness);
+    let updatedBusiness = result.updatedBusiness;
+
+    const createdNewDecision = !biz.pendingDecision && !!updatedBusiness.pendingDecision;
+    if (createdNewDecision) {
+      if (createdDecisionThisWeek) {
+        const deferred = updatedBusiness.pendingDecision!;
+        updatedBusiness = {
+          ...updatedBusiness,
+          pendingDecision: null,
+          nextStrategicDecisionWeek: deferred.kind === 'strategy'
+            ? globalWeek + 2
+            : updatedBusiness.nextStrategicDecisionWeek,
+          nextCrisisCheckWeek: deferred.kind === 'crisis'
+            ? globalWeek + 2
+            : updatedBusiness.nextCrisisCheckWeek,
+        };
+      } else {
+        createdDecisionThisWeek = true;
+      }
+    }
+
+    updatedBusinesses.push(updatedBusiness);
     totalProfit += result.weeklyProfit;
     totalDividend += result.playerDividend;
     ownershipDistributions.push(...result.ownershipDistributions);
