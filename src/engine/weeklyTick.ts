@@ -1,5 +1,7 @@
 import { GameState, WeekSummary, LifetimeStatistics, INITIAL_STATISTICS, INITIAL_CAREER_STATE, TriggeredEvent, TempHappinessEffect, PendingInvestment, AuctionResult, RealEstateAuction } from '../types/game';
 import { processEconomy } from './economyEngine';
+import { processRelationships } from './relationshipEngine';
+import { processLifecycle } from './lifecycleEngine';
 import { processNews } from './newsEngine';
 import { processStocks, rollMarketSentiment, rollMarketEvent, processDividends } from './stockEngine';
 import { processEducation } from './educationEngine';
@@ -43,6 +45,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     week: newWeek,
     year: newYear,
     age: newAge,
+    lastMacroCrashWeek: economy.crashEvent ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
   };
 
   // Purchased vehicles arrive after this week's progression has completed.
@@ -64,7 +67,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const news = processNews();
 
   // ---------- Step 4: Stocks ----------
-  const stockResult = processStocks(stateWithInflation, news);
+  const stockResult = processStocks(stateWithInflation, news, economy.crashEvent?.stockShock ?? 0);
 
   // ---------- Step 4.5: Dividends ----------
   const baseDividendIncome = processDividends({ ...stateWithInflation, stocks: stockResult.stocks }, globalWeek);
@@ -104,6 +107,9 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     globalWeek
   );
 
+  // ---------- Step 7.5: Personal Life ----------
+  const relationshipTick = processRelationships(stateWithInflation);
+
   // ---------- Step 8: Income ----------
   const salaryReduced = isSalaryReduced(stateWithInflation);
   const legacyIncome = processIncome(stateWithInflation);
@@ -134,8 +140,15 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   });
 
   // ---------- Step 12: Cash Settlement ----------
-  const totalExpenses = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + expenses.courseCost + loanResult.totalPaid;
-  let newCash = (state?.cash ?? 0) + salary + partTimeIncome + dividendIncome + bankDepositMaturityIncome - totalExpenses - taxes.taxAmount;
+  const totalExpenses = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + expenses.courseCost + loanResult.totalPaid + relationshipTick.householdExtraCost;
+  let newCash = (state?.cash ?? 0)
+    + salary
+    + partTimeIncome
+    + dividendIncome
+    + bankDepositMaturityIncome
+    + relationshipTick.partnerContribution
+    - totalExpenses
+    - taxes.taxAmount;
 
   // ---------- Step 12.3: Property Income ----------
   const propResult = processProperties(state?.properties ?? [], economy.inflationMultiplier);
@@ -271,10 +284,18 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
       return next.length > 40 ? next.slice(next.length - 40) : next;
     })(),
     partTimeJob: partTimeActive,
+    relationshipState: relationshipTick.state,
+    lifecycle: state?.lifecycle,
+    lastMacroCrashWeek: economy.crashEvent ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
   };
 
   const happiness = calculateHappiness(tempState);
   tempState.happiness = happiness;
+
+  // ---------- Step 13.5: Lifecycle ----------
+  // Mortality is checked only when the player ages, never on every weekly advance.
+  const lifecycleResult = processLifecycle(tempState, state?.age ?? 20);
+  tempState.lifecycle = lifecycleResult.lifecycle;
 
   // ---------- Step 14: Net Worth ----------
   const nw = getNetWorth(tempState);
@@ -372,6 +393,12 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     realizedProfitLoss: 0,
     dividendIncome,
     partTimeIncome,
+    partnerContribution: relationshipTick.partnerContribution,
+    relationshipHouseholdCost: relationshipTick.householdExtraCost,
+    relationshipChange: relationshipTick.relationshipChange,
+    relationshipHeadline: relationshipTick.headline,
+    crashEvent: economy.crashEvent,
+    diedThisWeek: lifecycleResult.diedThisWeek,
     educationCareerReminder: edu.completedCourseData ? {
       courseName: edu.completedCourseData.name,
       jobTitle: completedJob?.title ?? 'a matching career',
