@@ -976,6 +976,8 @@ export interface BusinessPendingDecision {
   description: string;
   icon: string;
   createdGlobalWeek: number;
+  deadlineGlobalWeek: number;
+  defaultChoiceId: string;
   choices: BusinessPendingDecisionChoice[];
 }
 
