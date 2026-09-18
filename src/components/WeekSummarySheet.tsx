@@ -250,6 +250,17 @@ export default function WeekSummarySheet() {
               </View>
             )}
 
+            {(summary?.familyMilestones?.length ?? 0) > 0 && (
+              <>
+                {(summary.familyMilestones ?? []).map((milestone, index) => (
+                  <View key={index} style={[styles.eventBox, { backgroundColor: `${Colors.info}12`, borderColor: `${Colors.info}33` }]}>
+                    <Text style={styles.eventTitle}>🎓 Family Milestone</Text>
+                    <Text style={styles.eventDesc}>{milestone}</Text>
+                  </View>
+                ))}
+              </>
+            )}
+
             {summary?.partnerDiedName && (
               <View style={[styles.eventBox, { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: Colors.cardBorder }]}>
                 <Text style={styles.eventTitle}>🕯️ Loss in the Family</Text>
