@@ -41,6 +41,10 @@ export interface RelationshipConnection extends RelationshipCandidate {
   marriageAgreement?: MarriageAgreement;
   netWorthAtMarriage?: number;
   endedWeek?: number;
+  employmentStatus?: 'employed' | 'unemployed';
+  unemploymentWeeks?: number;
+  careerLevel?: number;
+  lastCareerEventWeek?: number;
 }
 
 export interface RelationshipChild {
@@ -53,6 +57,15 @@ export interface RelationshipChild {
 }
 
 export type RelationshipObligationType = 'divorce_settlement' | 'legal_fees';
+
+export type SharedGoalType = 'cash_buffer' | 'net_worth' | 'better_home' | 'family_fund';
+
+export interface RelationshipSharedGoal {
+  type: SharedGoalType;
+  target: number;
+  startedGlobalWeek: number;
+  completed: boolean;
+}
 
 export interface RelationshipFinancialObligation {
   id: string;
@@ -116,6 +129,8 @@ export interface RelationshipState {
   recentRelationshipEventIds: string[];
   pendingEvent: RelationshipEvent | null;
   financialSnapshot: RelationshipFinancialSnapshot | null;
+  sharedGoal: RelationshipSharedGoal | null;
+  lastStabilityWarningWeek: number;
 }
 
 export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
@@ -138,6 +153,8 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   recentRelationshipEventIds: [],
   pendingEvent: null,
   financialSnapshot: null,
+  sharedGoal: null,
+  lastStabilityWarningWeek: 0,
 };
 
 export interface LifecycleState {
@@ -589,6 +606,8 @@ export interface WeekSummary {
   relationshipObligationCost: number;
   relationshipEventTitle: string | null;
   childBornName: string | null;
+  relationshipGoalCompleted: string | null;
+  partnerCareerEvent: string | null;
   // Macro correction
   crashEvent: { title: string; inflationReduction: number; stockShock: number } | null;
   // Lifecycle
