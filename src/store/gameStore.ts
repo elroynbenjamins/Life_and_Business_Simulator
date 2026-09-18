@@ -258,6 +258,19 @@ const useGameStore = create<GameStore>((set, get) => ({
           ...business,
           purchasedUpgrades: [...new Set(business.purchasedUpgrades ?? [])],
           marketShareModifier: business.marketShareModifier ?? 0,
+          strategicFocus: business.strategicFocus ?? 'balanced',
+          strategyModifiers: business.strategyModifiers ?? [],
+          pendingDecision: business.pendingDecision ?? null,
+          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 8),
+          nextCrisisCheckWeek: business.nextCrisisCheckWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 14),
+          ownership: business.ownership?.length ? business.ownership : [{
+            ownerType: 'player',
+            ownerId: 'player',
+            ownerName: saved.playerName ?? 'Player',
+            percent: 100,
+            votingPercent: 100,
+          }],
+          familyRoles: business.familyRoles ?? [],
         })),
         skills: saved.skills ?? {},
         knowledge: saved.knowledge ?? {},
@@ -358,6 +371,19 @@ const useGameStore = create<GameStore>((set, get) => ({
           ...business,
           purchasedUpgrades: [...new Set(business.purchasedUpgrades ?? [])],
           marketShareModifier: business.marketShareModifier ?? 0,
+          strategicFocus: business.strategicFocus ?? 'balanced',
+          strategyModifiers: business.strategyModifiers ?? [],
+          pendingDecision: business.pendingDecision ?? null,
+          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 8),
+          nextCrisisCheckWeek: business.nextCrisisCheckWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 14),
+          ownership: business.ownership?.length ? business.ownership : [{
+            ownerType: 'player',
+            ownerId: 'player',
+            ownerName: saved.playerName ?? 'Player',
+            percent: 100,
+            votingPercent: 100,
+          }],
+          familyRoles: business.familyRoles ?? [],
         })),
         skills: saved.skills ?? {},
         knowledge: saved.knowledge ?? {},
@@ -1719,7 +1745,15 @@ const useGameStore = create<GameStore>((set, get) => ({
                 generationsOwned: Math.max(1, business.familyBusiness.generationsOwned ?? 1) + 1,
                 controllerName: child.name,
                 controllerPersonId: `person:${child.id}`,
-                familyOwnershipPct: 100,
+                familyOwnershipPct: (item.ownership?.length ? item.ownership : [{
+                ownerType: 'player',
+                ownerId: state.familyTree?.currentPlayerId ?? 'player',
+                ownerName: state.playerName,
+                percent: 100,
+                votingPercent: 100,
+              }])
+                .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
+                .reduce((sum, stake) => sum + stake.percent, 0),
               }
             : {
                 isFamilyBusiness: true,
@@ -2357,8 +2391,18 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!type) return;
     const cost = inflated(type.startupCost ?? 0, state?.inflationMultiplier ?? 1);
     if ((state?.cash ?? 0) < cost) return;
-    const biz = createBusiness(typeId, customName, state.week, state.year, state?.inflationMultiplier ?? 1);
-    if (!biz) return;
+    const created = createBusiness(typeId, customName, state.week, state.year, state?.inflationMultiplier ?? 1);
+    if (!created) return;
+    const biz = {
+      ...created,
+      ownership: [{
+        ownerType: 'player' as const,
+        ownerId: state.familyTree?.currentPlayerId ?? 'player',
+        ownerName: state.playerName,
+        percent: 100,
+        votingPercent: 100,
+      }],
+    };
     const updates = {
       cash: (state?.cash ?? 0) - cost,
       businesses: [...(state?.businesses ?? []), biz],
