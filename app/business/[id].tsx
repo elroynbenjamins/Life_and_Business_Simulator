@@ -198,8 +198,8 @@ export default function BusinessDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>{biz.name}</Text>
-        <Pressable onPress={handleSell} hitSlop={12}>
-          <Ionicons name="trash-outline" size={22} color={Colors.negative} />
+        <Pressable disabled={playerOwnershipPct < 99.9} onPress={handleSell} hitSlop={12}>
+          <Ionicons name="trash-outline" size={22} color={playerOwnershipPct >= 99.9 ? Colors.negative : Colors.textMuted} />
         </Pressable>
       </View>
 
@@ -371,6 +371,9 @@ export default function BusinessDetailScreen() {
               <Text style={styles.ownershipValue}>{formatCurrency((biz.valuation ?? 0) * playerOwnershipPct / 100)}</Text>
             </View>
           </View>
+          <Text style={styles.controlNote}>
+            Current governance requires the playable owner to retain at least 51% voting control. A full company sale requires 100% ownership.
+          </Text>
           {ownership.map((stake, index) => (
             <View key={`${stake.ownerType}_${stake.ownerId}_${index}`} style={styles.ownerRow}>
               <View style={{ flex: 1 }}>
@@ -386,16 +389,16 @@ export default function BusinessDetailScreen() {
               <Text style={styles.subHeading}>Raise / Transfer Equity</Text>
               <View style={styles.shareActions}>
                 <Pressable
-                  disabled={playerOwnershipPct < 5}
-                  style={[styles.shareButton, playerOwnershipPct < 5 && { opacity: 0.35 }]}
+                  disabled={playerOwnershipPct < 56}
+                  style={[styles.shareButton, playerOwnershipPct < 56 && { opacity: 0.35 }]}
                   onPress={() => transferBusinessShares(biz.id, 'investor', null, 5)}
                 >
                   <Text style={styles.shareButtonTitle}>Sell 5%</Text>
                   <Text style={styles.shareButtonMeta}>Outside investor</Text>
                 </Pressable>
                 <Pressable
-                  disabled={playerOwnershipPct < 10}
-                  style={[styles.shareButton, playerOwnershipPct < 10 && { opacity: 0.35 }]}
+                  disabled={playerOwnershipPct < 61}
+                  style={[styles.shareButton, playerOwnershipPct < 61 && { opacity: 0.35 }]}
                   onPress={() => transferBusinessShares(biz.id, 'investor', null, 10)}
                 >
                   <Text style={styles.shareButtonTitle}>Sell 10%</Text>
@@ -406,8 +409,8 @@ export default function BusinessDetailScreen() {
               {relationshipState?.estatePlan?.structure === 'family_trust' && (
                 <View style={styles.shareActions}>
                   <Pressable
-                    disabled={playerOwnershipPct < 5}
-                    style={[styles.shareButton, playerOwnershipPct < 5 && { opacity: 0.35 }]}
+                    disabled={playerOwnershipPct < 56}
+                    style={[styles.shareButton, playerOwnershipPct < 56 && { opacity: 0.35 }]}
                     onPress={() => transferBusinessShares(biz.id, 'family_trust', null, 5)}
                   >
                     <Text style={styles.shareButtonTitle}>Trust 5%</Text>
@@ -426,8 +429,8 @@ export default function BusinessDetailScreen() {
                     <Text style={styles.actionDesc}>Parent bond {Math.round(child.parentRelationship ?? 75)}%</Text>
                   </View>
                   <Pressable
-                    disabled={playerOwnershipPct < 5}
-                    style={[styles.smallShareButton, playerOwnershipPct < 5 && { opacity: 0.35 }]}
+                    disabled={playerOwnershipPct < 56}
+                    style={[styles.smallShareButton, playerOwnershipPct < 56 && { opacity: 0.35 }]}
                     onPress={() => transferBusinessShares(biz.id, 'child', child.id, 5)}
                   >
                     <Text style={styles.smallShareText}>Give 5%</Text>
@@ -446,7 +449,9 @@ export default function BusinessDetailScreen() {
 
         {adultChildren.length > 0 && (
           <GameCard title="Family Governance">
-            <Text style={styles.sectionHint}>Adult children can enter management, sit on the board, or be developed as the named successor. Their personality and education determine starting performance.</Text>
+            <Text style={styles.sectionHint}>
+              Adult children can enter management, sit on the board, or train as a successor candidate. Their personality and education determine starting performance. Estate Planning still decides the legal business heir.
+            </Text>
             {adultChildren.map((child) => {
               const familyRole = (biz.familyRoles ?? []).find((role) => role.childId === child.id);
               return (
@@ -1220,7 +1225,10 @@ const styles = StyleSheet.create({
   strategyFocusDesc: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 2 },
   activeStrategyBox: { marginTop: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
   activeStrategyRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 4 },
+  summaryLabel: { color: Colors.textMuted, fontSize: 10 },
+  summaryValue: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800', marginTop: 2 },
   ownershipSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  controlNote: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginBottom: 7 },
   ownershipValue: { color: Colors.info, fontSize: 15, fontWeight: '800' },
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   ownerName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700' },
