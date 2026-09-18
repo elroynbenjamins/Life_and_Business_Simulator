@@ -20,6 +20,7 @@ import housingData from '../data/housing.json';
 import carsData from '../data/cars.json';
 import loansData from '../data/loans.json';
 import achievementsData from '../data/achievements.json';
+import relationshipNamesData from '../data/relationship_names.json';
 import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
 import { AD_GEM_REWARD, GEM_CASH_RATE } from '../constants/rewards';
@@ -1608,9 +1609,10 @@ const useGameStore = create<GameStore>((set, get) => ({
         })()
       : null;
 
+    const liquidStartingCash = preview.existingSavings + preview.inheritedCash;
     const cashAfterTax = financeTaxWithLoan
-      ? preview.inheritedCash
-      : Math.max(0, preview.inheritedCash - preview.inheritanceTax);
+      ? liquidStartingCash
+      : Math.max(0, liquidStartingCash - preview.inheritanceTax);
     const nextGeneration = (state.generation ?? 1) + 1;
     const legacyEntry = {
       generation: state.generation ?? 1,
@@ -1642,9 +1644,71 @@ const useGameStore = create<GameStore>((set, get) => ({
       : [];
 
 
+    const currentGlobalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const successorPartner: RelationshipConnection | null = child.partnerName
+      ? {
+          id: `generation_partner_${nextGeneration}`,
+          name: child.partnerName,
+          gender: child.partnerGender ?? 'woman',
+          age: Math.max(18, preview.childAge),
+          occupationId: 'legacy_partner',
+          occupationTitle: 'Professional',
+          weeklyIncome: Math.max(500, Math.round((child.weeklyIncome ?? 700) * 0.8)),
+          savings: Math.max(5000, Math.round((child.savings ?? 0) * 0.5)),
+          financialStyle: 'balanced',
+          riskTolerance: 'balanced',
+          ambition: 'career_minded',
+          familyGoal: (child.childrenCount ?? 0) > 0 ? 'wants_children' : 'unsure',
+          visibleTraits: ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'],
+          stage: 'living_together',
+          connection: 80,
+          relationship: 82,
+          dates: 0,
+          weeksKnown: 20,
+          isCohabiting: true,
+          householdSplit: 'proportional',
+          employmentStatus: 'employed',
+          unemploymentWeeks: 0,
+          careerLevel: 1,
+          lastCareerEventWeek: currentGlobalWeek,
+        }
+      : null;
+
+    const successorChildren = Array.from({ length: child.childrenCount ?? 0 }, (_, index) => {
+      const childAge = Math.min(17, Math.max(0, preview.childAge - 25 - index * 2));
+      const girls = (relationshipNamesData as any).women as string[];
+      const boys = (relationshipNamesData as any).men as string[];
+      const gender = index % 2 === 0 ? 'girl' as const : 'boy' as const;
+      const namePool = gender === 'girl' ? girls : boys;
+      const name = namePool[(nextGeneration * 3 + index) % namePool.length];
+      return {
+        id: `generation_child_${nextGeneration}_${index}`,
+        name,
+        gender,
+        birthGlobalWeek: currentGlobalWeek - childAge * 20,
+        age: childAge,
+        educationFund: 0,
+        status: 'dependent' as const,
+        occupationTitle: null,
+        weeklyIncome: 0,
+        savings: 0,
+        homeStatus: 'renting' as const,
+        partnerName: null,
+        partnerGender: null,
+        childrenCount: 0,
+      };
+    });
+
     const relationshipState = {
       ...INITIAL_RELATIONSHIP_STATE,
-      preferencesSet: false,
+      preferencesSet: !!successorPartner,
+      partnerId: successorPartner?.id ?? null,
+      activeConnections: successorPartner ? [successorPartner] : [],
+      children: successorChildren,
+      familyPlan: successorChildren.length > 0 ? 'later' as const : 'not_discussed' as const,
+      timeline: successorPartner
+        ? [{ week: state.week, year: state.year, title: `Generation ${nextGeneration} began with ${successorPartner.name}` }]
+        : [],
     };
 
     const newState: GameState = {
@@ -1655,8 +1719,8 @@ const useGameStore = create<GameStore>((set, get) => ({
       age: preview.childAge,
       cash: cashAfterTax,
       inflationMultiplier: state.inflationMultiplier,
-      currentHousingId: 'cheap_apartment',
-      housingHistory: ['cheap_apartment'],
+      currentHousingId: child.homeStatus === 'homeowner' ? 'small_house' : 'studio_apartment',
+      housingHistory: [child.homeStatus === 'homeowner' ? 'small_house' : 'studio_apartment'],
       currentCarId: 'none',
       pendingCarDelivery: null,
       foodLevel: 'basic',
