@@ -72,12 +72,16 @@ describe('optional relationship mode', () => {
 
     expect(result.partnerContribution).toBe(0);
     expect(result.householdExtraCost).toBe(0);
+    expect(result.familyCost).toBe(0);
     expect(result.relationshipChange).toBe(0);
   });
 });
 
 
 describe('expanded relationship progression', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   it('scales proposal and wedding costs predictably with inflation', () => {
     expect(getProposalCost('simple', 2)).toBe(1500);
     expect(getProposalCost('luxury', 1)).toBe(10000);
@@ -92,6 +96,43 @@ describe('expanded relationship progression', () => {
     const adultState = { ...INITIAL_GAME_STATE, year: 19, week: 2, inflationMultiplier: 1 };
     expect(getChildWeeklyCost(baby, state)).toBeGreaterThan(0);
     expect(getChildWeeklyCost(adult, adultState)).toBe(0);
+  });
+
+  it('lets a partner keep and grow independent savings', () => {
+    const partner: RelationshipConnection = {
+      id: 'partner-saver',
+      name: 'Sophie',
+      gender: 'woman',
+      age: 30,
+      occupationId: 'accounting',
+      occupationTitle: 'Assistant Accountant',
+      weeklyIncome: 1000,
+      savings: 10000,
+      financialStyle: 'frugal',
+      riskTolerance: 'balanced',
+      ambition: 'career_minded',
+      familyGoal: 'wants_children',
+      visibleTraits: ['financialStyle'],
+      stage: 'living_together',
+      connection: 80,
+      relationship: 85,
+      dates: 5,
+      weeksKnown: 20,
+      isCohabiting: true,
+      householdSplit: 'equal',
+    };
+    const result = processRelationships({
+      ...INITIAL_GAME_STATE,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        preferencesSet: true,
+        partnerId: partner.id,
+        activeConnections: [partner],
+        personalActionWeek: 1,
+      },
+    });
+    expect(result.state.activeConnections[0].savings).toBeGreaterThan(10000);
   });
 
   it('creates a child when a family expansion countdown completes', () => {
