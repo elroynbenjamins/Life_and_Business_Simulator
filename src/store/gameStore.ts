@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -99,6 +99,13 @@ interface GameStore extends GameState {
   takeLoan: (loanId: string) => void;
   payOffLoan: (loanId: string) => void;
   openBankDeposit: (amount: number, durationWeeks: 20 | 40 | 60) => void;
+
+  // Personal life
+  setDatingPreferences: (preference: DatingPreference, minAge: number, maxAge: number) => void;
+  inviteOnDate: (candidateId: string, kind: 'coffee' | 'dinner' | 'activity') => void;
+  planDate: (connectionId: string, kind: 'coffee' | 'dinner' | 'activity') => void;
+  askBecomePartners: (connectionId: string) => void;
+  moveInWithPartner: (split: 'equal' | 'proportional' | 'player_pays_most') => void;
 
   // Events
   showEventModal: boolean;
@@ -227,6 +234,15 @@ const useGameStore = create<GameStore>((set, get) => ({
         activeMarketSentiment: saved.activeMarketSentiment ?? null,
         activeMarketEvents: saved.activeMarketEvents ?? [],
         totalRealizedProfitLoss: saved.totalRealizedProfitLoss ?? 0,
+        relationshipState: {
+          ...INITIAL_RELATIONSHIP_STATE,
+          ...(saved.relationshipState ?? {}),
+          weeklyCandidates: saved.relationshipState?.weeklyCandidates ?? [],
+          activeConnections: saved.relationshipState?.activeConnections ?? [],
+          timeline: saved.relationshipState?.timeline ?? [],
+        },
+        lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
+        lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
       };
       // Migrate career state: remove old freelancing fields, add new fields
       if (merged.career) {
@@ -290,6 +306,15 @@ const useGameStore = create<GameStore>((set, get) => ({
         activeMarketSentiment: saved.activeMarketSentiment ?? null,
         activeMarketEvents: saved.activeMarketEvents ?? [],
         totalRealizedProfitLoss: saved.totalRealizedProfitLoss ?? 0,
+        relationshipState: {
+          ...INITIAL_RELATIONSHIP_STATE,
+          ...(saved.relationshipState ?? {}),
+          weeklyCandidates: saved.relationshipState?.weeklyCandidates ?? [],
+          activeConnections: saved.relationshipState?.activeConnections ?? [],
+          timeline: saved.relationshipState?.timeline ?? [],
+        },
+        lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
+        lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
       };
       // Migrate career state
       if (merged.career) {
@@ -346,6 +371,8 @@ const useGameStore = create<GameStore>((set, get) => ({
   advanceWeek: () => {
     const state = get();
     const gameState = extractGameState(state);
+
+    if (gameState.lifecycle?.isDead) return;
 
     // Check negative cash before advancing
     if ((gameState.cash ?? 0) < 0) {
@@ -848,6 +875,129 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   buyHouseUpgrade: (_upgradeId: string) => {
     // House upgrades removed
+  },
+
+
+  setDatingPreferences: (preference, minAge, maxAge) => {
+    const state = get();
+    const nextRelationship = {
+      ...state.relationshipState,
+      preferencesSet: true,
+      preference,
+      minAge: Math.max(18, Math.min(minAge, maxAge)),
+      maxAge: Math.max(18, Math.max(minAge, maxAge)),
+    };
+    const baseState = { ...extractGameState(state), relationshipState: nextRelationship };
+    nextRelationship.weeklyCandidates = generateRelationshipCandidates(baseState, 3);
+    nextRelationship.candidateRefreshWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    set({ relationshipState: nextRelationship });
+    saveGame(extractGameState({ ...state, relationshipState: nextRelationship }), state.activeSlot);
+  },
+
+  inviteOnDate: (candidateId, kind) => {
+    const state = get();
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
+    if ((state.relationshipState?.activeConnections?.length ?? 0) >= 3) return;
+    const candidate = (state.relationshipState?.weeklyCandidates ?? []).find((item) => item.id === candidateId);
+    if (!candidate) return;
+    const cost = getDateCost(kind, state.inflationMultiplier ?? 1);
+    if ((state.cash ?? 0) < cost) return;
+
+    const baseConnection: RelationshipConnection = {
+      ...candidate,
+      stage: 'dating',
+      connection: 20,
+      relationship: 0,
+      dates: 1,
+      weeksKnown: 0,
+    };
+    const gain = getDateConnectionGain(baseConnection, kind);
+    const connection = revealNextTrait({ ...baseConnection, connection: Math.min(100, 20 + gain) });
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections: [...(state.relationshipState?.activeConnections ?? []), connection],
+      weeklyCandidates: (state.relationshipState?.weeklyCandidates ?? []).filter((item) => item.id !== candidateId),
+      personalActionWeek: gw,
+      timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `First date with ${candidate.name}` }],
+    };
+    const updates = { cash: (state.cash ?? 0) - cost, relationshipState };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  planDate: (connectionId, kind) => {
+    const state = get();
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
+    const existing = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === connectionId);
+    if (!existing) return;
+    const cost = getDateCost(kind, state.inflationMultiplier ?? 1);
+    if ((state.cash ?? 0) < cost) return;
+    const gain = getDateConnectionGain(existing, kind);
+
+    const connections = (state.relationshipState?.activeConnections ?? []).map((item) => {
+      if (item.id !== connectionId) return item;
+      if (item.stage === 'dating') {
+        return revealNextTrait({
+          ...item,
+          connection: Math.min(100, (item.connection ?? 0) + gain),
+          dates: (item.dates ?? 0) + 1,
+        });
+      }
+      return {
+        ...item,
+        relationship: Math.min(100, (item.relationship ?? 70) + Math.max(3, Math.round(gain / 2))),
+        dates: (item.dates ?? 0) + 1,
+      };
+    });
+    const relationshipState = { ...state.relationshipState, activeConnections: connections, personalActionWeek: gw };
+    const updates = { cash: (state.cash ?? 0) - cost, relationshipState };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  askBecomePartners: (connectionId) => {
+    const state = get();
+    const connection = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === connectionId);
+    if (!connection || connection.stage !== 'dating' || connection.connection < 60 || connection.dates < 3) return;
+
+    const acceptanceChance = Math.min(0.92, 0.62 + Math.max(0, connection.connection - 60) / 100);
+    const accepted = Math.random() < acceptanceChance;
+    let connections: RelationshipConnection[];
+    let partnerId = state.relationshipState.partnerId;
+    let timeline = state.relationshipState.timeline ?? [];
+    if (accepted) {
+      const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+      const partner = { ...connection, stage: 'partner' as const, relationship: Math.max(70, connection.connection), becamePartnerWeek: gw };
+      connections = [partner];
+      partnerId = partner.id;
+      timeline = [...timeline, { week: state.week, year: state.year, title: `Became partners with ${partner.name}` }];
+    } else {
+      connections = (state.relationshipState?.activeConnections ?? []).map((item) =>
+        item.id === connectionId ? { ...item, connection: Math.max(0, item.connection - 8) } : item
+      );
+    }
+    const relationshipState = { ...state.relationshipState, activeConnections: connections, partnerId, timeline };
+    set({ relationshipState });
+    saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
+  },
+
+  moveInWithPartner: (split) => {
+    const state = get();
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner || partner.stage !== 'partner' || partner.relationship < 75 || partner.weeksKnown < 8) return;
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const connections = (state.relationshipState?.activeConnections ?? []).map((item) =>
+      item.id === partner.id ? { ...item, stage: 'living_together' as const, householdSplit: split, movedInWeek: gw } : item
+    );
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections: connections,
+      timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Moved in with ${partner.name}` }],
+    };
+    set({ relationshipState });
+    saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
   },
 
   takeLoan: (loanId: string) => {
@@ -1489,6 +1639,9 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     partTimeJob: (state as any)?.partTimeJob ?? false,
     adWatchedToday: (state as any)?.adWatchedToday ?? 0,
     adLastWatchDate: (state as any)?.adLastWatchDate ?? '',
+    relationshipState: state?.relationshipState ?? { ...INITIAL_RELATIONSHIP_STATE },
+    lifecycle: state?.lifecycle ?? { ...INITIAL_LIFECYCLE_STATE },
+    lastMacroCrashWeek: state?.lastMacroCrashWeek ?? 0,
   };
 }
 
