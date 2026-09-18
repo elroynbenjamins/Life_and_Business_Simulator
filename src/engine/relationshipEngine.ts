@@ -484,8 +484,65 @@ function launchAdultChild(child: RelationshipChild, state: GameState, gw: number
       weeklyIncome,
       educationOutcome: outcome,
       launchedGlobalWeek: gw,
+      savings: Math.round(weeklyIncome * 4),
+      homeStatus: 'renting',
+      partnerName: null,
+      childrenCount: 0,
     },
     milestone: `${child.name} became independent and started work as ${occupation.title}.`,
+  };
+}
+
+function progressAdultChild(
+  child: RelationshipChild,
+  state: GameState,
+): { child: RelationshipChild; milestones: string[] } {
+  if (child.status !== 'independent' || state.week !== 1) return { child, milestones: [] };
+
+  const milestones: string[] = [];
+  const outcome = child.educationOutcome ?? 'limited';
+  const raiseRate = outcome === 'elite' ? 0.05 : outcome === 'strong' ? 0.04 : outcome === 'solid' ? 0.03 : 0.02;
+  let weeklyIncome = Math.round(Math.max(350, child.weeklyIncome ?? 350) * (1 + raiseRate));
+  let savings = Math.round((child.savings ?? 0) + weeklyIncome * 20 * 0.12);
+  let homeStatus = child.homeStatus ?? 'renting';
+  let partnerName = child.partnerName ?? null;
+  let childrenCount = child.childrenCount ?? 0;
+
+  if (!partnerName && (child.age ?? 18) >= 22 && Math.random() < 0.18) {
+    const allNames = [...((namesData as any).women as string[]), ...((namesData as any).men as string[])];
+    partnerName = randomOf(allNames.filter((name) => name !== child.name));
+    milestones.push(`${child.name} started a serious relationship with ${partnerName}.`);
+  }
+
+  const homeThreshold = Math.round(30000 * (state.inflationMultiplier ?? 1));
+  if (homeStatus === 'renting' && savings >= homeThreshold && Math.random() < 0.20) {
+    const downPayment = Math.round(20000 * (state.inflationMultiplier ?? 1));
+    savings = Math.max(0, savings - downPayment);
+    homeStatus = 'homeowner';
+    milestones.push(`${child.name} bought a home.`);
+  }
+
+  if (
+    partnerName &&
+    (child.age ?? 18) >= 25 &&
+    (child.age ?? 18) <= 45 &&
+    childrenCount < 2 &&
+    Math.random() < 0.12
+  ) {
+    childrenCount += 1;
+    milestones.push(`${child.name} welcomed a child. You now have another grandchild.`);
+  }
+
+  return {
+    child: {
+      ...child,
+      weeklyIncome,
+      savings,
+      homeStatus,
+      partnerName,
+      childrenCount,
+    },
+    milestones,
   };
 }
 
@@ -617,6 +674,11 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       const launched = launchAdultChild(agedChild, state, gw);
       familyMilestones.push(launched.milestone);
       return launched.child;
+    }
+    if (agedChild.status === 'independent') {
+      const progressed = progressAdultChild(agedChild, state);
+      familyMilestones.push(...progressed.milestones);
+      return progressed.child;
     }
     return agedChild;
   });
