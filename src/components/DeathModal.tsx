@@ -106,6 +106,9 @@ export default function DeathModal() {
                           </Text>
                         </View>
                       </View>
+                      {(preview.existingSavings ?? 0) > 0 && (
+                        <EstateRow label="Existing savings" value={preview.existingSavings} />
+                      )}
                       <EstateRow label="Cash inheritance" value={preview.inheritedCash} />
                       {preview.inheritedBusinessValue > 0 && (
                         <EstateRow label="Businesses inherited" value={preview.inheritedBusinessValue} />
