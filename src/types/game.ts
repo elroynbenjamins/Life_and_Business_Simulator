@@ -1,3 +1,87 @@
+
+// ── Personal Life / Relationships ──
+export type DatingPreference = 'women' | 'men' | 'everyone';
+export type FinancialStyle = 'frugal' | 'balanced' | 'luxury';
+export type RiskTolerance = 'cautious' | 'balanced' | 'risk_taking';
+export type AmbitionLevel = 'relaxed' | 'career_minded' | 'driven';
+export type FamilyGoal = 'no_children' | 'unsure' | 'wants_children';
+export type RelationshipStage = 'dating' | 'partner' | 'living_together' | 'engaged' | 'married';
+
+export interface RelationshipCandidate {
+  id: string;
+  name: string;
+  gender: 'woman' | 'man';
+  age: number;
+  occupationId: string;
+  occupationTitle: string;
+  weeklyIncome: number;
+  savings: number;
+  financialStyle: FinancialStyle;
+  riskTolerance: RiskTolerance;
+  ambition: AmbitionLevel;
+  familyGoal: FamilyGoal;
+  visibleTraits: Array<'financialStyle' | 'riskTolerance' | 'ambition' | 'familyGoal'>;
+}
+
+export interface RelationshipConnection extends RelationshipCandidate {
+  stage: RelationshipStage;
+  connection: number;
+  relationship: number;
+  dates: number;
+  weeksKnown: number;
+  becamePartnerWeek?: number;
+  movedInWeek?: number;
+  householdSplit?: 'equal' | 'proportional' | 'player_pays_most';
+}
+
+export interface RelationshipTimelineEntry {
+  week: number;
+  year: number;
+  title: string;
+}
+
+export interface RelationshipState {
+  preferencesSet: boolean;
+  preference: DatingPreference;
+  minAge: number;
+  maxAge: number;
+  weeklyCandidates: RelationshipCandidate[];
+  candidateRefreshWeek: number;
+  activeConnections: RelationshipConnection[];
+  partnerId: string | null;
+  personalActionWeek: number;
+  timeline: RelationshipTimelineEntry[];
+}
+
+export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
+  preferencesSet: false,
+  preference: 'everyone',
+  minAge: 20,
+  maxAge: 35,
+  weeklyCandidates: [],
+  candidateRefreshWeek: 0,
+  activeConnections: [],
+  partnerId: null,
+  personalActionWeek: 0,
+  timeline: [],
+};
+
+export interface LifecycleState {
+  isDead: boolean;
+  deathAge: number | null;
+  deathWeek: number | null;
+  deathYear: number | null;
+  causeOfDeath: string | null;
+}
+
+export const INITIAL_LIFECYCLE_STATE: LifecycleState = {
+  isDead: false,
+  deathAge: null,
+  deathWeek: null,
+  deathYear: null,
+  causeOfDeath: null,
+};
+
 // ── Skills & Knowledge ──
 export interface SkillCategoryData {
   id: string;
@@ -422,6 +506,14 @@ export interface WeekSummary {
   // Part-time income
   partTimeIncome: number;
   educationCareerReminder: EducationCareerReminder | null;
+  // Personal life
+  partnerContribution: number;
+  relationshipChange: number;
+  relationshipHeadline: string | null;
+  // Macro correction
+  crashEvent: { title: string; inflationReduction: number; stockShock: number } | null;
+  // Lifecycle
+  diedThisWeek: boolean;
 }
 
 /** Yearly summary (every 20 weeks) - combines period report + tax */
@@ -727,6 +819,9 @@ export interface GameState {
   partTimeJob?: boolean;
   adWatchedToday: number;
   adLastWatchDate: string; // YYYY-MM-DD
+  relationshipState: RelationshipState;
+  lifecycle: LifecycleState;
+  lastMacroCrashWeek: number;
 }
 
 export const INITIAL_GAME_STATE: GameState = {
@@ -778,6 +873,9 @@ export const INITIAL_GAME_STATE: GameState = {
   partTimeJob: false,
   adWatchedToday: 0,
   adLastWatchDate: '',
+  relationshipState: { ...INITIAL_RELATIONSHIP_STATE },
+  lifecycle: { ...INITIAL_LIFECYCLE_STATE },
+  lastMacroCrashWeek: 0,
 };
 
 /** Player profile — persists prestige points and gems across all games/save slots */
