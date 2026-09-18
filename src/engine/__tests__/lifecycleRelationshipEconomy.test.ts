@@ -929,4 +929,135 @@ describe('expanded relationship progression', () => {
 
     expect(result.state.children[0].parentRelationship).toBe(72);
   });
+
+  it('keeps an adult child employed when they hold an operating family-business role', () => {
+    const child = {
+      id: 'family-exec-child',
+      name: 'Mila',
+      gender: 'girl' as const,
+      birthGlobalWeek: 1,
+      age: 30,
+      educationFund: 0,
+      status: 'independent' as const,
+      occupationTitle: 'Accountant',
+      weeklyIncome: 1200,
+      educationOutcome: 'strong' as const,
+      savings: 50000,
+      homeStatus: 'renting' as const,
+      partnerName: null,
+      partnerGender: null,
+      descendants: [],
+      parentRelationship: 80,
+      personality: {
+        ambition: 'driven' as const,
+        financialStyle: 'frugal' as const,
+        riskTolerance: 'balanced' as const,
+        independence: 'balanced' as const,
+        resilience: 'resilient' as const,
+      },
+      adultStatus: 'employed' as const,
+      debt: 0,
+      failureCount: 0,
+      businessValue: 0,
+    };
+
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+    const result = processRelationships({
+      ...INITIAL_GAME_STATE,
+      year: 31,
+      week: 1,
+      relationshipModeEnabled: true,
+      businesses: [{
+        id: 'family-company',
+        name: 'Family Co',
+        familyRoles: [{
+          childId: child.id,
+          childName: child.name,
+          role: 'executive' as const,
+          appointedYear: 25,
+          experienceWeeks: 40,
+          performance: 80,
+          weeklySalary: 1800,
+        }],
+      } as any],
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [child],
+        lastRelationshipEventWeek: 999,
+      },
+    });
+
+    const updated = result.state.children[0];
+    expect(updated.adultStatus).toBe('employed');
+    expect(updated.occupationTitle).toBe('Family Co Executive');
+    expect(updated.weeklyIncome).toBe(1800);
+    expect(updated.failureCount).toBe(0);
+  });
+
+  it('separates company shares an heir already owns from newly inherited business equity', () => {
+    const child = {
+      id: 'existing-share-child',
+      name: 'Mila',
+      gender: 'girl' as const,
+      birthGlobalWeek: 1,
+      age: 30,
+      educationFund: 0,
+      status: 'independent' as const,
+      savings: 25000,
+      parentRelationship: 80,
+    };
+    const business = {
+      id: 'family-share-business',
+      typeId: 'coffee_shop',
+      name: 'Family Co',
+      valuation: 1000000,
+      businessLoans: [],
+      familyBusiness: {
+        isFamilyBusiness: true,
+        familyName: 'Family Co',
+        founderGeneration: 1,
+        generationsOwned: 1,
+        controllerName: 'Parent',
+        controllerPersonId: 'player:g1',
+        familyOwnershipPct: 100,
+        designatedYear: 1,
+      },
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player:g1', ownerName: 'Parent', percent: 80, votingPercent: 80 },
+        { ownerType: 'child' as const, ownerId: child.id, ownerName: child.name, percent: 20, votingPercent: 20 },
+      ],
+    } as any;
+
+    const state = {
+      ...INITIAL_GAME_STATE,
+      year: 31,
+      week: 1,
+      businesses: [business],
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [child],
+        estateSettlement: {
+          grossEstate: 800000,
+          outstandingRelationshipObligations: 0,
+          administrationCost: 0,
+          netEstate: 800000,
+          beneficiaries: [{
+            id: child.id,
+            name: child.name,
+            relationship: 'child' as const,
+            share: 1,
+            amount: 0,
+          }],
+          successorName: child.name,
+          businessValue: 800000,
+        },
+      },
+    };
+
+    const preview = getSuccessionPreview(state, child.id);
+    expect(preview?.existingBusinessStakeValue).toBe(200000);
+    expect(preview?.inheritedBusinessValue).toBe(800000);
+    expect(preview?.inheritanceTaxBase).toBe(800000);
+  });
 });
