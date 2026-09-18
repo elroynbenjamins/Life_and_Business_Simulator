@@ -302,6 +302,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       const loadGlobalWeek = ((merged.year - 1) * 20) + merged.week;
       merged.competitors = Object.fromEntries(merged.businesses.map((business) => [business.id, migrateBusinessCompetitors(business, merged.competitors[business.id] ?? [], loadGlobalWeek)]));
       merged.activeAuctions = ensureAuctions(merged.activeAuctions, ((merged.year - 1) * 20) + merged.week, merged.inflationMultiplier, getNetWorth(merged));
+      merged.familyTree = syncFamilyTree(merged);
       // Migrate legacy profile
       if (profile && typeof (profile as any).prestigePoints === 'undefined') {
         (profile as any).prestigePoints = profile.totalXp ?? 0;
@@ -391,6 +392,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       const slotGlobalWeek = ((merged.year - 1) * 20) + merged.week;
       merged.competitors = Object.fromEntries(merged.businesses.map((business) => [business.id, migrateBusinessCompetitors(business, merged.competitors[business.id] ?? [], slotGlobalWeek)]));
       merged.activeAuctions = ensureAuctions(merged.activeAuctions, ((merged.year - 1) * 20) + merged.week, merged.inflationMultiplier, getNetWorth(merged));
+      merged.familyTree = syncFamilyTree(merged);
       const slotMeta = await loadAllSlotMeta();
       set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, relationshipFeedback: null, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
     } else {
