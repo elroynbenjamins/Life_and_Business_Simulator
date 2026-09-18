@@ -73,7 +73,7 @@ export default function RelationshipsScreen() {
   const adultChildren = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) >= 18);
   const estateSuccessors = [
     ...(partner?.stage === 'married' ? [{ id: partner.id, name: partner.name, role: 'Spouse' }] : []),
-    ...adultChildren.map((child) => ({ id: child.id, name: child.name, role: 'Adult child' })),
+    ...adultChildren.map((child) => ({ id: child.id, name: child.name, role: child.occupationTitle ? `Adult child • ${child.occupationTitle}` : 'Adult child' })),
   ];
 
   if (!enabled) {
@@ -518,10 +518,28 @@ export default function RelationshipsScreen() {
                     </View>
                     {weeklyCost > 0 && <Text style={styles.costText}>-{formatCurrency(weeklyCost)}/wk</Text>}
                   </View>
-                  <View style={styles.financeRow}>
-                    <Text style={styles.meta}>Education fund</Text>
-                    <Text style={styles.moneyText}>{formatCurrency(child.educationFund ?? 0)}</Text>
-                  </View>
+                  {age < 18 ? (
+                    <View style={styles.financeRow}>
+                      <Text style={styles.meta}>Education fund</Text>
+                      <Text style={styles.moneyText}>{formatCurrency(child.educationFund ?? 0)}</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.financeBox}>
+                      <Text style={styles.financeTitle}>Independent Life</Text>
+                      <View style={styles.financeRow}>
+                        <Text style={styles.meta}>Career</Text>
+                        <Text style={styles.moneyText}>{child.occupationTitle ?? 'Getting established'}</Text>
+                      </View>
+                      <View style={styles.financeRow}>
+                        <Text style={styles.meta}>Income</Text>
+                        <Text style={styles.moneyText}>{formatCurrency(child.weeklyIncome ?? 0)}/wk</Text>
+                      </View>
+                      <View style={styles.financeRow}>
+                        <Text style={styles.meta}>Education start</Text>
+                        <Text style={styles.moneyText}>{childEducationLabel(child.educationOutcome)}</Text>
+                      </View>
+                    </View>
+                  )}
                   {age < 18 && (
                     <View style={styles.threeRow}>
                       {[1000, 5000, 10000].map((amount) => (
@@ -709,6 +727,14 @@ function ActionTile({ icon, label, disabled, onPress }: { icon: string; label: s
     <Ionicons name={icon as any} size={19} color={disabled ? Colors.textMuted : Colors.happiness} />
     <Text style={styles.actionTileText}>{label}</Text>
   </Pressable>;
+}
+
+function childEducationLabel(outcome?: string) {
+  if (outcome === 'elite') return 'Elite start';
+  if (outcome === 'strong') return 'Strong start';
+  if (outcome === 'solid') return 'Solid start';
+  if (outcome === 'limited') return 'Basic start';
+  return 'Not resolved';
 }
 
 function estatePlanDescription(type: EstatePlanType, hasSpouse: boolean, childCount: number) {
