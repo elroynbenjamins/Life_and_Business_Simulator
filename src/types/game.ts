@@ -820,6 +820,7 @@ export interface GameState {
   partTimeJob?: boolean;
   adWatchedToday: number;
   adLastWatchDate: string; // YYYY-MM-DD
+  relationshipModeEnabled: boolean;
   relationshipState: RelationshipState;
   lifecycle: LifecycleState;
   lastMacroCrashWeek: number;
@@ -874,6 +875,7 @@ export const INITIAL_GAME_STATE: GameState = {
   partTimeJob: false,
   adWatchedToday: 0,
   adLastWatchDate: '',
+  relationshipModeEnabled: false,
   relationshipState: { ...INITIAL_RELATIONSHIP_STATE },
   lifecycle: { ...INITIAL_LIFECYCLE_STATE },
   lastMacroCrashWeek: 0,
