@@ -147,6 +147,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     + dividendIncome
     + bankDepositMaturityIncome
     + relationshipTick.partnerContribution
+    + relationshipTick.partnerInheritance
     - totalExpenses
     - taxes.taxAmount;
 
@@ -241,6 +242,13 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     if ((eff.weeksRemaining ?? 0) > 1) {
       updatedTempEffects.push({ ...eff, weeksRemaining: (eff.weeksRemaining ?? 1) - 1 });
     }
+  }
+  if (relationshipTick.partnerDiedName) {
+    updatedTempEffects.push({
+      amount: -20,
+      weeksRemaining: 6,
+      source: 'Bereavement',
+    });
   }
   // Life events removed — no event happiness delta
 
@@ -407,6 +415,8 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     childBornName: relationshipTick.childBornName,
     relationshipGoalCompleted: relationshipTick.relationshipGoalCompleted,
     partnerCareerEvent: relationshipTick.partnerCareerEvent,
+    partnerDiedName: relationshipTick.partnerDiedName,
+    partnerInheritance: relationshipTick.partnerInheritance,
     relationshipChange: relationshipTick.relationshipChange,
     relationshipHeadline: relationshipTick.headline,
     crashEvent: economy.crashEvent,
