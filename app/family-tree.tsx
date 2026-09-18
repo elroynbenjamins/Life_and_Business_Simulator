@@ -163,6 +163,12 @@ function PersonNode({
           <Text style={styles.relationText}>{childCount} child{childCount === 1 ? '' : 'ren'}</Text>
         </View>
       )}
+      {(person.liquidWealth ?? 0) > 0 && person.status === 'living' && (
+        <View style={styles.relationRow}>
+          <Ionicons name="cash-outline" size={13} color={Colors.primary} />
+          <Text style={styles.relationText}>Tracked family wealth: {formatCurrency(person.liquidWealth ?? 0)}</Text>
+        </View>
+      )}
       {person.finalNetWorth != null && person.status === 'deceased' && (
         <View style={styles.relationRow}>
           <Ionicons name="wallet-outline" size={13} color={Colors.primary} />
