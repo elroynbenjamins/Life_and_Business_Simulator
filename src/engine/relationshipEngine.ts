@@ -552,6 +552,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       formerPartners.push({ ...partnerCandidate, isCohabiting: false, endedWeek: gw });
       activeConnections = activeConnections.filter((item) => item.id !== partnerCandidate.id);
       activePartnerId = null;
+      partnerCareerEvent = null;
       if (estatePlan.successorId === partnerCandidate.id) {
         estatePlan = { ...estatePlan, successorId: null, updatedGlobalWeek: gw };
       }
@@ -572,6 +573,8 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   if (partnerDiedName) {
     timeline.push({ week: state.week, year: state.year, title: `${partnerDiedName} passed away` });
   }
+
+  if (partnerDiedName) familyExpansionWeeksRemaining = 0;
 
   if (familyExpansionWeeksRemaining > 0) {
     familyExpansionWeeksRemaining -= 1;
@@ -602,7 +605,6 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       candidateRefreshWeek,
       children,
       financialObligations,
-      familyExpansionWeeksRemaining,
       timeline,
       partnerId: activePartnerId,
       formerPartners,
@@ -719,9 +721,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       candidateRefreshWeek,
       children,
       financialObligations,
-      familyExpansionWeeksRemaining,
       timeline,
-      pendingEvent,
       lastRelationshipEventWeek,
       recentRelationshipEventIds,
       financialSnapshot: currentSnapshot,
