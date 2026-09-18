@@ -259,6 +259,10 @@ const useGameStore = create<GameStore>((set, get) => ({
           weeklyCandidates: saved.relationshipState?.weeklyCandidates ?? [],
           activeConnections: saved.relationshipState?.activeConnections ?? [],
           timeline: saved.relationshipState?.timeline ?? [],
+          children: saved.relationshipState?.children ?? [],
+          recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
+          pendingEvent: saved.relationshipState?.pendingEvent ?? null,
+          financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
@@ -332,6 +336,10 @@ const useGameStore = create<GameStore>((set, get) => ({
           weeklyCandidates: saved.relationshipState?.weeklyCandidates ?? [],
           activeConnections: saved.relationshipState?.activeConnections ?? [],
           timeline: saved.relationshipState?.timeline ?? [],
+          children: saved.relationshipState?.children ?? [],
+          recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
+          pendingEvent: saved.relationshipState?.pendingEvent ?? null,
+          financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
@@ -517,7 +525,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     // If there's a choice/opportunity event, show event modal first
     if (summary?.lifeEvent && (summary.lifeEvent.type === 'choice' || summary.lifeEvent.type === 'opportunity')) {
       set({ showSummary: false, showEventModal: true, pendingEvent: summary.lifeEvent, showScheduledAd: scheduledAd });
-    } else if (state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
+    } else if (summary?.relationshipEventTitle && state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
       set({ showSummary: false, showRelationshipEventModal: true, showScheduledAd: scheduledAd });
     } else if (state.periodReport && !state.showPeriodReport) {
       set({ showSummary: false, showPeriodReport: true, showScheduledAd: scheduledAd });
@@ -538,7 +546,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   dismissEventModal: () => {
     const state = get();
     // After business event, show any pending personal-life decision next.
-    if (state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
+    if (state.lastSummary?.relationshipEventTitle && state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
       set({ showEventModal: false, pendingEvent: null, showRelationshipEventModal: true });
     } else if (state.periodReport && !state.showPeriodReport) {
       set({ showEventModal: false, pendingEvent: null, showPeriodReport: true });
@@ -615,7 +623,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
 
     // Dismiss event modal
-    if (state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
+    if (state.lastSummary?.relationshipEventTitle && state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
       set({ showEventModal: false, pendingEvent: null, showRelationshipEventModal: true });
     } else if (state.periodReport && !state.showPeriodReport) {
       set({ showEventModal: false, pendingEvent: null, showPeriodReport: true });
@@ -1209,7 +1217,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
     const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
-    if (!partner || !['living_together', 'engaged', 'married'].includes(partner.stage) || partner.relationship < 70) return;
+    if (!partner || !(partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married') || partner.relationship < 70) return;
 
     let acceptedPlan: FamilyPlan = plan;
     let relationshipDelta = 0;
