@@ -474,6 +474,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
 
   const currentSnapshot = financialSnapshot({ ...workingState, relationshipState: { ...workingState.relationshipState, activeConnections: adjustedConnections } });
   let pendingEvent = current.pendingEvent ?? null;
+  let eventTitle: string | null = null;
   let lastRelationshipEventWeek = current.lastRelationshipEventWeek ?? 0;
 
   if (
@@ -490,6 +491,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     );
     if (generated) {
       pendingEvent = generated;
+      eventTitle = generated.title;
       lastRelationshipEventWeek = gw;
     }
   }
@@ -517,7 +519,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     familyCost: finances.familyCost,
     relationshipChange,
     headline,
-    eventTitle: pendingEvent?.title ?? null,
+    eventTitle,
     childBornName,
   };
 }
