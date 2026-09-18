@@ -13,6 +13,7 @@ import {
   getChildAge,
   getChildWeeklyCost,
   getDateCost,
+  getFamilyFormationProfile,
   getNormalizedDatingAgeBounds,
   getProposalCost,
   getWeddingCost,
@@ -80,12 +81,24 @@ export default function RelationshipsScreen() {
   const estatePlan = relationship?.estatePlan;
   const adultChildren = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) >= 18);
   const youngestChildBirthWeek = (relationship?.children ?? []).reduce((latest, child) => Math.max(latest, child.birthGlobalWeek ?? 0), 0);
-  const familyLimitReached = (relationship?.children?.length ?? 0) >= 3;
+  const familyProfile = partner
+    ? getFamilyFormationProfile(state.age ?? 20, partner.age ?? 20, relationship?.children?.length ?? 0)
+    : null;
+  const familyLimitReached = !!familyProfile && (relationship?.children?.length ?? 0) >= familyProfile.maxChildren;
   const familySpacingBlocked = youngestChildBirthWeek > 0 && gw - youngestChildBirthWeek < 40;
-  const familyAgeBlocked = !!partner && ((state.age ?? 20) > 42 || (partner.age ?? 20) > 42);
   const familyAttemptCooldown = (relationship?.lastFamilyAttemptWeek ?? 0) > 0 && gw - (relationship?.lastFamilyAttemptWeek ?? 0) < 10;
   const familyTooYoung = !!partner && ((state.age ?? 20) < 21 || (partner.age ?? 20) < 21);
-  const canGrowFamily = !familyLimitReached && !familySpacingBlocked && !familyAgeBlocked && !familyAttemptCooldown && !familyTooYoung && (relationship?.familyExpansionWeeksRemaining ?? 0) <= 0;
+  const familyWouldCrossAgeLimit = !!partner && !!familyProfile
+    && Math.max(state.age ?? 20, partner.age ?? 20) === 42
+    && (state.week ?? 1) + familyProfile.durationWeeks > 20;
+  const familyAgeBlocked = !!partner && (!familyProfile?.allowedByAge || familyWouldCrossAgeLimit);
+  const canGrowFamily = !!familyProfile
+    && !familyLimitReached
+    && !familySpacingBlocked
+    && !familyAgeBlocked
+    && !familyAttemptCooldown
+    && !familyTooYoung
+    && (relationship?.familyExpansionWeeksRemaining ?? 0) <= 0;
 
   const estateSuccessors = [
     ...(partner?.stage === 'married' ? [{ id: partner.id, name: partner.name, role: 'Spouse' }] : []),
@@ -334,7 +347,7 @@ export default function RelationshipsScreen() {
                           {familyLimitReached
                             ? 'Maximum three children reached for this generation.'
                             : familyAgeBlocked
-                              ? 'Family expansion closes after age 42.'
+                              ? 'Family expansion must be completed before age 43.'
                               : familyTooYoung
                                 ? 'Family expansion starts from age 21.'
                                 : familySpacingBlocked
