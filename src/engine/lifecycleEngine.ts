@@ -1,5 +1,6 @@
 import { EstateBeneficiaryShare, EstateSettlement, GameState, LifecycleState, RelationshipChild, RelationshipConnection, SuccessionAssetStrategy } from '../types/game';
 import { getNetWorth, getPortfolioValue } from './financeEngine';
+import { getPlayerOwnershipPct } from './businessEngine';
 
 export interface LifecycleResult {
   lifecycle: LifecycleState;
@@ -101,7 +102,8 @@ export function calculateEstateSettlement(state: GameState): EstateSettlement {
     .filter((business) => business.familyBusiness?.isFamilyBusiness)
     .reduce((sum, business) => {
       const debt = (business.businessLoans ?? []).reduce((loanSum, loan) => loanSum + (loan.remainingAmount ?? 0), 0);
-      return sum + Math.max(0, (business.valuation ?? 0) - debt);
+      const equity = Math.max(0, (business.valuation ?? 0) - debt);
+      return sum + equity * (getPlayerOwnershipPct(business) / 100);
     }, 0));
 
   // If a business successor was explicitly named, businesses pass outside the
