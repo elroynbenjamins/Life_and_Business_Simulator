@@ -89,7 +89,6 @@ export function calculateEstateSettlement(state: GameState): EstateSettlement {
     (item) => item.id === state.relationshipState?.partnerId && item.stage === 'married'
   ) ?? null;
   const children = state.relationshipState?.children ?? [];
-  const beneficiaries = allocateEstateShares(state, spouse, children, netEstate);
 
   const successorId = state.relationshipState?.estatePlan?.successorId ?? null;
   const eligibleSuccessors: Array<{ id: string; name: string }> = [];
@@ -99,6 +98,12 @@ export function calculateEstateSettlement(state: GameState): EstateSettlement {
   }
   const successorName = eligibleSuccessors.find((item) => item.id === successorId)?.name ?? null;
   const businessValue = (state.businesses ?? []).reduce((sum, business) => sum + (business.valuation ?? 0), 0);
+
+  // If a business successor was explicitly named, businesses pass outside the
+  // residual family split. This makes succession strategically meaningful and
+  // can create an illiquid inheritance-tax bill for the successor.
+  const distributableEstate = Math.max(0, netEstate - (successorName ? businessValue : 0));
+  const beneficiaries = allocateEstateShares(state, spouse, children, distributableEstate);
 
   return {
     grossEstate,
@@ -111,15 +116,68 @@ export function calculateEstateSettlement(state: GameState): EstateSettlement {
   };
 }
 
+export function calculateChildInheritanceTax(amount: number): number {
+  let remaining = Math.max(0, amount);
+  let tax = 0;
+
+  const allowance = Math.min(remaining, 50000);
+  remaining -= allowance;
+
+  const band1 = Math.min(remaining, 200000);
+  tax += band1 * 0.10;
+  remaining -= band1;
+
+  const band2 = Math.min(remaining, 750000);
+  tax += band2 * 0.15;
+  remaining -= band2;
+
+  const band3 = Math.min(remaining, 4000000);
+  tax += band3 * 0.20;
+  remaining -= band3;
+
+  if (remaining > 0) tax += remaining * 0.25;
+  return Math.round(tax);
+}
+
+export function getSuccessionPreview(state: GameState, childId: string) {
+  const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
+  const estate = state.relationshipState?.estateSettlement;
+  if (!child || !estate || childCurrentAge(child, state) < 18) return null;
+
+  const beneficiary = (estate.beneficiaries ?? []).find((item) => item.id === childId);
+  const inheritedCash = beneficiary?.amount ?? 0;
+  const inheritedBusinessValue = estate.successorName === child.name ? estate.businessValue : 0;
+  const inheritanceTaxBase = inheritedCash + inheritedBusinessValue;
+  const inheritanceTax = calculateChildInheritanceTax(inheritanceTaxBase);
+  const taxCashAvailable = inheritedCash;
+  const loanNeeded = Math.max(0, inheritanceTax - taxCashAvailable);
+
+  return {
+    childId: child.id,
+    childName: child.name,
+    childAge: childCurrentAge(child, state),
+    inheritedCash,
+    inheritedBusinessValue,
+    inheritanceTaxBase,
+    inheritanceTax,
+    taxCashAvailable,
+    loanNeeded,
+  };
+}
+
 export function annualDeathChance(age: number): number {
-  if (age < 60) return 0;
-  if (age < 70) return 0.002;
-  if (age < 80) return 0.007;
-  if (age < 90) return 0.02;
-  if (age < 100) return 0.05;
-  if (age < 110) return 0.12;
-  if (age < 120) return 0.30;
-  if (age < 125) return 0.65;
+  if (age < 55) return 0;
+  if (age < 60) return 0.0025;
+  if (age < 65) return 0.005;
+  if (age < 70) return 0.01;
+  if (age < 75) return 0.02;
+  if (age < 80) return 0.04;
+  if (age < 85) return 0.07;
+  if (age < 90) return 0.12;
+  if (age < 95) return 0.20;
+  if (age < 100) return 0.35;
+  if (age < 105) return 0.55;
+  if (age < 110) return 0.80;
   return 1;
 }
 
