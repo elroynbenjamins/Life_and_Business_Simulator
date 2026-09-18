@@ -249,6 +249,20 @@ export default function WeekSummarySheet() {
               </View>
             )}
 
+            {summary?.partnerCareerEvent && (
+              <View style={[styles.eventBox, { backgroundColor: `${Colors.info}12`, borderColor: `${Colors.info}33` }]}>
+                <Text style={styles.eventTitle}>💼 Partner Career</Text>
+                <Text style={styles.eventDesc}>{summary.partnerCareerEvent}</Text>
+              </View>
+            )}
+
+            {summary?.relationshipGoalCompleted && (
+              <View style={[styles.eventBox, { backgroundColor: `${Colors.primary}12`, borderColor: `${Colors.primary}33` }]}>
+                <Text style={styles.eventTitle}>🎯 Shared Goal Completed</Text>
+                <Text style={styles.eventDesc}>{summary.relationshipGoalCompleted}</Text>
+              </View>
+            )}
+
             {(summary?.relationshipHeadline || (summary?.relationshipChange ?? 0) !== 0) && (
               <View style={[styles.eventBox, { backgroundColor: `${Colors.happiness}12`, borderColor: `${Colors.happiness}33` }]}>
                 <Text style={styles.eventTitle}>❤️ Personal Life</Text>
