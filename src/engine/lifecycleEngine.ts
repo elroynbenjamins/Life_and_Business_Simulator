@@ -79,7 +79,7 @@ export function calculateEstateSettlement(state: GameState): EstateSettlement {
 
   const structure = state.relationshipState?.estatePlan?.structure ?? 'none';
   const adminRate = structure === 'family_trust' ? 0.0075 : structure === 'will' ? 0.02 : 0.04;
-  const minimum = structure === 'family_trust' ? 2500 : 1000;
+  const minimum = structure === 'family_trust' ? 500 : structure === 'will' ? 750 : 1000;
   const administrationCost = grossEstate > 0
     ? Math.min(grossEstate, Math.max(minimum, Math.round(grossEstate * adminRate)))
     : 0;
