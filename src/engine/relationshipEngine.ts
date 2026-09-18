@@ -551,6 +551,7 @@ function createChild(state: GameState): RelationshipChild {
     lastAdultEventYear: 0,
     descendants: [],
     childrenCount: 0,
+    otherParentId: partner?.id ?? null,
   };
 }
 
