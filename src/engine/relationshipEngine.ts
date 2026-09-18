@@ -385,6 +385,9 @@ function createChild(state: GameState): RelationshipChild {
     birthGlobalWeek: globalWeek(state),
     age: 0,
     educationFund: 0,
+    status: 'dependent',
+    occupationTitle: null,
+    weeklyIncome: 0,
   };
 }
 
@@ -453,6 +456,39 @@ function processPartnerCareer(
   };
 }
 
+
+function launchAdultChild(child: RelationshipChild, state: GameState, gw: number): { child: RelationshipChild; milestone: string } {
+  const fund = Math.max(0, child.educationFund ?? 0);
+  const outcome: NonNullable<RelationshipChild['educationOutcome']> =
+    fund >= 50000 ? 'elite' : fund >= 20000 ? 'strong' : fund >= 5000 ? 'solid' : 'limited';
+
+  const occupations = occupationsData as any[];
+  const eligible = outcome === 'elite'
+    ? occupations.filter((item) => (item.baseWeeklyIncome ?? 0) >= 1050)
+    : outcome === 'strong'
+      ? occupations.filter((item) => (item.baseWeeklyIncome ?? 0) >= 850)
+      : outcome === 'solid'
+        ? occupations.filter((item) => (item.baseWeeklyIncome ?? 0) >= 620)
+        : occupations.filter((item) => (item.baseWeeklyIncome ?? 0) <= 820);
+  const occupation = randomOf(eligible.length > 0 ? eligible : occupations);
+  const multiplier = outcome === 'elite' ? 1.12 : outcome === 'strong' ? 1.05 : outcome === 'solid' ? 0.98 : 0.88;
+  const weeklyIncome = Math.max(350, Math.round((occupation.baseWeeklyIncome ?? 650) * multiplier));
+
+  return {
+    child: {
+      ...child,
+      age: Math.max(18, child.age ?? 18),
+      educationFund: 0,
+      status: 'independent',
+      occupationTitle: occupation.title,
+      weeklyIncome,
+      educationOutcome: outcome,
+      launchedGlobalWeek: gw,
+    },
+    milestone: `${child.name} became independent and started work as ${occupation.title}.`,
+  };
+}
+
 export interface RelationshipWeekResult {
   state: RelationshipState;
   partnerContribution: number;
@@ -467,6 +503,7 @@ export interface RelationshipWeekResult {
   partnerCareerEvent: string | null;
   partnerDiedName: string | null;
   partnerInheritance: number;
+  familyMilestones: string[];
 }
 
 export function processRelationships(state: GameState): RelationshipWeekResult {
@@ -486,6 +523,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       partnerCareerEvent: null,
       partnerDiedName: null,
       partnerInheritance: 0,
+      familyMilestones: [],
     };
   }
 
@@ -505,6 +543,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       partnerCareerEvent: null,
       partnerDiedName: null,
       partnerInheritance: 0,
+      familyMilestones: [],
     };
   }
 
@@ -566,12 +605,29 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     candidateRefreshWeek = gw;
   }
 
-  let children = (current.children ?? []).map((child) => ({ ...child, age: getChildAge(child, gw) }));
+  const familyMilestones: string[] = [];
+  let children = (current.children ?? []).map((child) => {
+    const age = getChildAge(child, gw);
+    const agedChild: RelationshipChild = {
+      ...child,
+      age,
+      status: child.status ?? (age >= 18 ? 'independent' : 'dependent'),
+    };
+    if (age >= 18 && child.status !== 'independent') {
+      const launched = launchAdultChild(agedChild, state, gw);
+      familyMilestones.push(launched.milestone);
+      return launched.child;
+    }
+    return agedChild;
+  });
   let familyExpansionWeeksRemaining = current.familyExpansionWeeksRemaining ?? 0;
   let childBornName: string | null = null;
   let timeline = [...(current.timeline ?? [])];
   if (partnerDiedName) {
     timeline.push({ week: state.week, year: state.year, title: `${partnerDiedName} passed away` });
+  }
+  for (const milestone of familyMilestones) {
+    timeline.push({ week: state.week, year: state.year, title: milestone });
   }
 
   if (partnerDiedName) familyExpansionWeeksRemaining = 0;
@@ -745,5 +801,6 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     partnerCareerEvent,
     partnerDiedName,
     partnerInheritance,
+    familyMilestones,
   };
 }
