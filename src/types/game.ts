@@ -45,6 +45,7 @@ export interface RelationshipConnection extends RelationshipCandidate {
   unemploymentWeeks?: number;
   careerLevel?: number;
   lastCareerEventWeek?: number;
+  familyTreePersonId?: string;
 }
 
 export type ChildIndependence = 'close' | 'balanced' | 'independent';
@@ -85,6 +86,7 @@ export interface RelationshipChild {
   partnerGender?: 'woman' | 'man' | null;
   childrenCount?: number;
   descendants?: RelationshipDescendant[];
+  otherParentId?: string | null;
   parentRelationship?: number;
   personality?: ChildPersonality;
   adultStatus?: AdultChildStatus;
