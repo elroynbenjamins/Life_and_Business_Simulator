@@ -11,6 +11,7 @@ import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
 import { getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyCarCost, getWeeklyFoodCost, getWeeklyCourseCost, getWeeklyLoanPayments } from '../../src/engine/financeEngine';
 import { getCareerSalary } from '../../src/engine/careerEngine';
+import { calculatePartnerContribution } from '../../src/engine/relationshipEngine';
 import coursesData from '../../src/data/courses.json';
 
 export default function DashboardScreen() {
@@ -45,7 +46,8 @@ export default function DashboardScreen() {
   const hasCareerV2 = !!career?.companyId;
   const weeklyIncome = hasCareerV2 ? getCareerSalary(career!, state.inflationMultiplier ?? 1) : getWeeklySalary(state);
   const loanPayments = getWeeklyLoanPayments(state);
-  const weeklyExpenses = getWeeklyRent(state) + getWeeklyUtilityCost(state) + getWeeklyCarCost(state) + getWeeklyFoodCost(state) + getWeeklyCourseCost(state) + loanPayments;
+  const household = relationshipModeEnabled ? calculatePartnerContribution(partner, state) : { contribution: 0, householdExtraCost: 0, familyCost: 0 };
+  const weeklyExpenses = getWeeklyRent(state) + getWeeklyUtilityCost(state) + getWeeklyCarCost(state) + getWeeklyFoodCost(state) + getWeeklyCourseCost(state) + loanPayments + household.householdExtraCost + household.familyCost;
 
   const isEmployed = hasCareerV2 || !!currentJobId;
   const hasIncome = isEmployed || partTimeJob;
@@ -164,8 +166,8 @@ export default function DashboardScreen() {
           <GameCard title="Personal Life" onPress={() => router.push('/relationships')}>
             {partner ? (
               <>
-                <Text style={[styles.statValue, { color: Colors.happiness }]}>{partner.name} • {partner.stage === 'living_together' ? 'Living Together' : 'Partner'}</Text>
-                <Text style={styles.statCaption}>Relationship: {Math.round(partner.relationship ?? 0)}% • {partner.weeksKnown ?? 0} weeks known</Text>
+                <Text style={[styles.statValue, { color: Colors.happiness }]}>{partner.name} • {partner.stage === 'married' ? 'Married' : partner.stage === 'engaged' ? 'Engaged' : (partner.isCohabiting || partner.stage === 'living_together') ? 'Living Together' : 'Partner'}</Text>
+                <Text style={styles.statCaption}>Relationship: {Math.round(partner.relationship ?? 0)}%{household.contribution > 0 ? ` • +${formatCurrency(household.contribution)}/wk shared costs` : ''}</Text>
               </>
             ) : (
               <>
