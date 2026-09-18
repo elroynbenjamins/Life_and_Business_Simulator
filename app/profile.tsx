@@ -33,6 +33,12 @@ export default function ProfileScreen() {
   const setRelationshipModeEnabled = useGameStore((s) => s?.setRelationshipModeEnabled);
 
   const netWorth = getNetWorthValue?.() ?? 0;
+  const personalLifeHasCommitments =
+    !!relationshipState?.partnerId ||
+    (relationshipState?.activeConnections?.length ?? 0) > 0 ||
+    (relationshipState?.children?.length ?? 0) > 0 ||
+    (relationshipState?.financialObligations?.length ?? 0) > 0 ||
+    (relationshipState?.familyExpansionWeeksRemaining ?? 0) > 0;
 
   const handleNewGame = () => {
     showGameDialog({ title: 'New Game', message: 'Start a new game? All progress in this slot will be lost.', confirmText: 'New Game', destructive: true, onConfirm: () => beginNewGame?.() });
@@ -77,14 +83,17 @@ export default function ProfileScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.modeTitle}>Personal Life</Text>
               <Text style={styles.modeDesc}>
-                Optional dating and relationships. When disabled, relationship events, household costs and partner contributions are paused.
+                Optional dating, relationships and family gameplay. You can disable it again while there are no active dating, family or legal commitments.
               </Text>
-              {(relationshipState?.partnerId || (relationshipState?.activeConnections?.length ?? 0) > 0) && (
+              {relationshipModeEnabled && personalLifeHasCommitments ? (
+                <Text style={styles.modeSaved}>Mode is locked on while active personal/family/legal commitments remain.</Text>
+              ) : (relationshipState?.partnerId || (relationshipState?.activeConnections?.length ?? 0) > 0) ? (
                 <Text style={styles.modeSaved}>Existing relationship progress is preserved.</Text>
-              )}
+              ) : null}
             </View>
             <Pressable
-              style={[styles.modeToggle, relationshipModeEnabled && styles.modeToggleOn]}
+              disabled={relationshipModeEnabled && personalLifeHasCommitments}
+              style={[styles.modeToggle, relationshipModeEnabled && styles.modeToggleOn, relationshipModeEnabled && personalLifeHasCommitments && { opacity: 0.45 }]}
               onPress={() => setRelationshipModeEnabled?.(!relationshipModeEnabled)}
               accessibilityRole="switch"
               accessibilityState={{ checked: relationshipModeEnabled }}
