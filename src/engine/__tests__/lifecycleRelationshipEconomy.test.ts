@@ -135,6 +135,27 @@ describe('expanded relationship progression', () => {
     expect(result.state.activeConnections[0].savings).toBeGreaterThan(10000);
   });
 
+  it('processes relationship legal obligations as weekly costs', () => {
+    const result = processRelationships({
+      ...INITIAL_GAME_STATE,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        financialObligations: [{
+          id: 'settlement',
+          type: 'divorce_settlement',
+          label: 'Settlement',
+          remainingAmount: 10000,
+          weeklyPayment: 1000,
+          weeksRemaining: 10,
+        }],
+      },
+    });
+    expect(result.obligationCost).toBe(1000);
+    expect(result.state.financialObligations[0].remainingAmount).toBe(9000);
+    expect(result.state.financialObligations[0].weeksRemaining).toBe(9);
+  });
+
   it('creates a child when a family expansion countdown completes', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.2);
     const partner: RelationshipConnection = {
