@@ -145,6 +145,10 @@ export function calculatePartnerContribution(
   connection: RelationshipConnection | null,
   state: GameState
 ): { contribution: number; householdExtraCost: number; familyCost: number } {
+  if (!state.relationshipModeEnabled) {
+    return { contribution: 0, householdExtraCost: 0, familyCost: 0 };
+  }
+
   const children = state.relationshipState?.children ?? [];
   const familyCost = children.reduce((total, child) => total + getChildWeeklyCost(child, state), 0);
 
