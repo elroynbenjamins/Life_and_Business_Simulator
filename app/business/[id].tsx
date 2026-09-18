@@ -320,10 +320,10 @@ export default function BusinessDetailScreen() {
                     <Text style={styles.decisionChoiceTitle}>{choice.text}</Text>
                     <Text style={styles.decisionChoiceDesc}>{choice.description}</Text>
                     <Text style={styles.decisionEffects}>
-                      {choice.durationWeeks && choice.durationWeeks > 1 ? '${choice.durationWeeks}wk effect' : 'Immediate'}
-                      {choice.reputationDelta ? ' • Rep ${choice.reputationDelta > 0 ? '+' : ''}${choice.reputationDelta}' : ''}
-                      {choice.marketShareDelta ? ' • Share ${choice.marketShareDelta > 0 ? '+' : ''}${choice.marketShareDelta}' : ''}
-                      {choice.moraleDelta ? ' • Morale ${choice.moraleDelta > 0 ? '+' : ''}${choice.moraleDelta}' : ''}
+                      {choice.durationWeeks && choice.durationWeeks > 1 ? `${choice.durationWeeks}wk effect` : 'Immediate'}
+                      {choice.reputationDelta ? ` • Rep ${choice.reputationDelta > 0 ? '+' : ''}${choice.reputationDelta}` : ''}
+                      {choice.marketShareDelta ? ` • Share ${choice.marketShareDelta > 0 ? '+' : ''}${choice.marketShareDelta}` : ''}
+                      {choice.moraleDelta ? ` • Morale ${choice.moraleDelta > 0 ? '+' : ''}${choice.moraleDelta}` : ''}
                     </Text>
                   </View>
                   {scaledCost > 0 && <Text style={[styles.decisionCost, !affordable && { color: Colors.negative }]}>{formatCurrency(scaledCost)}</Text>}
@@ -372,7 +372,7 @@ export default function BusinessDetailScreen() {
             </View>
           </View>
           {ownership.map((stake, index) => (
-            <View key={'${stake.ownerType}_${stake.ownerId}_${index}'} style={styles.ownerRow}>
+            <View key={`${stake.ownerType}_${stake.ownerId}_${index}`} style={styles.ownerRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.ownerName}>{stake.ownerName}</Text>
                 <Text style={styles.ownerType}>{stake.ownerType.replace('_', ' ')} • Voting {stake.votingPercent.toFixed(1)}%</Text>
@@ -455,7 +455,7 @@ export default function BusinessDetailScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.ownerName}>{child.name}</Text>
                       <Text style={styles.ownerType}>
-                        {child.occupationTitle ?? 'Independent'} • {familyRole ? '${familyRole.role} • Performance ${Math.round(familyRole.performance)}' : 'Not involved'}
+                        {child.occupationTitle ?? 'Independent'} • {familyRole ? `${familyRole.role} • Performance ${Math.round(familyRole.performance)} • ${formatCurrency(familyRole.weeklySalary ?? 0)}/wk` : 'Not involved'}
                       </Text>
                     </View>
                   </View>
@@ -1202,8 +1202,8 @@ const styles = StyleSheet.create({
   bizStatValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 2 },
   familyBusinessButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: `${Colors.warning}66`, borderRadius: 10, paddingVertical: 11, marginTop: 10 },
   familyBusinessButtonText: { color: Colors.warning, fontSize: 12, fontWeight: '800' },
-  decisionBanner: { flexDirection: 'row', gap: 10, padding: 10, borderRadius: 10, backgroundColor: '${Colors.warning}10', borderWidth: 1, borderColor: '${Colors.warning}35', marginBottom: 9 },
-  crisisBanner: { backgroundColor: '${Colors.negative}10', borderColor: '${Colors.negative}35' },
+  decisionBanner: { flexDirection: 'row', gap: 10, padding: 10, borderRadius: 10, backgroundColor: `${Colors.warning}10`, borderWidth: 1, borderColor: `${Colors.warning}35`, marginBottom: 9 },
+  crisisBanner: { backgroundColor: `${Colors.negative}10`, borderColor: `${Colors.negative}35` },
   decisionIcon: { fontSize: 24 },
   decisionEyebrow: { color: Colors.warning, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   decisionTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 2 },
@@ -1215,7 +1215,7 @@ const styles = StyleSheet.create({
   decisionCost: { color: Colors.warning, fontSize: 11, fontWeight: '800' },
   strategyFocusGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   strategyFocus: { width: '48%', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 9 },
-  strategyFocusActive: { borderColor: Colors.primary, backgroundColor: '${Colors.primary}0D' },
+  strategyFocusActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
   strategyFocusTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   strategyFocusDesc: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 2 },
   activeStrategyBox: { marginTop: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
@@ -1233,15 +1233,15 @@ const styles = StyleSheet.create({
   shareInfo: { flex: 1, justifyContent: 'center', paddingHorizontal: 8 },
   shareInfoText: { color: Colors.warning, fontSize: 10 },
   childShareRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 7, paddingTop: 7, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
-  smallShareButton: { borderWidth: 1, borderColor: '${Colors.info}55', borderRadius: 7, paddingHorizontal: 9, paddingVertical: 7 },
+  smallShareButton: { borderWidth: 1, borderColor: `${Colors.info}55`, borderRadius: 7, paddingHorizontal: 9, paddingVertical: 7 },
   smallShareText: { color: Colors.info, fontSize: 10, fontWeight: '700' },
-  buybackButton: { borderWidth: 1, borderColor: '${Colors.primary}66', borderRadius: 9, paddingVertical: 10, alignItems: 'center', marginTop: 10 },
+  buybackButton: { borderWidth: 1, borderColor: `${Colors.primary}66`, borderRadius: 9, paddingVertical: 10, alignItems: 'center', marginTop: 10 },
   buybackText: { color: Colors.primary, fontSize: 11, fontWeight: '800' },
   governanceChild: { paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   governanceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   governanceButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
   governanceButton: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6 },
-  governanceButtonActive: { borderColor: Colors.primary, backgroundColor: '${Colors.primary}0D' },
+  governanceButtonActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
   governanceButtonText: { color: Colors.textSecondary, fontSize: 9, fontWeight: '700' },
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   optionChip: { borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 12, paddingVertical: 10, minWidth: '45%', flex: 1 },
