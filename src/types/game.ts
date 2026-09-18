@@ -644,6 +644,8 @@ export interface WeekSummary {
   childBornName: string | null;
   relationshipGoalCompleted: string | null;
   partnerCareerEvent: string | null;
+  partnerDiedName: string | null;
+  partnerInheritance: number;
   // Macro correction
   crashEvent: { title: string; inflationReduction: number; stockShock: number } | null;
   // Lifecycle
