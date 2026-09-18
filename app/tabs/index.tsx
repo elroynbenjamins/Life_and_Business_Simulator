@@ -30,6 +30,7 @@ export default function DashboardScreen() {
   const prestigePoints = useGameStore((s) => s?.profile?.prestigePoints ?? 0);
   const loginRewardAvailable = useGameStore((s) => s.getDailyLoginStatus().available);
   const state = useGameStore();
+  const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
   const relationshipState = useGameStore((s) => s?.relationshipState);
   const lifecycle = useGameStore((s) => s?.lifecycle);
   const partner = (relationshipState?.activeConnections ?? []).find((item) => item.id === relationshipState?.partnerId) ?? null;
@@ -159,19 +160,21 @@ export default function DashboardScreen() {
         </View>
 
         {/* Personal Life */}
-        <GameCard title="Personal Life" onPress={() => router.push('/relationships')}>
-          {partner ? (
-            <>
-              <Text style={[styles.statValue, { color: Colors.happiness }]}>{partner.name} • {partner.stage === 'living_together' ? 'Living Together' : 'Partner'}</Text>
-              <Text style={styles.statCaption}>Relationship: {Math.round(partner.relationship ?? 0)}% • {partner.weeksKnown ?? 0} weeks known</Text>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.statValue, { color: Colors.happiness }]}>Single</Text>
-              <Text style={styles.statCaption}>Meet someone and build a life together</Text>
-            </>
-          )}
-        </GameCard>
+        {relationshipModeEnabled && (
+          <GameCard title="Personal Life" onPress={() => router.push('/relationships')}>
+            {partner ? (
+              <>
+                <Text style={[styles.statValue, { color: Colors.happiness }]}>{partner.name} • {partner.stage === 'living_together' ? 'Living Together' : 'Partner'}</Text>
+                <Text style={styles.statCaption}>Relationship: {Math.round(partner.relationship ?? 0)}% • {partner.weeksKnown ?? 0} weeks known</Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.statValue, { color: Colors.happiness }]}>Single</Text>
+                <Text style={styles.statCaption}>Meet someone and build a life together</Text>
+              </>
+            )}
+          </GameCard>
+        )}
 
         {/* Portfolio */}
         {hasHoldings ? (
@@ -216,7 +219,7 @@ export default function DashboardScreen() {
         {/* Quick Links */}
         <View style={styles.linksRow}>
           <QuickLink icon="home" label="Lifestyle" onPress={() => router.push('/housing')} />
-          <QuickLink icon="heart" label="Personal Life" onPress={() => router.push('/relationships')} color={Colors.happiness} />
+          {relationshipModeEnabled && <QuickLink icon="heart" label="Personal Life" onPress={() => router.push('/relationships')} color={Colors.happiness} />}
           <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} />
           <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} />
           <QuickLink icon="pie-chart" label="Portfolio" onPress={() => router.push('/portfolio')} />
