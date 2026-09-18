@@ -37,6 +37,7 @@ export interface RelationshipConnection extends RelationshipCandidate {
   engagedWeek?: number;
   marriedWeek?: number;
   householdSplit?: HouseholdSplit;
+  isCohabiting?: boolean;
   marriageAgreement?: MarriageAgreement;
   netWorthAtMarriage?: number;
 }
