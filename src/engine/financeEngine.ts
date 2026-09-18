@@ -190,7 +190,8 @@ export function getNetWorth(state: GameState): number {
   // Valuation already includes available business cash.
   const businessValue = (state?.businesses ?? []).reduce((t, b) => t + (b?.valuation ?? 0) * (getPlayerOwnershipPct(b) / 100), 0);
   const businessLoanDebt = (state?.businesses ?? []).reduce((t, b) => {
-    return t + (b?.businessLoans ?? []).reduce((lt, l) => lt + (l?.remainingAmount ?? 0), 0);
+    const debt = (b?.businessLoans ?? []).reduce((lt, l) => lt + (l?.remainingAmount ?? 0), 0);
+    return t + debt * (getPlayerOwnershipPct(b) / 100);
   }, 0);
   // Property values
   const propertyValue = (state?.properties ?? []).reduce((t, p) => t + (p?.currentValue ?? 0), 0);
