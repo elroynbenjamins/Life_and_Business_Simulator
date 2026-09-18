@@ -167,7 +167,8 @@ export function processDividends(
  */
 export function processStocks(
   state: GameState,
-  news: NewsEvent
+  news: NewsEvent,
+  macroShock = 0
 ): { stocks: StockState[]; stockChanges: { ticker: string; change: number }[] } {
   const newsEffects = news?.effects ?? {};
   const inflationDrift = ((state?.inflationMultiplier ?? 1) - 1) * 0.0005;
@@ -202,7 +203,10 @@ export function processStocks(
 
     // Slightly asymmetric circuit breakers reduce long-run collapse from volatility drag
     // and prevent lifetime gain/loss records from always converging on the same magnitude.
-    let totalChange = Math.max(-0.08, Math.min(0.10, baseChange + newsEffect + marketEffect + inflationDrift + weeklyGrowthDrift + meanReversion));
+    let totalChange = Math.max(
+      macroShock < 0 ? -0.30 : -0.08,
+      Math.min(0.10, baseChange + newsEffect + marketEffect + inflationDrift + weeklyGrowthDrift + meanReversion + macroShock)
+    );
 
     let newPrice = (stock?.currentPrice ?? 100) * (1 + totalChange);
     newPrice = Math.max(1, Math.round(newPrice * 100) / 100);
