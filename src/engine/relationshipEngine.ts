@@ -200,6 +200,7 @@ function createRelationshipEvent(
   partner: RelationshipConnection,
   previous: RelationshipFinancialSnapshot | null,
   current: RelationshipFinancialSnapshot,
+  recentIds: string[],
 ): RelationshipEvent | null {
   const eligible: RelationshipEvent[] = [];
   const inflation = state.inflationMultiplier ?? 1;
@@ -347,8 +348,9 @@ function createRelationshipEvent(
     });
   }
 
-  if (eligible.length === 0) return null;
-  return randomOf(eligible);
+  const fresh = eligible.filter((event) => !recentIds.includes(event.id));
+  if (fresh.length === 0) return null;
+  return randomOf(fresh);
 }
 
 function createChild(state: GameState): RelationshipChild {
@@ -484,12 +486,17 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       adjustedConnections.find((c) => c.id === partner.id) ?? partner,
       current.financialSnapshot ?? null,
       currentSnapshot,
+      current.recentRelationshipEventIds ?? [],
     );
     if (generated) {
       pendingEvent = generated;
       lastRelationshipEventWeek = gw;
     }
   }
+
+  const recentRelationshipEventIds = pendingEvent && pendingEvent.id !== current.pendingEvent?.id
+    ? [...(current.recentRelationshipEventIds ?? []), pendingEvent.id].slice(-4)
+    : (current.recentRelationshipEventIds ?? []);
 
   return {
     state: {
@@ -502,6 +509,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       timeline,
       pendingEvent,
       lastRelationshipEventWeek,
+      recentRelationshipEventIds,
       financialSnapshot: currentSnapshot,
     },
     partnerContribution: finances.contribution,
