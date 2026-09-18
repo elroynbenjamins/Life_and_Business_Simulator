@@ -510,6 +510,7 @@ export interface WeekSummary {
   partnerContribution: number;
   relationshipChange: number;
   relationshipHeadline: string | null;
+  relationshipHouseholdCost: number;
   // Macro correction
   crashEvent: { title: string; inflationReduction: number; stockShock: number } | null;
   // Lifecycle
