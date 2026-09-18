@@ -901,4 +901,32 @@ describe('expanded relationship progression', () => {
     expect(preview?.willingToSucceed).toBe(false);
     expect(preview?.parentRelationship).toBe(18);
   });
+
+  it('slowly weakens a parent-child bond after long-term neglect', () => {
+    const child = {
+      id: 'neglected-child',
+      name: 'Mila',
+      gender: 'girl' as const,
+      birthGlobalWeek: 1,
+      age: 10,
+      educationFund: 0,
+      status: 'dependent' as const,
+      parentRelationship: 75,
+      lastParentInteractionWeek: 1,
+      descendants: [],
+    };
+    const result = processRelationships({
+      ...INITIAL_GAME_STATE,
+      year: 11,
+      week: 1,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [child],
+        lastRelationshipEventWeek: 201,
+      },
+    });
+
+    expect(result.state.children[0].parentRelationship).toBe(72);
+  });
 });
