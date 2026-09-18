@@ -255,15 +255,15 @@ const useGameStore = create<GameStore>((set, get) => ({
         tempHappinessEffects: saved.tempHappinessEffects ?? [],
         pendingInvestments: saved.pendingInvestments ?? [],
         recentEventIds: saved.recentEventIds ?? [],
-        businesses: (saved.businesses ?? []).map((business) => ({
+        businesses: (saved.businesses ?? []).map((business, businessIndex) => ({
           ...business,
           purchasedUpgrades: [...new Set(business.purchasedUpgrades ?? [])],
           marketShareModifier: business.marketShareModifier ?? 0,
           strategicFocus: business.strategicFocus ?? 'balanced',
           strategyModifiers: business.strategyModifiers ?? [],
           pendingDecision: business.pendingDecision ?? null,
-          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 8),
-          nextCrisisCheckWeek: business.nextCrisisCheckWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 14),
+          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 6 + (businessIndex % 7)),
+          nextCrisisCheckWeek: business.nextCrisisCheckWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 10 + ((businessIndex * 3) % 9)),
           ownership: business.ownership?.length ? business.ownership : [{
             ownerType: 'player',
             ownerId: 'player',
@@ -372,15 +372,15 @@ const useGameStore = create<GameStore>((set, get) => ({
         tempHappinessEffects: saved.tempHappinessEffects ?? [],
         pendingInvestments: saved.pendingInvestments ?? [],
         recentEventIds: saved.recentEventIds ?? [],
-        businesses: (saved.businesses ?? []).map((business) => ({
+        businesses: (saved.businesses ?? []).map((business, businessIndex) => ({
           ...business,
           purchasedUpgrades: [...new Set(business.purchasedUpgrades ?? [])],
           marketShareModifier: business.marketShareModifier ?? 0,
           strategicFocus: business.strategicFocus ?? 'balanced',
           strategyModifiers: business.strategyModifiers ?? [],
           pendingDecision: business.pendingDecision ?? null,
-          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 8),
-          nextCrisisCheckWeek: business.nextCrisisCheckWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 14),
+          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 6 + (businessIndex % 7)),
+          nextCrisisCheckWeek: business.nextCrisisCheckWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 10 + ((businessIndex * 3) % 9)),
           ownership: business.ownership?.length ? business.ownership : [{
             ownerType: 'player',
             ownerId: 'player',
