@@ -8,6 +8,7 @@ import { createBusiness, generateCandidates, candidateToEmployee, getBusinessTyp
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
 import { ensureAuctions, getInspectionCost, inspectAuction, leaveAuction, placeAuctionBid } from '../engine/auctionEngine';
 import { unlockPrestige, getPrestigeEffects } from '../engine/prestigeEngine';
+import { getSuccessionPreview } from '../engine/lifecycleEngine';
 import { getCareerSalary } from '../engine/careerEngine';
 import { applyEducationRewards } from '../engine/skillEngine';
 import { createInitialCompetitors, migrateBusinessCompetitors } from '../engine/competitorEngine';
@@ -124,6 +125,7 @@ interface GameStore extends GameState {
   setSharedRelationshipGoal: (type: SharedGoalType) => void;
   cancelSharedRelationshipGoal: () => void;
   setEstatePlan: (planType: EstatePlanType, structure: EstateStructureType, successorId: string | null) => void;
+  continueAsChild: (childId: string, financeTaxWithLoan: boolean) => void;
   dismissRelationshipEventModal: () => void;
   handleRelationshipEventChoice: (choiceIndex: number) => void;
   dismissRelationshipFeedback: () => void;
@@ -280,6 +282,8 @@ const useGameStore = create<GameStore>((set, get) => ({
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
+        generation: saved.generation ?? 1,
+        familyLegacy: saved.familyLegacy ?? [],
       };
       // Migrate career state: remove old freelancing fields, add new fields
       if (merged.career) {
@@ -366,6 +370,8 @@ const useGameStore = create<GameStore>((set, get) => ({
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
+        generation: saved.generation ?? 1,
+        familyLegacy: saved.familyLegacy ?? [],
       };
       // Migrate career state
       if (merged.career) {
@@ -1555,6 +1561,149 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
+  continueAsChild: (childId, financeTaxWithLoan) => {
+    const state = get();
+    if (!state.lifecycle?.isDead) return;
+    const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
+    const preview = getSuccessionPreview(state, childId);
+    if (!child || !preview) return;
+    if (preview.loanNeeded > 0 && !financeTaxWithLoan) return;
+
+    const inheritedBusinesses = preview.inheritedBusinessValue > 0
+      ? (state.businesses ?? [])
+      : [];
+
+    const inheritanceLoan: ActiveLoan | null = preview.loanNeeded > 0
+      ? (() => {
+          const totalRepayment = Math.ceil(preview.loanNeeded * 1.06);
+          const durationWeeks = 80;
+          return {
+            loanId: `inheritance_tax_g${(state.generation ?? 1) + 1}`,
+            name: 'Inheritance Tax Loan',
+            originalAmount: preview.loanNeeded,
+            remainingAmount: totalRepayment,
+            weeklyPayment: Math.ceil(totalRepayment / durationWeeks),
+            weeksRemaining: durationWeeks,
+          };
+        })()
+      : null;
+
+    const cashAfterTax = Math.max(0, preview.inheritedCash - preview.inheritanceTax);
+    const nextGeneration = (state.generation ?? 1) + 1;
+    const legacyEntry = {
+      generation: state.generation ?? 1,
+      name: state.playerName,
+      deathAge: state.lifecycle.deathAge ?? state.age,
+      deathYear: state.lifecycle.deathYear ?? state.year,
+      finalNetWorth: state.relationshipState?.estateSettlement?.netEstate ?? getNetWorth(state),
+      successorName: child.name,
+    };
+
+    const occupationToLegacyJob: Record<string, string> = {
+      retail: 'cashier',
+      admin: 'office_assistant',
+      accounting: 'accountant',
+      marketing: 'marketing_specialist',
+      developer: 'software_developer',
+    };
+    const inheritedJobId = occupationToLegacyJob[(child as any).occupationTitle === 'Assistant Accountant' ? 'accounting' : ''] ?? null;
+
+    const inheritedCompetitors = Object.fromEntries(
+      inheritedBusinesses.map((business) => [business.id, state.competitors?.[business.id] ?? []])
+    );
+
+    const relationshipState = {
+      ...INITIAL_RELATIONSHIP_STATE,
+      preferencesSet: false,
+    };
+
+    const newState: GameState = {
+      ...INITIAL_GAME_STATE,
+      playerName: child.name,
+      week: state.week,
+      year: state.year,
+      age: preview.childAge,
+      cash: cashAfterTax,
+      inflationMultiplier: state.inflationMultiplier,
+      currentHousingId: 'cheap_apartment',
+      housingHistory: ['cheap_apartment'],
+      currentCarId: 'none',
+      pendingCarDelivery: null,
+      foodLevel: 'basic',
+      currentJobId: inheritedJobId,
+      careerHistory: [],
+      totalWeeksWorked: 0,
+      stocks: mergeStocks([]),
+      holdings: [],
+      loans: inheritanceLoan ? [inheritanceLoan] : [],
+      bankDeposits: [],
+      happiness: 45,
+      netWorthHistory: [],
+      earningsSinceLastTax: 0,
+      lastTaxWeek: state.lastTaxWeek,
+      totalTaxPaid: 0,
+      unlockedAchievements: state.unlockedAchievements ?? [],
+      statistics: {
+        ...INITIAL_STATISTICS,
+        highestCash: cashAfterTax,
+        highestNetWorth: cashAfterTax + inheritedBusinesses.reduce((sum, business) => sum + (business.valuation ?? 0), 0),
+      },
+      currentHeadline: `Generation ${nextGeneration}: ${child.name} continues the family legacy.`,
+      initialized: true,
+      tempHappinessEffects: [],
+      pendingInvestments: [],
+      recentEventIds: [],
+      businesses: inheritedBusinesses,
+      skills: {},
+      knowledge: {},
+      career: { ...INITIAL_CAREER_STATE },
+      properties: [],
+      activeAuctions: [],
+      competitors: inheritedCompetitors,
+      activeMarketSentiment: state.activeMarketSentiment,
+      activeMarketEvents: state.activeMarketEvents,
+      totalRealizedProfitLoss: 0,
+      newsHistory: [...(state.newsHistory ?? [])].slice(-20),
+      partTimeJob: false,
+      adWatchedToday: state.adWatchedToday ?? 0,
+      adLastWatchDate: state.adLastWatchDate ?? '',
+      relationshipModeEnabled: state.relationshipModeEnabled,
+      relationshipState,
+      lifecycle: { ...INITIAL_LIFECYCLE_STATE },
+      lastMacroCrashWeek: state.lastMacroCrashWeek ?? 0,
+      generation: nextGeneration,
+      familyLegacy: [...(state.familyLegacy ?? []), legacyEntry],
+    };
+    newState.netWorthHistory = [getNetWorth(newState)];
+
+    set({
+      ...newState,
+      lastSummary: null,
+      showSummary: false,
+      showRelationshipEventModal: false,
+      relationshipFeedback: {
+        title: `Generation ${nextGeneration}`,
+        message: preview.loanNeeded > 0
+          ? `${child.name} inherited the estate and financed ${formatCurrencySafe(preview.loanNeeded)} of inheritance tax with an 80-week estate loan.`
+          : `${child.name} inherited the estate and paid ${formatCurrencySafe(preview.inheritanceTax)} inheritance tax in cash.`,
+        positive: true,
+      },
+      periodIncome: 0,
+      periodExpenses: 0,
+      periodTax: 0,
+      periodWeeksEmployed: 0,
+      periodWeeksUnemployed: 0,
+      periodJobChanges: 0,
+      periodCoursesCompleted: 0,
+      periodStocksPurchased: 0,
+      periodLoansTaken: inheritanceLoan ? 1 : 0,
+      periodLoansRepaid: 0,
+      periodAchievements: 0,
+      periodStartWeek: ((state.year - 1) * 20) + state.week,
+    });
+    saveGame(newState, state.activeSlot);
+  },
+
   dismissRelationshipEventModal: () => {
     const state = get();
     if (state.periodReport && !state.showPeriodReport) {
@@ -2256,6 +2405,8 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     relationshipState: state?.relationshipState ?? { ...INITIAL_RELATIONSHIP_STATE },
     lifecycle: state?.lifecycle ?? { ...INITIAL_LIFECYCLE_STATE },
     lastMacroCrashWeek: state?.lastMacroCrashWeek ?? 0,
+    generation: state?.generation ?? 1,
+    familyLegacy: state?.familyLegacy ?? [],
   };
 }
 
