@@ -1,4 +1,5 @@
 import {
+  ChildPersonality,
   GameState,
   RelationshipCandidate,
   RelationshipChild,
@@ -18,6 +19,85 @@ const FINANCIAL_STYLES = ['frugal', 'balanced', 'luxury'] as const;
 const RISK = ['cautious', 'balanced', 'risk_taking'] as const;
 const AMBITION = ['relaxed', 'career_minded', 'driven'] as const;
 const FAMILY = ['no_children', 'unsure', 'wants_children'] as const;
+
+const INDEPENDENCE = ['close', 'balanced', 'independent'] as const;
+const RESILIENCE = ['fragile', 'balanced', 'resilient'] as const;
+
+function stableHash(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0);
+}
+
+export function getChildPersonality(
+  childId: string,
+  partner?: RelationshipConnection | null,
+): ChildPersonality {
+  const hash = stableHash(childId);
+  const ambition = partner && hash % 3 === 0 ? partner.ambition : AMBITION[hash % AMBITION.length];
+  const financialStyle = partner && hash % 4 === 0
+    ? partner.financialStyle
+    : FINANCIAL_STYLES[Math.floor(hash / 7) % FINANCIAL_STYLES.length];
+  const riskTolerance = partner && hash % 5 === 0
+    ? partner.riskTolerance
+    : RISK[Math.floor(hash / 13) % RISK.length];
+
+  return {
+    ambition,
+    financialStyle,
+    riskTolerance,
+    independence: INDEPENDENCE[Math.floor(hash / 17) % INDEPENDENCE.length],
+    resilience: RESILIENCE[Math.floor(hash / 23) % RESILIENCE.length],
+  };
+}
+
+export function getChildFuturePotential(child: RelationshipChild): {
+  score: number;
+  label: 'Developing' | 'Solid' | 'Strong' | 'Exceptional';
+  strengths: string[];
+  risks: string[];
+} {
+  const personality = child.personality ?? getChildPersonality(child.id);
+  let score = 38;
+  const strengths: string[] = [];
+  const risks: string[] = [];
+
+  if (child.educationOutcome === 'elite') { score += 18; strengths.push('Elite education start'); }
+  else if (child.educationOutcome === 'strong') { score += 12; strengths.push('Strong education'); }
+  else if (child.educationOutcome === 'solid') score += 7;
+  else if (child.educationOutcome === 'limited') { score -= 5; risks.push('Limited education start'); }
+
+  if (personality.ambition === 'driven') { score += 12; strengths.push('Driven'); }
+  else if (personality.ambition === 'career_minded') score += 7;
+  else { score -= 3; }
+
+  if (personality.resilience === 'resilient') { score += 10; strengths.push('Resilient'); }
+  else if (personality.resilience === 'fragile') { score -= 8; risks.push('Setbacks hit harder'); }
+
+  if (personality.riskTolerance === 'risk_taking') {
+    score += 3;
+    risks.push('Higher-risk decisions');
+  }
+  if ((child.savings ?? 0) >= 100000) { score += 10; strengths.push('Strong savings'); }
+  else if ((child.savings ?? 0) >= 25000) score += 5;
+
+  if (child.homeStatus === 'homeowner') score += 4;
+  if (child.adultStatus === 'entrepreneur') { score += 8; strengths.push('Entrepreneurial experience'); }
+  if (child.adultStatus === 'unemployed') { score -= 10; risks.push('Currently unemployed'); }
+  if ((child.debt ?? 0) > Math.max(25000, (child.savings ?? 0))) { score -= 8; risks.push('High personal debt'); }
+  if ((child.failureCount ?? 0) >= 2) risks.push('Multiple past setbacks');
+
+  const parentRelationship = child.parentRelationship ?? 75;
+  if (parentRelationship >= 85) { score += 4; strengths.push('Strong family bond'); }
+  else if (parentRelationship < 40) { score -= 8; risks.push('Weak family bond'); }
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const label = score >= 82 ? 'Exceptional' : score >= 67 ? 'Strong' : score >= 48 ? 'Solid' : 'Developing';
+  return { score, label, strengths: strengths.slice(0, 3), risks: risks.slice(0, 3) };
+}
 
 const HOUSING_CAPACITY: Record<string, number> = {
   cheap_apartment: 1,
@@ -448,8 +528,12 @@ function createRelationshipEvent(
 function createChild(state: GameState): RelationshipChild {
   const gender = Math.random() < 0.5 ? 'girl' : 'boy';
   const pool = gender === 'girl' ? (namesData as any).women as string[] : (namesData as any).men as string[];
+  const id = `child_${globalWeek(state)}_${Math.floor(Math.random() * 1_000_000)}`;
+  const partner = state.relationshipState?.partnerId
+    ? (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState.partnerId) ?? null
+    : null;
   return {
-    id: `child_${globalWeek(state)}_${Math.floor(Math.random() * 1_000_000)}`,
+    id,
     name: randomOf(pool),
     gender,
     birthGlobalWeek: globalWeek(state),
@@ -458,6 +542,15 @@ function createChild(state: GameState): RelationshipChild {
     status: 'dependent',
     occupationTitle: null,
     weeklyIncome: 0,
+    parentRelationship: 78,
+    personality: getChildPersonality(id, partner),
+    adultStatus: 'employed',
+    debt: 0,
+    failureCount: 0,
+    businessValue: 0,
+    lastAdultEventYear: 0,
+    descendants: [],
+    childrenCount: 0,
   };
 }
 
@@ -558,7 +651,15 @@ function launchAdultChild(child: RelationshipChild, state: GameState, gw: number
       homeStatus: 'renting',
       partnerName: null,
       partnerGender: null,
-      childrenCount: 0,
+      childrenCount: child.childrenCount ?? 0,
+      descendants: child.descendants ?? [],
+      parentRelationship: child.parentRelationship ?? 75,
+      personality: child.personality ?? getChildPersonality(child.id),
+      adultStatus: 'employed',
+      debt: child.debt ?? 0,
+      failureCount: child.failureCount ?? 0,
+      businessValue: child.businessValue ?? 0,
+      lastAdultEventYear: state.year,
     },
     milestone: `${child.name} became independent and started work as ${occupation.title}.`,
   };
@@ -571,57 +672,161 @@ function progressAdultChild(
   if (child.status !== 'independent' || state.week !== 1) return { child, milestones: [] };
 
   const milestones: string[] = [];
+  const personality = child.personality ?? getChildPersonality(child.id);
   const outcome = child.educationOutcome ?? 'limited';
-  const raiseRate = outcome === 'elite' ? 0.05 : outcome === 'strong' ? 0.04 : outcome === 'solid' ? 0.03 : 0.02;
-  let weeklyIncome = Math.round(Math.max(350, child.weeklyIncome ?? 350) * (1 + raiseRate));
-  let savings = Math.round((child.savings ?? 0) + weeklyIncome * 20 * 0.12);
-  let homeStatus = child.homeStatus ?? 'renting';
+  let adultStatus = child.adultStatus ?? (child.occupationTitle === 'Entrepreneur' ? 'entrepreneur' : 'employed');
   let occupationTitle = child.occupationTitle ?? 'Employee';
+  let weeklyIncome = Math.max(0, child.weeklyIncome ?? 0);
+  let savings = Math.max(0, child.savings ?? 0);
+  let debt = Math.max(0, child.debt ?? 0);
+  let failureCount = child.failureCount ?? 0;
+  let businessValue = Math.max(0, child.businessValue ?? 0);
+  let homeStatus = child.homeStatus ?? 'renting';
   let partnerName = child.partnerName ?? null;
   let partnerGender = child.partnerGender ?? null;
-  let childrenCount = child.childrenCount ?? 0;
+  let descendants = [...(child.descendants ?? [])];
 
-  if (!partnerName && (child.age ?? 18) >= 22 && Math.random() < 0.18) {
-    const allNames = [...((namesData as any).women as string[]), ...((namesData as any).men as string[])];
-    const women = (namesData as any).women as string[];
-    const men = (namesData as any).men as string[];
-    partnerGender = Math.random() < 0.5 ? 'woman' : 'man';
-    const partnerPool = partnerGender === 'woman' ? women : men;
-    partnerName = randomOf(partnerPool.filter((name) => name !== child.name));
-    milestones.push(`${child.name} started a serious relationship with ${partnerName}.`);
+  const resilienceRecovery = personality.resilience === 'resilient' ? 0.78
+    : personality.resilience === 'fragile' ? 0.48 : 0.62;
+  const ambitionBonus = personality.ambition === 'driven' ? 0.10
+    : personality.ambition === 'career_minded' ? 0.05 : 0;
+
+  if (adultStatus === 'unemployed') {
+    if (Math.random() < Math.min(0.92, resilienceRecovery + ambitionBonus)) {
+      const occupation = randomOf(occupationsData as any[]);
+      adultStatus = 'employed';
+      occupationTitle = occupation.title;
+      weeklyIncome = Math.max(400, Math.round((occupation.baseWeeklyIncome ?? 700) * 0.95));
+      milestones.push(`${child.name} recovered from a setback and found work as ${occupation.title}.`);
+    } else {
+      debt += Math.round(2500 * (state.inflationMultiplier ?? 1));
+      savings = Math.max(0, savings - Math.round(1500 * (state.inflationMultiplier ?? 1)));
+    }
+  } else if (adultStatus === 'entrepreneur') {
+    const failureChance = 0.08
+      + (personality.riskTolerance === 'risk_taking' ? 0.05 : personality.riskTolerance === 'cautious' ? -0.02 : 0)
+      + (personality.resilience === 'fragile' ? 0.04 : personality.resilience === 'resilient' ? -0.02 : 0);
+    if (Math.random() < Math.max(0.03, failureChance)) {
+      adultStatus = 'unemployed';
+      occupationTitle = 'Between Ventures';
+      weeklyIncome = 0;
+      savings = Math.max(0, Math.round(savings * 0.72));
+      debt += Math.round(8000 * (state.inflationMultiplier ?? 1));
+      businessValue = 0;
+      failureCount += 1;
+      milestones.push(`${child.name}'s business failed. They are rebuilding after a serious financial setback.`);
+    } else {
+      const growth = personality.ambition === 'driven' ? 1.16 : 1.10;
+      businessValue = Math.max(
+        Math.round(25000 * (state.inflationMultiplier ?? 1)),
+        Math.round((businessValue || 25000 * (state.inflationMultiplier ?? 1)) * growth),
+      );
+      weeklyIncome = Math.max(weeklyIncome, Math.round(businessValue * 0.0018));
+    }
+  } else {
+    const layoffChance = 0.055
+      + (personality.resilience === 'fragile' ? 0.025 : personality.resilience === 'resilient' ? -0.015 : 0)
+      - (personality.ambition === 'driven' ? 0.01 : 0);
+    if (Math.random() < Math.max(0.02, layoffChance)) {
+      adultStatus = 'unemployed';
+      occupationTitle = `Former ${occupationTitle}`;
+      weeklyIncome = 0;
+      failureCount += 1;
+      milestones.push(`${child.name} lost their job and is temporarily unemployed.`);
+    } else {
+      const raiseRate = outcome === 'elite' ? 0.05 : outcome === 'strong' ? 0.04 : outcome === 'solid' ? 0.03 : 0.02;
+      const ambitionMultiplier = personality.ambition === 'driven' ? 1.35
+        : personality.ambition === 'career_minded' ? 1.15 : 0.85;
+      weeklyIncome = Math.round(Math.max(350, weeklyIncome || 350) * (1 + raiseRate * ambitionMultiplier));
+    }
+  }
+
+  const savingsRate = personality.financialStyle === 'frugal' ? 0.18
+    : personality.financialStyle === 'luxury' ? 0.06 : 0.12;
+  if (adultStatus !== 'unemployed') {
+    savings = Math.round(savings + weeklyIncome * 20 * savingsRate);
+  }
+  if (debt > 0 && savings > 5000) {
+    const repayment = Math.min(debt, Math.round(savings * 0.12));
+    debt -= repayment;
+    savings -= repayment;
+  }
+
+  if (!partnerName && (child.age ?? 18) >= 22) {
+    const basePartnerChance = personality.independence === 'independent' ? 0.11
+      : personality.independence === 'close' ? 0.22 : 0.17;
+    if (Math.random() < basePartnerChance) {
+      const women = (namesData as any).women as string[];
+      const men = (namesData as any).men as string[];
+      partnerGender = Math.random() < 0.5 ? 'woman' : 'man';
+      const partnerPool = partnerGender === 'woman' ? women : men;
+      partnerName = randomOf(partnerPool.filter((name) => name !== child.name));
+      milestones.push(`${child.name} started a serious relationship with ${partnerName}.`);
+    }
   }
 
   if (
+    adultStatus === 'employed' &&
     occupationTitle !== 'Entrepreneur' &&
     (child.age ?? 18) >= 25 &&
     (child.age ?? 18) <= 50 &&
-    savings >= Math.round(25000 * (state.inflationMultiplier ?? 1)) &&
-    Math.random() < 0.08
+    savings >= Math.round(25000 * (state.inflationMultiplier ?? 1))
   ) {
-    const startupCapital = Math.round(15000 * (state.inflationMultiplier ?? 1));
-    savings = Math.max(0, savings - startupCapital);
-    occupationTitle = 'Entrepreneur';
-    weeklyIncome = Math.max(weeklyIncome, Math.round(1200 * (state.inflationMultiplier ?? 1)));
-    milestones.push(`${child.name} started a small business.`);
+    const entrepreneurChance = personality.ambition === 'driven' ? 0.13
+      : personality.ambition === 'career_minded' ? 0.08 : 0.03;
+    const riskMultiplier = personality.riskTolerance === 'risk_taking' ? 1.5
+      : personality.riskTolerance === 'cautious' ? 0.45 : 1;
+    if (Math.random() < entrepreneurChance * riskMultiplier) {
+      const startupCapital = Math.round(15000 * (state.inflationMultiplier ?? 1));
+      savings = Math.max(0, savings - startupCapital);
+      adultStatus = 'entrepreneur';
+      occupationTitle = 'Entrepreneur';
+      businessValue = Math.round(25000 * (state.inflationMultiplier ?? 1));
+      weeklyIncome = Math.max(weeklyIncome, Math.round(900 * (state.inflationMultiplier ?? 1)));
+      milestones.push(`${child.name} started a small business.`);
+    }
   }
 
   const homeThreshold = Math.round(30000 * (state.inflationMultiplier ?? 1));
-  if (homeStatus === 'renting' && savings >= homeThreshold && Math.random() < 0.20) {
-    const downPayment = Math.round(20000 * (state.inflationMultiplier ?? 1));
-    savings = Math.max(0, savings - downPayment);
-    homeStatus = 'homeowner';
-    milestones.push(`${child.name} bought a home.`);
+  if (homeStatus === 'renting' && savings >= homeThreshold) {
+    const buyChance = personality.financialStyle === 'frugal' ? 0.28 : personality.financialStyle === 'luxury' ? 0.13 : 0.20;
+    if (Math.random() < buyChance) {
+      const downPayment = Math.round(20000 * (state.inflationMultiplier ?? 1));
+      savings = Math.max(0, savings - downPayment);
+      homeStatus = 'homeowner';
+      milestones.push(`${child.name} bought a home.`);
+    }
+  }
+  if (adultStatus === 'unemployed' && homeStatus === 'homeowner' && savings < 5000 && debt > 15000 && Math.random() < 0.18) {
+    homeStatus = 'renting';
+    debt = Math.max(0, debt - Math.round(5000 * (state.inflationMultiplier ?? 1)));
+    milestones.push(`${child.name} had to sell their home after financial difficulties.`);
+  }
+
+  if (partnerName && adultStatus === 'unemployed' && Math.random() < 0.06) {
+    milestones.push(`${child.name}'s relationship ended during a difficult period.`);
+    partnerName = null;
+    partnerGender = null;
   }
 
   if (
     partnerName &&
     (child.age ?? 18) >= 25 &&
-    (child.age ?? 18) <= 45 &&
-    childrenCount < 2 &&
+    (child.age ?? 18) <= 42 &&
+    descendants.length < 2 &&
     Math.random() < 0.12
   ) {
-    childrenCount += 1;
-    milestones.push(`${child.name} welcomed a child. You now have another grandchild.`);
+    const gender = Math.random() < 0.5 ? 'girl' as const : 'boy' as const;
+    const namePool = gender === 'girl' ? (namesData as any).women as string[] : (namesData as any).men as string[];
+    const descendant = {
+      id: `grandchild_${child.id}_${state.year}_${descendants.length}`,
+      name: randomOf(namePool),
+      gender,
+      birthGlobalWeek: globalWeek(state),
+      age: 0,
+    };
+    descendants.push(descendant);
+    milestones.push(`${child.name} welcomed ${descendant.name}. You are now a grandparent.`);
   }
 
   return {
@@ -629,11 +834,19 @@ function progressAdultChild(
       ...child,
       weeklyIncome,
       savings,
+      debt,
       homeStatus,
       occupationTitle,
       partnerName,
       partnerGender,
-      childrenCount,
+      childrenCount: descendants.length,
+      descendants,
+      personality,
+      parentRelationship: child.parentRelationship ?? 75,
+      adultStatus,
+      failureCount,
+      businessValue,
+      lastAdultEventYear: state.year,
     },
     milestones,
   };
@@ -762,6 +975,14 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       ...child,
       age,
       status: child.status ?? (age >= 18 ? 'independent' : 'dependent'),
+      parentRelationship: child.parentRelationship ?? 75,
+      personality: child.personality ?? getChildPersonality(child.id),
+      adultStatus: child.adultStatus ?? (child.occupationTitle === 'Entrepreneur' ? 'entrepreneur' : 'employed'),
+      debt: child.debt ?? 0,
+      failureCount: child.failureCount ?? 0,
+      businessValue: child.businessValue ?? 0,
+      descendants: child.descendants ?? [],
+      childrenCount: child.childrenCount ?? child.descendants?.length ?? 0,
     };
     if (age >= 18 && child.status !== 'independent') {
       const launched = launchAdultChild(agedChild, state, gw);
@@ -891,7 +1112,8 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   if (!pendingEvent && annualProgression && gw - lastRelationshipEventWeek >= 6) {
     const independentChildren = children.filter((child) => child.status === 'independent');
     if (independentChildren.length > 0 && Math.random() < 0.16) {
-      const adultChild = randomOf(independentChildren);
+      const struggling = independentChildren.filter((child) => child.adultStatus === 'unemployed' || (child.debt ?? 0) > (child.savings ?? 0));
+      const adultChild = struggling.length > 0 ? randomOf(struggling) : randomOf(independentChildren);
       const baseSupport = Math.round(5000 * (state.inflationMultiplier ?? 1));
       const biggerSupport = Math.round(12000 * (state.inflationMultiplier ?? 1));
       pendingEvent = {
@@ -902,9 +1124,9 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
           ? `${adultChild.name} is trying to strengthen their finances and asks whether you can help with future housing costs.`
           : `${adultChild.name} wants some extra financial room for the next step in life.`,
         choices: [
-          { text: 'Help substantially', cost: biggerSupport, childId: adultChild.id, childSavings: biggerSupport },
-          { text: 'Help a little', cost: baseSupport, childId: adultChild.id, childSavings: baseSupport },
-          { text: 'They need to manage on their own' },
+          { text: 'Help substantially', cost: biggerSupport, childId: adultChild.id, childSavings: biggerSupport, childRelationship: 7 },
+          { text: 'Help a little', cost: baseSupport, childId: adultChild.id, childSavings: baseSupport, childRelationship: 3 },
+          { text: 'They need to manage on their own', childId: adultChild.id, childRelationship: -4 },
         ],
       };
       eventTitle = pendingEvent.title;
