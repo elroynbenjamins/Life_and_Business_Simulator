@@ -1,4 +1,4 @@
-import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, TriggeredEvent, BusinessPendingDecision, BusinessStrategicFocus } from '../types/game';
+import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessStrategicFocus } from '../types/game';
 
 // -----------------------------------------------------------------------------
 // D&D-style tier system for employees
@@ -99,7 +99,6 @@ import moraleActionsData from '../data/morale_actions.json';
 import trainingData from '../data/employee_training.json';
 import projectsData from '../data/business_projects.json';
 import moraleEventsData from '../data/business_morale_events.json';
-import choiceEventsData from '../data/business_choice_events.json';
 import businessLocationsData from '../data/business_locations.json';
 
 export function getPlayerOwnershipPct(biz: OwnedBusiness): number {
@@ -1366,21 +1365,6 @@ export function computeMarketShare(biz: OwnedBusiness, competitorStrengths: numb
   };
 }
 
-function rollBusinessChoiceEvent(businesses: OwnedBusiness[], globalWeek: number): TriggeredEvent | null {
-  if ((businesses?.length ?? 0) === 0 || Math.random() >= 0.08) return null;
-  const eligibleBusinesses = businesses.filter((business) => globalWeek - (business.lastBusinessEventWeek ?? -100) >= 10);
-  const biz = eligibleBusinesses[Math.floor(Math.random() * eligibleBusinesses.length)];
-  const eligibleTemplates = (choiceEventsData as any[]).filter((template: any) => globalWeek - (biz?.businessEventCooldowns?.[template.id] ?? -100) >= 40);
-  const template: any = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
-  if (!biz || !template) return null;
-  return {
-    ...template,
-    id: `${template.id}_${biz.id}`,
-    businessId: biz.id,
-    description: String(template.description ?? '').replace('{business}', biz.name),
-  } as TriggeredEvent;
-}
-
 /** Process all businesses for one week. */
 export function processAllBusinesses(
   businesses: OwnedBusiness[],
@@ -1396,7 +1380,6 @@ export function processAllBusinesses(
   totalTaxRefund: number;
   events: { businessName: string; eventTitle: string; icon: string }[];
   retentionEvents: { businessName: string; employeeName: string; type: string }[];
-  decisionEvent: TriggeredEvent | null;
 } {
   let totalProfit = 0;
   let totalDividend = 0;
@@ -1417,11 +1400,7 @@ export function processAllBusinesses(
     if (result.newRetention) retentionEvents.push(result.newRetention);
   }
 
-  // Strategic decisions and crises now live persistently on each company as
-  // pendingDecision. The older random choice-event roll is intentionally
-  // disabled to avoid stacking multiple decision systems on the player.
-  const decisionEvent: TriggeredEvent | null = null;
-  return { updatedBusinesses, totalProfit, totalDividend, ownershipDistributions, totalTaxRefund, events, retentionEvents, decisionEvent };
+  return { updatedBusinesses, totalProfit, totalDividend, ownershipDistributions, totalTaxRefund, events, retentionEvents };
 }
 
 export function getTotalBusinessValue(businesses: OwnedBusiness[]): number {
