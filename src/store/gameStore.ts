@@ -2633,6 +2633,7 @@ const useGameStore = create<GameStore>((set, get) => ({
               weeklyIncome: operationalRole ? weeklySalary : item.weeklyIncome,
               adultStatus: operationalRole ? 'employed' as const : item.adultStatus,
               parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + 1),
+              lastParentInteractionWeek: ((state.year ?? 1) - 1) * 20 + (state.week ?? 1),
             }
           : item
       ),
@@ -2717,6 +2718,7 @@ const useGameStore = create<GameStore>((set, get) => ({
               ? {
                   ...item,
                   parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + 2),
+                  lastParentInteractionWeek: ((state.year ?? 1) - 1) * 20 + (state.week ?? 1),
                 }
               : item
           ),
