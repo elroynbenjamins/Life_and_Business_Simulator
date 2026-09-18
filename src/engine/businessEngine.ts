@@ -596,6 +596,7 @@ export function processBusinessWeek(
       weeklyExpenses: 0,
       weeklyProfit: 0,
       playerDividend: 0,
+      ownershipDistributions: [],
       taxRefund: 0,
       newEvent: null,
       newRetention: null,
