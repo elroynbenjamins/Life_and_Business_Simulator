@@ -148,17 +148,19 @@ export function getSuccessionPreview(state: GameState, childId: string) {
   if (!child || !estate || childCurrentAge(child, state) < 18) return null;
 
   const beneficiary = (estate.beneficiaries ?? []).find((item) => item.id === childId);
+  const existingSavings = Math.max(0, child.savings ?? 0);
   const inheritedCash = beneficiary?.amount ?? 0;
   const inheritedBusinessValue = estate.successorName === child.name ? estate.businessValue : 0;
   const inheritanceTaxBase = inheritedCash + inheritedBusinessValue;
   const inheritanceTax = calculateChildInheritanceTax(inheritanceTaxBase);
-  const taxCashAvailable = inheritedCash;
+  const taxCashAvailable = inheritedCash + existingSavings;
   const loanNeeded = Math.max(0, inheritanceTax - taxCashAvailable);
 
   return {
     childId: child.id,
     childName: child.name,
     childAge: childCurrentAge(child, state),
+    existingSavings,
     inheritedCash,
     inheritedBusinessValue,
     inheritanceTaxBase,
