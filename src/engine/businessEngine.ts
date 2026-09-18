@@ -178,6 +178,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       description: `${biz.name} has room to reposition its offer. The decision will shape several weeks of performance.`,
       icon: '🎯',
       createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'hold_course',
       choices: [
         { id: 'budget_push', text: 'Push Lower Prices', description: 'Chase volume at thinner margins.', revenueMultiplier: 1.10, expenseMultiplier: 1.05, reputationDelta: -1, marketShareDelta: 2, durationWeeks: 8 },
         { id: 'move_upscale', text: 'Move Upscale', description: 'Accept lower volume for brand and margin.', revenueMultiplier: 1.04, expenseMultiplier: 0.98, reputationDelta: 3, marketShareDelta: -1, durationWeeks: 10 },
@@ -191,6 +193,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       description: `${biz.name} needs a clear people strategy for the next phase.`,
       icon: '👥',
       createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'no_change',
       choices: [
         { id: 'raise_wages', text: 'Increase Wages', description: 'Higher costs, better morale and retention.', businessCashCost: 3000, expenseMultiplier: 1.04, moraleDelta: 7, reputationDelta: 1, durationWeeks: 10 },
         { id: 'automate', text: 'Accelerate Automation', description: 'Lower costs but tougher on morale.', businessCashCost: 7000, revenueMultiplier: 1.03, expenseMultiplier: 0.91, moraleDelta: -6, durationWeeks: 12 },
@@ -204,6 +208,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       description: `Management wants a clear capital priority for ${biz.name}.`,
       icon: '🧭',
       createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'cash_reserve',
       choices: [
         { id: 'rd', text: 'Invest in R&D', description: 'Expensive now; stronger demand and reputation if sustained.', businessCashCost: 10000, revenueMultiplier: 1.08, expenseMultiplier: 1.04, reputationDelta: 3, durationWeeks: 12 },
         { id: 'cost_program', text: 'Cut Operating Waste', description: 'Improve efficiency, with a small morale cost.', businessCashCost: 4000, expenseMultiplier: 0.90, moraleDelta: -3, durationWeeks: 10 },
@@ -223,6 +229,8 @@ function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPen
       description: `A key supplier to ${biz.name} has raised prices sharply.`,
       icon: '⚠️',
       createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'absorb',
       choices: [
         { id: 'absorb', text: 'Absorb the Cost', description: 'Protect customers, accept higher costs.', expenseMultiplier: 1.14, reputationDelta: 2, durationWeeks: 8 },
         { id: 'raise_prices', text: 'Pass It On', description: 'Protect margins but risk demand and reputation.', revenueMultiplier: 0.94, expenseMultiplier: 1.03, reputationDelta: -2, durationWeeks: 7 },
@@ -236,6 +244,8 @@ function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPen
       description: `A rival is aggressively undercutting ${biz.name}.`,
       icon: '📉',
       createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'hold',
       choices: [
         { id: 'match', text: 'Match Prices', description: 'Defend share at lower profitability.', revenueMultiplier: 1.02, expenseMultiplier: 1.08, marketShareDelta: 2, durationWeeks: 8 },
         { id: 'differentiate', text: 'Differentiate on Quality', description: 'Spend on quality and protect brand.', businessCashCost: 7500, revenueMultiplier: 1.01, reputationDelta: 4, marketShareDelta: 1, durationWeeks: 10 },
@@ -249,6 +259,8 @@ function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPen
       description: `${biz.name} has lost a significant customer or account.`,
       icon: '💼',
       createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'ride_out',
       choices: [
         { id: 'sales_push', text: 'Launch Sales Push', description: 'Spend aggressively to replace the revenue.', businessCashCost: 8000, revenueMultiplier: 0.98, expenseMultiplier: 1.04, marketShareDelta: 2, durationWeeks: 7 },
         { id: 'cut_costs', text: 'Cut Costs Quickly', description: 'Protect cash but damage morale.', expenseMultiplier: 0.88, moraleDelta: -8, reputationDelta: -1, durationWeeks: 8 },
@@ -262,6 +274,8 @@ function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPen
       description: `Part of ${biz.name}'s operation is materially underperforming.`,
       icon: '🏚️',
       createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'accept',
       choices: [
         { id: 'turnaround', text: 'Fund a Turnaround', description: 'Invest to recover performance.', businessCashCost: 12000, revenueMultiplier: 1.05, expenseMultiplier: 1.03, reputationDelta: 2, durationWeeks: 10 },
         { id: 'restructure', text: 'Restructure', description: 'Lower costs, with a morale and reputation cost.', expenseMultiplier: 0.86, moraleDelta: -7, reputationDelta: -2, durationWeeks: 10 },
@@ -1026,9 +1040,9 @@ export function processBusinessWeek(
   if (newEvent) {
     timelineAdds.push({ week: currentWeek, year: currentYear, title: newEvent.eventTitle, icon: newEvent.icon, kind: 'event' });
   }
-  const timeline = [...(biz.timeline ?? []), ...timelineAdds].slice(-50);
+  let timeline = [...(biz.timeline ?? []), ...timelineAdds].slice(-50);
 
-  const strategyModifiers = (biz.strategyModifiers ?? [])
+  let strategyModifiers = (biz.strategyModifiers ?? [])
     .filter((modifier) => (modifier.weeksRemaining ?? 0) > 1)
     .map((modifier) => ({ ...modifier, weeksRemaining: (modifier.weeksRemaining ?? 1) - 1 }));
 
@@ -1041,10 +1055,52 @@ export function processBusinessWeek(
   let pendingDecision = biz.pendingDecision ?? null;
   let nextStrategicDecisionWeek = biz.nextStrategicDecisionWeek ?? (globalWeek + 8);
   let nextCrisisCheckWeek = biz.nextCrisisCheckWeek ?? (globalWeek + 14);
-  if (!pendingDecision && globalWeek >= nextStrategicDecisionWeek) {
+  let autoResolvedDecision = false;
+  let resolvedMarketShareModifier = biz.marketShareModifier ?? 0;
+
+  if (pendingDecision && globalWeek > (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4)) {
+    const fallback = pendingDecision.choices.find((choice) => choice.id === pendingDecision!.defaultChoiceId)
+      ?? pendingDecision.choices[pendingDecision.choices.length - 1];
+
+    if (fallback) {
+      if ((fallback.durationWeeks ?? 0) > 1) {
+        strategyModifiers.push({
+          id: `${pendingDecision.id}:${fallback.id}:auto`,
+          title: `${pendingDecision.title} — ignored / ${fallback.text}`,
+          revenueMultiplier: fallback.revenueMultiplier ?? 1,
+          expenseMultiplier: fallback.expenseMultiplier ?? 1,
+          reputationPerWeek: 0,
+          moralePerWeek: 0,
+          weeksRemaining: fallback.durationWeeks ?? 1,
+        });
+      }
+      newReputation = Math.max(0, Math.min(100, newReputation + (fallback.reputationDelta ?? 0)));
+      resolvedMarketShareModifier = Math.max(-30, Math.min(30, resolvedMarketShareModifier + (fallback.marketShareDelta ?? 0)));
+      if (fallback.moraleDelta) {
+        updatedEmployees = updatedEmployees.map((employee) => ({
+          ...employee,
+          morale: Math.max(10, Math.min(100, (employee.morale ?? 50) + (fallback.moraleDelta ?? 0))),
+        }));
+      }
+      timeline = [
+        ...timeline,
+        {
+          week: currentWeek,
+          year: currentYear,
+          title: `⏱️ ${pendingDecision.title}: no response — ${fallback.text}`,
+          icon: '⏱️',
+          kind: 'event' as const,
+        },
+      ].slice(-50);
+    }
+    pendingDecision = null;
+    autoResolvedDecision = true;
+  }
+
+  if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextStrategicDecisionWeek) {
     pendingDecision = makeStrategicDecision(biz, globalWeek);
     nextStrategicDecisionWeek = globalWeek + 6 + Math.floor(Math.random() * 7);
-  } else if (!pendingDecision && globalWeek >= nextCrisisCheckWeek) {
+  } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextCrisisCheckWeek) {
     const crisisChance = Math.max(0.10, 0.24 - (biz.reputation ?? 0) * 0.001);
     if (Math.random() < crisisChance) {
       pendingDecision = makeBusinessCrisis(biz, globalWeek);
@@ -1063,6 +1119,7 @@ export function processBusinessWeek(
     reputation: Math.round(newReputation * 10) / 10,
     level: newLevel,
     valuation,
+    marketShareModifier: resolvedMarketShareModifier,
     employees: updatedEmployees,
     businessLoans: updatedLoans,
     activeEvents: newActiveEvents,
