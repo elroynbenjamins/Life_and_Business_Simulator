@@ -95,8 +95,8 @@ export default function SuccessionScreen() {
                     <Text style={styles.calloutTitle}>Family Business Succession</Text>
                     <Text style={styles.calloutText}>
                       {estate.successorName
-                        ? '${estate.successorName} was designated to inherit the player’s family-business equity worth ${formatCurrency(estate.businessValue)}.'
-                        : 'No business successor was designated for ${formatCurrency(estate.businessValue)} of family-business equity.'}
+                        ? `${estate.successorName} was designated to inherit the player’s family-business equity worth ${formatCurrency(estate.businessValue)}.`
+                        : `No business successor was designated for ${formatCurrency(estate.businessValue)} of family-business equity.`}
                     </Text>
                   </View>
                 )}
@@ -145,10 +145,10 @@ export default function SuccessionScreen() {
                   </View>
 
                   <View style={styles.grid}>
-                    <Mini label="Parent bond" value={'${heir.parentRelationship}%'} />
+                    <Mini label="Parent bond" value={`${heir.parentRelationship}%`} />
                     <Mini label="Savings" value={formatCurrency(heir.existingSavings)} />
                     <Mini label="Housing" value={child.homeStatus === 'homeowner' ? 'Owner' : 'Renting'} />
-                    <Mini label="Family" value={child.partnerName ? '${child.descendants?.length ?? child.childrenCount ?? 0} child' : 'Single'} />
+                    <Mini label="Family" value={child.partnerName ? `${child.descendants?.length ?? child.childrenCount ?? 0} child` : 'Single'} />
                   </View>
 
                   {child.personality && (
@@ -183,7 +183,7 @@ export default function SuccessionScreen() {
             <Text style={styles.title}>3. Settle Tax & Assets</Text>
             <Text style={styles.intro}>Decide which inherited assets remain intact. Keeping illiquid assets can force the new generation to finance inheritance tax.</Text>
 
-            <GameCard title={'${selectedChild.name}’s Inheritance'}>
+            <GameCard title={`${selectedChild.name}’s Inheritance`}>
               <View style={styles.strategyGrid}>
                 {([
                   ['liquidate', 'Cash', 'Sell inherited stocks and property.'],
@@ -293,16 +293,16 @@ const styles = StyleSheet.create({
   beneficiary: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   beneficiaryName: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
   meta: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
-  callout: { marginTop: 10, backgroundColor: '${Colors.warning}10', borderRadius: 9, padding: 10, borderWidth: 1, borderColor: '${Colors.warning}28' },
+  callout: { marginTop: 10, backgroundColor: `${Colors.warning}10`, borderRadius: 9, padding: 10, borderWidth: 1, borderColor: `${Colors.warning}28` },
   calloutTitle: { color: Colors.warning, fontSize: 12, fontWeight: '800' },
   calloutText: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
   heirCard: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 13, padding: 13, marginBottom: 9 },
-  heirCardSelected: { borderColor: Colors.primary, backgroundColor: '${Colors.primary}0D' },
+  heirCardSelected: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
   heirCardDisabled: { opacity: 0.48 },
   heirTop: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '${Colors.info}14', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: `${Colors.info}14`, alignItems: 'center', justifyContent: 'center' },
   heirName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
-  potential: { minWidth: 58, alignItems: 'center', backgroundColor: '${Colors.primary}10', borderRadius: 9, padding: 6 },
+  potential: { minWidth: 58, alignItems: 'center', backgroundColor: `${Colors.primary}10`, borderRadius: 9, padding: 6 },
   potentialScore: { color: Colors.primary, fontSize: 17, fontWeight: '900' },
   potentialLabel: { color: Colors.textSecondary, fontSize: 9, fontWeight: '700' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   miniLabel: { color: Colors.textMuted, fontSize: 9 },
   miniValue: { color: Colors.textPrimary, fontSize: 11, fontWeight: '700', marginTop: 2 },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8 },
-  pill: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 4, backgroundColor: '${Colors.info}12' },
+  pill: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 4, backgroundColor: `${Colors.info}12` },
   pillText: { color: Colors.info, fontSize: 9, fontWeight: '700', textTransform: 'capitalize' },
   unwilling: { color: Colors.negative, fontSize: 10, marginTop: 8, lineHeight: 15 },
   noHeir: { alignItems: 'center', paddingVertical: 18 },
@@ -318,11 +318,11 @@ const styles = StyleSheet.create({
   noHeirText: { color: Colors.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 4 },
   strategyGrid: { gap: 7 },
   strategy: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 10 },
-  strategyActive: { borderColor: Colors.primary, backgroundColor: '${Colors.primary}0D' },
+  strategyActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
   strategyTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   strategyTitleActive: { color: Colors.primary },
   strategyDesc: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 2 },
-  taxNote: { backgroundColor: '${Colors.info}0D', borderRadius: 8, padding: 8, marginTop: 8 },
+  taxNote: { backgroundColor: `${Colors.info}0D`, borderRadius: 8, padding: 8, marginTop: 8 },
   taxNoteText: { color: Colors.textSecondary, fontSize: 10, lineHeight: 15 },
   navRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginTop: 12 },
   primary: { backgroundColor: Colors.primary, borderRadius: 10, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, marginTop: 10 },
