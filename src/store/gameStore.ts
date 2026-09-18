@@ -1719,6 +1719,16 @@ const useGameStore = create<GameStore>((set, get) => ({
                 familyOwnershipPct: 100,
                 designatedYear: state.year,
               },
+          timeline: [
+            ...(business.timeline ?? []),
+            {
+              week: state.week,
+              year: state.year,
+              title: `👪 Passed to Generation ${(state.generation ?? 1) + 1}: ${child.name}`,
+              icon: '👪',
+              kind: 'event' as const,
+            },
+          ].slice(-50),
         }))
       : [];
 
@@ -1743,10 +1753,14 @@ const useGameStore = create<GameStore>((set, get) => ({
       ? Math.max(0, Math.min(1, preview.inheritedStockValue / fullPortfolioValue))
       : 0;
     const inheritedHoldings = stockRatio > 0
-      ? (state.holdings ?? []).map((holding) => ({
-          ...holding,
-          shares: stockRatio >= 0.999 ? holding.shares : Math.floor((holding.shares ?? 0) * stockRatio),
-        })).filter((holding) => (holding.shares ?? 0) > 0)
+      ? (state.holdings ?? []).map((holding) => {
+          const stock = (state.stocks ?? []).find((item) => item.ticker === holding.ticker);
+          return {
+            ...holding,
+            shares: stockRatio >= 0.999 ? holding.shares : Math.floor((holding.shares ?? 0) * stockRatio),
+            avgBuyPrice: stock?.currentPrice ?? holding.avgBuyPrice,
+          };
+        }).filter((holding) => (holding.shares ?? 0) > 0)
       : [];
     const actualStockValue = getPortfolioValue(state.stocks ?? [], inheritedHoldings);
     const stockRoundingCash = Math.max(0, preview.inheritedStockValue - actualStockValue);
