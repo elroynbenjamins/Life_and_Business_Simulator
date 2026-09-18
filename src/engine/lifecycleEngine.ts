@@ -1,5 +1,5 @@
-import { EstateBeneficiaryShare, EstateSettlement, GameState, LifecycleState, RelationshipChild, RelationshipConnection } from '../types/game';
-import { getNetWorth } from './financeEngine';
+import { EstateBeneficiaryShare, EstateSettlement, GameState, LifecycleState, RelationshipChild, RelationshipConnection, SuccessionAssetStrategy } from '../types/game';
+import { getNetWorth, getPortfolioValue } from './financeEngine';
 
 export interface LifecycleResult {
   lifecycle: LifecycleState;
@@ -142,31 +142,112 @@ export function calculateChildInheritanceTax(amount: number): number {
   return Math.round(tax);
 }
 
-export function getSuccessionPreview(state: GameState, childId: string) {
+function successionPotential(child: RelationshipChild): {
+  score: number;
+  label: 'Developing' | 'Solid' | 'Strong' | 'Exceptional';
+} {
+  const ambition = child.personality?.ambition ?? 'career_minded';
+  const resilience = child.personality?.resilience ?? 'balanced';
+  let score = 40;
+  if (child.educationOutcome === 'elite') score += 18;
+  else if (child.educationOutcome === 'strong') score += 12;
+  else if (child.educationOutcome === 'solid') score += 7;
+  else if (child.educationOutcome === 'limited') score -= 5;
+
+  if (ambition === 'driven') score += 12;
+  else if (ambition === 'career_minded') score += 7;
+  if (resilience === 'resilient') score += 10;
+  else if (resilience === 'fragile') score -= 8;
+  if ((child.savings ?? 0) >= 100000) score += 10;
+  else if ((child.savings ?? 0) >= 25000) score += 5;
+  if (child.homeStatus === 'homeowner') score += 4;
+  if (child.adultStatus === 'entrepreneur') score += 8;
+  if (child.adultStatus === 'unemployed') score -= 10;
+  if ((child.debt ?? 0) > Math.max(25000, child.savings ?? 0)) score -= 8;
+  const parentRelationship = child.parentRelationship ?? 75;
+  if (parentRelationship >= 85) score += 4;
+  else if (parentRelationship < 40) score -= 8;
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  return {
+    score,
+    label: score >= 82 ? 'Exceptional' : score >= 67 ? 'Strong' : score >= 48 ? 'Solid' : 'Developing',
+  };
+}
+
+function allocatePropertyInheritance(state: GameState, budget: number): { ids: string[]; value: number } {
+  const sorted = [...(state.properties ?? [])].sort((a, b) => (b.currentValue ?? 0) - (a.currentValue ?? 0));
+  const ids: string[] = [];
+  let value = 0;
+  for (const property of sorted) {
+    const propertyValue = Math.max(0, property.currentValue ?? 0);
+    if (propertyValue <= 0) continue;
+    if (value + propertyValue <= budget) {
+      ids.push(property.id);
+      value += propertyValue;
+    }
+  }
+  return { ids, value };
+}
+
+export function getSuccessionPreview(
+  state: GameState,
+  childId: string,
+  assetStrategy: SuccessionAssetStrategy = 'liquidate',
+) {
   const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
   const estate = state.relationshipState?.estateSettlement;
   if (!child || !estate || childCurrentAge(child, state) < 18) return null;
 
   const beneficiary = (estate.beneficiaries ?? []).find((item) => item.id === childId);
+  const distributableShare = Math.max(0, beneficiary?.amount ?? 0);
   const existingSavings = Math.max(0, child.savings ?? 0);
-  const inheritedCash = beneficiary?.amount ?? 0;
   const inheritedBusinessValue = estate.successorName === child.name ? estate.businessValue : 0;
-  const inheritanceTaxBase = inheritedCash + inheritedBusinessValue;
+
+  const portfolioValue = Math.max(0, getPortfolioValue(state.stocks ?? [], state.holdings ?? []));
+  const wantsStocks = assetStrategy === 'keep_stocks' || assetStrategy === 'keep_both';
+  const wantsProperties = assetStrategy === 'keep_properties' || assetStrategy === 'keep_both';
+
+  let remainingShare = distributableShare;
+  let inheritedPropertyValue = 0;
+  let inheritedPropertyIds: string[] = [];
+  if (wantsProperties && remainingShare > 0) {
+    const allocation = allocatePropertyInheritance(state, remainingShare);
+    inheritedPropertyIds = allocation.ids;
+    inheritedPropertyValue = allocation.value;
+    remainingShare = Math.max(0, remainingShare - inheritedPropertyValue);
+  }
+
+  const inheritedStockValue = wantsStocks ? Math.min(portfolioValue, remainingShare) : 0;
+  remainingShare = Math.max(0, remainingShare - inheritedStockValue);
+  const inheritedCash = remainingShare;
+
+  const inheritanceTaxBase = distributableShare + inheritedBusinessValue;
   const inheritanceTax = calculateChildInheritanceTax(inheritanceTaxBase);
   const taxCashAvailable = inheritedCash + existingSavings;
   const loanNeeded = Math.max(0, inheritanceTax - taxCashAvailable);
+  const parentRelationship = Math.max(0, Math.min(100, child.parentRelationship ?? 75));
+  const potential = successionPotential(child);
 
   return {
     childId: child.id,
     childName: child.name,
     childAge: childCurrentAge(child, state),
     existingSavings,
+    assetStrategy,
     inheritedCash,
+    inheritedStockValue,
+    inheritedPropertyValue,
+    inheritedPropertyIds,
     inheritedBusinessValue,
     inheritanceTaxBase,
     inheritanceTax,
     taxCashAvailable,
     loanNeeded,
+    parentRelationship,
+    willingToSucceed: parentRelationship >= 30,
+    futurePotentialScore: potential.score,
+    futurePotentialLabel: potential.label,
   };
 }
 
