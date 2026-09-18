@@ -1827,9 +1827,17 @@ const useGameStore = create<GameStore>((set, get) => ({
         ? { ...item, relationship: Math.max(0, Math.min(100, (item.relationship ?? 70) + (choice.relationship ?? 0))) }
         : item
     );
+    const children = choice.childId
+      ? (state.relationshipState.children ?? []).map((child) =>
+          child.id === choice.childId
+            ? { ...child, savings: Math.max(0, (child.savings ?? 0) + (choice.childSavings ?? 0)) }
+            : child
+        )
+      : state.relationshipState.children;
     const relationshipState = {
       ...state.relationshipState,
       activeConnections,
+      children,
       pendingEvent: null,
     };
     const tempHappinessEffects = choice.happiness
