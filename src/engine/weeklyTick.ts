@@ -140,7 +140,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   });
 
   // ---------- Step 12: Cash Settlement ----------
-  const totalExpenses = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + expenses.courseCost + loanResult.totalPaid + relationshipTick.householdExtraCost + relationshipTick.familyCost;
+  const totalExpenses = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + expenses.courseCost + loanResult.totalPaid + relationshipTick.householdExtraCost + relationshipTick.familyCost + relationshipTick.obligationCost;
   let newCash = (state?.cash ?? 0)
     + salary
     + partTimeIncome
@@ -306,7 +306,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
 
   // ---------- Step 15: Statistics ----------
   const prevStats: LifetimeStatistics = state?.statistics ?? { ...INITIAL_STATISTICS };
-  const livingCosts = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + relationshipTick.householdExtraCost + relationshipTick.familyCost;
+  const livingCosts = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + relationshipTick.householdExtraCost + relationshipTick.familyCost + relationshipTick.obligationCost;
   const isEmployed = hasCareerV2 || !!state?.currentJobId;
   const stats: LifetimeStatistics = {
     ...INITIAL_STATISTICS,
@@ -396,6 +396,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     partnerContribution: relationshipTick.partnerContribution,
     relationshipHouseholdCost: relationshipTick.householdExtraCost,
     familyCost: relationshipTick.familyCost,
+    relationshipObligationCost: relationshipTick.obligationCost,
     relationshipEventTitle: relationshipTick.eventTitle,
     childBornName: relationshipTick.childBornName,
     relationshipChange: relationshipTick.relationshipChange,
