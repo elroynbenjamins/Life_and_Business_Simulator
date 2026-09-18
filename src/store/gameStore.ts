@@ -1686,7 +1686,7 @@ const useGameStore = create<GameStore>((set, get) => ({
                 ...business.familyBusiness,
                 generationsOwned: Math.max(1, business.familyBusiness.generationsOwned ?? 1) + 1,
                 controllerName: child.name,
-                controllerPersonId: `child:${child.id}`,
+                controllerPersonId: `person:${child.id}`,
                 familyOwnershipPct: 100,
               }
             : {
@@ -1695,7 +1695,7 @@ const useGameStore = create<GameStore>((set, get) => ({
                 founderGeneration: state.generation ?? 1,
                 generationsOwned: 2,
                 controllerName: child.name,
-                controllerPersonId: `child:${child.id}`,
+                controllerPersonId: `person:${child.id}`,
                 familyOwnershipPct: 100,
                 designatedYear: state.year,
               },
@@ -1795,33 +1795,58 @@ const useGameStore = create<GameStore>((set, get) => ({
           unemploymentWeeks: 0,
           careerLevel: 1,
           lastCareerEventWeek: currentGlobalWeek,
+          familyTreePersonId: `inlaw:${child.id}`,
         }
       : null;
 
-    const successorChildren = Array.from({ length: child.childrenCount ?? 0 }, (_, index) => {
-      const childAge = Math.min(17, Math.max(0, preview.childAge - 25 - index * 2));
-      const girls = (relationshipNamesData as any).women as string[];
-      const boys = (relationshipNamesData as any).men as string[];
-      const gender = index % 2 === 0 ? 'girl' as const : 'boy' as const;
-      const namePool = gender === 'girl' ? girls : boys;
-      const name = namePool[(nextGeneration * 3 + index) % namePool.length];
-      return {
-        id: `generation_child_${nextGeneration}_${index}`,
-        name,
-        gender,
-        birthGlobalWeek: currentGlobalWeek - childAge * 20,
-        age: childAge,
-        educationFund: 0,
-        status: 'dependent' as const,
-        occupationTitle: null,
-        weeklyIncome: 0,
-        savings: 0,
-        homeStatus: 'renting' as const,
-        partnerName: null,
-        partnerGender: null,
-        childrenCount: 0,
-      };
-    });
+    const existingDescendants = child.descendants ?? [];
+    const successorChildren = existingDescendants.length > 0
+      ? existingDescendants.map((descendant) => ({
+          id: descendant.id,
+          name: descendant.name,
+          gender: descendant.gender,
+          birthGlobalWeek: descendant.birthGlobalWeek,
+          age: descendant.age,
+          educationFund: 0,
+          status: 'dependent' as const,
+          occupationTitle: null,
+          weeklyIncome: 0,
+          savings: 0,
+          homeStatus: 'renting' as const,
+          partnerName: null,
+          partnerGender: null,
+          childrenCount: 0,
+          descendants: [],
+          otherParentId: successorPartner?.id ?? null,
+          parentRelationship: 78,
+        }))
+      : Array.from({ length: child.childrenCount ?? 0 }, (_, index) => {
+          const childAge = Math.min(17, Math.max(0, preview.childAge - 25 - index * 2));
+          const girls = (relationshipNamesData as any).women as string[];
+          const boys = (relationshipNamesData as any).men as string[];
+          const gender = index % 2 === 0 ? 'girl' as const : 'boy' as const;
+          const namePool = gender === 'girl' ? girls : boys;
+          const name = namePool[(nextGeneration * 3 + index) % namePool.length];
+          return {
+            id: `generation_child_${nextGeneration}_${index}`,
+            name,
+            gender,
+            birthGlobalWeek: currentGlobalWeek - childAge * 20,
+            age: childAge,
+            educationFund: 0,
+            status: 'dependent' as const,
+            occupationTitle: null,
+            weeklyIncome: 0,
+            savings: 0,
+            homeStatus: 'renting' as const,
+            partnerName: null,
+            partnerGender: null,
+            childrenCount: 0,
+            descendants: [],
+            otherParentId: successorPartner?.id ?? null,
+            parentRelationship: 78,
+          };
+        });
 
     const relationshipState = {
       ...INITIAL_RELATIONSHIP_STATE,
