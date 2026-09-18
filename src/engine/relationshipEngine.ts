@@ -543,6 +543,7 @@ function createChild(state: GameState): RelationshipChild {
     occupationTitle: null,
     weeklyIncome: 0,
     parentRelationship: 78,
+    lastParentInteractionWeek: globalWeek(state),
     personality: getChildPersonality(id, partner),
     adultStatus: 'employed',
     debt: 0,
@@ -975,11 +976,17 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   const familyMilestones: string[] = [];
   let children = (current.children ?? []).map((child) => {
     const age = getChildAge(child, gw);
+    const interactionWeek = child.lastParentInteractionWeek ?? child.birthGlobalWeek ?? gw;
+    const neglectThreshold = age < 18 ? 40 : 60;
+    const neglectPenalty = annualProgression && gw - interactionWeek >= neglectThreshold
+      ? (age < 18 ? 3 : 1)
+      : 0;
     const agedChild: RelationshipChild = {
       ...child,
       age,
       status: child.status ?? (age >= 18 ? 'independent' : 'dependent'),
-      parentRelationship: child.parentRelationship ?? 75,
+      parentRelationship: Math.max(0, (child.parentRelationship ?? 75) - neglectPenalty),
+      lastParentInteractionWeek: interactionWeek,
       personality: child.personality ?? getChildPersonality(child.id),
       adultStatus: child.adultStatus ?? (child.occupationTitle === 'Entrepreneur' ? 'entrepreneur' : 'employed'),
       debt: child.debt ?? 0,
