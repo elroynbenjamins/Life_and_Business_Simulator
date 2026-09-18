@@ -14,7 +14,7 @@ export default function WeekSummarySheet() {
 
   const topGainer = [...(summary?.stockChanges ?? [])].sort((a, b) => (b?.change ?? 0) - (a?.change ?? 0))?.[0];
   const topLoser = [...(summary?.stockChanges ?? [])].sort((a, b) => (a?.change ?? 0) - (b?.change ?? 0))?.[0];
-  const totalExpenses = (summary?.rentPaid ?? 0) + (summary?.utilityCost ?? 0) + (summary?.foodCost ?? 0) + (summary?.carCost ?? 0) + (summary?.courseCost ?? 0) + (summary?.loanPayments ?? 0) + (summary?.relationshipHouseholdCost ?? 0) + (summary?.familyCost ?? 0);
+  const totalExpenses = (summary?.rentPaid ?? 0) + (summary?.utilityCost ?? 0) + (summary?.foodCost ?? 0) + (summary?.carCost ?? 0) + (summary?.courseCost ?? 0) + (summary?.loanPayments ?? 0) + (summary?.relationshipHouseholdCost ?? 0) + (summary?.familyCost ?? 0) + (summary?.relationshipObligationCost ?? 0);
   const netFlow = (summary?.salaryEarned ?? 0) + (summary?.partTimeIncome ?? 0) + (summary?.dividendIncome ?? 0) + (summary?.partnerContribution ?? 0) - totalExpenses - (summary?.taxAmount ?? 0);
 
   return (
@@ -61,6 +61,9 @@ export default function WeekSummarySheet() {
             )}
             {(summary?.familyCost ?? 0) > 0 && (
               <Text style={styles.eventPending}>Includes {formatCurrency(summary.familyCost)} in child/family costs.</Text>
+            )}
+            {(summary?.relationshipObligationCost ?? 0) > 0 && (
+              <Text style={styles.eventPending}>Includes {formatCurrency(summary.relationshipObligationCost)} in relationship legal/settlement payments.</Text>
             )}
 
             {/* Tax */}
