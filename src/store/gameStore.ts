@@ -1681,7 +1681,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!financeTaxWithLoan && preview.taxCashAvailable < preview.inheritanceTax) return;
 
     const inheritedBusinesses = preview.inheritedBusinessValue > 0
-      ? (state.businesses ?? []).map((business) => ({
+      ? (state.businesses ?? []).filter((business) => business.familyBusiness?.isFamilyBusiness).map((business) => ({
           ...business,
           familyBusiness: business.familyBusiness?.isFamilyBusiness
             ? {
