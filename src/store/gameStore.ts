@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -123,6 +123,7 @@ interface GameStore extends GameState {
   relationshipCounseling: () => void;
   setSharedRelationshipGoal: (type: SharedGoalType) => void;
   cancelSharedRelationshipGoal: () => void;
+  setEstatePlan: (planType: EstatePlanType, structure: EstateStructureType, successorId: string | null) => void;
   dismissRelationshipEventModal: () => void;
   handleRelationshipEventChoice: (choiceIndex: number) => void;
   dismissRelationshipFeedback: () => void;
@@ -271,6 +272,11 @@ const useGameStore = create<GameStore>((set, get) => ({
           financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
           sharedGoal: saved.relationshipState?.sharedGoal ?? null,
           lastStabilityWarningWeek: saved.relationshipState?.lastStabilityWarningWeek ?? 0,
+          estatePlan: {
+            ...INITIAL_RELATIONSHIP_STATE.estatePlan,
+            ...(saved.relationshipState?.estatePlan ?? {}),
+          },
+          estateSettlement: saved.relationshipState?.estateSettlement ?? null,
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
@@ -352,6 +358,11 @@ const useGameStore = create<GameStore>((set, get) => ({
           financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
           sharedGoal: saved.relationshipState?.sharedGoal ?? null,
           lastStabilityWarningWeek: saved.relationshipState?.lastStabilityWarningWeek ?? 0,
+          estatePlan: {
+            ...INITIAL_RELATIONSHIP_STATE.estatePlan,
+            ...(saved.relationshipState?.estatePlan ?? {}),
+          },
+          estateSettlement: saved.relationshipState?.estateSettlement ?? null,
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
@@ -1459,6 +1470,62 @@ const useGameStore = create<GameStore>((set, get) => ({
     const relationshipState = { ...state.relationshipState, sharedGoal: null };
     set({ relationshipState });
     saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
+  },
+
+  setEstatePlan: (planType, structure, successorId) => {
+    const state = get();
+    if (!state.relationshipModeEnabled) return;
+
+    const partner = (state.relationshipState?.activeConnections ?? []).find(
+      (item) => item.id === state.relationshipState?.partnerId && item.stage === 'married'
+    ) ?? null;
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const adultChildren = (state.relationshipState?.children ?? []).filter((child) =>
+      Math.floor((gw - (child.birthGlobalWeek ?? gw)) / 20) >= 18
+    );
+    if (!partner && adultChildren.length === 0 && (state.relationshipState?.children?.length ?? 0) === 0) return;
+
+    const eligibleSuccessorIds = new Set<string>();
+    if (partner) eligibleSuccessorIds.add(partner.id);
+    for (const child of adultChildren) eligibleSuccessorIds.add(child.id);
+    const safeSuccessorId = successorId && eligibleSuccessorIds.has(successorId) ? successorId : null;
+
+    const currentStructure = state.relationshipState?.estatePlan?.structure ?? 'none';
+    let setupCost = 0;
+    if (structure !== currentStructure) {
+      if (structure === 'will') setupCost = Math.round(2000 * (state.inflationMultiplier ?? 1));
+      if (structure === 'family_trust') setupCost = Math.round(25000 * (state.inflationMultiplier ?? 1));
+    }
+    if ((state.cash ?? 0) < setupCost) return;
+
+    const relationshipState = {
+      ...state.relationshipState,
+      estatePlan: {
+        planType,
+        structure,
+        successorId: safeSuccessorId,
+        updatedGlobalWeek: gw,
+      },
+      timeline: [...(state.relationshipState?.timeline ?? []), {
+        week: state.week,
+        year: state.year,
+        title: structure === 'none' ? 'Updated family inheritance wishes' : `Updated estate plan (${structure.replace(/_/g, ' ')})`,
+      }],
+    };
+    const updates = { cash: (state.cash ?? 0) - setupCost, relationshipState };
+    set({
+      ...updates,
+      relationshipFeedback: {
+        title: 'Estate Plan Updated',
+        message: structure === 'family_trust'
+          ? 'A family trust is now in place, reducing future estate administration costs.'
+          : structure === 'will'
+            ? 'Your will is now documented, reducing future estate administration costs.'
+            : 'Your inheritance preferences are saved, but no formal estate structure is in place.',
+        positive: true,
+      },
+    });
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
   relationshipCounseling: () => {
