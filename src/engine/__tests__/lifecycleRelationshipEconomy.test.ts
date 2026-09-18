@@ -2,7 +2,7 @@ import { INITIAL_GAME_STATE, INITIAL_RELATIONSHIP_STATE, RelationshipConnection 
 import { annualDeathChance, calculateChildInheritanceTax, calculateEstateSettlement, getSuccessionPreview } from '../lifecycleEngine';
 import { getNetWorth } from '../financeEngine';
 import { processEconomy } from '../economyEngine';
-import { getChildWeeklyCost, getProposalCost, getWeddingCost, processRelationships } from '../relationshipEngine';
+import { getChildWeeklyCost, getFamilyFormationProfile, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, processRelationships } from '../relationshipEngine';
 
 describe('lifecycle and macro systems', () => {
   afterEach(() => {
@@ -566,5 +566,33 @@ describe('expanded relationship progression', () => {
     expect(adult.partnerName).toBeTruthy();
     expect(adult.childrenCount).toBe(1);
     expect(result.familyMilestones.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('keeps dating and marriage age gaps within a normal life-stage range', () => {
+    expect(getNormalizedDatingAgeBounds(20)).toEqual({ min: 18, max: 24 });
+    expect(getNormalizedDatingAgeBounds(30)).toEqual({ min: 24, max: 36 });
+    expect(getNormalizedDatingAgeBounds(50)).toEqual({ min: 42, max: 58 });
+
+    expect(isNormalizedAgeMatch(30, 34)).toBe(true);
+    expect(isNormalizedAgeMatch(30, 36)).toBe(true);
+    expect(isNormalizedAgeMatch(30, 39)).toBe(false);
+    expect(isNormalizedAgeMatch(20, 25)).toBe(false);
+  });
+
+  it('centers family formation on normal adult ages and stops after 42', () => {
+    expect(getFamilyFormationProfile(23, 24, 0).baseSuccessChance).toBeCloseTo(0.25);
+    expect(getFamilyFormationProfile(30, 32, 0).baseSuccessChance).toBeCloseTo(0.85);
+    expect(getFamilyFormationProfile(37, 39, 0).baseSuccessChance).toBeCloseTo(0.60);
+    expect(getFamilyFormationProfile(40, 42, 0).baseSuccessChance).toBeCloseTo(0.25);
+    expect(getFamilyFormationProfile(43, 41, 0).allowedByAge).toBe(false);
+    expect(getFamilyFormationProfile(30, 31, 3).allowedByAge).toBe(false);
+  });
+
+  it('makes later additional children progressively less likely', () => {
+    const first = getFamilyFormationProfile(31, 32, 0).baseSuccessChance;
+    const second = getFamilyFormationProfile(31, 32, 1).baseSuccessChance;
+    const third = getFamilyFormationProfile(31, 32, 2).baseSuccessChance;
+    expect(first).toBeGreaterThan(second);
+    expect(second).toBeGreaterThan(third);
   });
 });
