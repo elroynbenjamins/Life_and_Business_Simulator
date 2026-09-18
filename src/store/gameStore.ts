@@ -1289,7 +1289,10 @@ const useGameStore = create<GameStore>((set, get) => ({
         && gw - (state.relationshipState.lastFamilyAttemptWeek ?? 0) < 10;
       const playerAge = state.age ?? 20;
       const partnerAge = partner.age ?? 20;
-      const ageLimitReached = playerAge > 42 || partnerAge > 42;
+      const oldestAge = Math.max(playerAge, partnerAge);
+      const prospectiveDuration = oldestAge <= 34 ? 6 : oldestAge <= 39 ? 8 : 10;
+      const wouldCrossAgeLimit = oldestAge === 42 && (state.week ?? 1) + prospectiveDuration > 20;
+      const ageLimitReached = playerAge > 42 || partnerAge > 42 || wouldCrossAgeLimit;
       const tooYoung = playerAge < 21 || partnerAge < 21;
 
       if (children.length >= 3 || familyExpansionWeeksRemaining > 0 || tooSoonAfterLastChild || tooSoonAfterAttempt || ageLimitReached || tooYoung) {
@@ -1299,7 +1302,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             message: children.length >= 3
               ? 'This generation has reached the maximum of three children.'
               : ageLimitReached
-                ? 'New family expansion is no longer available after age 42.'
+                ? 'New family expansion must be completed before age 43.'
                 : tooYoung
                   ? 'Family expansion becomes available from age 21.'
                   : tooSoonAfterLastChild
@@ -1316,9 +1319,11 @@ const useGameStore = create<GameStore>((set, get) => ({
       const setupCost = Math.round(1000 * (state.inflationMultiplier ?? 1));
       if (cash < setupCost) return;
 
-      let successChance = Math.max(playerAge, partnerAge) <= 34 ? 0.85
-        : Math.max(playerAge, partnerAge) <= 39 ? 0.60
-          : 0.25;
+      let successChance = oldestAge <= 24 ? 0.25
+        : oldestAge <= 29 ? 0.65
+          : oldestAge <= 34 ? 0.85
+            : oldestAge <= 39 ? 0.60
+              : 0.25;
       if (children.length === 1) successChance *= 0.85;
       if (children.length === 2) successChance *= 0.55;
       if (partner.familyGoal === 'wants_children') successChance = Math.min(0.95, successChance * 1.10);
@@ -1335,9 +1340,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         relationshipDelta = partner.familyGoal === 'wants_children' ? 0 : -1;
       } else {
         acceptedPlan = 'trying';
-        familyExpansionWeeksRemaining = Math.max(playerAge, partnerAge) <= 34 ? 6
-          : Math.max(playerAge, partnerAge) <= 39 ? 8
-            : 10;
+        familyExpansionWeeksRemaining = prospectiveDuration;
         relationshipDelta = partner.familyGoal === 'wants_children' ? 5 : 2;
       }
     } else if (plan === 'no_children') {
