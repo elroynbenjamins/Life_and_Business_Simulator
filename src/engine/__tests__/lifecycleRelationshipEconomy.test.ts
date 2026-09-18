@@ -1060,4 +1060,48 @@ describe('expanded relationship progression', () => {
     expect(preview?.inheritedBusinessValue).toBe(800000);
     expect(preview?.inheritanceTaxBase).toBe(800000);
   });
+
+  it('preserves non-selected sibling wealth when another child becomes playable', () => {
+    const selected = {
+      id: 'selected-heir',
+      name: 'Mila',
+      gender: 'girl' as const,
+      birthGlobalWeek: 1,
+      age: 30,
+      educationFund: 0,
+      status: 'independent' as const,
+      savings: 80000,
+      parentRelationship: 80,
+    };
+    const sibling = {
+      id: 'wealthy-sibling',
+      name: 'Noah',
+      gender: 'boy' as const,
+      birthGlobalWeek: 21,
+      age: 29,
+      educationFund: 0,
+      status: 'independent' as const,
+      savings: 120000,
+      businessValue: 40000,
+      parentRelationship: 75,
+    };
+    const state = {
+      ...INITIAL_GAME_STATE,
+      playerName: 'Parent',
+      year: 31,
+      week: 1,
+      generation: 1,
+      relationshipModeEnabled: true,
+      familyTree: createInitialFamilyTree('Parent', 50, 31, 1),
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [selected, sibling],
+      },
+    };
+
+    const transitioned = transitionFamilyTreeToChild(state, selected.id, 2);
+    const siblingNode = transitioned.people.find((person) => person.id === `person:${sibling.id}`);
+
+    expect(siblingNode?.liquidWealth).toBe(160000);
+  });
 });
