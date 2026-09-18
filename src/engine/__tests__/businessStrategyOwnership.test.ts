@@ -1,4 +1,4 @@
-import { createBusiness, getPlayerOwnershipPct, processBusinessWeek } from '../businessEngine';
+import { createBusiness, getPlayerOwnershipPct, processAllBusinesses, processBusinessWeek } from '../businessEngine';
 import { getNetWorth } from '../financeEngine';
 import { calculateEstateSettlement } from '../lifecycleEngine';
 import { INITIAL_GAME_STATE, INITIAL_RELATIONSHIP_STATE, OwnedBusiness } from '../../types/game';
@@ -217,5 +217,26 @@ describe('business strategy, crises and ownership', () => {
       && modifier.revenueMultiplier === 0.82
     )).toBe(true);
     expect(result.updatedBusiness.timeline?.some((entry) => entry.title.includes('no response'))).toBe(true);
+  });
+
+  test('limits the whole portfolio to one newly-created decision in a week', () => {
+    const first = staffedBusiness();
+    first.id = 'decision-a';
+    first.nextStrategicDecisionWeek = 1;
+    first.nextCrisisCheckWeek = 999;
+
+    const second = staffedBusiness();
+    second.id = 'decision-b';
+    second.nextStrategicDecisionWeek = 1;
+    second.nextCrisisCheckWeek = 999;
+
+    jest.spyOn(Math, 'random').mockReturnValue(0.6);
+    const result = processAllBusinesses([first, second], 1, 2, 1);
+    const pending = result.updatedBusinesses.filter((business) => !!business.pendingDecision);
+
+    expect(pending).toHaveLength(1);
+    expect(result.updatedBusinesses.some((business) =>
+      !business.pendingDecision && (business.nextStrategicDecisionWeek ?? 0) > 2
+    )).toBe(true);
   });
 });
