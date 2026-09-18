@@ -69,6 +69,8 @@ export default function BusinessDetailScreen() {
   const profile = useGameStore((s) => s.profile);
   const relationshipState = useGameStore((s) => s.relationshipState);
   const generation = useGameStore((s) => s.generation ?? 1);
+  const gameWeek = useGameStore((s) => s.week ?? 1);
+  const gameYear = useGameStore((s) => s.year ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
     sellBusiness, designateFamilyBusiness, setBusinessStrategicFocus, resolveBusinessDecision,
@@ -137,6 +139,10 @@ export default function BusinessDetailScreen() {
     .filter((stake) => stake.ownerType === 'family_trust')
     .reduce((sum, stake) => sum + (stake.percent ?? 0), 0);
   const pendingDecision = biz.pendingDecision ?? null;
+  const globalGameWeek = ((gameYear - 1) * 20) + gameWeek;
+  const decisionWeeksLeft = pendingDecision
+    ? Math.max(0, (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4) - globalGameWeek)
+    : 0;
   const equityStructuringUnlocked = (biz.level ?? 0) >= 3;
   const canIssue5 = playerOwnershipPct * 0.95 >= 51;
   const canIssue10 = playerOwnershipPct * 0.90 >= 51;
@@ -308,6 +314,9 @@ export default function BusinessDetailScreen() {
                 </Text>
                 <Text style={styles.decisionTitle}>{pendingDecision.title}</Text>
                 <Text style={styles.decisionDesc}>{pendingDecision.description}</Text>
+                <Text style={styles.decisionDeadline}>
+                  {decisionWeeksLeft > 0 ? `${decisionWeeksLeft} week${decisionWeeksLeft === 1 ? '' : 's'} to respond` : 'Final response week'}
+                </Text>
               </View>
             </View>
             {(pendingDecision.choices ?? []).map((choice) => {
@@ -402,7 +411,11 @@ export default function BusinessDetailScreen() {
                 <Pressable
                   disabled={!canIssue5}
                   style={[styles.shareButton, !canIssue5 && { opacity: 0.35 }]}
-                  onPress={() => transferBusinessShares(biz.id, 'investor', null, 5)}
+                  onPress={() => confirmAction(
+                    'Issue New Shares',
+                    `Issue 5% new equity to outside investors? Existing owners will be diluted proportionally and the company should raise about ${formatCurrency(Math.round((biz.valuation ?? 0) * 0.05 * 0.90))}.`,
+                    () => transferBusinessShares(biz.id, 'investor', null, 5),
+                  )}
                 >
                   <Text style={styles.shareButtonTitle}>Sell 5%</Text>
                   <Text style={styles.shareButtonMeta}>Outside investor</Text>
@@ -410,7 +423,11 @@ export default function BusinessDetailScreen() {
                 <Pressable
                   disabled={!canIssue10}
                   style={[styles.shareButton, !canIssue10 && { opacity: 0.35 }]}
-                  onPress={() => transferBusinessShares(biz.id, 'investor', null, 10)}
+                  onPress={() => confirmAction(
+                    'Issue New Shares',
+                    `Issue 10% new equity to outside investors? Existing owners will be diluted proportionally and the company should raise about ${formatCurrency(Math.round((biz.valuation ?? 0) * 0.10 * 0.90))}.`,
+                    () => transferBusinessShares(biz.id, 'investor', null, 10),
+                  )}
                 >
                   <Text style={styles.shareButtonTitle}>Sell 10%</Text>
                   <Text style={styles.shareButtonMeta}>Raise company cash</Text>
@@ -422,7 +439,11 @@ export default function BusinessDetailScreen() {
                   <Pressable
                     disabled={!canTransfer5}
                     style={[styles.shareButton, !canTransfer5 && { opacity: 0.35 }]}
-                    onPress={() => transferBusinessShares(biz.id, 'family_trust', null, 5)}
+                    onPress={() => confirmAction(
+                      'Transfer Shares to Trust',
+                      `Move 5 percentage points of your personal ownership into the Family Trust? This reduces your personal estate and is not reversible in the current version.`,
+                      () => transferBusinessShares(biz.id, 'family_trust', null, 5),
+                    )}
                   >
                     <Text style={styles.shareButtonTitle}>Trust 5%</Text>
                     <Text style={styles.shareButtonMeta}>Outside personal estate</Text>
@@ -442,7 +463,11 @@ export default function BusinessDetailScreen() {
                   <Pressable
                     disabled={!canTransfer5}
                     style={[styles.smallShareButton, !canTransfer5 && { opacity: 0.35 }]}
-                    onPress={() => transferBusinessShares(biz.id, 'child', child.id, 5)}
+                    onPress={() => confirmAction(
+                      'Gift Business Shares',
+                      `Permanently gift 5 percentage points of your ownership in ${biz.name} to ${child.name}? Estimated current value: ${formatCurrency(Math.round((biz.valuation ?? 0) * 0.05))}.`,
+                      () => transferBusinessShares(biz.id, 'child', child.id, 5),
+                    )}
                   >
                     <Text style={styles.smallShareText}>Give 5%</Text>
                   </Pressable>
@@ -452,7 +477,15 @@ export default function BusinessDetailScreen() {
           )}
 
           {investorOwnershipPct > 0 && (
-            <Pressable style={styles.buybackButton} onPress={() => buyBackInvestorShares(biz.id, Math.min(5, investorOwnershipPct))}>
+            <Pressable style={styles.buybackButton} onPress={() => {
+                const pct = Math.min(5, investorOwnershipPct);
+                const cost = Math.round((biz.valuation ?? 0) * (pct / 100) * 1.05);
+                confirmAction(
+                  'Buy Back Investor Shares',
+                  `Use about ${formatCurrency(cost)} of company cash to repurchase and retire ${pct.toFixed(1)}% of investor equity?`,
+                  () => buyBackInvestorShares(biz.id, pct),
+                );
+              }}>
               <Text style={styles.buybackText}>Buy Back {Math.min(5, investorOwnershipPct).toFixed(0)}% Investor Shares</Text>
             </Pressable>
           )}
@@ -473,18 +506,34 @@ export default function BusinessDetailScreen() {
                       <Text style={styles.ownerType}>
                         {child.occupationTitle ?? 'Independent'} • {familyRole ? `${familyRole.role} • Performance ${Math.round(familyRole.performance)} • ${formatCurrency(familyRole.weeklySalary ?? 0)}/wk` : 'Not involved'}
                       </Text>
+                      {(child.parentRelationship ?? 75) < 30 && <Text style={styles.governanceWarning}>Estranged — refuses family appointment</Text>}
                     </View>
                   </View>
                   <View style={styles.governanceButtons}>
-                    {GOVERNANCE_ROLES.map((role) => (
-                      <Pressable
-                        key={role.key}
-                        style={[styles.governanceButton, familyRole?.role === role.key && styles.governanceButtonActive]}
-                        onPress={() => appointChildToBusiness(biz.id, child.id, role.key)}
-                      >
-                        <Text style={[styles.governanceButtonText, familyRole?.role === role.key && { color: Colors.primary }]}>{role.label}</Text>
-                      </Pressable>
-                    ))}
+                    {GOVERNANCE_ROLES.map((role) => {
+                      const isOperatingRole = role.key !== 'board';
+                      const operatingElsewhere = isOperatingRole && businesses.some((otherBusiness) =>
+                        otherBusiness.id !== biz.id
+                        && (otherBusiness.familyRoles ?? []).some((otherRole) =>
+                          otherRole.childId === child.id && otherRole.role !== 'board'
+                        )
+                      );
+                      const unavailable = (child.parentRelationship ?? 75) < 30 || operatingElsewhere;
+                      return (
+                        <Pressable
+                          key={role.key}
+                          disabled={unavailable}
+                          style={[
+                            styles.governanceButton,
+                            familyRole?.role === role.key && styles.governanceButtonActive,
+                            unavailable && { opacity: 0.35 },
+                          ]}
+                          onPress={() => appointChildToBusiness(biz.id, child.id, role.key)}
+                        >
+                          <Text style={[styles.governanceButtonText, familyRole?.role === role.key && { color: Colors.primary }]}>{role.label}</Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 </View>
               );
@@ -1224,6 +1273,7 @@ const styles = StyleSheet.create({
   decisionEyebrow: { color: Colors.warning, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   decisionTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 2 },
   decisionDesc: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
+  decisionDeadline: { color: Colors.warning, fontSize: 9, fontWeight: '800', marginTop: 5 },
   decisionChoice: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   decisionChoiceTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
   decisionChoiceDesc: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
@@ -1264,6 +1314,7 @@ const styles = StyleSheet.create({
   governanceButton: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6 },
   governanceButtonActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
   governanceButtonText: { color: Colors.textSecondary, fontSize: 9, fontWeight: '700' },
+  governanceWarning: { color: Colors.negative, fontSize: 9, marginTop: 3 },
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   optionChip: { borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 12, paddingVertical: 10, minWidth: '45%', flex: 1 },
   optionChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}15` },
