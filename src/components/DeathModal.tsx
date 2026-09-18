@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Colors } from '../theme/colors';
 import useGameStore from '../store/gameStore';
 import { formatCurrency } from '../utils/format';
+import { getSuccessionPreview } from '../engine/lifecycleEngine';
 
 export default function DeathModal() {
   const lifecycle = useGameStore((s) => s.lifecycle);
@@ -14,6 +15,12 @@ export default function DeathModal() {
   const beginNewGame = useGameStore((s) => s.beginNewGame);
   const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
   const estateSettlement = useGameStore((s) => s.relationshipState?.estateSettlement ?? null);
+  const relationshipState = useGameStore((s) => s.relationshipState);
+  const continueAsChild = useGameStore((s) => s.continueAsChild);
+  const state = useGameStore();
+  const eligibleChildren = (relationshipState?.children ?? [])
+    .map((child) => ({ child, preview: getSuccessionPreview(state, child.id) }))
+    .filter((item) => !!item.preview);
   const [reviewLegacy, setReviewLegacy] = useState(false);
 
   useEffect(() => {
@@ -79,6 +86,53 @@ export default function DeathModal() {
               )}
             </View>
           )}
+          <View style={styles.successionBox}>
+            <Text style={styles.estateTitle}>Continue the Family</Text>
+            {eligibleChildren.length > 0 ? (
+              <>
+                <Text style={styles.successorText}>
+                  Continue this save as an adult child. Their inheritance is taxed before the next generation begins.
+                </Text>
+                {eligibleChildren.map(({ child, preview }) => {
+                  if (!preview) return null;
+                  const needsLoan = preview.loanNeeded > 0;
+                  return (
+                    <View key={child.id} style={styles.childSuccessionCard}>
+                      <View style={styles.childSuccessionTop}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.beneficiaryName}>{child.name}, {preview.childAge}</Text>
+                          <Text style={styles.beneficiaryMeta}>
+                            {child.occupationTitle ?? 'Independent'}{preview.inheritedBusinessValue > 0 ? ' • Business successor' : ''}
+                          </Text>
+                        </View>
+                      </View>
+                      <EstateRow label="Cash inheritance" value={preview.inheritedCash} />
+                      {preview.inheritedBusinessValue > 0 && (
+                        <EstateRow label="Businesses inherited" value={preview.inheritedBusinessValue} />
+                      )}
+                      <EstateRow label="Inheritance tax" value={-preview.inheritanceTax} negative />
+                      {needsLoan && (
+                        <EstateRow label="Estate loan required" value={preview.loanNeeded} />
+                      )}
+                      <Pressable
+                        style={[styles.primary, { marginTop: 10 }]}
+                        onPress={() => continueAsChild(child.id, needsLoan)}
+                      >
+                        <Text style={styles.primaryText}>
+                          {needsLoan ? 'Take Estate Loan & Continue' : `Pay Tax & Continue as ${child.name}`}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </>
+            ) : (
+              <Text style={styles.noBeneficiary}>
+                No adult child is available to continue this generation. Children must be at least 18 when the player dies.
+              </Text>
+            )}
+          </View>
+
           <Text style={styles.note}>This save is now complete. You can review your empire and statistics, or begin a new life.</Text>
           <Pressable style={styles.primary} onPress={() => setReviewLegacy(true)}>
             <Text style={styles.primaryText}>View Legacy</Text>
@@ -134,6 +188,9 @@ const styles = StyleSheet.create({
   beneficiaryAmount: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
   noBeneficiary: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
   successorBox: { marginTop: 10 },
+  successionBox: { backgroundColor: 'rgba(16,185,129,0.07)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.22)', borderRadius: 12, padding: 13, marginTop: 12 },
+  childSuccessionCard: { backgroundColor: Colors.card, borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, padding: 11, marginTop: 10 },
+  childSuccessionTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },
   successorText: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16 },
   note: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, textAlign: 'center', marginVertical: 16 },
   primary: { backgroundColor: Colors.primary, borderRadius: 11, minHeight: 48, justifyContent: 'center', alignItems: 'center' },
