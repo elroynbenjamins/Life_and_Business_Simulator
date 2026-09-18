@@ -451,8 +451,11 @@ export default function RelationshipsScreen() {
                   ['will', 'Documented Will', Math.round(2000 * state.inflationMultiplier), 'Lower estate administration cost.'],
                   ['family_trust', 'Family Trust', Math.round(25000 * state.inflationMultiplier), 'Lowest administration cost; expensive to establish.'],
                 ] as Array<[EstateStructureType, string, number, string]>).map(([type, label, cost, desc]) => {
+                  const rank: Record<EstateStructureType, number> = { none: 0, will: 1, family_trust: 2 };
                   const changing = estatePlan.structure !== type;
-                  const unavailable = changing && state.cash < cost;
+                  const isUpgrade = rank[type] > rank[estatePlan.structure];
+                  const actualSetupCost = isUpgrade ? cost : 0;
+                  const unavailable = changing && state.cash < actualSetupCost;
                   return (
                     <Pressable
                       key={type}
@@ -465,7 +468,7 @@ export default function RelationshipsScreen() {
                         <Text style={styles.meta}>{desc}</Text>
                       </View>
                       <Text style={styles.moneyText}>
-                        {estatePlan.structure === type ? 'Active' : cost > 0 ? formatCurrency(cost) : 'Free'}
+                        {estatePlan.structure === type ? 'Active' : actualSetupCost > 0 ? formatCurrency(actualSetupCost) : 'Free'}
                       </Text>
                     </Pressable>
                   );
