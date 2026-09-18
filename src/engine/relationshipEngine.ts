@@ -61,6 +61,34 @@ export function isNormalizedAgeMatch(playerAge: number, partnerAge: number): boo
   return partnerAge >= bounds.min && partnerAge <= bounds.max;
 }
 
+export function getFamilyFormationProfile(
+  playerAge: number,
+  partnerAge: number,
+  childCount: number,
+): { allowedByAge: boolean; baseSuccessChance: number; durationWeeks: number; maxChildren: number } {
+  const oldestAge = Math.max(playerAge, partnerAge);
+  const youngestAge = Math.min(playerAge, partnerAge);
+  const maxChildren = 3;
+  const allowedByAge = youngestAge >= 21 && oldestAge <= 42 && childCount < maxChildren;
+
+  const baseSuccessChance = !allowedByAge ? 0
+    : oldestAge <= 24 ? 0.25
+      : oldestAge <= 29 ? 0.65
+        : oldestAge <= 34 ? 0.85
+          : oldestAge <= 39 ? 0.60
+            : 0.25;
+
+  const childCountMultiplier = childCount === 0 ? 1 : childCount === 1 ? 0.85 : 0.55;
+  const durationWeeks = oldestAge <= 34 ? 6 : oldestAge <= 39 ? 8 : 10;
+
+  return {
+    allowedByAge,
+    baseSuccessChance: baseSuccessChance * childCountMultiplier,
+    durationWeeks,
+    maxChildren,
+  };
+}
+
 function weightedCandidateAge(
   playerAge: number,
   minAge: number,
@@ -701,7 +729,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
 
   if (annualProgression && activePartnerId) {
     const partnerCandidate = activeConnections.find((item) => item.id === activePartnerId) ?? null;
-    if (partnerCandidate && partnerCandidate.age >= 60 && Math.random() < annualDeathChance(partnerCandidate.age)) {
+    if (partnerCandidate && partnerCandidate.age >= 55 && Math.random() < annualDeathChance(partnerCandidate.age)) {
       partnerDiedName = partnerCandidate.name;
       if (partnerCandidate.stage === 'married') {
         const adminCost = Math.min(
