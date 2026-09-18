@@ -44,6 +44,8 @@ export default function RelationshipsScreen() {
   const fundChildEducation = useGameStore((s) => s.fundChildEducation);
   const endDatingConnection = useGameStore((s) => s.endDatingConnection);
   const endPartnership = useGameStore((s) => s.endPartnership);
+  const feedback = useGameStore((s) => s.relationshipFeedback);
+  const dismissFeedback = useGameStore((s) => s.dismissRelationshipFeedback);
 
   const [preference, setPreference] = useState<DatingPreference>(relationship?.preference ?? 'everyone');
   const [minAge, setMinAge] = useState(relationship?.minAge ?? 20);
@@ -125,6 +127,17 @@ export default function RelationshipsScreen() {
       <Header onBack={() => router.back()} />
       <GameStatusBar />
       <ScrollView contentContainerStyle={styles.content}>
+        {feedback && (
+          <Pressable style={[styles.feedback, { borderColor: feedback.positive ? `${Colors.primary}55` : `${Colors.negative}55`, backgroundColor: feedback.positive ? `${Colors.primary}12` : `${Colors.negative}12` }]} onPress={dismissFeedback}>
+            <Ionicons name={feedback.positive ? 'checkmark-circle' : 'information-circle'} size={20} color={feedback.positive ? Colors.primary : Colors.negative} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.feedbackTitle}>{feedback.title}</Text>
+              <Text style={styles.feedbackText}>{feedback.message}</Text>
+            </View>
+            <Ionicons name="close" size={18} color={Colors.textMuted} />
+          </Pressable>
+        )}
+
         {actionUsed && (
           <View style={styles.notice}>
             <Ionicons name="time-outline" size={18} color={Colors.warning} />
@@ -504,6 +517,9 @@ const styles = StyleSheet.create({
   primaryText: { color: Colors.white, fontWeight: '800', fontSize: 14 },
   secondaryButton: { borderWidth: 1, borderColor: Colors.happiness, borderRadius: 9, paddingVertical: 10, alignItems: 'center', marginTop: 7 },
   secondaryText: { color: Colors.happiness, fontWeight: '700', fontSize: 13 },
+  feedback: { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderRadius: 11, padding: 11, marginBottom: 10 },
+  feedbackTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '800' },
+  feedbackText: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 2 },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${Colors.warning}18`, borderWidth: 1, borderColor: `${Colors.warning}40`, padding: 11, borderRadius: 10, marginBottom: 10 },
   noticeText: { color: Colors.warning, fontSize: 12, flex: 1 },
   pendingEvent: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: `${Colors.happiness}44`, backgroundColor: `${Colors.happiness}12`, borderRadius: 12, padding: 12, marginBottom: 10 },
