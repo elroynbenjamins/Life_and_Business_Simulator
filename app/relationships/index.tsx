@@ -13,6 +13,7 @@ import {
   getChildAge,
   getChildWeeklyCost,
   getDateCost,
+  getNormalizedDatingAgeBounds,
   getProposalCost,
   getWeddingCost,
 } from '../../src/engine/relationshipEngine';
@@ -51,10 +52,17 @@ export default function RelationshipsScreen() {
   const setEstatePlan = useGameStore((s) => s.setEstatePlan);
   const feedback = useGameStore((s) => s.relationshipFeedback);
   const dismissFeedback = useGameStore((s) => s.dismissRelationshipFeedback);
+  const datingBounds = getNormalizedDatingAgeBounds(state.age ?? 20);
+  const defaultMinAge = relationship?.preferencesSet
+    ? (state.age ?? 20) + (relationship.minAgeOffset ?? -3)
+    : Math.max(datingBounds.min, (state.age ?? 20) - 3);
+  const defaultMaxAge = relationship?.preferencesSet
+    ? (state.age ?? 20) + (relationship.maxAgeOffset ?? 4)
+    : Math.min(datingBounds.max, (state.age ?? 20) + 4);
 
   const [preference, setPreference] = useState<DatingPreference>(relationship?.preference ?? 'everyone');
-  const [minAge, setMinAge] = useState(relationship?.minAge ?? 20);
-  const [maxAge, setMaxAge] = useState(relationship?.maxAge ?? 35);
+  const [minAge, setMinAge] = useState(defaultMinAge);
+  const [maxAge, setMaxAge] = useState(defaultMaxAge);
   const [marriageAgreement, setMarriageAgreement] = useState<MarriageAgreement>('separate');
 
   const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
@@ -72,10 +80,12 @@ export default function RelationshipsScreen() {
   const estatePlan = relationship?.estatePlan;
   const adultChildren = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) >= 18);
   const youngestChildBirthWeek = (relationship?.children ?? []).reduce((latest, child) => Math.max(latest, child.birthGlobalWeek ?? 0), 0);
-  const familyLimitReached = (relationship?.children?.length ?? 0) >= 4;
-  const familySpacingBlocked = youngestChildBirthWeek > 0 && gw - youngestChildBirthWeek < 20;
-  const familyAgeBlocked = !!partner && ((state.age ?? 20) >= 55 || (partner.age ?? 20) >= 55);
-  const canGrowFamily = !familyLimitReached && !familySpacingBlocked && !familyAgeBlocked && (relationship?.familyExpansionWeeksRemaining ?? 0) <= 0;
+  const familyLimitReached = (relationship?.children?.length ?? 0) >= 3;
+  const familySpacingBlocked = youngestChildBirthWeek > 0 && gw - youngestChildBirthWeek < 40;
+  const familyAgeBlocked = !!partner && ((state.age ?? 20) > 42 || (partner.age ?? 20) > 42);
+  const familyAttemptCooldown = (relationship?.lastFamilyAttemptWeek ?? 0) > 0 && gw - (relationship?.lastFamilyAttemptWeek ?? 0) < 10;
+  const familyTooYoung = !!partner && ((state.age ?? 20) < 21 || (partner.age ?? 20) < 21);
+  const canGrowFamily = !familyLimitReached && !familySpacingBlocked && !familyAgeBlocked && !familyAttemptCooldown && !familyTooYoung && (relationship?.familyExpansionWeeksRemaining ?? 0) <= 0;
 
   const estateSuccessors = [
     ...(partner?.stage === 'married' ? [{ id: partner.id, name: partner.name, role: 'Spouse' }] : []),
@@ -127,9 +137,12 @@ export default function RelationshipsScreen() {
             </View>
 
             <Text style={styles.sectionLabel}>Preferred age range</Text>
+            <Text style={styles.helper}>
+              Matches stay within a normal life-stage range for your age ({datingBounds.min}–{datingBounds.max}), and most generated profiles are much closer to your age.
+            </Text>
             <View style={styles.ageRow}>
-              <Counter label="Min" value={minAge} onMinus={() => setMinAge(Math.max(18, minAge - 1))} onPlus={() => setMinAge(Math.min(maxAge, minAge + 1))} />
-              <Counter label="Max" value={maxAge} onMinus={() => setMaxAge(Math.max(minAge, maxAge - 1))} onPlus={() => setMaxAge(Math.min(80, maxAge + 1))} />
+              <Counter label="Min" value={minAge} onMinus={() => setMinAge(Math.max(datingBounds.min, minAge - 1))} onPlus={() => setMinAge(Math.min(maxAge, minAge + 1))} />
+              <Counter label="Max" value={maxAge} onMinus={() => setMaxAge(Math.max(minAge, maxAge - 1))} onPlus={() => setMaxAge(Math.min(datingBounds.max, maxAge + 1))} />
             </View>
 
             <Pressable style={styles.primaryButton} onPress={() => setDatingPreferences(preference, minAge, maxAge)}>
@@ -319,12 +332,16 @@ export default function RelationshipsScreen() {
                       {!canGrowFamily && (
                         <Text style={[styles.meta, { color: Colors.warning, marginTop: 5 }]}>
                           {familyLimitReached
-                            ? 'Maximum four children reached for this generation.'
+                            ? 'Maximum three children reached for this generation.'
                             : familyAgeBlocked
-                              ? 'Family expansion closes once either partner reaches age 55.'
-                              : familySpacingBlocked
-                                ? 'Wait one in-game year between children.'
-                                : 'Your family is already growing.'}
+                              ? 'Family expansion closes after age 42.'
+                              : familyTooYoung
+                                ? 'Family expansion starts from age 21.'
+                                : familySpacingBlocked
+                                  ? 'Wait about two in-game years between children.'
+                                  : familyAttemptCooldown
+                                    ? 'Give it some time before trying again.'
+                                    : 'Your family is already growing.'}
                         </Text>
                       )}
                       <View style={styles.threeRow}>
