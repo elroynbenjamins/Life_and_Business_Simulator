@@ -841,6 +841,8 @@ describe('expanded relationship progression', () => {
     };
     const state = {
       ...INITIAL_GAME_STATE,
+      year: 31,
+      week: 1,
       cash: 100000,
       businesses: [baseBusiness, familyBusiness],
       relationshipModeEnabled: true,
@@ -856,5 +858,47 @@ describe('expanded relationship progression', () => {
     const estate = calculateEstateSettlement(state);
     expect(estate.businessValue).toBe(500000);
     expect(estate.successorName).toBe('Mila');
+  });
+
+  it('can make an estranged adult child unwilling to continue the dynasty', () => {
+    const child = {
+      id: 'estranged-child',
+      name: 'Noah',
+      gender: 'boy' as const,
+      birthGlobalWeek: 1,
+      age: 30,
+      educationFund: 0,
+      status: 'independent' as const,
+      savings: 25000,
+      parentRelationship: 18,
+    };
+    const state = {
+      ...INITIAL_GAME_STATE,
+      year: 31,
+      week: 1,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [child],
+        estateSettlement: {
+          grossEstate: 100000,
+          outstandingRelationshipObligations: 0,
+          administrationCost: 0,
+          netEstate: 100000,
+          beneficiaries: [{
+            id: child.id,
+            name: child.name,
+            relationship: 'child' as const,
+            share: 1,
+            amount: 100000,
+          }],
+          successorName: null,
+          businessValue: 0,
+        },
+      },
+    };
+    const preview = getSuccessionPreview(state, child.id);
+    expect(preview?.willingToSucceed).toBe(false);
+    expect(preview?.parentRelationship).toBe(18);
   });
 });
