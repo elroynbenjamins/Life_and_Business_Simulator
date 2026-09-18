@@ -46,8 +46,8 @@ export default function DashboardScreen() {
   const hasCareerV2 = !!career?.companyId;
   const weeklyIncome = hasCareerV2 ? getCareerSalary(career!, state.inflationMultiplier ?? 1) : getWeeklySalary(state);
   const loanPayments = getWeeklyLoanPayments(state);
-  const household = relationshipModeEnabled ? calculatePartnerContribution(partner, state) : { contribution: 0, householdExtraCost: 0, familyCost: 0 };
-  const weeklyExpenses = getWeeklyRent(state) + getWeeklyUtilityCost(state) + getWeeklyCarCost(state) + getWeeklyFoodCost(state) + getWeeklyCourseCost(state) + loanPayments + household.householdExtraCost + household.familyCost;
+  const household = relationshipModeEnabled ? calculatePartnerContribution(partner, state) : { contribution: 0, householdExtraCost: 0, familyCost: 0, obligationCost: 0 };
+  const weeklyExpenses = getWeeklyRent(state) + getWeeklyUtilityCost(state) + getWeeklyCarCost(state) + getWeeklyFoodCost(state) + getWeeklyCourseCost(state) + loanPayments + household.householdExtraCost + household.familyCost + household.obligationCost;
 
   const isEmployed = hasCareerV2 || !!currentJobId;
   const hasIncome = isEmployed || partTimeJob;
