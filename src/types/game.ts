@@ -62,6 +62,7 @@ export interface RelationshipChild {
   savings?: number;
   homeStatus?: 'renting' | 'homeowner';
   partnerName?: string | null;
+  partnerGender?: 'woman' | 'man' | null;
   childrenCount?: number;
 }
 
