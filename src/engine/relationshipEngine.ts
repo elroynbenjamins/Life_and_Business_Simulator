@@ -141,19 +141,27 @@ export function getHousingCapacity(housingId: string): number {
   return HOUSING_CAPACITY[housingId] ?? 1;
 }
 
+export function getRelationshipObligationWeeklyCost(state: GameState): number {
+  if (!state.relationshipModeEnabled) return 0;
+  return (state.relationshipState?.financialObligations ?? []).reduce((total, obligation) => {
+    return total + Math.min(obligation.weeklyPayment ?? 0, obligation.remainingAmount ?? 0);
+  }, 0);
+}
+
 export function calculatePartnerContribution(
   connection: RelationshipConnection | null,
   state: GameState
-): { contribution: number; householdExtraCost: number; familyCost: number } {
+): { contribution: number; householdExtraCost: number; familyCost: number; obligationCost: number } {
   if (!state.relationshipModeEnabled) {
-    return { contribution: 0, householdExtraCost: 0, familyCost: 0 };
+    return { contribution: 0, householdExtraCost: 0, familyCost: 0, obligationCost: 0 };
   }
 
+  const obligationCost = getRelationshipObligationWeeklyCost(state);
   const children = state.relationshipState?.children ?? [];
   const familyCost = children.reduce((total, child) => total + getChildWeeklyCost(child, state), 0);
 
   if (!connection || !(connection.isCohabiting || connection.stage === 'living_together' || connection.stage === 'married')) {
-    return { contribution: 0, householdExtraCost: 0, familyCost };
+    return { contribution: 0, householdExtraCost: 0, familyCost, obligationCost };
   }
 
   const housing = (housingData as any[]).find((item) => item.id === state.currentHousingId);
@@ -181,6 +189,7 @@ export function calculatePartnerContribution(
     contribution: Math.max(0, Math.round(Math.min(contribution, partnerIncome * 0.55))),
     householdExtraCost,
     familyCost,
+    obligationCost,
   };
 }
 
@@ -375,6 +384,7 @@ export interface RelationshipWeekResult {
   partnerContribution: number;
   householdExtraCost: number;
   familyCost: number;
+  obligationCost: number;
   relationshipChange: number;
   headline: string | null;
   eventTitle: string | null;
@@ -389,6 +399,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       partnerContribution: 0,
       householdExtraCost: 0,
       familyCost: 0,
+      obligationCost: 0,
       relationshipChange: 0,
       headline: null,
       eventTitle: null,
@@ -403,6 +414,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       partnerContribution: 0,
       householdExtraCost: 0,
       familyCost: 0,
+      obligationCost: 0,
       relationshipChange: 0,
       headline: null,
       eventTitle: null,
@@ -449,6 +461,16 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     }
   }
 
+  let obligationCost = 0;
+  const financialObligations = (current.financialObligations ?? []).flatMap((obligation) => {
+    const payment = Math.min(obligation.weeklyPayment ?? 0, obligation.remainingAmount ?? 0);
+    obligationCost += payment;
+    const remainingAmount = Math.max(0, (obligation.remainingAmount ?? 0) - payment);
+    const weeksRemaining = Math.max(0, (obligation.weeksRemaining ?? 1) - 1);
+    if (remainingAmount <= 0 || weeksRemaining <= 0) return [];
+    return [{ ...obligation, remainingAmount, weeksRemaining }];
+  });
+
   const workingState: GameState = {
     ...state,
     relationshipState: {
@@ -457,6 +479,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       weeklyCandidates,
       candidateRefreshWeek,
       children,
+      financialObligations,
       familyExpansionWeeksRemaining,
       timeline,
     },
@@ -520,6 +543,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       weeklyCandidates,
       candidateRefreshWeek,
       children,
+      financialObligations,
       familyExpansionWeeksRemaining,
       timeline,
       pendingEvent,
