@@ -7,9 +7,15 @@ import { Colors } from '../../src/theme/colors';
 import GameStatusBar from '../../src/components/StatusBar';
 import GameCard from '../../src/components/GameCard';
 import useGameStore from '../../src/store/gameStore';
-import { DatingPreference, RelationshipConnection } from '../../src/types/game';
+import { DatingPreference, MarriageAgreement, RelationshipConnection } from '../../src/types/game';
 import { formatCurrency } from '../../src/utils/format';
-import { getDateCost } from '../../src/engine/relationshipEngine';
+import {
+  getChildAge,
+  getChildWeeklyCost,
+  getDateCost,
+  getProposalCost,
+  getWeddingCost,
+} from '../../src/engine/relationshipEngine';
 
 const TRAIT_LABELS: Record<string, Record<string, string>> = {
   financialStyle: { frugal: 'Frugal', balanced: 'Balanced spender', luxury: 'Luxury-minded' },
@@ -22,14 +28,27 @@ export default function RelationshipsScreen() {
   const router = useRouter();
   const state = useGameStore();
   const relationship = state.relationshipState;
+  const enabled = state.relationshipModeEnabled;
+
   const setDatingPreferences = useGameStore((s) => s.setDatingPreferences);
   const inviteOnDate = useGameStore((s) => s.inviteOnDate);
   const planDate = useGameStore((s) => s.planDate);
   const askBecomePartners = useGameStore((s) => s.askBecomePartners);
   const moveInWithPartner = useGameStore((s) => s.moveInWithPartner);
+  const spendTime = useGameStore((s) => s.spendTimeWithPartner);
+  const giveGift = useGameStore((s) => s.givePartnerGift);
+  const discussFinances = useGameStore((s) => s.discussFinancesWithPartner);
+  const propose = useGameStore((s) => s.proposeToPartner);
+  const marry = useGameStore((s) => s.marryPartner);
+  const setFamilyPlan = useGameStore((s) => s.setFamilyPlan);
+  const fundChildEducation = useGameStore((s) => s.fundChildEducation);
+  const endDatingConnection = useGameStore((s) => s.endDatingConnection);
+  const endPartnership = useGameStore((s) => s.endPartnership);
+
   const [preference, setPreference] = useState<DatingPreference>(relationship?.preference ?? 'everyone');
   const [minAge, setMinAge] = useState(relationship?.minAge ?? 20);
   const [maxAge, setMaxAge] = useState(relationship?.maxAge ?? 35);
+  const [marriageAgreement, setMarriageAgreement] = useState<MarriageAgreement>('separate');
 
   const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
   const actionUsed = (relationship?.personalActionWeek ?? 0) === gw;
@@ -38,6 +57,30 @@ export default function RelationshipsScreen() {
     [relationship?.activeConnections, relationship?.partnerId]
   );
   const dating = (relationship?.activeConnections ?? []).filter((item) => item.stage === 'dating');
+  const cohabiting = !!partner && (partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married');
+  const financeKnown = !!partner && ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'].every((trait) => partner.visibleTraits?.includes(trait as any));
+  const pendingRelationshipEvent = relationship?.pendingEvent ?? null;
+
+  if (!enabled) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Header onBack={() => router.back()} />
+        <GameStatusBar />
+        <ScrollView contentContainerStyle={styles.content}>
+          <GameCard>
+            <View style={styles.centered}>
+              <Ionicons name="heart-outline" size={42} color={Colors.textMuted} />
+              <Text style={styles.heroTitle}>Personal Life is Off</Text>
+              <Text style={styles.heroText}>This save is currently focused on the economy only. You can enable Personal Life from Profile & Stats at any time.</Text>
+            </View>
+            <Pressable style={styles.secondaryButton} onPress={() => router.push('/profile')}>
+              <Text style={styles.secondaryText}>Open Profile Settings</Text>
+            </Pressable>
+          </GameCard>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   if (!relationship?.preferencesSet) {
     return (
@@ -49,7 +92,7 @@ export default function RelationshipsScreen() {
             <View style={styles.centered}>
               <Ionicons name="heart-outline" size={42} color={Colors.happiness} />
               <Text style={styles.heroTitle}>Personal Life</Text>
-              <Text style={styles.heroText}>Set who you'd like to meet. You can change these preferences later.</Text>
+              <Text style={styles.heroText}>Choose who you would like to meet. Deeper traits and financial habits are learned by spending time together.</Text>
             </View>
             <Text style={styles.sectionLabel}>Interested in</Text>
             <View style={styles.choiceRow}>
@@ -85,29 +128,206 @@ export default function RelationshipsScreen() {
         {actionUsed && (
           <View style={styles.notice}>
             <Ionicons name="time-outline" size={18} color={Colors.warning} />
-            <Text style={styles.noticeText}>Personal action used this week. Advance a week before planning another date.</Text>
+            <Text style={styles.noticeText}>Your personal action for this week is used. Major life steps can still be available, but dates, gifts and conversations wait until next week.</Text>
           </View>
+        )}
+
+        {pendingRelationshipEvent && (
+          <Pressable style={styles.pendingEvent} onPress={() => useGameStore.setState({ showRelationshipEventModal: true })}>
+            <View style={styles.pendingIcon}><Text style={{ fontSize: 20 }}>{pendingRelationshipEvent.icon}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pendingTitle}>Decision waiting: {pendingRelationshipEvent.title}</Text>
+              <Text style={styles.pendingText}>Tap to reopen this Personal Life decision.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.happiness} />
+          </Pressable>
         )}
 
         {partner && (
           <>
             <Text style={styles.sectionTitle}>Relationship</Text>
             <ConnectionCard connection={partner}>
-              <Text style={styles.meta}>Together • {stageLabel(partner.stage)}</Text>
-              {['living_together', 'engaged', 'married'].includes(partner.stage) && (
-                <Text style={styles.moneyText}>Income: {formatCurrency(partner.weeklyIncome)}/week • contributes to shared costs</Text>
-              )}
-              <DateButtons disabled={actionUsed} cash={state.cash} inflation={state.inflationMultiplier} onDate={(kind) => planDate(partner.id, kind)} />
-              {partner.stage === 'partner' && partner.relationship >= 75 && partner.weeksKnown >= 8 && (
-                <View style={styles.majorBox}>
-                  <Text style={styles.majorTitle}>Ready to live together?</Text>
-                  <Text style={styles.meta}>Choose how shared household costs are divided.</Text>
-                  <Pressable style={styles.secondaryButton} onPress={() => moveInWithPartner('equal')}><Text style={styles.secondaryText}>Move In • 50 / 50</Text></Pressable>
-                  <Pressable style={styles.secondaryButton} onPress={() => moveInWithPartner('proportional')}><Text style={styles.secondaryText}>Move In • Proportional</Text></Pressable>
-                  <Pressable style={styles.secondaryButton} onPress={() => moveInWithPartner('player_pays_most')}><Text style={styles.secondaryText}>Move In • You Pay Most</Text></Pressable>
+              <View style={styles.statusGrid}>
+                <MiniStat label="Status" value={stageLabel(partner.stage)} />
+                <MiniStat label="Known" value={`${partner.weeksKnown} wk`} />
+                <MiniStat label="Income" value={formatCurrency(partner.weeklyIncome) + '/wk'} />
+                <MiniStat label="Home" value={cohabiting ? 'Together' : 'Separate'} />
+              </View>
+
+              {financeKnown && (
+                <View style={styles.financeBox}>
+                  <Text style={styles.financeTitle}>Known finances</Text>
+                  <View style={styles.financeRow}><Text style={styles.meta}>Income</Text><Text style={styles.moneyText}>{formatCurrency(partner.weeklyIncome)}/wk</Text></View>
+                  <View style={styles.financeRow}><Text style={styles.meta}>Personal savings</Text><Text style={styles.moneyText}>{formatCurrency(partner.savings)}</Text></View>
+                  {partner.marriageAgreement && (
+                    <View style={styles.financeRow}>
+                      <Text style={styles.meta}>Marriage finances</Text>
+                      <Text style={styles.moneyText}>{partner.marriageAgreement === 'separate' ? 'Separate assets' : 'Share future growth'}</Text>
+                    </View>
+                  )}
                 </View>
               )}
+
+              <Text style={styles.subheading}>This Week</Text>
+              <View style={styles.actionGrid}>
+                <ActionTile icon="heart-outline" label="Spend Time" disabled={actionUsed} onPress={spendTime} />
+                <ActionTile icon="chatbubbles-outline" label="Discuss Finances" disabled={actionUsed} onPress={discussFinances} />
+              </View>
+              <DateButtons disabled={actionUsed} cash={state.cash} inflation={state.inflationMultiplier} onDate={(kind) => planDate(partner.id, kind)} />
+
+              <Text style={styles.subheading}>Gift</Text>
+              <View style={styles.threeRow}>
+                {([
+                  ['small', 'Small', 100],
+                  ['nice', 'Nice', 500],
+                  ['luxury', 'Luxury', 2500],
+                ] as const).map(([tier, label, base]) => {
+                  const cost = Math.round(base * (state.inflationMultiplier ?? 1));
+                  const disabled = actionUsed || state.cash < cost;
+                  return (
+                    <Pressable key={tier} disabled={disabled} style={[styles.compactButton, disabled && styles.disabled]} onPress={() => giveGift(tier)}>
+                      <Text style={styles.compactTitle}>{label}</Text>
+                      <Text style={styles.dateCost}>{formatCurrency(cost)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {!cohabiting && ['partner', 'engaged'].includes(partner.stage) && partner.relationship >= 75 && partner.weeksKnown >= 8 && (
+                <View style={styles.majorBox}>
+                  <Text style={styles.majorTitle}>Move In Together</Text>
+                  <Text style={styles.meta}>Living together changes household costs and lets your partner contribute toward shared expenses.</Text>
+                  <Pressable style={styles.secondaryButton} onPress={() => moveInWithPartner('equal')}><Text style={styles.secondaryText}>50 / 50</Text></Pressable>
+                  <Pressable style={styles.secondaryButton} onPress={() => moveInWithPartner('proportional')}><Text style={styles.secondaryText}>Proportional to Income</Text></Pressable>
+                  <Pressable style={styles.secondaryButton} onPress={() => moveInWithPartner('player_pays_most')}><Text style={styles.secondaryText}>You Pay Most</Text></Pressable>
+                </View>
+              )}
+
+              {['partner', 'living_together'].includes(partner.stage) && partner.relationship >= 82 && partner.weeksKnown >= 12 && (
+                <View style={styles.majorBox}>
+                  <Text style={styles.majorTitle}>Propose</Text>
+                  <Text style={styles.meta}>A stronger relationship improves the chance they say yes. More expensive is not automatically better for a frugal partner.</Text>
+                  <View style={styles.threeRow}>
+                    {(['simple', 'classic', 'luxury'] as const).map((ring) => {
+                      const cost = getProposalCost(ring, state.inflationMultiplier);
+                      return (
+                        <Pressable key={ring} disabled={actionUsed || state.cash < cost} style={[styles.compactButton, (actionUsed || state.cash < cost) && styles.disabled]} onPress={() => propose(ring)}>
+                          <Text style={styles.compactTitle}>{capitalize(ring)}</Text>
+                          <Text style={styles.dateCost}>{formatCurrency(cost)}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {partner.stage === 'engaged' && (
+                <View style={styles.majorBox}>
+                  <Text style={styles.majorTitle}>Plan the Wedding</Text>
+                  <Text style={styles.meta}>Your partner can cover part of the wedding from their own savings. Marriage also records how future wealth is treated.</Text>
+
+                  <Text style={styles.subheading}>Financial agreement</Text>
+                  <View style={styles.choiceRow}>
+                    <Pressable style={[styles.choice, marriageAgreement === 'separate' && styles.choiceSelected]} onPress={() => setMarriageAgreement('separate')}>
+                      <Text style={[styles.choiceText, marriageAgreement === 'separate' && styles.choiceTextSelected]}>Separate Assets</Text>
+                    </Pressable>
+                    <Pressable style={[styles.choice, marriageAgreement === 'shared_future' && styles.choiceSelected]} onPress={() => setMarriageAgreement('shared_future')}>
+                      <Text style={[styles.choiceText, marriageAgreement === 'shared_future' && styles.choiceTextSelected]}>Share Future Growth</Text>
+                    </Pressable>
+                  </View>
+
+                  <Text style={styles.subheading}>Wedding</Text>
+                  {(['courthouse', 'standard', 'luxury'] as const).map((wedding) => {
+                    const total = getWeddingCost(wedding, state.inflationMultiplier);
+                    const partnerShare = Math.min(Math.round(total * 0.25), Math.round((partner.savings ?? 0) * 0.35));
+                    const yours = Math.max(0, total - partnerShare);
+                    const ready = gw - (partner.engagedWeek ?? gw) >= 3;
+                    return (
+                      <Pressable key={wedding} disabled={!ready || state.cash < yours} style={[styles.weddingRow, (!ready || state.cash < yours) && styles.disabled]} onPress={() => marry(wedding, marriageAgreement)}>
+                        <View>
+                          <Text style={styles.compactTitle}>{wedding === 'courthouse' ? 'Courthouse' : capitalize(wedding) + ' Wedding'}</Text>
+                          <Text style={styles.meta}>{ready ? `Your share: ${formatCurrency(yours)}` : 'Available 3 weeks after engagement'}</Text>
+                        </View>
+                        <Text style={styles.moneyText}>{formatCurrency(total)}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
+              {(cohabiting || partner.stage === 'engaged' || partner.stage === 'married') && partner.relationship >= 70 && (
+                <View style={styles.majorBox}>
+                  <Text style={styles.majorTitle}>Family Plans</Text>
+                  {relationship.familyExpansionWeeksRemaining > 0 ? (
+                    <View style={styles.familyProgress}>
+                      <Ionicons name="people-outline" size={22} color={Colors.happiness} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.compactTitle}>Growing the family</Text>
+                        <Text style={styles.meta}>About {relationship.familyExpansionWeeksRemaining} week{relationship.familyExpansionWeeksRemaining === 1 ? '' : 's'} remaining.</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={styles.meta}>Discussing children can strengthen or strain the relationship depending on your partner's goals.</Text>
+                      <View style={styles.threeRow}>
+                        <Pressable disabled={actionUsed} style={[styles.compactButton, actionUsed && styles.disabled]} onPress={() => setFamilyPlan('no_children')}>
+                          <Text style={styles.compactTitle}>No Children</Text>
+                        </Pressable>
+                        <Pressable disabled={actionUsed} style={[styles.compactButton, actionUsed && styles.disabled]} onPress={() => setFamilyPlan('later')}>
+                          <Text style={styles.compactTitle}>Maybe Later</Text>
+                        </Pressable>
+                        <Pressable disabled={actionUsed || state.cash < Math.round(1000 * state.inflationMultiplier)} style={[styles.compactButton, (actionUsed || state.cash < Math.round(1000 * state.inflationMultiplier)) && styles.disabled]} onPress={() => setFamilyPlan('trying')}>
+                          <Text style={styles.compactTitle}>Grow Family</Text>
+                          <Text style={styles.dateCost}>{formatCurrency(Math.round(1000 * state.inflationMultiplier))}</Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  )}
+                </View>
+              )}
+
+              {partner.stage !== 'married' && (
+                <Pressable style={styles.dangerLink} onPress={endPartnership}>
+                  <Text style={styles.dangerText}>End Relationship</Text>
+                </Pressable>
+              )}
             </ConnectionCard>
+          </>
+        )}
+
+        {(relationship.children ?? []).length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Family</Text>
+            {(relationship.children ?? []).map((child) => {
+              const age = getChildAge(child, gw);
+              const weeklyCost = getChildWeeklyCost(child, state);
+              return (
+                <GameCard key={child.id}>
+                  <View style={styles.profileTop}>
+                    <View style={styles.childAvatar}><Ionicons name="happy-outline" size={23} color={Colors.info} /></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.name}>{child.name}</Text>
+                      <Text style={styles.meta}>Age {age} • {child.gender === 'girl' ? 'Daughter' : 'Son'}</Text>
+                    </View>
+                    {weeklyCost > 0 && <Text style={styles.costText}>-{formatCurrency(weeklyCost)}/wk</Text>}
+                  </View>
+                  <View style={styles.financeRow}>
+                    <Text style={styles.meta}>Education fund</Text>
+                    <Text style={styles.moneyText}>{formatCurrency(child.educationFund ?? 0)}</Text>
+                  </View>
+                  {age < 18 && (
+                    <View style={styles.threeRow}>
+                      {[1000, 5000, 10000].map((amount) => (
+                        <Pressable key={amount} disabled={state.cash < amount} style={[styles.compactButton, state.cash < amount && styles.disabled]} onPress={() => fundChildEducation(child.id, amount)}>
+                          <Text style={styles.compactTitle}>Add</Text>
+                          <Text style={styles.dateCost}>{formatCurrency(amount)}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </GameCard>
+              );
+            })}
           </>
         )}
 
@@ -123,6 +343,9 @@ export default function RelationshipsScreen() {
                     <Text style={styles.primaryText}>Ask to Become Partners</Text>
                   </Pressable>
                 )}
+                <Pressable style={styles.dangerLink} onPress={() => endDatingConnection(connection.id)}>
+                  <Text style={styles.dangerText}>Stop Dating</Text>
+                </Pressable>
               </ConnectionCard>
             ))}
           </>
@@ -131,7 +354,7 @@ export default function RelationshipsScreen() {
         {!partner && (
           <>
             <Text style={styles.sectionTitle}>Meet People</Text>
-            <Text style={styles.helper}>New profiles are generated as game weeks advance. Exact finances and deeper goals are revealed through dating.</Text>
+            <Text style={styles.helper}>New profiles appear as game weeks advance. Their deeper financial and family preferences are deliberately hidden at first.</Text>
             {(relationship.weeklyCandidates ?? []).map((candidate) => (
               <GameCard key={candidate.id}>
                 <View style={styles.profileTop}>
@@ -167,8 +390,6 @@ export default function RelationshipsScreen() {
             ))
           )}
         </GameCard>
-
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -235,27 +456,43 @@ function DateButtons({ disabled, cash, inflation, onDate, firstDate }: { disable
   </View>;
 }
 
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return <View style={styles.miniStat}><Text style={styles.miniLabel}>{label}</Text><Text style={styles.miniValue} numberOfLines={1}>{value}</Text></View>;
+}
+
+function ActionTile({ icon, label, disabled, onPress }: { icon: string; label: string; disabled?: boolean; onPress: () => void }) {
+  return <Pressable disabled={disabled} style={[styles.actionTile, disabled && styles.disabled]} onPress={onPress}>
+    <Ionicons name={icon as any} size={19} color={disabled ? Colors.textMuted : Colors.happiness} />
+    <Text style={styles.actionTileText}>{label}</Text>
+  </Pressable>;
+}
+
 function stageLabel(stage: RelationshipConnection['stage']) {
-  if (stage === 'living_together') return 'Living together';
+  if (stage === 'living_together') return 'Living Together';
   if (stage === 'engaged') return 'Engaged';
   if (stage === 'married') return 'Married';
   return stage === 'partner' ? 'Partner' : 'Dating';
+}
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
-  content: { padding: 16, paddingBottom: 40 },
+  content: { padding: 16, paddingBottom: 48 },
   centered: { alignItems: 'center', marginBottom: 18 },
   heroTitle: { color: Colors.textPrimary, fontSize: 22, fontWeight: '800', marginTop: 8 },
   heroText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 6 },
-  sectionTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 10, marginBottom: 10 },
+  sectionTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 12, marginBottom: 10 },
   sectionLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 12, marginBottom: 8 },
+  subheading: { color: Colors.textSecondary, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7, marginTop: 14, marginBottom: 7 },
   choiceRow: { flexDirection: 'row', gap: 8 },
-  choice: { flex: 1, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
+  choice: { flex: 1, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 6, alignItems: 'center' },
   choiceSelected: { borderColor: Colors.happiness, backgroundColor: `${Colors.happiness}18` },
-  choiceText: { color: Colors.textSecondary, fontWeight: '600' },
+  choiceText: { color: Colors.textSecondary, fontWeight: '600', fontSize: 12, textAlign: 'center' },
   choiceTextSelected: { color: Colors.happiness },
   ageRow: { flexDirection: 'row', gap: 10 },
   counter: { flex: 1, backgroundColor: Colors.elevated, borderRadius: 10, padding: 10 },
@@ -269,12 +506,18 @@ const styles = StyleSheet.create({
   secondaryText: { color: Colors.happiness, fontWeight: '700', fontSize: 13 },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${Colors.warning}18`, borderWidth: 1, borderColor: `${Colors.warning}40`, padding: 11, borderRadius: 10, marginBottom: 10 },
   noticeText: { color: Colors.warning, fontSize: 12, flex: 1 },
+  pendingEvent: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: `${Colors.happiness}44`, backgroundColor: `${Colors.happiness}12`, borderRadius: 12, padding: 12, marginBottom: 10 },
+  pendingIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  pendingTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '800' },
+  pendingText: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
   helper: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, marginBottom: 10 },
   profileTop: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: `${Colors.happiness}18`, alignItems: 'center', justifyContent: 'center' },
+  childAvatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: `${Colors.info}18`, alignItems: 'center', justifyContent: 'center' },
   name: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
-  meta: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
-  moneyText: { color: Colors.primary, fontSize: 12, marginTop: 6 },
+  meta: { color: Colors.textSecondary, fontSize: 12, marginTop: 2, lineHeight: 17 },
+  moneyText: { color: Colors.primary, fontSize: 12, fontWeight: '700' },
+  costText: { color: Colors.negative, fontSize: 12, fontWeight: '700' },
   unknownBox: { backgroundColor: Colors.elevated, borderRadius: 8, padding: 9, marginTop: 10 },
   unknownText: { color: Colors.textMuted, fontSize: 11 },
   progressLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600', marginTop: 12 },
@@ -285,18 +528,33 @@ const styles = StyleSheet.create({
   traitText: { color: Colors.info, fontSize: 11, fontWeight: '600' },
   traitUnknown: { backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
   traitUnknownText: { color: Colors.textMuted, fontSize: 11 },
+  statusGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 12 },
+  miniStat: { width: '48%', backgroundColor: Colors.elevated, borderRadius: 9, padding: 8 },
+  miniLabel: { color: Colors.textMuted, fontSize: 10, textTransform: 'uppercase', fontWeight: '700' },
+  miniValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  financeBox: { backgroundColor: `${Colors.primary}0D`, borderWidth: 1, borderColor: `${Colors.primary}33`, borderRadius: 10, padding: 10, marginTop: 10 },
+  financeTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '800', marginBottom: 5 },
+  financeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 5 },
+  actionGrid: { flexDirection: 'row', gap: 8 },
+  actionTile: { flex: 1, minHeight: 48, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 6 },
+  actionTileText: { color: Colors.textPrimary, fontSize: 11, fontWeight: '700' },
   dateArea: { marginTop: 12 },
   dateLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 7 },
   dateRow: { flexDirection: 'row', gap: 7 },
   dateButton: { flex: 1, minHeight: 64, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, alignItems: 'center', justifyContent: 'center', padding: 6 },
   dateButtonText: { color: Colors.textPrimary, fontSize: 11, fontWeight: '700', marginTop: 2 },
-  dateCost: { color: Colors.textMuted, fontSize: 10, marginTop: 1 },
+  dateCost: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
   disabled: { opacity: 0.35 },
-  majorBox: { marginTop: 12, padding: 10, borderRadius: 10, backgroundColor: `${Colors.happiness}10` },
+  majorBox: { marginTop: 14, padding: 11, borderRadius: 10, backgroundColor: `${Colors.happiness}0C`, borderWidth: 1, borderColor: `${Colors.happiness}22` },
   majorTitle: { color: Colors.textPrimary, fontWeight: '800', fontSize: 14 },
+  threeRow: { flexDirection: 'row', gap: 7, marginTop: 8 },
+  compactButton: { flex: 1, minHeight: 50, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 7, alignItems: 'center', justifyContent: 'center' },
+  compactTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', textAlign: 'center' },
+  weddingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 10, marginTop: 7 },
+  familyProgress: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 8 },
+  dangerLink: { alignItems: 'center', paddingVertical: 11, marginTop: 9 },
+  dangerText: { color: Colors.negative, fontSize: 12, fontWeight: '700' },
   historyRow: { flexDirection: 'row', gap: 10, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   historyDate: { color: Colors.textMuted, fontSize: 11, width: 52 },
   historyText: { color: Colors.textSecondary, fontSize: 12, flex: 1 },
-  settingsLink: { alignItems: 'center', paddingVertical: 12 },
-  settingsLinkText: { color: Colors.info, fontSize: 12, fontWeight: '600' },
 });
