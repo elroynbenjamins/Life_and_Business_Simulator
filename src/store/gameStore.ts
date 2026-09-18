@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -1343,9 +1343,9 @@ const useGameStore = create<GameStore>((set, get) => ({
     const sharedGrowthSettlement = partner.marriageAgreement === 'shared_future' ? Math.round(maritalGrowth * 0.5) : 0;
     const settlementTotal = legalFees + sharedGrowthSettlement;
     const durationWeeks = sharedGrowthSettlement > 0 ? 40 : 10;
-    const obligation = settlementTotal > 0 ? {
+    const obligation: RelationshipFinancialObligation | null = settlementTotal > 0 ? {
       id: `divorce_${Date.now()}`,
-      type: (sharedGrowthSettlement > 0 ? 'divorce_settlement' : 'legal_fees') as const,
+      type: sharedGrowthSettlement > 0 ? 'divorce_settlement' : 'legal_fees',
       label: sharedGrowthSettlement > 0 ? `Divorce settlement with ${partner.name}` : `Divorce legal fees`,
       remainingAmount: settlementTotal,
       weeklyPayment: Math.max(1, Math.ceil(settlementTotal / durationWeeks)),
