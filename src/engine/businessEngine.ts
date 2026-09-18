@@ -690,13 +690,6 @@ export function processBusinessWeek(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
     (1 + upgradeRevenueBoost + locationRevenueBoost) * levelBonus * eventRevenueMultiplier * buffAgg.revenueMult
   );
-  // Mature companies still encounter occasional weak demand weeks. This keeps
-  // late-game firms strong without making every single week guaranteed green.
-  const matureDemandShockChance = Math.max(0.04, 0.13 - (biz.reputation ?? 0) * 0.0007);
-  if ((biz.reputation ?? 0) >= 55 && Math.random() < matureDemandShockChance) {
-    revenue = Math.round(revenue * (0.08 + Math.random() * 0.20));
-  }
-
   // Expenses (detailed breakdown) — variable costs SCALE with actual revenue.
   const prestigeCostMultiplier = 1 - Math.max(0, Math.min(0.5, modifiers.businessCostReduction ?? 0));
   const baseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier;
@@ -808,6 +801,9 @@ export function processBusinessWeek(
   }
 
   const eligibleEvents = (businessEventsData ?? []).filter((ev: any) => {
+    // Major negative surprises use the persistent crisis-choice system so the
+    // player can respond. Automatic events are upside/flavour only.
+    if (ev.positive === false) return false;
     if ((ev.minReputation ?? 0) > (biz.reputation ?? 0)) return false;
     if (!eventSpacingReady || globalWeek - (eventCooldowns[ev.id] ?? -100) < 40) return false;
     const industries = ev.industries ?? [];
