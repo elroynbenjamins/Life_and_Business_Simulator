@@ -40,6 +40,7 @@ export interface RelationshipConnection extends RelationshipCandidate {
   isCohabiting?: boolean;
   marriageAgreement?: MarriageAgreement;
   netWorthAtMarriage?: number;
+  endedWeek?: number;
 }
 
 export interface RelationshipChild {
@@ -49,6 +50,17 @@ export interface RelationshipChild {
   birthGlobalWeek: number;
   age: number;
   educationFund: number;
+}
+
+export type RelationshipObligationType = 'divorce_settlement' | 'legal_fees';
+
+export interface RelationshipFinancialObligation {
+  id: string;
+  type: RelationshipObligationType;
+  label: string;
+  remainingAmount: number;
+  weeklyPayment: number;
+  weeksRemaining: number;
 }
 
 export interface RelationshipTimelineEntry {
@@ -92,10 +104,12 @@ export interface RelationshipState {
   weeklyCandidates: RelationshipCandidate[];
   candidateRefreshWeek: number;
   activeConnections: RelationshipConnection[];
+  formerPartners: RelationshipConnection[];
   partnerId: string | null;
   personalActionWeek: number;
   timeline: RelationshipTimelineEntry[];
   children: RelationshipChild[];
+  financialObligations: RelationshipFinancialObligation[];
   familyPlan: FamilyPlan;
   familyExpansionWeeksRemaining: number;
   lastRelationshipEventWeek: number;
@@ -112,10 +126,12 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   weeklyCandidates: [],
   candidateRefreshWeek: 0,
   activeConnections: [],
+  formerPartners: [],
   partnerId: null,
   personalActionWeek: 0,
   timeline: [],
   children: [],
+  financialObligations: [],
   familyPlan: 'not_discussed',
   familyExpansionWeeksRemaining: 0,
   lastRelationshipEventWeek: 0,
@@ -570,6 +586,7 @@ export interface WeekSummary {
   relationshipHeadline: string | null;
   relationshipHouseholdCost: number;
   familyCost: number;
+  relationshipObligationCost: number;
   relationshipEventTitle: string | null;
   childBornName: string | null;
   // Macro correction
