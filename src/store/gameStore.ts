@@ -2644,7 +2644,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (state.lifecycle?.isDead || !Number.isFinite(percent) || percent <= 0) return;
     const requestedPct = Math.min(25, Math.round(percent * 10) / 10);
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
-    if (!business) return;
+    if (!business || (business.level ?? 0) < 3) return;
 
     const ownership = business.ownership?.length
       ? [...business.ownership]
