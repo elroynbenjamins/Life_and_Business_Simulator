@@ -922,6 +922,26 @@ const useGameStore = create<GameStore>((set, get) => ({
   setRelationshipModeEnabled: (enabled) => {
     const state = get();
     const relationshipState = state.relationshipState ?? { ...INITIAL_RELATIONSHIP_STATE };
+
+    if (!enabled) {
+      const hasCommitments =
+        !!relationshipState.partnerId ||
+        (relationshipState.activeConnections?.length ?? 0) > 0 ||
+        (relationshipState.children?.length ?? 0) > 0 ||
+        (relationshipState.financialObligations?.length ?? 0) > 0 ||
+        (relationshipState.familyExpansionWeeksRemaining ?? 0) > 0;
+      if (hasCommitments) {
+        set({
+          relationshipFeedback: {
+            title: 'Personal Life Still Active',
+            message: 'End active dating/relationships and finish family or legal obligations before disabling this mode.',
+            positive: false,
+          },
+        });
+        return;
+      }
+    }
+
     const nextRelationshipState = enabled && !relationshipState.preferencesSet
       ? { ...relationshipState, weeklyCandidates: [] }
       : relationshipState;
