@@ -12,11 +12,12 @@ import {
   getLevelName, getBusinessType, getUpgrade, getEmployeeRole, getAutomationScore, getDemandLabel,
   getAllMoraleActions, getAllTraining, getAllProjects, computeMarketShare, meetsMinStaffing, MIN_EMPLOYEES_REQUIRED,
   TIER_CONFIG, getProjectDifficulty, getProjectOdds,
-  BUSINESS_LEVEL_REPUTATION_REQUIREMENTS, getAllBusinessLocationTemplates, getScaledLocationCosts, canStartBusinessExpansion,
+  BUSINESS_LEVEL_REPUTATION_REQUIREMENTS, getAllBusinessLocationTemplates, getScaledLocationCosts, canStartBusinessExpansion, getPlayerOwnershipPct,
 } from '../../src/engine/businessEngine';
 import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
+import { BusinessGovernanceRole, BusinessStrategicFocus } from '../../src/types/game';
 
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -40,6 +41,22 @@ const LOAN_OPTIONS = [
   { amount: 50000, rate: 0.10, weeks: 52, label: '€50K • 10% • 52wk' },
 ];
 
+const STRATEGIC_FOCUS_OPTIONS: Array<{ key: BusinessStrategicFocus; label: string; desc: string }> = [
+  { key: 'balanced', label: 'Balanced', desc: 'No structural bias. Preserve flexibility.' },
+  { key: 'growth', label: 'Growth', desc: 'Higher revenue and costs; slight morale pressure.' },
+  { key: 'margin', label: 'Margin', desc: 'Lower operating costs at some growth/reputation cost.' },
+  { key: 'premium', label: 'Premium', desc: 'Brand/reputation focus with modest extra cost.' },
+  { key: 'automation', label: 'Automation', desc: 'Lower costs, better scale, tougher on morale.' },
+  { key: 'rd', label: 'R&D', desc: 'Higher spending now for innovation and reputation.' },
+];
+
+const GOVERNANCE_ROLES: Array<{ key: BusinessGovernanceRole; label: string }> = [
+  { key: 'manager', label: 'Manager' },
+  { key: 'executive', label: 'Executive' },
+  { key: 'board', label: 'Board' },
+  { key: 'successor', label: 'Successor' },
+];
+
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
 
 export default function BusinessDetailScreen() {
@@ -54,7 +71,9 @@ export default function BusinessDetailScreen() {
   const generation = useGameStore((s) => s.generation ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
-    sellBusiness, designateFamilyBusiness, openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
+    sellBusiness, designateFamilyBusiness, setBusinessStrategicFocus, resolveBusinessDecision,
+    appointChildToBusiness, transferBusinessShares, buyBackInvestorShares,
+    openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
     setBusinessPricing, setBusinessAdvertising,
     buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
     injectCashIntoBusiness, withdrawFromBusiness,
@@ -102,6 +121,23 @@ export default function BusinessDetailScreen() {
   const allTraining = getAllTraining();
   const allProjects = getAllProjects();
   const locationTemplates = getAllBusinessLocationTemplates();
+  const adultChildren = (relationshipState?.children ?? []).filter((child) => (child.age ?? 0) >= 18);
+  const ownership = biz.ownership?.length ? biz.ownership : [{
+    ownerType: 'player' as const,
+    ownerId: 'player',
+    ownerName: 'You',
+    percent: 100,
+    votingPercent: 100,
+  }];
+  const playerOwnershipPct = getPlayerOwnershipPct(biz);
+  const investorOwnershipPct = ownership
+    .filter((stake) => stake.ownerType === 'investor')
+    .reduce((sum, stake) => sum + (stake.percent ?? 0), 0);
+  const familyTrustPct = ownership
+    .filter((stake) => stake.ownerType === 'family_trust')
+    .reduce((sum, stake) => sum + (stake.percent ?? 0), 0);
+  const pendingDecision = biz.pendingDecision ?? null;
+
 
   // Market share pie chart data
   const bizCompetitors = competitors[biz.id] ?? [];
@@ -257,6 +293,188 @@ export default function BusinessDetailScreen() {
             </>
           )}
         </GameCard>
+
+        {pendingDecision && (
+          <GameCard>
+            <View style={[styles.decisionBanner, pendingDecision.kind === 'crisis' && styles.crisisBanner]}>
+              <Text style={styles.decisionIcon}>{pendingDecision.icon}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.decisionEyebrow, pendingDecision.kind === 'crisis' && { color: Colors.negative }]}>
+                  {pendingDecision.kind === 'crisis' ? 'CRISIS — ATTENTION REQUIRED' : 'STRATEGIC DECISION'}
+                </Text>
+                <Text style={styles.decisionTitle}>{pendingDecision.title}</Text>
+                <Text style={styles.decisionDesc}>{pendingDecision.description}</Text>
+              </View>
+            </View>
+            {(pendingDecision.choices ?? []).map((choice) => {
+              const scaledCost = Math.round((choice.businessCashCost ?? 0) * inflationMultiplier);
+              const affordable = (biz.balance ?? 0) >= scaledCost;
+              return (
+                <Pressable
+                  key={choice.id}
+                  disabled={!affordable}
+                  style={[styles.decisionChoice, !affordable && { opacity: 0.35 }]}
+                  onPress={() => resolveBusinessDecision(biz.id, choice.id)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.decisionChoiceTitle}>{choice.text}</Text>
+                    <Text style={styles.decisionChoiceDesc}>{choice.description}</Text>
+                    <Text style={styles.decisionEffects}>
+                      {choice.durationWeeks && choice.durationWeeks > 1 ? '${choice.durationWeeks}wk effect' : 'Immediate'}
+                      {choice.reputationDelta ? ' • Rep ${choice.reputationDelta > 0 ? '+' : ''}${choice.reputationDelta}' : ''}
+                      {choice.marketShareDelta ? ' • Share ${choice.marketShareDelta > 0 ? '+' : ''}${choice.marketShareDelta}' : ''}
+                      {choice.moraleDelta ? ' • Morale ${choice.moraleDelta > 0 ? '+' : ''}${choice.moraleDelta}' : ''}
+                    </Text>
+                  </View>
+                  {scaledCost > 0 && <Text style={[styles.decisionCost, !affordable && { color: Colors.negative }]}>{formatCurrency(scaledCost)}</Text>}
+                </Pressable>
+              );
+            })}
+          </GameCard>
+        )}
+
+        <GameCard title="Strategic Direction">
+          <Text style={styles.sectionHint}>Persistent company posture. Strategic decisions and crises add temporary effects on top of this.</Text>
+          <View style={styles.strategyFocusGrid}>
+            {STRATEGIC_FOCUS_OPTIONS.map((option) => (
+              <Pressable
+                key={option.key}
+                style={[styles.strategyFocus, (biz.strategicFocus ?? 'balanced') === option.key && styles.strategyFocusActive]}
+                onPress={() => setBusinessStrategicFocus(biz.id, option.key)}
+              >
+                <Text style={[styles.strategyFocusTitle, (biz.strategicFocus ?? 'balanced') === option.key && { color: Colors.primary }]}>{option.label}</Text>
+                <Text style={styles.strategyFocusDesc}>{option.desc}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {(biz.strategyModifiers ?? []).length > 0 && (
+            <View style={styles.activeStrategyBox}>
+              <Text style={styles.subHeading}>Temporary Effects</Text>
+              {(biz.strategyModifiers ?? []).map((modifier) => (
+                <View key={modifier.id} style={styles.activeStrategyRow}>
+                  <Text style={styles.actionName}>{modifier.title}</Text>
+                  <Text style={styles.rivalMeta}>{modifier.weeksRemaining}wk</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </GameCard>
+
+        <GameCard title="Ownership Structure">
+          <View style={styles.ownershipSummary}>
+            <View>
+              <Text style={styles.summaryLabel}>Your Equity</Text>
+              <Text style={[styles.summaryValue, { color: Colors.primary }]}>{playerOwnershipPct.toFixed(1)}%</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.summaryLabel}>Personal Value</Text>
+              <Text style={styles.ownershipValue}>{formatCurrency((biz.valuation ?? 0) * playerOwnershipPct / 100)}</Text>
+            </View>
+          </View>
+          {ownership.map((stake, index) => (
+            <View key={'${stake.ownerType}_${stake.ownerId}_${index}'} style={styles.ownerRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ownerName}>{stake.ownerName}</Text>
+                <Text style={styles.ownerType}>{stake.ownerType.replace('_', ' ')} • Voting {stake.votingPercent.toFixed(1)}%</Text>
+              </View>
+              <Text style={styles.ownerPct}>{stake.percent.toFixed(1)}%</Text>
+            </View>
+          ))}
+
+          {playerOwnershipPct > 0 && (
+            <>
+              <Text style={styles.subHeading}>Raise / Transfer Equity</Text>
+              <View style={styles.shareActions}>
+                <Pressable
+                  disabled={playerOwnershipPct < 5}
+                  style={[styles.shareButton, playerOwnershipPct < 5 && { opacity: 0.35 }]}
+                  onPress={() => transferBusinessShares(biz.id, 'investor', null, 5)}
+                >
+                  <Text style={styles.shareButtonTitle}>Sell 5%</Text>
+                  <Text style={styles.shareButtonMeta}>Outside investor</Text>
+                </Pressable>
+                <Pressable
+                  disabled={playerOwnershipPct < 10}
+                  style={[styles.shareButton, playerOwnershipPct < 10 && { opacity: 0.35 }]}
+                  onPress={() => transferBusinessShares(biz.id, 'investor', null, 10)}
+                >
+                  <Text style={styles.shareButtonTitle}>Sell 10%</Text>
+                  <Text style={styles.shareButtonMeta}>Raise company cash</Text>
+                </Pressable>
+              </View>
+
+              {relationshipState?.estatePlan?.structure === 'family_trust' && (
+                <View style={styles.shareActions}>
+                  <Pressable
+                    disabled={playerOwnershipPct < 5}
+                    style={[styles.shareButton, playerOwnershipPct < 5 && { opacity: 0.35 }]}
+                    onPress={() => transferBusinessShares(biz.id, 'family_trust', null, 5)}
+                  >
+                    <Text style={styles.shareButtonTitle}>Trust 5%</Text>
+                    <Text style={styles.shareButtonMeta}>Outside personal estate</Text>
+                  </Pressable>
+                  <View style={styles.shareInfo}>
+                    <Text style={styles.shareInfoText}>Trust currently owns {familyTrustPct.toFixed(1)}%</Text>
+                  </View>
+                </View>
+              )}
+
+              {adultChildren.map((child) => (
+                <View key={child.id} style={styles.childShareRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.actionName}>{child.name}</Text>
+                    <Text style={styles.actionDesc}>Parent bond {Math.round(child.parentRelationship ?? 75)}%</Text>
+                  </View>
+                  <Pressable
+                    disabled={playerOwnershipPct < 5}
+                    style={[styles.smallShareButton, playerOwnershipPct < 5 && { opacity: 0.35 }]}
+                    onPress={() => transferBusinessShares(biz.id, 'child', child.id, 5)}
+                  >
+                    <Text style={styles.smallShareText}>Give 5%</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </>
+          )}
+
+          {investorOwnershipPct > 0 && (
+            <Pressable style={styles.buybackButton} onPress={() => buyBackInvestorShares(biz.id, Math.min(5, investorOwnershipPct))}>
+              <Text style={styles.buybackText}>Buy Back {Math.min(5, investorOwnershipPct).toFixed(0)}% Investor Shares</Text>
+            </Pressable>
+          )}
+        </GameCard>
+
+        {adultChildren.length > 0 && (
+          <GameCard title="Family Governance">
+            <Text style={styles.sectionHint}>Adult children can enter management, sit on the board, or be developed as the named successor. Their personality and education determine starting performance.</Text>
+            {adultChildren.map((child) => {
+              const familyRole = (biz.familyRoles ?? []).find((role) => role.childId === child.id);
+              return (
+                <View key={child.id} style={styles.governanceChild}>
+                  <View style={styles.governanceHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.ownerName}>{child.name}</Text>
+                      <Text style={styles.ownerType}>
+                        {child.occupationTitle ?? 'Independent'} • {familyRole ? '${familyRole.role} • Performance ${Math.round(familyRole.performance)}' : 'Not involved'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.governanceButtons}>
+                    {GOVERNANCE_ROLES.map((role) => (
+                      <Pressable
+                        key={role.key}
+                        style={[styles.governanceButton, familyRole?.role === role.key && styles.governanceButtonActive]}
+                        onPress={() => appointChildToBusiness(biz.id, child.id, role.key)}
+                      >
+                        <Text style={[styles.governanceButtonText, familyRole?.role === role.key && { color: Colors.primary }]}>{role.label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              );
+            })}
+          </GameCard>
+        )}
 
         {/* Weekly Financials */}
         <GameCard title="Weekly Financials">
@@ -984,6 +1202,47 @@ const styles = StyleSheet.create({
   bizStatValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 2 },
   familyBusinessButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: `${Colors.warning}66`, borderRadius: 10, paddingVertical: 11, marginTop: 10 },
   familyBusinessButtonText: { color: Colors.warning, fontSize: 12, fontWeight: '800' },
+  decisionBanner: { flexDirection: 'row', gap: 10, padding: 10, borderRadius: 10, backgroundColor: '${Colors.warning}10', borderWidth: 1, borderColor: '${Colors.warning}35', marginBottom: 9 },
+  crisisBanner: { backgroundColor: '${Colors.negative}10', borderColor: '${Colors.negative}35' },
+  decisionIcon: { fontSize: 24 },
+  decisionEyebrow: { color: Colors.warning, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  decisionTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 2 },
+  decisionDesc: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
+  decisionChoice: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
+  decisionChoiceTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
+  decisionChoiceDesc: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
+  decisionEffects: { color: Colors.info, fontSize: 9, marginTop: 4 },
+  decisionCost: { color: Colors.warning, fontSize: 11, fontWeight: '800' },
+  strategyFocusGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  strategyFocus: { width: '48%', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 9 },
+  strategyFocusActive: { borderColor: Colors.primary, backgroundColor: '${Colors.primary}0D' },
+  strategyFocusTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
+  strategyFocusDesc: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 2 },
+  activeStrategyBox: { marginTop: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  activeStrategyRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 4 },
+  ownershipSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  ownershipValue: { color: Colors.info, fontSize: 15, fontWeight: '800' },
+  ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
+  ownerName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700' },
+  ownerType: { color: Colors.textMuted, fontSize: 9, textTransform: 'capitalize', marginTop: 2 },
+  ownerPct: { color: Colors.primary, fontSize: 13, fontWeight: '800' },
+  shareActions: { flexDirection: 'row', gap: 7, marginTop: 7 },
+  shareButton: { flex: 1, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, padding: 8 },
+  shareButtonTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  shareButtonMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
+  shareInfo: { flex: 1, justifyContent: 'center', paddingHorizontal: 8 },
+  shareInfoText: { color: Colors.warning, fontSize: 10 },
+  childShareRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 7, paddingTop: 7, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  smallShareButton: { borderWidth: 1, borderColor: '${Colors.info}55', borderRadius: 7, paddingHorizontal: 9, paddingVertical: 7 },
+  smallShareText: { color: Colors.info, fontSize: 10, fontWeight: '700' },
+  buybackButton: { borderWidth: 1, borderColor: '${Colors.primary}66', borderRadius: 9, paddingVertical: 10, alignItems: 'center', marginTop: 10 },
+  buybackText: { color: Colors.primary, fontSize: 11, fontWeight: '800' },
+  governanceChild: { paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
+  governanceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  governanceButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
+  governanceButton: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6 },
+  governanceButtonActive: { borderColor: Colors.primary, backgroundColor: '${Colors.primary}0D' },
+  governanceButtonText: { color: Colors.textSecondary, fontSize: 9, fontWeight: '700' },
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   optionChip: { borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 12, paddingVertical: 10, minWidth: '45%', flex: 1 },
   optionChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}15` },
