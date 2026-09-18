@@ -97,7 +97,10 @@ export function calculateEstateSettlement(state: GameState): EstateSettlement {
     if (childCurrentAge(child, state) >= 18) eligibleSuccessors.push({ id: child.id, name: child.name });
   }
   const successorName = eligibleSuccessors.find((item) => item.id === successorId)?.name ?? null;
-  const businessValue = (state.businesses ?? []).reduce((sum, business) => sum + (business.valuation ?? 0), 0);
+  const businessValue = Math.max(0, (state.businesses ?? []).reduce((sum, business) => {
+    const debt = (business.businessLoans ?? []).reduce((loanSum, loan) => loanSum + (loan.remainingAmount ?? 0), 0);
+    return sum + Math.max(0, (business.valuation ?? 0) - debt);
+  }, 0));
 
   // If a business successor was explicitly named, businesses pass outside the
   // residual family split. This makes succession strategically meaningful and
