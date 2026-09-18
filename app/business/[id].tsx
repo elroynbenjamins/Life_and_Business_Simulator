@@ -18,6 +18,7 @@ import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
 import { BusinessGovernanceRole, BusinessStrategicFocus } from '../../src/types/game';
+import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -148,6 +149,9 @@ export default function BusinessDetailScreen() {
   const canIssue5 = playerOwnershipPct * 0.95 >= 51;
   const canIssue10 = playerOwnershipPct * 0.90 >= 51;
   const canTransfer5 = playerOwnershipPct >= 56;
+  const fivePctStakeValue = Math.round((biz.valuation ?? 0) * 0.05);
+  const childShareGiftTax = calculateChildInheritanceTax(fivePctStakeValue);
+  const trustShareTransferTax = Math.round(fivePctStakeValue * 0.075);
 
 
   // Market share pie chart data
@@ -388,7 +392,7 @@ export default function BusinessDetailScreen() {
             </View>
           </View>
           <Text style={styles.controlNote}>
-            Current governance requires the playable owner to retain at least 51% voting control. A full company sale requires 100% ownership.
+            Current governance requires the playable owner to retain at least 51% voting control. A full company sale requires 100% ownership. Lifetime family transfers use game transfer taxes so they cannot freely bypass inheritance tax.
           </Text>
           {ownership.map((stake, index) => (
             <View key={`${stake.ownerType}_${stake.ownerId}_${index}`} style={styles.ownerRow}>
@@ -440,11 +444,11 @@ export default function BusinessDetailScreen() {
               {relationshipState?.estatePlan?.structure === 'family_trust' && (
                 <View style={styles.shareActions}>
                   <Pressable
-                    disabled={!canTransfer5}
-                    style={[styles.shareButton, !canTransfer5 && { opacity: 0.35 }]}
+                    disabled={!canTransfer5 || cash < trustShareTransferTax}
+                    style={[styles.shareButton, (!canTransfer5 || cash < trustShareTransferTax) && { opacity: 0.35 }]}
                     onPress={() => confirmAction(
                       'Transfer Shares to Trust',
-                      `Move 5 percentage points of your personal ownership into the Family Trust? This reduces your personal estate and is not reversible in the current version.`,
+                      `Move 5 percentage points of your personal ownership into the Family Trust? Current value: ${formatCurrency(fivePctStakeValue)}. Game transfer levy: ${formatCurrency(trustShareTransferTax)} from personal cash. Future appreciation and trust-held shares remain outside your personal estate.`,
                       () => transferBusinessShares(biz.id, 'family_trust', null, 5),
                     )}
                   >
@@ -464,11 +468,11 @@ export default function BusinessDetailScreen() {
                     <Text style={styles.actionDesc}>Parent bond {Math.round(child.parentRelationship ?? 75)}%</Text>
                   </View>
                   <Pressable
-                    disabled={!canTransfer5}
-                    style={[styles.smallShareButton, !canTransfer5 && { opacity: 0.35 }]}
+                    disabled={!canTransfer5 || cash < childShareGiftTax}
+                    style={[styles.smallShareButton, (!canTransfer5 || cash < childShareGiftTax) && { opacity: 0.35 }]}
                     onPress={() => confirmAction(
                       'Gift Business Shares',
-                      `Permanently gift 5 percentage points of your ownership in ${biz.name} to ${child.name}? Estimated current value: ${formatCurrency(Math.round((biz.valuation ?? 0) * 0.05))}.`,
+                      `Permanently gift 5 percentage points of your ownership in ${biz.name} to ${child.name}? Current value: ${formatCurrency(fivePctStakeValue)}. Family transfer tax: ${formatCurrency(childShareGiftTax)} from personal cash. The child owns these shares before any later inheritance.`,
                       () => transferBusinessShares(biz.id, 'child', child.id, 5),
                     )}
                   >
