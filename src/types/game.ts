@@ -268,6 +268,7 @@ export interface RelationshipState {
   lastStabilityWarningWeek: number;
   estatePlan: EstatePlan;
   estateSettlement: EstateSettlement | null;
+  familyTrustCash: number;
 }
 
 export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
@@ -302,6 +303,7 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
     updatedGlobalWeek: 0,
   },
   estateSettlement: null,
+  familyTrustCash: 0,
 };
 
 export interface LifecycleState {
