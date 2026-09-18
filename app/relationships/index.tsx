@@ -168,13 +168,7 @@ export default function RelationshipsScreen() {
           )}
         </GameCard>
 
-        <Pressable style={styles.settingsLink} onPress={() => {
-          // Re-open preference setup while preserving current relationships.
-          const next = { ...relationship, preferencesSet: false };
-          useGameStore.setState({ relationshipState: next });
-        }}>
-          <Text style={styles.settingsLinkText}>Change dating preferences</Text>
-        </Pressable>
+
       </ScrollView>
     </SafeAreaView>
   );
