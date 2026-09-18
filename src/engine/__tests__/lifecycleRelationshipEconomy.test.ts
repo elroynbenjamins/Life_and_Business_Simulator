@@ -528,4 +528,43 @@ describe('expanded relationship progression', () => {
     expect(preview?.taxCashAvailable).toBe(90000);
     expect(preview?.loanNeeded).toBeGreaterThan(0);
   });
+
+  it('lets independent adult children progress into homes, partners, businesses and children', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+    const result = processRelationships({
+      ...INITIAL_GAME_STATE,
+      year: 31,
+      week: 1,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [{
+          id: 'adult-life',
+          name: 'Mila',
+          gender: 'girl' as const,
+          birthGlobalWeek: 1,
+          age: 30,
+          educationFund: 0,
+          status: 'independent' as const,
+          occupationTitle: 'Assistant Accountant',
+          weeklyIncome: 1200,
+          educationOutcome: 'strong' as const,
+          launchedGlobalWeek: 361,
+          savings: 100000,
+          homeStatus: 'renting' as const,
+          partnerName: null,
+          partnerGender: null,
+          childrenCount: 0,
+        }],
+        lastRelationshipEventWeek: 1,
+      },
+    });
+
+    const adult = result.state.children[0];
+    expect(adult.occupationTitle).toBe('Entrepreneur');
+    expect(adult.homeStatus).toBe('homeowner');
+    expect(adult.partnerName).toBeTruthy();
+    expect(adult.childrenCount).toBe(1);
+    expect(result.familyMilestones.length).toBeGreaterThanOrEqual(3);
+  });
 });
