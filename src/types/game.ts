@@ -921,6 +921,61 @@ export interface FamilyBusinessState {
   designatedYear: number;
 }
 
+export type BusinessStrategicFocus = 'balanced' | 'growth' | 'margin' | 'premium' | 'automation' | 'rd';
+export type BusinessDecisionKind = 'strategy' | 'crisis';
+export type BusinessGovernanceRole = 'manager' | 'executive' | 'board' | 'successor';
+export type BusinessOwnerType = 'player' | 'child' | 'family_trust' | 'investor';
+
+export interface BusinessOwnershipStake {
+  ownerType: BusinessOwnerType;
+  ownerId: string;
+  ownerName: string;
+  percent: number;
+  votingPercent: number;
+}
+
+export interface BusinessFamilyRole {
+  childId: string;
+  childName: string;
+  role: BusinessGovernanceRole;
+  appointedYear: number;
+  experienceWeeks: number;
+  performance: number;
+}
+
+export interface BusinessStrategyModifier {
+  id: string;
+  title: string;
+  revenueMultiplier: number;
+  expenseMultiplier: number;
+  reputationPerWeek: number;
+  moralePerWeek: number;
+  weeksRemaining: number;
+}
+
+export interface BusinessPendingDecisionChoice {
+  id: string;
+  text: string;
+  description: string;
+  businessCashCost?: number;
+  revenueMultiplier?: number;
+  expenseMultiplier?: number;
+  reputationDelta?: number;
+  moraleDelta?: number;
+  marketShareDelta?: number;
+  durationWeeks?: number;
+}
+
+export interface BusinessPendingDecision {
+  id: string;
+  kind: BusinessDecisionKind;
+  title: string;
+  description: string;
+  icon: string;
+  createdGlobalWeek: number;
+  choices: BusinessPendingDecisionChoice[];
+}
+
 export interface OwnedBusiness {
   id: string; // unique instance id
   typeId: string; // references business_types.json
@@ -979,6 +1034,13 @@ export interface OwnedBusiness {
   lastBusinessEventWeek?: number;
   businessEventCooldowns?: Record<string, number>;
   familyBusiness?: FamilyBusinessState | null;
+  strategicFocus?: BusinessStrategicFocus;
+  strategyModifiers?: BusinessStrategyModifier[];
+  pendingDecision?: BusinessPendingDecision | null;
+  nextStrategicDecisionWeek?: number;
+  nextCrisisCheckWeek?: number;
+  ownership?: BusinessOwnershipStake[];
+  familyRoles?: BusinessFamilyRole[];
 }
 
 export interface BusinessLocation {
