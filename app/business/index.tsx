@@ -76,7 +76,14 @@ export default function BusinessPortfolioScreen() {
                         </View>
                       )}
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+                    <View style={styles.bizRight}>
+                      {biz.pendingDecision && (
+                        <View style={[styles.attentionBadge, biz.pendingDecision.kind === 'crisis' && styles.crisisAttention]}>
+                          <Text style={styles.attentionText}>{biz.pendingDecision.kind === 'crisis' ? '!' : '•'}</Text>
+                        </View>
+                      )}
+                      <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+                    </View>
                   </View>
 
                   <View style={styles.bizStats}>
@@ -95,6 +102,14 @@ export default function BusinessPortfolioScreen() {
                       <Text style={[styles.bizStatValue, { color: Colors.warning }]}>{Math.round(biz.reputation)}/100</Text>
                     </View>
                   </View>
+
+                  {biz.pendingDecision && (
+                    <View style={[styles.pendingStrip, biz.pendingDecision.kind === 'crisis' && styles.pendingStripCrisis]}>
+                      <Text style={styles.pendingStripText}>
+                        {biz.pendingDecision.kind === 'crisis' ? 'Crisis' : 'Decision'}: {biz.pendingDecision.title}
+                      </Text>
+                    </View>
+                  )}
 
                   {/* Automation & Autopilot */}
                   <View style={styles.bottomRow}>
@@ -149,6 +164,13 @@ const styles = StyleSheet.create({
   bizStat: { flex: 1 },
   bizStatLabel: { color: Colors.textMuted, fontSize: 11 },
   bizStatValue: { fontSize: 14, fontWeight: '700', marginTop: 2 },
+  bizRight: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  attentionBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: `${Colors.warning}22`, borderWidth: 1, borderColor: Colors.warning, alignItems: 'center', justifyContent: 'center' },
+  crisisAttention: { backgroundColor: `${Colors.negative}22`, borderColor: Colors.negative },
+  attentionText: { color: Colors.white, fontSize: 11, fontWeight: '900' },
+  pendingStrip: { backgroundColor: `${Colors.warning}10`, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6, marginTop: 9 },
+  pendingStripCrisis: { backgroundColor: `${Colors.negative}10` },
+  pendingStripText: { color: Colors.textSecondary, fontSize: 10, fontWeight: '700' },
   bottomRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
   automationBar: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   automationLabel: { color: Colors.textMuted, fontSize: 11 },
