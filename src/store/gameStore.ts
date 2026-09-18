@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -121,6 +121,8 @@ interface GameStore extends GameState {
   endPartnership: () => void;
   divorcePartner: () => void;
   relationshipCounseling: () => void;
+  setSharedRelationshipGoal: (type: SharedGoalType) => void;
+  cancelSharedRelationshipGoal: () => void;
   dismissRelationshipEventModal: () => void;
   handleRelationshipEventChoice: (choiceIndex: number) => void;
   dismissRelationshipFeedback: () => void;
@@ -267,6 +269,8 @@ const useGameStore = create<GameStore>((set, get) => ({
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
           pendingEvent: saved.relationshipState?.pendingEvent ?? null,
           financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
+          sharedGoal: saved.relationshipState?.sharedGoal ?? null,
+          lastStabilityWarningWeek: saved.relationshipState?.lastStabilityWarningWeek ?? 0,
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
@@ -346,6 +350,8 @@ const useGameStore = create<GameStore>((set, get) => ({
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
           pendingEvent: saved.relationshipState?.pendingEvent ?? null,
           financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
+          sharedGoal: saved.relationshipState?.sharedGoal ?? null,
+          lastStabilityWarningWeek: saved.relationshipState?.lastStabilityWarningWeek ?? 0,
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
@@ -1397,6 +1403,61 @@ const useGameStore = create<GameStore>((set, get) => ({
         positive: false,
       },
     });
+    saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
+  },
+
+  setSharedRelationshipGoal: (type) => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
+    if (!partner || !['living_together', 'engaged', 'married'].includes(partner.stage)) return;
+
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const inflation = state.inflationMultiplier ?? 1;
+    const housingOrder = ['cheap_apartment', 'studio_apartment', 'small_house', 'family_house', 'luxury_villa', 'mansion'];
+    const currentHousingIndex = Math.max(0, housingOrder.indexOf(state.currentHousingId));
+    const currentNetWorth = getNetWorth(state);
+    let target = 0;
+
+    if (type === 'cash_buffer') {
+      target = Math.round(Math.max(10000 * inflation, (state.cash ?? 0) * 1.25));
+    } else if (type === 'net_worth') {
+      const milestones = [50000, 100000, 250000, 500000, 1000000, 2500000, 5000000, 10000000, 25000000];
+      target = milestones.find((value) => value > currentNetWorth) ?? Math.ceil(currentNetWorth * 1.5);
+    } else if (type === 'better_home') {
+      target = Math.min(housingOrder.length - 1, currentHousingIndex + 1);
+      if (target <= currentHousingIndex) return;
+    } else {
+      const childCount = Math.max(1, state.relationshipState?.children?.length ?? 0);
+      target = Math.round(10000 * inflation * childCount);
+    }
+
+    const relationshipState = {
+      ...state.relationshipState,
+      sharedGoal: { type, target, startedGlobalWeek: gw, completed: false },
+      timeline: [...(state.relationshipState?.timeline ?? []), {
+        week: state.week,
+        year: state.year,
+        title: `Set a shared ${type.replace(/_/g, ' ')} goal`,
+      }],
+    };
+    set({
+      relationshipState,
+      relationshipFeedback: {
+        title: 'Shared Goal Set',
+        message: 'You and your partner now have a financial goal to work toward together.',
+        positive: true,
+      },
+    });
+    saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
+  },
+
+  cancelSharedRelationshipGoal: () => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    if (!state.relationshipState?.sharedGoal) return;
+    const relationshipState = { ...state.relationshipState, sharedGoal: null };
+    set({ relationshipState });
     saveGame(extractGameState({ ...state, relationshipState }), state.activeSlot);
   },
 
