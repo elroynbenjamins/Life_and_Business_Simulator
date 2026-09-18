@@ -238,13 +238,27 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   newCash += bizResult.totalDividend;
 
   const childDividendMap = new Map<string, number>();
+  const currentChildIds = new Set((relationshipTick.state.children ?? []).map((child) => child.id));
   let familyTrustDistribution = 0;
+  let familyTreeAfterBusiness = state.familyTree;
   for (const distribution of bizResult.ownershipDistributions ?? []) {
     if (distribution.ownerType === 'child') {
-      childDividendMap.set(
-        distribution.ownerId,
-        (childDividendMap.get(distribution.ownerId) ?? 0) + (distribution.amount ?? 0),
-      );
+      if (currentChildIds.has(distribution.ownerId)) {
+        childDividendMap.set(
+          distribution.ownerId,
+          (childDividendMap.get(distribution.ownerId) ?? 0) + (distribution.amount ?? 0),
+        );
+      } else {
+        const treePersonId = `person:${distribution.ownerId}`;
+        familyTreeAfterBusiness = {
+          ...(familyTreeAfterBusiness ?? { currentPlayerId: null, people: [] }),
+          people: (familyTreeAfterBusiness?.people ?? []).map((person) =>
+            person.id === treePersonId
+              ? { ...person, liquidWealth: (person.liquidWealth ?? 0) + (distribution.amount ?? 0) }
+              : person
+          ),
+        };
+      }
     } else if (distribution.ownerType === 'family_trust') {
       familyTrustDistribution += distribution.amount ?? 0;
     }
@@ -315,6 +329,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     })(),
     partTimeJob: partTimeActive,
     relationshipState: relationshipStateAfterBusiness,
+    familyTree: familyTreeAfterBusiness,
     lifecycle: state?.lifecycle,
     lastMacroCrashWeek: economy.crashEvent ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
   };
