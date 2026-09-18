@@ -1753,7 +1753,11 @@ const useGameStore = create<GameStore>((set, get) => ({
       knowledge: {},
       career: { ...INITIAL_CAREER_STATE },
       properties: [],
-      activeAuctions: state.activeAuctions ?? [],
+      activeAuctions: (state.activeAuctions ?? []).map((auction) => ({
+        ...auction,
+        playerHighestBid: 0,
+        playerIsHighestBidder: false,
+      })),
       competitors: inheritedCompetitors,
       activeMarketSentiment: state.activeMarketSentiment,
       activeMarketEvents: state.activeMarketEvents,
