@@ -69,6 +69,7 @@ export default function RootLayout() {
         <Stack.Screen name="properties" />
         <Stack.Screen name="info" />
         <Stack.Screen name="relationships" />
+        <Stack.Screen name="family-tree" />
       </Stack>
       <MainMenu />
       <SaveSlotPicker />
