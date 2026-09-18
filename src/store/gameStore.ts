@@ -1491,8 +1491,9 @@ const useGameStore = create<GameStore>((set, get) => ({
     const safeSuccessorId = successorId && eligibleSuccessorIds.has(successorId) ? successorId : null;
 
     const currentStructure = state.relationshipState?.estatePlan?.structure ?? 'none';
+    const structureRank: Record<EstateStructureType, number> = { none: 0, will: 1, family_trust: 2 };
     let setupCost = 0;
-    if (structure !== currentStructure) {
+    if (structureRank[structure] > structureRank[currentStructure]) {
       if (structure === 'will') setupCost = Math.round(2000 * (state.inflationMultiplier ?? 1));
       if (structure === 'family_trust') setupCost = Math.round(25000 * (state.inflationMultiplier ?? 1));
     }
