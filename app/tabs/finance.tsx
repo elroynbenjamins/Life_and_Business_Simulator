@@ -26,8 +26,8 @@ export default function FinanceScreen() {
     ? (state?.relationshipState?.activeConnections ?? []).find((item) => item.id === state?.relationshipState?.partnerId) ?? null
     : null;
   const household = calculatePartnerContribution(partner, state);
-  const relationshipNet = household.contribution - household.householdExtraCost;
-  const totalExpenses = rent + utilityCost + carCost + foodCost + courseCost + loanPayments + household.householdExtraCost;
+  const relationshipNet = household.contribution - household.householdExtraCost - household.familyCost;
+  const totalExpenses = rent + utilityCost + carCost + foodCost + courseCost + loanPayments + household.householdExtraCost + household.familyCost;
   const netFlow = salary + household.contribution - totalExpenses;
   const portfolioValue = state?.getPortfolioValueTotal?.() ?? 0;
   const netWorth = state?.getNetWorthValue?.() ?? 0;
@@ -62,6 +62,7 @@ export default function FinanceScreen() {
           {courseCost > 0 && <FRow label="Course" value={courseCost} color={Colors.negative} prefix="-" />}
           {loanPayments > 0 && <FRow label="Loan Payments" value={loanPayments} color={Colors.negative} prefix="-" />}
           {household.householdExtraCost > 0 && <FRow label="Additional Household Costs" value={household.householdExtraCost} color={Colors.negative} prefix="-" />}
+          {household.familyCost > 0 && <FRow label="Children & Family Costs" value={household.familyCost} color={Colors.negative} prefix="-" />}
           <View style={styles.divider} />
           <View style={styles.row}>
             <Text style={[styles.label, { fontWeight: '600' }]}>Net Cash Flow</Text>
