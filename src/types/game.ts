@@ -226,6 +226,7 @@ export interface RelationshipEventChoice {
   happinessDuration?: number;
   childId?: string;
   childSavings?: number;
+  childRelationship?: number;
 }
 
 export interface RelationshipEvent {
