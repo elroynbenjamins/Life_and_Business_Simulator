@@ -92,6 +92,27 @@ export interface EstateSettlement {
   businessValue: number;
 }
 
+export interface SuccessionPreview {
+  childId: string;
+  childName: string;
+  childAge: number;
+  inheritedCash: number;
+  inheritedBusinessValue: number;
+  inheritanceTaxBase: number;
+  inheritanceTax: number;
+  taxCashAvailable: number;
+  loanNeeded: number;
+}
+
+export interface FamilyLegacyEntry {
+  generation: number;
+  name: string;
+  deathAge: number;
+  deathYear: number;
+  finalNetWorth: number;
+  successorName: string | null;
+}
+
 export interface RelationshipSharedGoal {
   type: SharedGoalType;
   target: number;
@@ -965,6 +986,8 @@ export interface GameState {
   relationshipState: RelationshipState;
   lifecycle: LifecycleState;
   lastMacroCrashWeek: number;
+  generation: number;
+  familyLegacy: FamilyLegacyEntry[];
 }
 
 export const INITIAL_GAME_STATE: GameState = {
@@ -1020,6 +1043,8 @@ export const INITIAL_GAME_STATE: GameState = {
   relationshipState: { ...INITIAL_RELATIONSHIP_STATE },
   lifecycle: { ...INITIAL_LIFECYCLE_STATE },
   lastMacroCrashWeek: 0,
+  generation: 1,
+  familyLegacy: [],
 };
 
 /** Player profile — persists prestige points and gems across all games/save slots */
