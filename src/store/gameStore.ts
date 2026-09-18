@@ -311,6 +311,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             ...(saved.relationshipState?.estatePlan ?? {}),
           },
           estateSettlement: saved.relationshipState?.estateSettlement ?? null,
+          familyTrustCash: saved.relationshipState?.familyTrustCash ?? 0,
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
@@ -424,6 +425,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             ...(saved.relationshipState?.estatePlan ?? {}),
           },
           estateSettlement: saved.relationshipState?.estateSettlement ?? null,
+          familyTrustCash: saved.relationshipState?.familyTrustCash ?? 0,
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
@@ -1975,6 +1977,14 @@ const useGameStore = create<GameStore>((set, get) => ({
       timeline: successorPartner
         ? [{ week: state.week, year: state.year, title: `Generation ${nextGeneration} began with ${successorPartner.name}` }]
         : [],
+      familyTrustCash: state.relationshipState?.familyTrustCash ?? 0,
+      estatePlan: state.relationshipState?.estatePlan?.structure === 'family_trust'
+        ? {
+            ...INITIAL_RELATIONSHIP_STATE.estatePlan,
+            structure: 'family_trust' as const,
+            updatedGlobalWeek: currentGlobalWeek,
+          }
+        : { ...INITIAL_RELATIONSHIP_STATE.estatePlan },
     };
 
     const transitionedFamilyTree = transitionFamilyTreeToChild(state, child.id, nextGeneration);
