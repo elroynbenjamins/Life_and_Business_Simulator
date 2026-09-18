@@ -1465,7 +1465,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const partner = (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId);
     if (!partner || partner.stage === 'married') return;
     const endedWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
-    const formerPartner = { ...partner, isCohabiting: false, endedWeek };
+    const formerPartner = { ...partner, isCohabiting: false, endedWeek, endedReason: 'breakup' as const };
     const relationshipState = {
       ...state.relationshipState,
       activeConnections: (state.relationshipState?.activeConnections ?? []).filter((item) => item.id !== partner.id),
@@ -1507,7 +1507,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     } : null;
 
     const endedWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
-    const formerPartner = { ...partner, isCohabiting: false, endedWeek };
+    const formerPartner = { ...partner, isCohabiting: false, endedWeek, endedReason: 'divorce' as const };
     const relationshipState = {
       ...state.relationshipState,
       activeConnections: (state.relationshipState?.activeConnections ?? []).filter((item) => item.id !== partner.id),
