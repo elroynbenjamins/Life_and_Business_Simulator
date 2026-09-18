@@ -46,6 +46,8 @@ export default function RelationshipsScreen() {
   const endPartnership = useGameStore((s) => s.endPartnership);
   const divorcePartner = useGameStore((s) => s.divorcePartner);
   const relationshipCounseling = useGameStore((s) => s.relationshipCounseling);
+  const setSharedGoal = useGameStore((s) => s.setSharedRelationshipGoal);
+  const cancelSharedGoal = useGameStore((s) => s.cancelSharedRelationshipGoal);
   const feedback = useGameStore((s) => s.relationshipFeedback);
   const dismissFeedback = useGameStore((s) => s.dismissRelationshipFeedback);
 
@@ -64,6 +66,8 @@ export default function RelationshipsScreen() {
   const cohabiting = !!partner && (partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married');
   const financeKnown = !!partner && ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'].every((trait) => partner.visibleTraits?.includes(trait as any));
   const pendingRelationshipEvent = relationship?.pendingEvent ?? null;
+  const sharedGoal = relationship?.sharedGoal ?? null;
+  const sharedGoalProgress = getSharedGoalProgress(sharedGoal, state);
 
   if (!enabled) {
     return (
@@ -165,14 +169,26 @@ export default function RelationshipsScreen() {
               <View style={styles.statusGrid}>
                 <MiniStat label="Status" value={stageLabel(partner.stage)} />
                 <MiniStat label="Known" value={`${partner.weeksKnown} wk`} />
-                <MiniStat label="Income" value={formatCurrency(partner.weeklyIncome) + '/wk'} />
+                <MiniStat
+                  label="Career"
+                  value={partner.employmentStatus === 'unemployed'
+                    ? 'Unemployed'
+                    : formatCurrency(partner.weeklyIncome) + '/wk'}
+                />
                 <MiniStat label="Home" value={cohabiting ? 'Together' : 'Separate'} />
               </View>
 
               {financeKnown && (
                 <View style={styles.financeBox}>
                   <Text style={styles.financeTitle}>Known finances</Text>
-                  <View style={styles.financeRow}><Text style={styles.meta}>Income</Text><Text style={styles.moneyText}>{formatCurrency(partner.weeklyIncome)}/wk</Text></View>
+                  <View style={styles.financeRow}>
+                    <Text style={styles.meta}>Career</Text>
+                    <Text style={[styles.moneyText, partner.employmentStatus === 'unemployed' && { color: Colors.warning }]}>
+                      {partner.employmentStatus === 'unemployed'
+                        ? `Unemployed • ${partner.unemploymentWeeks ?? 0} wk`
+                        : `${formatCurrency(partner.weeklyIncome)}/wk • Level ${partner.careerLevel ?? 1}`}
+                    </Text>
+                  </View>
                   <View style={styles.financeRow}><Text style={styles.meta}>Personal savings</Text><Text style={styles.moneyText}>{formatCurrency(partner.savings)}</Text></View>
                   {partner.marriageAgreement && (
                     <View style={styles.financeRow}>
@@ -337,6 +353,60 @@ export default function RelationshipsScreen() {
                 </View>
               )}
             </ConnectionCard>
+          </>
+        )}
+
+        {partner && cohabiting && (
+          <>
+            <Text style={styles.sectionTitle}>Shared Goals</Text>
+            <GameCard>
+              {sharedGoal ? (
+                <>
+                  <View style={styles.goalHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.compactTitle}>{sharedGoalLabel(sharedGoal.type)}</Text>
+                      <Text style={styles.meta}>
+                        {sharedGoal.completed ? 'Completed' : sharedGoalTargetText(sharedGoal, state)}
+                      </Text>
+                    </View>
+                    <Text style={[styles.moneyText, sharedGoal.completed && { color: Colors.primary }]}>
+                      {sharedGoal.completed ? '✓ Done' : sharedGoalProgressText(sharedGoal, sharedGoalProgress)}
+                    </Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${Math.max(0, Math.min(100, sharedGoal.target > 0 ? (sharedGoalProgress / sharedGoal.target) * 100 : 0))}%`,
+                          backgroundColor: sharedGoal.completed ? Colors.primary : Colors.happiness,
+                        },
+                      ]}
+                    />
+                  </View>
+                  {!sharedGoal.completed && (
+                    <Text style={styles.helper}>
+                      This goal tracks your normal gameplay automatically. You do not deposit money into a separate account.
+                    </Text>
+                  )}
+                  <Pressable style={styles.dangerLink} onPress={cancelSharedGoal}>
+                    <Text style={styles.dangerText}>{sharedGoal.completed ? 'Clear Goal' : 'Cancel Shared Goal'}</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.helper}>
+                    Agree on something to work toward together. Completing a goal strengthens the relationship without creating free income.
+                  </Text>
+                  <View style={styles.goalGrid}>
+                    <ActionTile icon="shield-checkmark-outline" label="Cash Buffer" onPress={() => setSharedGoal('cash_buffer')} />
+                    <ActionTile icon="trending-up-outline" label="Net Worth" onPress={() => setSharedGoal('net_worth')} />
+                    <ActionTile icon="home-outline" label="Better Home" onPress={() => setSharedGoal('better_home')} />
+                    <ActionTile icon="school-outline" label="Family Fund" onPress={() => setSharedGoal('family_fund')} />
+                  </View>
+                </>
+              )}
+            </GameCard>
           </>
         )}
 
@@ -549,6 +619,37 @@ function ActionTile({ icon, label, disabled, onPress }: { icon: string; label: s
   </Pressable>;
 }
 
+function getSharedGoalProgress(goal: any, state: any): number {
+  if (!goal) return 0;
+  if (goal.type === 'cash_buffer') return Math.max(0, state.cash ?? 0);
+  if (goal.type === 'net_worth') return Math.max(0, state.getNetWorthValue?.() ?? 0);
+  if (goal.type === 'better_home') {
+    const order = ['cheap_apartment', 'studio_apartment', 'small_house', 'family_house', 'luxury_villa', 'mansion'];
+    return Math.max(0, order.indexOf(state.currentHousingId));
+  }
+  return (state.relationshipState?.children ?? []).reduce((sum: number, child: any) => sum + (child.educationFund ?? 0), 0);
+}
+
+function sharedGoalLabel(type: string) {
+  if (type === 'cash_buffer') return 'Build a Cash Buffer';
+  if (type === 'net_worth') return 'Reach a Net-Worth Milestone';
+  if (type === 'better_home') return 'Move to a Better Home';
+  return 'Build the Family Education Fund';
+}
+
+function sharedGoalTargetText(goal: any, state: any) {
+  if (goal.type === 'better_home') {
+    const names = ['Cheap Apartment', 'Studio Apartment', 'Small House', 'Family House', 'Luxury Villa', 'Mansion'];
+    return `Target: ${names[goal.target] ?? 'next home'}`;
+  }
+  return `Target: ${formatCurrency(goal.target)}`;
+}
+
+function sharedGoalProgressText(goal: any, progress: number) {
+  if (goal.type === 'better_home') return `${Math.round(Math.min(100, (progress / Math.max(1, goal.target)) * 100))}%`;
+  return formatCurrency(progress);
+}
+
 function stageLabel(stage: RelationshipConnection['stage']) {
   if (stage === 'living_together') return 'Living Together';
   if (stage === 'engaged') return 'Engaged';
@@ -646,6 +747,8 @@ const styles = StyleSheet.create({
   dangerButtonText: { color: Colors.negative, fontSize: 12, fontWeight: '800' },
   dangerLink: { alignItems: 'center', paddingVertical: 11, marginTop: 9 },
   dangerText: { color: Colors.negative, fontSize: 12, fontWeight: '700' },
+  goalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  goalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   historyRow: { flexDirection: 'row', gap: 10, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   historyDate: { color: Colors.textMuted, fontSize: 11, width: 52 },
   historyText: { color: Colors.textSecondary, fontSize: 12, flex: 1 },
