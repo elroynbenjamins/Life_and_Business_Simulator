@@ -47,6 +47,26 @@ export interface RelationshipConnection extends RelationshipCandidate {
   lastCareerEventWeek?: number;
 }
 
+export type ChildIndependence = 'close' | 'balanced' | 'independent';
+export type ChildResilience = 'fragile' | 'balanced' | 'resilient';
+export type AdultChildStatus = 'employed' | 'unemployed' | 'entrepreneur';
+
+export interface ChildPersonality {
+  ambition: AmbitionLevel;
+  financialStyle: FinancialStyle;
+  riskTolerance: RiskTolerance;
+  independence: ChildIndependence;
+  resilience: ChildResilience;
+}
+
+export interface RelationshipDescendant {
+  id: string;
+  name: string;
+  gender: 'girl' | 'boy';
+  birthGlobalWeek: number;
+  age: number;
+}
+
 export interface RelationshipChild {
   id: string;
   name: string;
@@ -64,6 +84,14 @@ export interface RelationshipChild {
   partnerName?: string | null;
   partnerGender?: 'woman' | 'man' | null;
   childrenCount?: number;
+  descendants?: RelationshipDescendant[];
+  parentRelationship?: number;
+  personality?: ChildPersonality;
+  adultStatus?: AdultChildStatus;
+  debt?: number;
+  failureCount?: number;
+  businessValue?: number;
+  lastAdultEventYear?: number;
 }
 
 export type RelationshipObligationType = 'divorce_settlement' | 'legal_fees';
@@ -97,18 +125,56 @@ export interface EstateSettlement {
   businessValue: number;
 }
 
+export type SuccessionAssetStrategy = 'liquidate' | 'keep_stocks' | 'keep_properties' | 'keep_both';
+
 export interface SuccessionPreview {
   childId: string;
   childName: string;
   childAge: number;
   existingSavings: number;
+  assetStrategy: SuccessionAssetStrategy;
   inheritedCash: number;
+  inheritedStockValue: number;
+  inheritedPropertyValue: number;
+  inheritedPropertyIds: string[];
   inheritedBusinessValue: number;
   inheritanceTaxBase: number;
   inheritanceTax: number;
   taxCashAvailable: number;
   loanNeeded: number;
+  parentRelationship: number;
+  willingToSucceed: boolean;
+  futurePotentialScore: number;
+  futurePotentialLabel: 'Developing' | 'Solid' | 'Strong' | 'Exceptional';
 }
+
+export interface FamilyTreePerson {
+  id: string;
+  name: string;
+  gender?: 'woman' | 'man' | 'girl' | 'boy' | null;
+  generation: number;
+  status: 'living' | 'deceased';
+  age: number;
+  birthYear: number;
+  deathYear?: number | null;
+  deathAge?: number | null;
+  occupationTitle?: string | null;
+  parentIds: string[];
+  partnerIds: string[];
+  childIds: string[];
+  playableGeneration?: number | null;
+  finalNetWorth?: number | null;
+}
+
+export interface FamilyTreeState {
+  currentPlayerId: string | null;
+  people: FamilyTreePerson[];
+}
+
+export const INITIAL_FAMILY_TREE_STATE: FamilyTreeState = {
+  currentPlayerId: null,
+  people: [],
+};
 
 export interface FamilyLegacyEntry {
   generation: number;
@@ -839,6 +905,17 @@ export interface ActiveBusinessEvent {
 }
 
 /** Owned business instance */
+export interface FamilyBusinessState {
+  isFamilyBusiness: boolean;
+  familyName: string;
+  founderGeneration: number;
+  generationsOwned: number;
+  controllerName: string;
+  controllerPersonId: string | null;
+  familyOwnershipPct: number;
+  designatedYear: number;
+}
+
 export interface OwnedBusiness {
   id: string; // unique instance id
   typeId: string; // references business_types.json
@@ -896,6 +973,7 @@ export interface OwnedBusiness {
   timeline?: BusinessTimelineEntry[];
   lastBusinessEventWeek?: number;
   businessEventCooldowns?: Record<string, number>;
+  familyBusiness?: FamilyBusinessState | null;
 }
 
 export interface BusinessLocation {
@@ -1002,6 +1080,7 @@ export interface GameState {
   lastMacroCrashWeek: number;
   generation: number;
   familyLegacy: FamilyLegacyEntry[];
+  familyTree: FamilyTreeState;
 }
 
 export const INITIAL_GAME_STATE: GameState = {
@@ -1059,6 +1138,7 @@ export const INITIAL_GAME_STATE: GameState = {
   lastMacroCrashWeek: 0,
   generation: 1,
   familyLegacy: [],
+  familyTree: { ...INITIAL_FAMILY_TREE_STATE },
 };
 
 /** Player profile — persists prestige points and gems across all games/save slots */
