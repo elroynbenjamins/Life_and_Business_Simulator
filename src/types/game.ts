@@ -943,6 +943,7 @@ export interface BusinessFamilyRole {
   appointedYear: number;
   experienceWeeks: number;
   performance: number;
+  weeklySalary: number;
 }
 
 export interface BusinessStrategyModifier {
