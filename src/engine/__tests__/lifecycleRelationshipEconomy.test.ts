@@ -438,4 +438,34 @@ describe('expanded relationship progression', () => {
     expect(result.state.partnerId).toBeNull();
     expect(result.state.formerPartners).toHaveLength(1);
   });
+
+  it('launches a child into independent adulthood using the education fund', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.4);
+    const result = processRelationships({
+      ...INITIAL_GAME_STATE,
+      year: 19,
+      week: 1,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [{
+          id: 'launch-child',
+          name: 'Mila',
+          gender: 'girl' as const,
+          birthGlobalWeek: 1,
+          age: 17,
+          educationFund: 50000,
+          status: 'dependent' as const,
+        }],
+      },
+    });
+
+    const child = result.state.children[0];
+    expect(child.status).toBe('independent');
+    expect(child.educationFund).toBe(0);
+    expect(child.occupationTitle).toBeTruthy();
+    expect(child.weeklyIncome).toBeGreaterThan(0);
+    expect(child.educationOutcome).toBe('elite');
+    expect(result.familyMilestones[0]).toContain('became independent');
+  });
 });
