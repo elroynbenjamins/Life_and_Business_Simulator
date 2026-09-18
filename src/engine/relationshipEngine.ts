@@ -43,10 +43,9 @@ function candidateGender(preference: RelationshipState['preference']): 'woman' |
 }
 
 export function getNormalizedDatingAgeGap(playerAge: number): number {
-  if (playerAge < 25) return 5;
-  if (playerAge < 35) return 6;
-  if (playerAge < 50) return 8;
-  return 10;
+  if (playerAge < 25) return 4;
+  if (playerAge < 40) return 6;
+  return 8;
 }
 
 export function getNormalizedDatingAgeBounds(playerAge: number): { min: number; max: number } {
