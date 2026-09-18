@@ -30,6 +30,9 @@ export default function DashboardScreen() {
   const prestigePoints = useGameStore((s) => s?.profile?.prestigePoints ?? 0);
   const loginRewardAvailable = useGameStore((s) => s.getDailyLoginStatus().available);
   const state = useGameStore();
+  const relationshipState = useGameStore((s) => s?.relationshipState);
+  const lifecycle = useGameStore((s) => s?.lifecycle);
+  const partner = (relationshipState?.activeConnections ?? []).find((item) => item.id === relationshipState?.partnerId) ?? null;
 
   const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
   const course = (coursesData ?? []).find((c) => c?.id === currentCourseId);
@@ -68,7 +71,11 @@ export default function DashboardScreen() {
     }
   };
 
-  const handleNextWeek = () => { tryHaptic(); advanceWeek?.(); };
+  const handleNextWeek = () => {
+    if (lifecycle?.isDead) return;
+    tryHaptic();
+    advanceWeek?.();
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -139,12 +146,32 @@ export default function DashboardScreen() {
         {/* Primary action sits immediately above the Portfolio section. */}
         <View style={styles.primaryActionWrap}>
           <Pressable
-            style={({ pressed }) => [styles.nextWeekButton, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+            disabled={lifecycle?.isDead}
+            style={({ pressed }) => [
+              styles.nextWeekButton,
+              lifecycle?.isDead && { opacity: 0.45 },
+              { transform: [{ scale: pressed ? 0.98 : 1 }] },
+            ]}
             onPress={handleNextWeek}
           >
-            <Text style={styles.nextWeekText}>Advance to Next Week →</Text>
+            <Text style={styles.nextWeekText}>{lifecycle?.isDead ? 'Life Complete' : 'Advance to Next Week →'}</Text>
           </Pressable>
         </View>
+
+        {/* Personal Life */}
+        <GameCard title="Personal Life" onPress={() => router.push('/relationships')}>
+          {partner ? (
+            <>
+              <Text style={[styles.statValue, { color: Colors.happiness }]}>{partner.name} • {partner.stage === 'living_together' ? 'Living Together' : 'Partner'}</Text>
+              <Text style={styles.statCaption}>Relationship: {Math.round(partner.relationship ?? 0)}% • {partner.weeksKnown ?? 0} weeks known</Text>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.statValue, { color: Colors.happiness }]}>Single</Text>
+              <Text style={styles.statCaption}>Meet someone and build a life together</Text>
+            </>
+          )}
+        </GameCard>
 
         {/* Portfolio */}
         {hasHoldings ? (
@@ -189,6 +216,7 @@ export default function DashboardScreen() {
         {/* Quick Links */}
         <View style={styles.linksRow}>
           <QuickLink icon="home" label="Lifestyle" onPress={() => router.push('/housing')} />
+          <QuickLink icon="heart" label="Personal Life" onPress={() => router.push('/relationships')} color={Colors.happiness} />
           <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} />
           <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} />
           <QuickLink icon="pie-chart" label="Portfolio" onPress={() => router.push('/portfolio')} />
