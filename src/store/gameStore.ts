@@ -1800,11 +1800,7 @@ const useGameStore = create<GameStore>((set, get) => ({
                 controllerPersonId: `person:${child.id}`,
                 familyOwnershipPct,
               },
-              familyRoles: (business.familyRoles ?? []).map((role) =>
-                role.childId === child.id
-                  ? { ...role, role: 'successor' as const, childName: child.name }
-                  : role
-              ),
+              familyRoles: (business.familyRoles ?? []).filter((role) => role.childId !== child.id),
               timeline: [
                 ...(business.timeline ?? []),
                 {
@@ -2595,7 +2591,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const baseRoleSalary = role === 'executive' ? 1300
       : role === 'manager' ? 800
         : role === 'successor' ? 1000
-          : 350;
+          : 0;
     const weeklySalary = Math.round(
       baseRoleSalary
       * (1 + (business.level ?? 0) * 0.08)
