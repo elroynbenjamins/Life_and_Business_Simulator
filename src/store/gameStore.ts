@@ -2658,6 +2658,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     let ownerType: 'child' | 'family_trust' | 'investor' = targetType;
     let relationshipState = state.relationshipState;
     let capitalRaised = 0;
+    let executedPct = 0;
 
     if (targetType === 'investor') {
       // New-equity issuance: all existing holders dilute proportionally and the
@@ -2665,6 +2666,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       const maxIssuePct = Math.max(0, (1 - 51 / Math.max(0.0001, playerStake.votingPercent)) * 100);
       const issuePct = Math.min(requestedPct, maxIssuePct);
       if (issuePct <= 0) return;
+      executedPct = issuePct;
       const dilution = 1 - issuePct / 100;
       for (let index = 0; index < ownership.length; index += 1) {
         ownership[index] = {
@@ -2692,6 +2694,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       const maxTransferable = Math.max(0, playerStake.votingPercent - 51);
       const transferPct = Math.min(requestedPct, maxTransferable, playerStake.percent);
       if (transferPct <= 0) return;
+      executedPct = transferPct;
 
       if (targetType === 'child') {
         const child = (state.relationshipState?.children ?? []).find((item) => item.id === targetId && (item.age ?? 0) >= 18);
@@ -2750,8 +2753,8 @@ const useGameStore = create<GameStore>((set, get) => ({
           week: state.week,
           year: state.year,
           title: targetType === 'investor'
-            ? `📈 Issued ${requestedPct}% target equity to outside investors`
-            : `👪 Transferred ${requestedPct}% to ${ownerName}`,
+            ? `📈 Issued ${executedPct.toFixed(1)}% equity to outside investors`
+            : `👪 Transferred ${executedPct.toFixed(1)}% to ${ownerName}`,
           icon: targetType === 'investor' ? '📈' : '👪',
           kind: 'event' as const,
         },
