@@ -28,6 +28,9 @@ export default function ProfileScreen() {
   const startNewGame = useGameStore((s) => s?.startNewGame);
   const openSlotPicker = useGameStore((s) => s?.openSlotPicker);
   const activeSlot = useGameStore((s) => s?.activeSlot ?? 0);
+  const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
+  const relationshipState = useGameStore((s) => s?.relationshipState);
+  const setRelationshipModeEnabled = useGameStore((s) => s?.setRelationshipModeEnabled);
 
   const netWorth = getNetWorthValue?.() ?? 0;
 
@@ -66,6 +69,28 @@ export default function ProfileScreen() {
               <Ionicons name="diamond" size={22} color="#8B5CF6" />
               <Text style={styles.profileValue}>{profile?.gems ?? 0} Gems</Text>
             </View>
+          </View>
+        </GameCard>
+
+        <GameCard title="Game Modes">
+          <View style={styles.modeRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modeTitle}>Personal Life</Text>
+              <Text style={styles.modeDesc}>
+                Optional dating and relationships. When disabled, relationship events, household costs and partner contributions are paused.
+              </Text>
+              {(relationshipState?.partnerId || (relationshipState?.activeConnections?.length ?? 0) > 0) && (
+                <Text style={styles.modeSaved}>Existing relationship progress is preserved.</Text>
+              )}
+            </View>
+            <Pressable
+              style={[styles.modeToggle, relationshipModeEnabled && styles.modeToggleOn]}
+              onPress={() => setRelationshipModeEnabled?.(!relationshipModeEnabled)}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: relationshipModeEnabled }}
+            >
+              <View style={[styles.modeThumb, relationshipModeEnabled && styles.modeThumbOn]} />
+            </Pressable>
           </View>
         </GameCard>
 
@@ -187,6 +212,14 @@ const styles = StyleSheet.create({
   profileItem: { alignItems: 'center', gap: 4 },
   profileValue: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
   divider: { height: 1, backgroundColor: Colors.cardBorder, marginVertical: 6 },
+  modeRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  modeTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  modeDesc: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 3 },
+  modeSaved: { color: Colors.happiness, fontSize: 11, marginTop: 6, fontWeight: '600' },
+  modeToggle: { width: 48, height: 28, borderRadius: 14, padding: 3, backgroundColor: Colors.cardBorder, justifyContent: 'center' },
+  modeToggleOn: { backgroundColor: Colors.happiness },
+  modeThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.white },
+  modeThumbOn: { alignSelf: 'flex-end' },
   statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
   statRowLabel: { color: Colors.textSecondary, fontSize: 14 },
   statRowValue: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
