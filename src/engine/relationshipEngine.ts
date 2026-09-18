@@ -42,6 +42,42 @@ function candidateGender(preference: RelationshipState['preference']): 'woman' |
   return Math.random() < 0.5 ? 'woman' : 'man';
 }
 
+export function getNormalizedDatingAgeGap(playerAge: number): number {
+  if (playerAge < 25) return 5;
+  if (playerAge < 35) return 6;
+  if (playerAge < 50) return 8;
+  return 10;
+}
+
+export function getNormalizedDatingAgeBounds(playerAge: number): { min: number; max: number } {
+  const gap = getNormalizedDatingAgeGap(playerAge);
+  return {
+    min: Math.max(18, playerAge - gap),
+    max: Math.max(18, playerAge + gap),
+  };
+}
+
+export function isNormalizedAgeMatch(playerAge: number, partnerAge: number): boolean {
+  const bounds = getNormalizedDatingAgeBounds(playerAge);
+  return partnerAge >= bounds.min && partnerAge <= bounds.max;
+}
+
+function weightedCandidateAge(
+  playerAge: number,
+  minAge: number,
+  maxAge: number,
+): number {
+  const maxGap = getNormalizedDatingAgeGap(playerAge);
+  const coreGap = playerAge < 25 ? 3 : playerAge < 40 ? 4 : 5;
+  const useCore = Math.random() < 0.85;
+  const chosenGap = useCore
+    ? Math.floor(Math.random() * (Math.min(coreGap, maxGap) + 1))
+    : Math.min(maxGap, coreGap + 1 + Math.floor(Math.random() * Math.max(1, maxGap - coreGap)));
+  const direction = Math.random() < 0.5 ? -1 : 1;
+  const rawAge = playerAge + direction * chosenGap;
+  return Math.max(minAge, Math.min(maxAge, rawAge));
+}
+
 export function generateRelationshipCandidates(state: GameState, count = 3): RelationshipCandidate[] {
   const relationship = state.relationshipState;
   if (!relationship?.preferencesSet) return [];
@@ -59,9 +95,16 @@ export function generateRelationshipCandidates(state: GameState, count = 3): Rel
     const name = randomOf(pool);
     if (seen.has(name) || candidates.some((c) => c.name === name)) continue;
 
-    const minAge = Math.max(18, relationship.minAge ?? 20);
-    const maxAge = Math.max(minAge, relationship.maxAge ?? 35);
-    const age = minAge + Math.floor(Math.random() * (maxAge - minAge + 1));
+    const bounds = getNormalizedDatingAgeBounds(state.age ?? 20);
+    const preferredMin = (state.age ?? 20) + (relationship.minAgeOffset ?? ((relationship.minAge ?? state.age) - (state.age ?? 20)));
+    const preferredMax = (state.age ?? 20) + (relationship.maxAgeOffset ?? ((relationship.maxAge ?? state.age) - (state.age ?? 20)));
+    let minAge = Math.max(bounds.min, preferredMin);
+    let maxAge = Math.min(bounds.max, preferredMax);
+    if (minAge > maxAge) {
+      minAge = bounds.min;
+      maxAge = bounds.max;
+    }
+    const age = weightedCandidateAge(state.age ?? 20, minAge, maxAge);
     const occupation = randomOf(occupationsData as any[]);
     const incomeVariation = 0.85 + Math.random() * 0.3;
     const weeklyIncome = Math.round((occupation.baseWeeklyIncome ?? 700) * incomeVariation);
