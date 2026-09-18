@@ -80,6 +80,10 @@ export function generateRelationshipCandidates(state: GameState, count = 3): Rel
       ambition: randomOf(AMBITION),
       familyGoal: randomOf(FAMILY),
       visibleTraits: [],
+      employmentStatus: 'employed',
+      unemploymentWeeks: 0,
+      careerLevel: 1,
+      lastCareerEventWeek: 0,
     });
   }
   return candidates;
@@ -387,6 +391,71 @@ function createChild(state: GameState): RelationshipChild {
   };
 }
 
+
+function sharedGoalProgress(state: GameState): number {
+  const goal = state.relationshipState?.sharedGoal;
+  if (!goal) return 0;
+  if (goal.type === 'cash_buffer') return Math.max(0, state.cash ?? 0);
+  if (goal.type === 'net_worth') return Math.max(0, getNetWorth(state));
+  if (goal.type === 'better_home') {
+    const order = ['cheap_apartment', 'studio_apartment', 'small_house', 'family_house', 'luxury_villa', 'mansion'];
+    return Math.max(0, order.indexOf(state.currentHousingId));
+  }
+  if (goal.type === 'family_fund') {
+    return (state.relationshipState?.children ?? []).reduce((sum, child) => sum + (child.educationFund ?? 0), 0);
+  }
+  return 0;
+}
+
+function processPartnerCareer(
+  connection: RelationshipConnection,
+  gw: number,
+): { connection: RelationshipConnection; event: string | null } {
+  const lastEvent = connection.lastCareerEventWeek ?? 0;
+  let employmentStatus = connection.employmentStatus ?? 'employed';
+  let unemploymentWeeks = connection.unemploymentWeeks ?? 0;
+  let weeklyIncome = connection.weeklyIncome ?? 0;
+  let careerLevel = connection.careerLevel ?? 1;
+  let event: string | null = null;
+
+  if (employmentStatus === 'unemployed') {
+    unemploymentWeeks += 1;
+    const rehireChance = connection.ambition === 'driven' ? 0.22 : connection.ambition === 'career_minded' ? 0.16 : 0.11;
+    if (Math.random() < rehireChance) {
+      employmentStatus = 'employed';
+      unemploymentWeeks = 0;
+      weeklyIncome = Math.max(450, Math.round(weeklyIncome * (0.95 + Math.random() * 0.20)));
+      event = `${connection.name} found a new job earning about €${weeklyIncome}/week.`;
+    }
+  } else if (gw - lastEvent >= 20) {
+    const promotionChance = connection.ambition === 'driven' ? 0.30 : connection.ambition === 'career_minded' ? 0.20 : 0.10;
+    const layoffChance = connection.ambition === 'driven' ? 0.035 : 0.05;
+    const roll = Math.random();
+    if (roll < layoffChance) {
+      employmentStatus = 'unemployed';
+      unemploymentWeeks = 0;
+      weeklyIncome = 0;
+      event = `${connection.name} was laid off. Household income may be tighter for a while.`;
+    } else if (roll < layoffChance + promotionChance) {
+      careerLevel += 1;
+      weeklyIncome = Math.round(Math.max(weeklyIncome, 500) * (1.08 + Math.random() * 0.08));
+      event = `${connection.name} earned a promotion and now makes about €${weeklyIncome}/week.`;
+    }
+  }
+
+  return {
+    connection: {
+      ...connection,
+      employmentStatus,
+      unemploymentWeeks,
+      weeklyIncome,
+      careerLevel,
+      lastCareerEventWeek: event ? gw : lastEvent,
+    },
+    event,
+  };
+}
+
 export interface RelationshipWeekResult {
   state: RelationshipState;
   partnerContribution: number;
@@ -397,6 +466,8 @@ export interface RelationshipWeekResult {
   headline: string | null;
   eventTitle: string | null;
   childBornName: string | null;
+  relationshipGoalCompleted: string | null;
+  partnerCareerEvent: string | null;
 }
 
 export function processRelationships(state: GameState): RelationshipWeekResult {
@@ -412,6 +483,8 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       headline: null,
       eventTitle: null,
       childBornName: null,
+      relationshipGoalCompleted: null,
+      partnerCareerEvent: null,
     };
   }
 
@@ -427,24 +500,33 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       headline: null,
       eventTitle: null,
       childBornName: null,
+      relationshipGoalCompleted: null,
+      partnerCareerEvent: null,
     };
   }
 
   const annualProgression = state.week === 1;
+  let partnerCareerEvent: string | null = null;
   const activeConnections = (current.activeConnections ?? []).map((connection) => {
-    let weeklyIncome = connection.weeklyIncome ?? 0;
-    let age = connection.age ?? 18;
-    if (annualProgression && (connection.weeksKnown ?? 0) > 0) {
-      age += 1;
-      const raise = connection.ambition === 'driven' ? 0.05 : connection.ambition === 'career_minded' ? 0.03 : 0.01;
-      weeklyIncome = Math.round(weeklyIncome * (1 + raise));
-    }
-    return {
+    let updated: RelationshipConnection = {
       ...connection,
-      age,
-      weeklyIncome,
+      age: annualProgression && (connection.weeksKnown ?? 0) > 0 ? (connection.age ?? 18) + 1 : (connection.age ?? 18),
       weeksKnown: (connection.weeksKnown ?? 0) + 1,
+      employmentStatus: connection.employmentStatus ?? 'employed',
+      unemploymentWeeks: connection.unemploymentWeeks ?? 0,
+      careerLevel: connection.careerLevel ?? 1,
+      lastCareerEventWeek: connection.lastCareerEventWeek ?? 0,
     };
+
+    if (connection.id === current.partnerId) {
+      const career = processPartnerCareer(updated, gw);
+      updated = career.connection;
+      partnerCareerEvent = career.event;
+    } else if (annualProgression && updated.employmentStatus !== 'unemployed') {
+      const raise = updated.ambition === 'driven' ? 0.05 : updated.ambition === 'career_minded' ? 0.03 : 0.01;
+      updated.weeklyIncome = Math.round((updated.weeklyIncome ?? 0) * (1 + raise));
+    }
+    return updated;
   });
 
   let weeklyCandidates = current.weeklyCandidates ?? [];
@@ -516,6 +598,39 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     );
   }
 
+  const currentPartner = partner ? adjustedConnections.find((c) => c.id === partner.id) ?? partner : null;
+  let lastStabilityWarningWeek = current.lastStabilityWarningWeek ?? 0;
+  if (currentPartner && currentPartner.relationship < 35 && gw - lastStabilityWarningWeek >= 8 && !current.pendingEvent) {
+    headline = `${currentPartner.name} says the relationship is in serious trouble.`;
+    lastStabilityWarningWeek = gw;
+  }
+
+  let relationshipGoalCompleted: string | null = null;
+  let sharedGoal = current.sharedGoal ?? null;
+  if (sharedGoal && !sharedGoal.completed) {
+    const goalState: GameState = {
+      ...workingState,
+      relationshipState: { ...workingState.relationshipState, activeConnections: adjustedConnections, sharedGoal },
+    };
+    const progress = sharedGoalProgress(goalState);
+    if (progress >= sharedGoal.target) {
+      const label = sharedGoal.type === 'cash_buffer' ? 'cash buffer'
+        : sharedGoal.type === 'net_worth' ? 'net-worth goal'
+          : sharedGoal.type === 'better_home' ? 'housing goal'
+            : 'family education fund';
+      relationshipGoalCompleted = `You completed your shared ${label}.`;
+      sharedGoal = { ...sharedGoal, completed: true };
+      if (partner) {
+        adjustedConnections = adjustedConnections.map((item) =>
+          item.id === partner.id ? { ...item, relationship: Math.min(100, (item.relationship ?? 70) + 5) } : item
+        );
+        relationshipChange += 5;
+      }
+      timeline.push({ week: state.week, year: state.year, title: relationshipGoalCompleted });
+      if (!headline) headline = relationshipGoalCompleted;
+    }
+  }
+
   const currentSnapshot = financialSnapshot({ ...workingState, relationshipState: { ...workingState.relationshipState, activeConnections: adjustedConnections } });
   let pendingEvent = current.pendingEvent ?? null;
   let eventTitle: string | null = null;
@@ -526,13 +641,26 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     !pendingEvent &&
     gw - lastRelationshipEventWeek >= 6
   ) {
-    const generated = createRelationshipEvent(
-      { ...workingState, relationshipState: { ...workingState.relationshipState, activeConnections: adjustedConnections } },
-      adjustedConnections.find((c) => c.id === partner.id) ?? partner,
-      current.financialSnapshot ?? null,
-      currentSnapshot,
-      current.recentRelationshipEventIds ?? [],
-    );
+    const eventPartner = adjustedConnections.find((c) => c.id === partner.id) ?? partner;
+    const generated = eventPartner.relationship < 35
+      ? {
+          id: 'relationship_crisis',
+          icon: '💔',
+          title: 'Relationship at a Crossroads',
+          description: `${eventPartner.name} says something has to change if you are going to stay together.`,
+          choices: [
+            { text: 'Commit to rebuilding things', relationship: 10, happiness: -1, happinessDuration: 2 },
+            { text: 'Suggest counseling', relationship: 6, cost: Math.round(600 * (state.inflationMultiplier ?? 1)) },
+            { text: 'Avoid the conversation', relationship: -10 },
+          ],
+        }
+      : createRelationshipEvent(
+          { ...workingState, relationshipState: { ...workingState.relationshipState, activeConnections: adjustedConnections } },
+          eventPartner,
+          current.financialSnapshot ?? null,
+          currentSnapshot,
+          current.recentRelationshipEventIds ?? [],
+        );
     if (generated) {
       pendingEvent = generated;
       eventTitle = generated.title;
@@ -558,6 +686,8 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       lastRelationshipEventWeek,
       recentRelationshipEventIds,
       financialSnapshot: currentSnapshot,
+      sharedGoal,
+      lastStabilityWarningWeek,
     },
     partnerContribution: finances.contribution,
     householdExtraCost: finances.householdExtraCost,
@@ -566,5 +696,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     headline,
     eventTitle,
     childBornName,
+    relationshipGoalCompleted,
+    partnerCareerEvent,
   };
 }
