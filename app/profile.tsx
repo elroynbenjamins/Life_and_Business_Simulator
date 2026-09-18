@@ -105,6 +105,19 @@ export default function ProfileScreen() {
           </View>
         </GameCard>
 
+        {relationshipModeEnabled && (
+          <GameCard title="Family Tree" onPress={() => router.push('/family-tree')}>
+            <View style={styles.treeLinkRow}>
+              <Ionicons name="git-network-outline" size={24} color={Colors.info} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.historyTitle}>View Dynasty</Text>
+                <Text style={styles.historyMeta}>Partners, children, siblings, grandchildren and previous playable generations.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            </View>
+          </GameCard>
+        )}
+
         {familyLegacy.length > 0 && (
           <GameCard title="Family Legacy">
             {[...familyLegacy].reverse().slice(0, 6).map((entry) => (
@@ -255,6 +268,7 @@ const styles = StyleSheet.create({
   statRowValue: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
   achText: { color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
   xpText: { color: Colors.warning, fontSize: 14, fontWeight: '600', marginTop: 4 },
+  treeLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   historyRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   historyTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   historyMeta: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
