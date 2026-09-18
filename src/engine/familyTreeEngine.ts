@@ -7,6 +7,10 @@ import {
   RelationshipConnection,
 } from '../types/game';
 
+function globalWeekFallback(state: Pick<GameState, 'year' | 'week'>): number {
+  return ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+}
+
 function playerTreeId(generation: number): string {
   return `player:g${generation}`;
 }
@@ -166,7 +170,9 @@ export function syncFamilyTree(state: GameState): FamilyTreeState {
       childIds: isFormer ? existing?.childIds ?? [] : childNodes.map((child) => child.id),
       playableGeneration: existing?.playableGeneration ?? null,
       deathAge: partner.endedReason === 'death' ? partner.age ?? existing?.deathAge ?? null : existing?.deathAge ?? null,
-      deathYear: partner.endedReason === 'death' ? state.year : existing?.deathYear ?? null,
+      deathYear: partner.endedReason === 'death'
+        ? Math.max(1, Math.floor(((partner.endedWeek ?? globalWeekFallback(state)) - 1) / 20) + 1)
+        : existing?.deathYear ?? null,
     });
   }
 
