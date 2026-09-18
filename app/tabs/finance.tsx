@@ -21,6 +21,12 @@ export default function FinanceScreen() {
   const foodCost = getWeeklyFoodCost(state);
   const courseCost = getWeeklyCourseCost(state);
   const loanPayments = getWeeklyLoanPayments(state);
+  const inflationMultiplier = state?.inflationMultiplier ?? 1;
+  const partner = state?.relationshipModeEnabled
+    ? (state?.relationshipState?.activeConnections ?? []).find((item) => item.id === state?.relationshipState?.partnerId) ?? null
+    : null;
+  const household = calculatePartnerContribution(partner, state);
+  const relationshipNet = household.contribution - household.householdExtraCost;
   const totalExpenses = rent + utilityCost + carCost + foodCost + courseCost + loanPayments + household.householdExtraCost;
   const netFlow = salary + household.contribution - totalExpenses;
   const portfolioValue = state?.getPortfolioValueTotal?.() ?? 0;
@@ -28,12 +34,6 @@ export default function FinanceScreen() {
   const netWorthHistory = state?.netWorthHistory ?? [];
   const totalTaxPaid = state?.totalTaxPaid ?? 0;
   const loanDebt = (state?.loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
-  const inflationMultiplier = state?.inflationMultiplier ?? 1;
-  const partner = state?.relationshipModeEnabled
-    ? (state?.relationshipState?.activeConnections ?? []).find((item) => item.id === state?.relationshipState?.partnerId) ?? null
-    : null;
-  const household = calculatePartnerContribution(partner, state);
-  const relationshipNet = household.contribution - household.householdExtraCost;
 
   const last8 = netWorthHistory.slice(-8);
   const chartWidth = Math.min(Dimensions.get('window').width - 64, 500);
