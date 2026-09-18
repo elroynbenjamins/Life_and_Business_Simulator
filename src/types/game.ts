@@ -54,6 +54,11 @@ export interface RelationshipChild {
   birthGlobalWeek: number;
   age: number;
   educationFund: number;
+  status?: 'dependent' | 'independent';
+  occupationTitle?: string | null;
+  weeklyIncome?: number;
+  educationOutcome?: 'limited' | 'solid' | 'strong' | 'elite';
+  launchedGlobalWeek?: number;
 }
 
 export type RelationshipObligationType = 'divorce_settlement' | 'legal_fees';
@@ -646,6 +651,7 @@ export interface WeekSummary {
   partnerCareerEvent: string | null;
   partnerDiedName: string | null;
   partnerInheritance: number;
+  familyMilestones: string[];
   // Macro correction
   crashEvent: { title: string; inflationReduction: number; stockShock: number } | null;
   // Lifecycle
