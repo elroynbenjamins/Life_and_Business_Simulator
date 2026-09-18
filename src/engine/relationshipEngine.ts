@@ -12,6 +12,7 @@ import occupationsData from '../data/relationship_occupations.json';
 import housingData from '../data/housing.json';
 import { getNetWorth, getWeeklySalary } from './financeEngine';
 import { getCareerSalary } from './careerEngine';
+import { annualDeathChance } from './lifecycleEngine';
 
 const FINANCIAL_STYLES = ['frugal', 'balanced', 'luxury'] as const;
 const RISK = ['cautious', 'balanced', 'risk_taking'] as const;
@@ -464,6 +465,8 @@ export interface RelationshipWeekResult {
   childBornName: string | null;
   relationshipGoalCompleted: string | null;
   partnerCareerEvent: string | null;
+  partnerDiedName: string | null;
+  partnerInheritance: number;
 }
 
 export function processRelationships(state: GameState): RelationshipWeekResult {
@@ -481,6 +484,8 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       childBornName: null,
       relationshipGoalCompleted: null,
       partnerCareerEvent: null,
+      partnerDiedName: null,
+      partnerInheritance: 0,
     };
   }
 
@@ -498,12 +503,14 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       childBornName: null,
       relationshipGoalCompleted: null,
       partnerCareerEvent: null,
+      partnerDiedName: null,
+      partnerInheritance: 0,
     };
   }
 
   const annualProgression = state.week === 1;
   let partnerCareerEvent: string | null = null;
-  const activeConnections = (current.activeConnections ?? []).map((connection) => {
+  let activeConnections = (current.activeConnections ?? []).map((connection) => {
     let updated: RelationshipConnection = {
       ...connection,
       age: annualProgression && (connection.weeksKnown ?? 0) > 0 ? (connection.age ?? 18) + 1 : (connection.age ?? 18),
@@ -525,6 +532,32 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     return updated;
   });
 
+  let partnerDiedName: string | null = null;
+  let partnerInheritance = 0;
+  let formerPartners = [...(current.formerPartners ?? [])];
+  let activePartnerId = current.partnerId;
+  let estatePlan = current.estatePlan;
+
+  if (annualProgression && activePartnerId) {
+    const partnerCandidate = activeConnections.find((item) => item.id === activePartnerId) ?? null;
+    if (partnerCandidate && partnerCandidate.age >= 60 && Math.random() < annualDeathChance(partnerCandidate.age)) {
+      partnerDiedName = partnerCandidate.name;
+      if (partnerCandidate.stage === 'married') {
+        const adminCost = Math.min(
+          partnerCandidate.savings ?? 0,
+          Math.max(500, Math.round((partnerCandidate.savings ?? 0) * 0.03))
+        );
+        partnerInheritance = Math.max(0, Math.round((partnerCandidate.savings ?? 0) - adminCost));
+      }
+      formerPartners.push({ ...partnerCandidate, isCohabiting: false, endedWeek: gw });
+      activeConnections = activeConnections.filter((item) => item.id !== partnerCandidate.id);
+      activePartnerId = null;
+      if (estatePlan.successorId === partnerCandidate.id) {
+        estatePlan = { ...estatePlan, successorId: null, updatedGlobalWeek: gw };
+      }
+    }
+  }
+
   let weeklyCandidates = current.weeklyCandidates ?? [];
   let candidateRefreshWeek = current.candidateRefreshWeek ?? 0;
   if (current.preferencesSet && candidateRefreshWeek !== gw) {
@@ -536,6 +569,9 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   let familyExpansionWeeksRemaining = current.familyExpansionWeeksRemaining ?? 0;
   let childBornName: string | null = null;
   let timeline = [...(current.timeline ?? [])];
+  if (partnerDiedName) {
+    timeline.push({ week: state.week, year: state.year, title: `${partnerDiedName} passed away` });
+  }
 
   if (familyExpansionWeeksRemaining > 0) {
     familyExpansionWeeksRemaining -= 1;
@@ -568,23 +604,30 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       financialObligations,
       familyExpansionWeeksRemaining,
       timeline,
+      partnerId: activePartnerId,
+      formerPartners,
+      estatePlan,
+      familyPlan: partnerDiedName ? 'not_discussed' : current.familyPlan,
+      familyExpansionWeeksRemaining: partnerDiedName ? 0 : familyExpansionWeeksRemaining,
+      pendingEvent: partnerDiedName ? null : current.pendingEvent,
+      sharedGoal: partnerDiedName ? null : current.sharedGoal,
     },
   };
 
-  const partner = current.partnerId ? activeConnections.find((c) => c.id === current.partnerId) ?? null : null;
+  const partner = activePartnerId ? activeConnections.find((c) => c.id === activePartnerId) ?? null : null;
   const finances = calculatePartnerContribution(partner, workingState);
 
   // Partners keep their own money. Their unspent income grows personal savings
   // according to financial style, which can later support shared major expenses.
   const savingsConnections = activeConnections.map((connection) => {
-    if (connection.id !== current.partnerId) return connection;
+    if (connection.id !== activePartnerId) return connection;
     const rate = connection.financialStyle === 'frugal' ? 0.20 : connection.financialStyle === 'luxury' ? 0.04 : 0.10;
     const disposable = Math.max(0, (connection.weeklyIncome ?? 0) - finances.contribution);
     return { ...connection, savings: Math.round((connection.savings ?? 0) + disposable * rate) };
   });
 
   let relationshipChange = 0;
-  let headline: string | null = childBornName ? `${childBornName} joined your family.` : null;
+  let headline: string | null = partnerDiedName ? `${partnerDiedName} passed away.` : childBornName ? `${childBornName} joined your family.` : null;
   let adjustedConnections = savingsConnections;
   if (partner && gw - (current.personalActionWeek ?? 0) >= 8) {
     relationshipChange = -2;
@@ -682,8 +725,14 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       lastRelationshipEventWeek,
       recentRelationshipEventIds,
       financialSnapshot: currentSnapshot,
-      sharedGoal,
+      sharedGoal: partnerDiedName ? null : sharedGoal,
       lastStabilityWarningWeek,
+      partnerId: activePartnerId,
+      formerPartners,
+      estatePlan,
+      familyPlan: partnerDiedName ? 'not_discussed' : current.familyPlan,
+      familyExpansionWeeksRemaining: partnerDiedName ? 0 : familyExpansionWeeksRemaining,
+      pendingEvent: partnerDiedName ? null : pendingEvent,
     },
     partnerContribution: finances.contribution,
     householdExtraCost: finances.householdExtraCost,
@@ -694,5 +743,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     childBornName,
     relationshipGoalCompleted,
     partnerCareerEvent,
+    partnerDiedName,
+    partnerInheritance,
   };
 }
