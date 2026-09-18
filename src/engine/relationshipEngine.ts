@@ -506,6 +506,7 @@ function progressAdultChild(
   let weeklyIncome = Math.round(Math.max(350, child.weeklyIncome ?? 350) * (1 + raiseRate));
   let savings = Math.round((child.savings ?? 0) + weeklyIncome * 20 * 0.12);
   let homeStatus = child.homeStatus ?? 'renting';
+  let occupationTitle = child.occupationTitle ?? 'Employee';
   let partnerName = child.partnerName ?? null;
   let partnerGender = child.partnerGender ?? null;
   let childrenCount = child.childrenCount ?? 0;
@@ -518,6 +519,20 @@ function progressAdultChild(
     const partnerPool = partnerGender === 'woman' ? women : men;
     partnerName = randomOf(partnerPool.filter((name) => name !== child.name));
     milestones.push(`${child.name} started a serious relationship with ${partnerName}.`);
+  }
+
+  if (
+    occupationTitle !== 'Entrepreneur' &&
+    (child.age ?? 18) >= 25 &&
+    (child.age ?? 18) <= 50 &&
+    savings >= Math.round(25000 * (state.inflationMultiplier ?? 1)) &&
+    Math.random() < 0.08
+  ) {
+    const startupCapital = Math.round(15000 * (state.inflationMultiplier ?? 1));
+    savings = Math.max(0, savings - startupCapital);
+    occupationTitle = 'Entrepreneur';
+    weeklyIncome = Math.max(weeklyIncome, Math.round(1200 * (state.inflationMultiplier ?? 1)));
+    milestones.push(`${child.name} started a small business.`);
   }
 
   const homeThreshold = Math.round(30000 * (state.inflationMultiplier ?? 1));
@@ -545,6 +560,7 @@ function progressAdultChild(
       weeklyIncome,
       savings,
       homeStatus,
+      occupationTitle,
       partnerName,
       partnerGender,
       childrenCount,
@@ -801,6 +817,30 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   let pendingEvent = current.pendingEvent ?? null;
   let eventTitle: string | null = null;
   let lastRelationshipEventWeek = current.lastRelationshipEventWeek ?? 0;
+
+  if (!pendingEvent && annualProgression && gw - lastRelationshipEventWeek >= 6) {
+    const independentChildren = children.filter((child) => child.status === 'independent');
+    if (independentChildren.length > 0 && Math.random() < 0.16) {
+      const adultChild = randomOf(independentChildren);
+      const baseSupport = Math.round(5000 * (state.inflationMultiplier ?? 1));
+      const biggerSupport = Math.round(12000 * (state.inflationMultiplier ?? 1));
+      pendingEvent = {
+        id: `adult_child_support_${adultChild.id}_${state.year}`,
+        icon: '👨‍👩‍👧',
+        title: `${adultChild.name} Asks for Help`,
+        description: adultChild.homeStatus === 'renting'
+          ? `${adultChild.name} is trying to strengthen their finances and asks whether you can help with future housing costs.`
+          : `${adultChild.name} wants some extra financial room for the next step in life.`,
+        choices: [
+          { text: 'Help substantially', cost: biggerSupport, childId: adultChild.id, childSavings: biggerSupport },
+          { text: 'Help a little', cost: baseSupport, childId: adultChild.id, childSavings: baseSupport },
+          { text: 'They need to manage on their own' },
+        ],
+      };
+      eventTitle = pendingEvent.title;
+      lastRelationshipEventWeek = gw;
+    }
+  }
 
   if (
     partner &&
