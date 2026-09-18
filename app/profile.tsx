@@ -25,7 +25,7 @@ export default function ProfileScreen() {
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const profile = useGameStore((s) => s?.profile);
   const getNetWorthValue = useGameStore((s) => s?.getNetWorthValue);
-  const startNewGame = useGameStore((s) => s?.startNewGame);
+  const beginNewGame = useGameStore((s) => s?.beginNewGame);
   const openSlotPicker = useGameStore((s) => s?.openSlotPicker);
   const activeSlot = useGameStore((s) => s?.activeSlot ?? 0);
   const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
@@ -35,7 +35,7 @@ export default function ProfileScreen() {
   const netWorth = getNetWorthValue?.() ?? 0;
 
   const handleNewGame = () => {
-    showGameDialog({ title: 'New Game', message: 'Start a new game? All progress in this slot will be lost.', confirmText: 'New Game', destructive: true, onConfirm: () => startNewGame?.() });
+    showGameDialog({ title: 'New Game', message: 'Start a new game? All progress in this slot will be lost.', confirmText: 'New Game', destructive: true, onConfirm: () => beginNewGame?.() });
   };
 
   return (
