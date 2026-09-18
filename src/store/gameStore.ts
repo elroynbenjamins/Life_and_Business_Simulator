@@ -9,6 +9,7 @@ import { createProperty, renovateProperty, getTotalPropertyValue } from '../engi
 import { ensureAuctions, getInspectionCost, inspectAuction, leaveAuction, placeAuctionBid } from '../engine/auctionEngine';
 import { unlockPrestige, getPrestigeEffects } from '../engine/prestigeEngine';
 import { getSuccessionPreview } from '../engine/lifecycleEngine';
+import { createInitialFamilyTree, syncFamilyTree, transitionFamilyTreeToChild } from '../engine/familyTreeEngine';
 import { getCareerSalary } from '../engine/careerEngine';
 import { applyEducationRewards } from '../engine/skillEngine';
 import { createInitialCompetitors, migrateBusinessCompetitors } from '../engine/competitorEngine';
@@ -285,6 +286,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
         generation: saved.generation ?? 1,
         familyLegacy: saved.familyLegacy ?? [],
+        familyTree: saved.familyTree ?? createInitialFamilyTree(saved.playerName ?? 'Player', saved.age ?? 20, saved.year ?? 1, saved.generation ?? 1),
       };
       // Migrate career state: remove old freelancing fields, add new fields
       if (merged.career) {
@@ -373,6 +375,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
         generation: saved.generation ?? 1,
         familyLegacy: saved.familyLegacy ?? [],
+        familyTree: saved.familyTree ?? createInitialFamilyTree(saved.playerName ?? 'Player', saved.age ?? 20, saved.year ?? 1, saved.generation ?? 1),
       };
       // Migrate career state
       if (merged.career) {
@@ -408,6 +411,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       cash: startingCash,
       netWorthHistory: [startingCash],
       relationshipModeEnabled,
+      familyTree: createInitialFamilyTree(name?.trim?.() || 'Player', 20, 1, 1),
       activeAuctions: ensureAuctions([], 1, 1, startingCash),
     };
     await saveGame(newState, activeSlot);
@@ -1741,6 +1745,8 @@ const useGameStore = create<GameStore>((set, get) => ({
         : [],
     };
 
+    const transitionedFamilyTree = transitionFamilyTreeToChild(state, child.id, nextGeneration);
+
     const newState: GameState = {
       ...INITIAL_GAME_STATE,
       playerName: child.name,
@@ -1802,6 +1808,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       lastMacroCrashWeek: state.lastMacroCrashWeek ?? 0,
       generation: nextGeneration,
       familyLegacy: [...(state.familyLegacy ?? []), legacyEntry],
+      familyTree: transitionedFamilyTree,
     };
     newState.netWorthHistory = [getNetWorth(newState)];
 
@@ -2544,6 +2551,7 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     lastMacroCrashWeek: state?.lastMacroCrashWeek ?? 0,
     generation: state?.generation ?? 1,
     familyLegacy: state?.familyLegacy ?? [],
+    familyTree: state?.familyTree ?? createInitialFamilyTree(state?.playerName ?? 'Player', state?.age ?? 20, state?.year ?? 1, state?.generation ?? 1),
   };
 }
 
