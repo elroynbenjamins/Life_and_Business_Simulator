@@ -158,6 +158,8 @@ export interface RelationshipEventChoice {
   relationship?: number;
   happiness?: number;
   happinessDuration?: number;
+  childId?: string;
+  childSavings?: number;
 }
 
 export interface RelationshipEvent {
