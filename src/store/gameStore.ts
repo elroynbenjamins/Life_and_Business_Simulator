@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -120,6 +120,7 @@ interface GameStore extends GameState {
   marryPartner: (wedding: 'courthouse' | 'standard' | 'luxury', agreement: MarriageAgreement) => void;
   setFamilyPlan: (plan: Exclude<FamilyPlan, 'not_discussed'>) => void;
   fundChildEducation: (childId: string, amount: number) => void;
+  spendTimeWithChild: (childId: string) => void;
   endDatingConnection: (connectionId: string) => void;
   endPartnership: () => void;
   divorcePartner: () => void;
@@ -127,7 +128,7 @@ interface GameStore extends GameState {
   setSharedRelationshipGoal: (type: SharedGoalType) => void;
   cancelSharedRelationshipGoal: () => void;
   setEstatePlan: (planType: EstatePlanType, structure: EstateStructureType, successorId: string | null) => void;
-  continueAsChild: (childId: string, financeTaxWithLoan: boolean) => void;
+  continueAsChild: (childId: string, financeTaxWithLoan: boolean, assetStrategy?: SuccessionAssetStrategy) => void;
   dismissRelationshipEventModal: () => void;
   handleRelationshipEventChoice: (choiceIndex: number) => void;
   dismissRelationshipFeedback: () => void;
@@ -162,6 +163,7 @@ interface GameStore extends GameState {
   // Business
   foundBusiness: (typeId: string, customName: string | null) => void;
   sellBusiness: (businessId: string) => void;
+  designateFamilyBusiness: (businessId: string) => void;
   openCandidatePool: (businessId: string, roleId: string) => void;
   hireCandidate: (businessId: string, candidateId: string) => void;
   cancelCandidatePool: (businessId: string) => void;
@@ -1379,12 +1381,65 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!Number.isFinite(amount) || amount <= 0 || amount > (state.cash ?? 0)) return;
     const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
     if (!child) return;
+    const relationshipGain = amount >= 10000 ? 3 : amount >= 5000 ? 2 : 1;
     const children = (state.relationshipState?.children ?? []).map((item) =>
-      item.id === childId ? { ...item, educationFund: (item.educationFund ?? 0) + Math.floor(amount) } : item
+      item.id === childId
+        ? {
+            ...item,
+            educationFund: (item.educationFund ?? 0) + Math.floor(amount),
+            parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + relationshipGain),
+          }
+        : item
     );
     const relationshipState = { ...state.relationshipState, children };
     const updates = { cash: (state.cash ?? 0) - Math.floor(amount), relationshipState };
-    set(updates);
+    set({
+      ...updates,
+      relationshipFeedback: {
+        title: 'Education Support',
+        message: `You invested in ${child.name}'s future.`,
+        positive: true,
+      },
+    });
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  spendTimeWithChild: (childId) => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if ((state.relationshipState?.personalActionWeek ?? 0) === gw) return;
+    const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
+    if (!child) return;
+    const gain = (child.age ?? 0) < 18 ? 5 : 3;
+    const children = (state.relationshipState?.children ?? []).map((item) =>
+      item.id === childId
+        ? { ...item, parentRelationship: Math.min(100, (item.parentRelationship ?? 75) + gain) }
+        : item
+    );
+    const relationshipState = {
+      ...state.relationshipState,
+      children,
+      personalActionWeek: gw,
+      timeline: [...(state.relationshipState?.timeline ?? []), {
+        week: state.week,
+        year: state.year,
+        title: `Spent quality time with ${child.name}`,
+      }],
+    };
+    const tempHappinessEffects = [
+      ...(state.tempHappinessEffects ?? []),
+      { amount: 2, weeksRemaining: 2, source: `Time with ${child.name}` },
+    ];
+    const updates = { relationshipState, tempHappinessEffects };
+    set({
+      ...updates,
+      relationshipFeedback: {
+        title: 'Quality Time',
+        message: `Your relationship with ${child.name} improved.`,
+        positive: true,
+      },
+    });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -1615,16 +1670,36 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
-  continueAsChild: (childId, financeTaxWithLoan) => {
+  continueAsChild: (childId, financeTaxWithLoan, assetStrategy = 'liquidate') => {
     const state = get();
     if (!state.lifecycle?.isDead) return;
     const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
-    const preview = getSuccessionPreview(state, childId);
-    if (!child || !preview) return;
+    const preview = getSuccessionPreview(state, childId, assetStrategy);
+    if (!child || !preview || !preview.willingToSucceed) return;
     if (!financeTaxWithLoan && preview.taxCashAvailable < preview.inheritanceTax) return;
 
     const inheritedBusinesses = preview.inheritedBusinessValue > 0
-      ? (state.businesses ?? [])
+      ? (state.businesses ?? []).map((business) => ({
+          ...business,
+          familyBusiness: business.familyBusiness?.isFamilyBusiness
+            ? {
+                ...business.familyBusiness,
+                generationsOwned: Math.max(1, business.familyBusiness.generationsOwned ?? 1) + 1,
+                controllerName: child.name,
+                controllerPersonId: `child:${child.id}`,
+                familyOwnershipPct: 100,
+              }
+            : {
+                isFamilyBusiness: true,
+                familyName: `${state.playerName} Family`,
+                founderGeneration: state.generation ?? 1,
+                generationsOwned: 2,
+                controllerName: child.name,
+                controllerPersonId: `child:${child.id}`,
+                familyOwnershipPct: 100,
+                designatedYear: state.year,
+              },
+        }))
       : [];
 
     const inheritanceLoanPrincipal = financeTaxWithLoan ? preview.inheritanceTax : 0;
@@ -1643,7 +1718,22 @@ const useGameStore = create<GameStore>((set, get) => ({
         })()
       : null;
 
-    const liquidStartingCash = preview.existingSavings + preview.inheritedCash;
+    const fullPortfolioValue = getPortfolioValue(state.stocks ?? [], state.holdings ?? []);
+    const stockRatio = fullPortfolioValue > 0
+      ? Math.max(0, Math.min(1, preview.inheritedStockValue / fullPortfolioValue))
+      : 0;
+    const inheritedHoldings = stockRatio > 0
+      ? (state.holdings ?? []).map((holding) => ({
+          ...holding,
+          shares: stockRatio >= 0.999 ? holding.shares : Math.floor((holding.shares ?? 0) * stockRatio),
+        })).filter((holding) => (holding.shares ?? 0) > 0)
+      : [];
+    const actualStockValue = getPortfolioValue(state.stocks ?? [], inheritedHoldings);
+    const stockRoundingCash = Math.max(0, preview.inheritedStockValue - actualStockValue);
+    const inheritedProperties = (state.properties ?? []).filter((property) =>
+      (preview.inheritedPropertyIds ?? []).includes(property.id)
+    );
+    const liquidStartingCash = preview.existingSavings + preview.inheritedCash + stockRoundingCash;
     const cashAfterTax = financeTaxWithLoan
       ? liquidStartingCash
       : Math.max(0, liquidStartingCash - preview.inheritanceTax);
@@ -1765,7 +1855,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       completedCourses: inheritedCompletedCourses,
       totalWeeksWorked: 0,
       stocks: state.stocks ?? [],
-      holdings: [],
+      holdings: inheritedHoldings,
       loans: inheritanceLoan ? [inheritanceLoan] : [],
       bankDeposits: [],
       happiness: 45,
@@ -1788,7 +1878,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       skills: {},
       knowledge: {},
       career: { ...INITIAL_CAREER_STATE },
-      properties: [],
+      properties: inheritedProperties,
       activeAuctions: (state.activeAuctions ?? []).map((auction) => ({
         ...auction,
         playerHighestBid: 0,
@@ -1867,7 +1957,14 @@ const useGameStore = create<GameStore>((set, get) => ({
     const children = choice.childId
       ? (state.relationshipState.children ?? []).map((child) =>
           child.id === choice.childId
-            ? { ...child, savings: Math.max(0, (child.savings ?? 0) + (choice.childSavings ?? 0)) }
+            ? {
+                ...child,
+                savings: Math.max(0, (child.savings ?? 0) + (choice.childSavings ?? 0)),
+                parentRelationship: Math.max(
+                  0,
+                  Math.min(100, (child.parentRelationship ?? 75) + (choice.childRelationship ?? 0)),
+                ),
+              }
             : child
         )
       : state.relationshipState.children;
@@ -2196,6 +2293,36 @@ const useGameStore = create<GameStore>((set, get) => ({
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  designateFamilyBusiness: (businessId) => {
+    const state = get();
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business) return;
+    const hasFamily = (state.relationshipState?.children?.length ?? 0) > 0
+      || !!state.relationshipState?.partnerId
+      || (state.generation ?? 1) > 1;
+    if (!hasFamily) return;
+
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            familyBusiness: {
+              isFamilyBusiness: true,
+              familyName: item.familyBusiness?.familyName ?? `${state.playerName} Family`,
+              founderGeneration: item.familyBusiness?.founderGeneration ?? (state.generation ?? 1),
+              generationsOwned: item.familyBusiness?.generationsOwned ?? 1,
+              controllerName: state.playerName,
+              controllerPersonId: state.familyTree?.currentPlayerId ?? null,
+              familyOwnershipPct: 100,
+              designatedYear: item.familyBusiness?.designatedYear ?? state.year,
+            },
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
   sellBusiness: (businessId: string) => {
