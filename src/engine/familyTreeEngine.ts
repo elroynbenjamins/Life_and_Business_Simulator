@@ -157,7 +157,7 @@ export function syncFamilyTree(state: GameState): FamilyTreeState {
       name: partner.name,
       gender: partner.gender,
       generation,
-      status: existing?.status ?? 'living',
+      status: partner.endedReason === 'death' ? 'deceased' : existing?.status ?? 'living',
       age: partner.age ?? existing?.age ?? 18,
       birthYear: existing?.birthYear ?? Math.max(1, state.year - (partner.age ?? 18)),
       occupationTitle: partner.occupationTitle ?? existing?.occupationTitle ?? null,
@@ -165,8 +165,8 @@ export function syncFamilyTree(state: GameState): FamilyTreeState {
       partnerIds: [...new Set([...(existing?.partnerIds ?? []), currentId])],
       childIds: isFormer ? existing?.childIds ?? [] : childNodes.map((child) => child.id),
       playableGeneration: existing?.playableGeneration ?? null,
-      deathAge: existing?.deathAge ?? null,
-      deathYear: existing?.deathYear ?? null,
+      deathAge: partner.endedReason === 'death' ? partner.age ?? existing?.deathAge ?? null : existing?.deathAge ?? null,
+      deathYear: partner.endedReason === 'death' ? state.year : existing?.deathYear ?? null,
     });
   }
 
