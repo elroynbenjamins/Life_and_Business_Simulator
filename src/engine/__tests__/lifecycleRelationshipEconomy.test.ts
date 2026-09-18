@@ -219,4 +219,100 @@ describe('expanded relationship progression', () => {
     expect(result.childBornName).toBeTruthy();
     expect(result.familyCost).toBeGreaterThan(0);
   });
+
+  it('completes a shared cash-buffer goal through normal gameplay', () => {
+    const partner: RelationshipConnection = {
+      id: 'goal-partner',
+      name: 'Laura',
+      gender: 'woman',
+      age: 29,
+      occupationId: 'marketing',
+      occupationTitle: 'Marketing Specialist',
+      weeklyIncome: 900,
+      savings: 8000,
+      financialStyle: 'balanced',
+      riskTolerance: 'balanced',
+      ambition: 'career_minded',
+      familyGoal: 'unsure',
+      visibleTraits: ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'],
+      stage: 'living_together',
+      connection: 80,
+      relationship: 80,
+      dates: 5,
+      weeksKnown: 15,
+      isCohabiting: true,
+      householdSplit: 'equal',
+    };
+
+    const result = processRelationships({
+      ...INITIAL_GAME_STATE,
+      cash: 20000,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        preferencesSet: true,
+        partnerId: partner.id,
+        activeConnections: [partner],
+        personalActionWeek: 1,
+        lastRelationshipEventWeek: 1,
+        sharedGoal: {
+          type: 'cash_buffer',
+          target: 15000,
+          startedGlobalWeek: 1,
+          completed: false,
+        },
+      },
+    });
+
+    expect(result.state.sharedGoal?.completed).toBe(true);
+    expect(result.relationshipGoalCompleted).toContain('cash buffer');
+    expect(result.relationshipChange).toBeGreaterThanOrEqual(5);
+  });
+
+  it('stops partner household contributions while the partner is unemployed', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.99);
+    const partner: RelationshipConnection = {
+      id: 'unemployed-partner',
+      name: 'Sam',
+      gender: 'man',
+      age: 33,
+      occupationId: 'consultant',
+      occupationTitle: 'Business Consultant',
+      weeklyIncome: 0,
+      savings: 15000,
+      financialStyle: 'balanced',
+      riskTolerance: 'balanced',
+      ambition: 'career_minded',
+      familyGoal: 'unsure',
+      visibleTraits: ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'],
+      stage: 'living_together',
+      connection: 85,
+      relationship: 85,
+      dates: 6,
+      weeksKnown: 25,
+      isCohabiting: true,
+      householdSplit: 'equal',
+      employmentStatus: 'unemployed',
+      unemploymentWeeks: 2,
+      careerLevel: 2,
+      lastCareerEventWeek: 1,
+    };
+
+    const result = processRelationships({
+      ...INITIAL_GAME_STATE,
+      week: 5,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        preferencesSet: true,
+        partnerId: partner.id,
+        activeConnections: [partner],
+        personalActionWeek: 5,
+        lastRelationshipEventWeek: 5,
+      },
+    });
+
+    expect(result.partnerContribution).toBe(0);
+    expect(result.state.activeConnections[0].employmentStatus).toBe('unemployed');
+  });
 });
