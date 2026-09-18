@@ -59,6 +59,33 @@ export interface RelationshipChild {
 export type RelationshipObligationType = 'divorce_settlement' | 'legal_fees';
 
 export type SharedGoalType = 'cash_buffer' | 'net_worth' | 'better_home' | 'family_fund';
+export type EstatePlanType = 'default' | 'spouse_first' | 'children_first' | 'equal_family';
+export type EstateStructureType = 'none' | 'will' | 'family_trust';
+
+export interface EstatePlan {
+  planType: EstatePlanType;
+  structure: EstateStructureType;
+  successorId: string | null;
+  updatedGlobalWeek: number;
+}
+
+export interface EstateBeneficiaryShare {
+  id: string;
+  name: string;
+  relationship: 'spouse' | 'child';
+  share: number;
+  amount: number;
+}
+
+export interface EstateSettlement {
+  grossEstate: number;
+  outstandingRelationshipObligations: number;
+  administrationCost: number;
+  netEstate: number;
+  beneficiaries: EstateBeneficiaryShare[];
+  successorName: string | null;
+  businessValue: number;
+}
 
 export interface RelationshipSharedGoal {
   type: SharedGoalType;
@@ -131,6 +158,8 @@ export interface RelationshipState {
   financialSnapshot: RelationshipFinancialSnapshot | null;
   sharedGoal: RelationshipSharedGoal | null;
   lastStabilityWarningWeek: number;
+  estatePlan: EstatePlan;
+  estateSettlement: EstateSettlement | null;
 }
 
 export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
@@ -155,6 +184,13 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   financialSnapshot: null,
   sharedGoal: null,
   lastStabilityWarningWeek: 0,
+  estatePlan: {
+    planType: 'default',
+    structure: 'none',
+    successorId: null,
+    updatedGlobalWeek: 0,
+  },
+  estateSettlement: null,
 };
 
 export interface LifecycleState {
