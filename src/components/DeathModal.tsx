@@ -1,12 +1,13 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { Colors } from '../theme/colors';
 import useGameStore from '../store/gameStore';
 import { formatCurrency } from '../utils/format';
 
 export default function DeathModal() {
   const router = useRouter();
+  const pathname = usePathname();
   const lifecycle = useGameStore((s) => s.lifecycle);
   const showMainMenu = useGameStore((s) => s.showMainMenu);
   const showSummary = useGameStore((s) => s.showSummary);
@@ -16,7 +17,7 @@ export default function DeathModal() {
   const beginNewGame = useGameStore((s) => s.beginNewGame);
   const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
 
-  if (!lifecycle?.isDead || showMainMenu || showSummary || showEventModal || showRelationshipEventModal || showPeriodReport) return null;
+  if (!lifecycle?.isDead || pathname === '/succession' || pathname === '/family-tree' || showMainMenu || showSummary || showEventModal || showRelationshipEventModal || showPeriodReport) return null;
 
   return (
     <Modal visible transparent animationType="fade">
