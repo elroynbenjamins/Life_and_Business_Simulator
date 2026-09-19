@@ -502,6 +502,9 @@ export interface PrestigeBonus {
   description: string;
   icon: string;
   cost: number;
+  gemCost?: number;
+  tier?: number;
+  requires?: string | string[];
   effect: { type: string; value: number; stacking?: 'additive' | 'highest' };
 }
 
