@@ -59,7 +59,7 @@ export default function PortfolioScreen() {
         {ownedHoldings.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="bar-chart-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>No stocks yet. Visit the Stock Market to start investing.</Text>
+            <Text style={styles.emptyText}>No investments yet. Visit Markets to start investing.</Text>
           </View>
         ) : null}
 
@@ -71,9 +71,10 @@ export default function PortfolioScreen() {
           const gl = value - cost;
           const glPercent = cost > 0 ? (gl / cost) * 100 : 0;
           const isCommodity = sd?.type === 'commodity';
+          const isCrypto = sd?.type === 'crypto';
 
           const handleSellAll = () => {
-            const message = `Sell all ${h?.shares} shares of ${h?.ticker} for ${formatCurrency(value, 2)}?`;
+            const message = `Sell all ${h?.shares} ${isCrypto ? 'coins' : 'shares'} of ${h?.ticker} for ${formatCurrency(value, 2)}?`;
             showGameDialog({ title: 'Sell All', message, confirmText: 'Sell All', destructive: true, onConfirm: () => sellStock?.(h?.ticker, h?.shares ?? 0) });
           };
 
@@ -84,6 +85,7 @@ export default function PortfolioScreen() {
                   <View style={styles.tickerRow}>
                     <Text style={styles.ticker}>{h?.ticker}</Text>
                     {isCommodity && <SectorPill sector="Commodity" />}
+                    {isCrypto && <SectorPill sector="Crypto" />}
                   </View>
                   <Text style={styles.company}>{sd?.company ?? ''}</Text>
                 </View>
@@ -94,7 +96,7 @@ export default function PortfolioScreen() {
                   </Text>
                 </View>
               </View>
-              <Text style={styles.meta}>{h?.shares} shares • Avg {formatCurrency(h?.avgBuyPrice, 2)}</Text>
+              <Text style={styles.meta}>{h?.shares} {isCrypto ? 'coins' : 'shares'} • Avg {formatCurrency(h?.avgBuyPrice, 2)}</Text>
               <Pressable style={styles.sellBtn} onPress={(e) => { e.stopPropagation?.(); handleSellAll(); }}>
                 <Text style={styles.sellBtnText}>Sell All</Text>
               </Pressable>
