@@ -35,7 +35,7 @@ export default function MarketScreen() {
       <GameStatusBar />
 
       {/* Filter Tabs */}
-      <View style={styles.filterRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
         {(['all', 'stock', 'etf', 'commodity', 'crypto'] as FilterType[]).map((f) => (
           <Pressable key={f} style={[styles.filterTab, filter === f && styles.filterActive]} onPress={() => setFilter(f)}>
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
@@ -43,7 +43,7 @@ export default function MarketScreen() {
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {filtered.map((sd) => {
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   headerSub: { color: Colors.textMuted, fontSize: 13 },
   portfolioBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary },
   portfolioBtnText: { color: Colors.primary, fontSize: 13, fontWeight: '600' },
-  filterRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
+  filterRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingBottom: 8, paddingRight: 24 },
   filterTab: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder },
   filterActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
