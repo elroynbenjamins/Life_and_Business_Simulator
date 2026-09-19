@@ -1,0 +1,314 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { Colors } from '../../src/theme/colors';
+import GameCard from '../../src/components/GameCard';
+import { showGameDialog } from '../../src/components/GameDialog';
+import useGameStore from '../../src/store/gameStore';
+import { formatCurrency } from '../../src/utils/format';
+import {
+  ACQUISITION_MARKET_REFRESH_WEEKS,
+  ACQUISITION_UNLOCK_NET_WORTH,
+  getAcquisitionPrice,
+} from '../../src/engine/acquisitionEngine';
+import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
+
+const RISK_LABELS = {
+  low: { label: 'Low risk', color: Colors.primary },
+  medium: { label: 'Medium risk', color: Colors.warning },
+  high: { label: 'High risk', color: Colors.negative },
+};
+
+export default function BusinessAcquisitionsScreen() {
+  const router = useRouter();
+  const acquisitionTargets = useGameStore((s) => s.acquisitionTargets ?? []);
+  const holdingCompanies = useGameStore((s) => s.holdingCompanies ?? []);
+  const lastRefreshWeek = useGameStore((s) => s.lastAcquisitionRefreshWeek ?? 0);
+  const cash = useGameStore((s) => s.cash ?? 0);
+  const week = useGameStore((s) => s.week ?? 1);
+  const year = useGameStore((s) => s.year ?? 1);
+  const profile = useGameStore((s) => s.profile);
+  const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
+  const ensureAcquisitionMarket = useGameStore((s) => s.ensureAcquisitionMarket);
+  const refreshAcquisitionMarket = useGameStore((s) => s.refreshAcquisitionMarket);
+  const acquireBusiness = useGameStore((s) => s.acquireBusiness);
+  const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
+
+  const netWorth = getNetWorthValue();
+  const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
+  const negotiationBonus = getPrestigeEffects(profile).negotiation ?? 0;
+  const globalWeek = ((year - 1) * 20) + week;
+  const weeksUntilRefresh = lastRefreshWeek <= 0
+    ? 0
+    : Math.max(0, ACQUISITION_MARKET_REFRESH_WEEKS - (globalWeek - lastRefreshWeek));
+
+  useEffect(() => {
+    if (unlocked) ensureAcquisitionMarket();
+  }, [unlocked, globalWeek, ensureAcquisitionMarket]);
+
+  const sortedTargets = useMemo(
+    () => [...acquisitionTargets].sort((a, b) => a.askingPrice - b.askingPrice),
+    [acquisitionTargets]
+  );
+
+  const confirmAcquire = (targetId: string) => {
+    const target = acquisitionTargets.find((item) => item.id === targetId);
+    if (!target) return;
+    const price = getAcquisitionPrice(target, negotiationBonus);
+    const destination = selectedHoldingId
+      ? holdingCompanies.find((holding) => holding.id === selectedHoldingId)?.name ?? 'selected holding'
+      : 'your direct portfolio';
+
+    showGameDialog({
+      title: `Acquire ${target.name}?`,
+      message: `${formatCurrency(price)} cash purchase into ${destination}. Integration lasts ${target.integrationWeeks} weeks and begins with a ${Math.round(target.integrationPenalty * 100)}% operating penalty.`,
+      confirmText: 'Acquire',
+      onConfirm: () => acquireBusiness(target.id, selectedHoldingId),
+    });
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Acquisitions</Text>
+        <Pressable
+          hitSlop={10}
+          disabled={!unlocked || weeksUntilRefresh > 0}
+          onPress={refreshAcquisitionMarket}
+        >
+          <Ionicons
+            name="refresh"
+            size={22}
+            color={unlocked && weeksUntilRefresh === 0 ? Colors.primary : Colors.textMuted}
+          />
+        </Pressable>
+      </View>
+
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Net Worth</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(netWorth)}</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Available Cash</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(cash)}</Text>
+          </View>
+        </View>
+
+        {!unlocked ? (
+          <GameCard>
+            <View style={styles.locked}>
+              <Ionicons name="lock-closed" size={34} color={Colors.warning} />
+              <Text style={styles.lockedTitle}>Late-game M&A</Text>
+              <Text style={styles.lockedText}>
+                Business acquisitions unlock at {formatCurrency(ACQUISITION_UNLOCK_NET_WORTH)} net worth.
+                Build capital first, then buy established companies instead of starting every business from zero.
+              </Text>
+              <Text style={styles.progressText}>
+                {Math.min(100, Math.round(netWorth / ACQUISITION_UNLOCK_NET_WORTH * 100))}% unlocked
+              </Text>
+            </View>
+          </GameCard>
+        ) : (
+          <>
+            <GameCard>
+              <Text style={styles.sectionTitle}>Acquire into</Text>
+              <Text style={styles.sectionSub}>
+                Choose where the next company sits. Ownership and family-business status remain editable after purchase.
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+                <Pressable
+                  style={[styles.chip, selectedHoldingId === null && styles.chipActive]}
+                  onPress={() => setSelectedHoldingId(null)}
+                >
+                  <Ionicons name="person" size={14} color={selectedHoldingId === null ? Colors.white : Colors.textSecondary} />
+                  <Text style={[styles.chipText, selectedHoldingId === null && styles.chipTextActive]}>Direct portfolio</Text>
+                </Pressable>
+                {holdingCompanies.map((holding) => (
+                  <Pressable
+                    key={holding.id}
+                    style={[styles.chip, selectedHoldingId === holding.id && styles.chipActive]}
+                    onPress={() => setSelectedHoldingId(holding.id)}
+                  >
+                    <Ionicons name="business" size={14} color={selectedHoldingId === holding.id ? Colors.white : Colors.textSecondary} />
+                    <Text style={[styles.chipText, selectedHoldingId === holding.id && styles.chipTextActive]}>{holding.name}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              {holdingCompanies.length === 0 && (
+                <Pressable style={styles.linkButton} onPress={() => router.push('/business/holdings')}>
+                  <Text style={styles.linkText}>Create a holding company</Text>
+                  <Ionicons name="arrow-forward" size={15} color={Colors.primary} />
+                </Pressable>
+              )}
+            </GameCard>
+
+            <View style={styles.marketHeader}>
+              <View>
+                <Text style={styles.marketTitle}>Acquisition Market</Text>
+                <Text style={styles.marketSub}>
+                  {weeksUntilRefresh > 0 ? `New targets in ${weeksUntilRefresh} week${weeksUntilRefresh === 1 ? '' : 's'}` : 'Market can refresh now'}
+                </Text>
+              </View>
+              {negotiationBonus > 0 && (
+                <View style={styles.negotiationBadge}>
+                  <Ionicons name="hand-left" size={12} color={Colors.primary} />
+                  <Text style={styles.negotiationText}>-{Math.round(negotiationBonus * 100)}% price</Text>
+                </View>
+              )}
+            </View>
+
+            {sortedTargets.length === 0 ? (
+              <GameCard>
+                <Text style={styles.emptyTitle}>No targets available</Text>
+                <Text style={styles.emptyText}>The current market has been cleared. A new batch arrives at the next refresh.</Text>
+              </GameCard>
+            ) : sortedTargets.map((target) => {
+              const risk = RISK_LABELS[target.risk];
+              const price = getAcquisitionPrice(target, negotiationBonus);
+              const premiumPct = target.estimatedValue > 0
+                ? Math.round((price / target.estimatedValue - 1) * 100)
+                : 0;
+              const canAfford = cash >= price;
+              return (
+                <GameCard key={target.id}>
+                  <View style={styles.targetHeader}>
+                    <View style={styles.targetIcon}>
+                      <Ionicons name="business" size={23} color={Colors.info} />
+                    </View>
+                    <View style={styles.targetNameWrap}>
+                      <Text style={styles.targetName}>{target.name}</Text>
+                      <Text style={styles.targetMeta}>{target.industry} • {target.tier.toUpperCase()}</Text>
+                    </View>
+                    <View style={[styles.riskBadge, { borderColor: risk.color }]}>
+                      <Text style={[styles.riskText, { color: risk.color }]}>{risk.label}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.metrics}>
+                    <View style={styles.metric}>
+                      <Text style={styles.metricLabel}>Asking</Text>
+                      <Text style={styles.metricValue}>{formatCurrency(price)}</Text>
+                    </View>
+                    <View style={styles.metric}>
+                      <Text style={styles.metricLabel}>Est. value</Text>
+                      <Text style={styles.metricValue}>{formatCurrency(target.estimatedValue)}</Text>
+                    </View>
+                    <View style={styles.metric}>
+                      <Text style={styles.metricLabel}>Price / value</Text>
+                      <Text style={[styles.metricValue, { color: premiumPct <= 0 ? Colors.primary : Colors.warning }]}>
+                        {premiumPct > 0 ? '+' : ''}{premiumPct}%
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.metrics}>
+                    <View style={styles.metric}>
+                      <Text style={styles.metricLabel}>Weekly revenue</Text>
+                      <Text style={styles.metricValue}>{formatCurrency(target.weeklyRevenue)}</Text>
+                    </View>
+                    <View style={styles.metric}>
+                      <Text style={styles.metricLabel}>Weekly profit</Text>
+                      <Text style={[styles.metricValue, { color: Colors.primary }]}>{formatCurrency(target.weeklyProfit)}</Text>
+                    </View>
+                    <View style={styles.metric}>
+                      <Text style={styles.metricLabel}>Diligence</Text>
+                      <Text style={styles.metricValue}>{target.diligenceScore}/100</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.diligenceBox}>
+                    <Text style={styles.diligenceTitle}>Due diligence</Text>
+                    {target.diligenceNotes.map((note) => (
+                      <View key={note} style={styles.noteRow}>
+                        <View style={[styles.noteDot, { backgroundColor: risk.color }]} />
+                        <Text style={styles.noteText}>{note}</Text>
+                      </View>
+                    ))}
+                    <Text style={styles.integrationText}>
+                      Integration: {target.integrationWeeks} weeks • {Math.round(target.integrationPenalty * 100)}% initial operating penalty
+                    </Text>
+                  </View>
+
+                  <View style={styles.sellerRow}>
+                    <Text style={styles.sellerText}>{target.sellerName}</Text>
+                    <Pressable
+                      disabled={!canAfford}
+                      onPress={() => confirmAcquire(target.id)}
+                      style={[styles.acquireButton, !canAfford && styles.acquireButtonDisabled]}
+                    >
+                      <Text style={[styles.acquireText, !canAfford && styles.acquireTextDisabled]}>
+                        {canAfford ? 'Acquire' : 'Need cash'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </GameCard>
+              );
+            })}
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
+  scroll: { flex: 1 },
+  content: { padding: 16, paddingBottom: 36 },
+  summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  summaryCard: { flex: 1, backgroundColor: Colors.card, borderColor: Colors.cardBorder, borderWidth: 1, borderRadius: 12, padding: 13 },
+  summaryLabel: { color: Colors.textMuted, fontSize: 11 },
+  summaryValue: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800', marginTop: 4 },
+  locked: { alignItems: 'center', paddingVertical: 18, gap: 9 },
+  lockedTitle: { color: Colors.textPrimary, fontSize: 19, fontWeight: '800' },
+  lockedText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  progressText: { color: Colors.warning, fontSize: 12, fontWeight: '800' },
+  sectionTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
+  sectionSub: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  chips: { gap: 8, paddingTop: 12, paddingBottom: 2 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 18, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: Colors.elevated },
+  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  chipText: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700' },
+  chipTextActive: { color: Colors.white },
+  linkButton: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 12 },
+  linkText: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
+  marketHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 4 },
+  marketTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
+  marketSub: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
+  negotiationBadge: { flexDirection: 'row', gap: 5, alignItems: 'center', backgroundColor: '#10382D', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8 },
+  negotiationText: { color: Colors.primary, fontSize: 10, fontWeight: '800' },
+  emptyTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
+  emptyText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 5 },
+  targetHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  targetIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#17263A', alignItems: 'center', justifyContent: 'center' },
+  targetNameWrap: { flex: 1 },
+  targetName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
+  targetMeta: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
+  riskBadge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 4 },
+  riskText: { fontSize: 9, fontWeight: '900' },
+  metrics: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  metric: { flex: 1, minWidth: 0 },
+  metricLabel: { color: Colors.textMuted, fontSize: 9 },
+  metricValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', marginTop: 3 },
+  diligenceBox: { backgroundColor: Colors.elevated, borderRadius: 10, padding: 10, marginTop: 12 },
+  diligenceTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', marginBottom: 6 },
+  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
+  noteDot: { width: 6, height: 6, borderRadius: 3 },
+  noteText: { color: Colors.textSecondary, fontSize: 10, flex: 1 },
+  integrationText: { color: Colors.textMuted, fontSize: 9, marginTop: 8 },
+  sellerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, gap: 12 },
+  sellerText: { color: Colors.textMuted, fontSize: 10, flex: 1 },
+  acquireButton: { minWidth: 92, alignItems: 'center', backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  acquireButtonDisabled: { backgroundColor: Colors.elevated },
+  acquireText: { color: Colors.white, fontSize: 12, fontWeight: '900' },
+  acquireTextDisabled: { color: Colors.textMuted },
+});
