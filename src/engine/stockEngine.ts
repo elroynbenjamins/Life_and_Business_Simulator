@@ -169,7 +169,8 @@ export function processDividends(
 export function processStocks(
   state: GameState,
   news: NewsEvent,
-  macroShock = 0
+  macroShock = 0,
+  cryptoDownsideReduction = 0,
 ): { stocks: StockState[]; stockChanges: { ticker: string; change: number }[] } {
   const newsEffects = news?.effects ?? {};
   const inflationDrift = ((state?.inflationMultiplier ?? 1) - 1) * 0.0005;
@@ -256,6 +257,10 @@ export function processStocks(
       + maniaEffect
       + effectiveMacroShock;
 
+    const protectedRawChange = isCrypto && rawChange < 0
+      ? rawChange * (1 - Math.max(0, Math.min(0.5, cryptoDownsideReduction)))
+      : rawChange;
+
     const minChange = cryptoStyle === 'reserve' ? -0.18
       : cryptoStyle === 'utility' ? -0.25
         : cryptoStyle === 'speculative' ? -0.35
@@ -264,7 +269,7 @@ export function processStocks(
       : cryptoStyle === 'utility' ? 0.28
         : cryptoStyle === 'speculative' ? 0.40
           : 0.10;
-    const totalChange = Math.max(minChange, Math.min(maxChange, rawChange));
+    const totalChange = Math.max(minChange, Math.min(maxChange, protectedRawChange));
 
     let newPrice = (stock?.currentPrice ?? 100) * (1 + totalChange);
     newPrice = Math.max(isCrypto ? 0.01 : 1, Math.round(newPrice * 100) / 100);
