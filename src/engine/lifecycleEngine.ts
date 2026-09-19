@@ -98,13 +98,20 @@ export function calculateEstateSettlement(state: GameState): EstateSettlement {
     if (childCurrentAge(child, state) >= 18) eligibleSuccessors.push({ id: child.id, name: child.name });
   }
   const successorName = eligibleSuccessors.find((item) => item.id === successorId)?.name ?? null;
-  const businessValue = Math.max(0, (state.businesses ?? [])
-    .filter((business) => business.familyBusiness?.isFamilyBusiness)
-    .reduce((sum, business) => {
-      const debt = (business.businessLoans ?? []).reduce((loanSum, loan) => loanSum + (loan.remainingAmount ?? 0), 0);
-      const equity = Math.max(0, (business.valuation ?? 0) - debt);
-      return sum + equity * (getPlayerOwnershipPct(business) / 100);
-    }, 0));
+  const inheritableFamilyBusinesses = (state.businesses ?? [])
+    .filter((business) => business.familyBusiness?.isFamilyBusiness);
+  const inheritableHoldingIds = new Set(
+    inheritableFamilyBusinesses.map((business) => business.holdingCompanyId).filter(Boolean)
+  );
+  const familyBusinessEquity = inheritableFamilyBusinesses.reduce((sum, business) => {
+    const debt = (business.businessLoans ?? []).reduce((loanSum, loan) => loanSum + (loan.remainingAmount ?? 0), 0);
+    const equity = Math.max(0, (business.valuation ?? 0) - debt);
+    return sum + equity * (getPlayerOwnershipPct(business) / 100);
+  }, 0);
+  const inheritableHoldingCash = (state.holdingCompanies ?? [])
+    .filter((holding) => inheritableHoldingIds.has(holding.id))
+    .reduce((sum, holding) => sum + Math.max(0, holding.cashReserve ?? 0), 0);
+  const businessValue = Math.max(0, familyBusinessEquity + inheritableHoldingCash);
 
   // If a business successor was explicitly named, businesses pass outside the
   // residual family split. This makes succession strategically meaningful and
