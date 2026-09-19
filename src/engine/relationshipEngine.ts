@@ -1216,6 +1216,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     partnerContribution: finances.contribution,
     householdExtraCost: finances.householdExtraCost,
     familyCost: finances.familyCost,
+    obligationCost,
     relationshipChange,
     headline,
     eventTitle,
