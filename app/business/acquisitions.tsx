@@ -11,15 +11,23 @@ import { formatCurrency } from '../../src/utils/format';
 import {
   ACQUISITION_MARKET_REFRESH_WEEKS,
   ACQUISITION_UNLOCK_NET_WORTH,
+  getAcquisitionFinancingQuote,
   getAcquisitionPrice,
 } from '../../src/engine/acquisitionEngine';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
+import { AcquisitionFundingMode } from '../../src/types/game';
 
 const RISK_LABELS = {
   low: { label: 'Low risk', color: Colors.primary },
   medium: { label: 'Medium risk', color: Colors.warning },
   high: { label: 'High risk', color: Colors.negative },
 };
+
+const FUNDING_OPTIONS: Array<{ key: AcquisitionFundingMode; label: string; desc: string }> = [
+  { key: 'cash', label: 'All Cash', desc: '100% cash • no acquisition debt' },
+  { key: 'balanced', label: 'Balanced', desc: '60% cash • 40% acquisition debt' },
+  { key: 'leveraged', label: 'Leveraged', desc: '30% cash • 70% acquisition debt' },
+];
 
 export default function BusinessAcquisitionsScreen() {
   const router = useRouter();
@@ -34,15 +42,23 @@ export default function BusinessAcquisitionsScreen() {
   const ensureAcquisitionMarket = useGameStore((s) => s.ensureAcquisitionMarket);
   const refreshAcquisitionMarket = useGameStore((s) => s.refreshAcquisitionMarket);
   const acquireBusiness = useGameStore((s) => s.acquireBusiness);
+
   const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
+  const [fundingMode, setFundingMode] = useState<AcquisitionFundingMode>('balanced');
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
-  const negotiationBonus = getPrestigeEffects(profile).negotiation ?? 0;
+  const effects = getPrestigeEffects(profile);
+  const negotiationBonus = effects.negotiation ?? 0;
+  const loanRateReduction = effects.loan_rate_reduction ?? 0;
   const globalWeek = ((year - 1) * 20) + week;
   const weeksUntilRefresh = lastRefreshWeek <= 0
     ? 0
     : Math.max(0, ACQUISITION_MARKET_REFRESH_WEEKS - (globalWeek - lastRefreshWeek));
+  const selectedHolding = selectedHoldingId
+    ? holdingCompanies.find((holding) => holding.id === selectedHoldingId) ?? null
+    : null;
+  const sourceCash = selectedHolding ? selectedHolding.cashReserve ?? 0 : cash;
 
   useEffect(() => {
     if (unlocked) ensureAcquisitionMarket();
@@ -57,15 +73,17 @@ export default function BusinessAcquisitionsScreen() {
     const target = acquisitionTargets.find((item) => item.id === targetId);
     if (!target) return;
     const price = getAcquisitionPrice(target, negotiationBonus);
-    const destination = selectedHoldingId
-      ? holdingCompanies.find((holding) => holding.id === selectedHoldingId)?.name ?? 'selected holding'
-      : 'your direct portfolio';
+    const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction);
+    const destination = selectedHolding?.name ?? 'your direct portfolio';
+    const debtText = quote.debtPrincipal > 0
+      ? ` + ${formatCurrency(quote.debtPrincipal)} acquisition debt (${formatCurrency(quote.weeklyPayment)}/wk)`
+      : '';
 
     showGameDialog({
       title: `Acquire ${target.name}?`,
-      message: `${formatCurrency(price)} cash purchase into ${destination}. Integration lasts ${target.integrationWeeks} weeks and begins with a ${Math.round(target.integrationPenalty * 100)}% operating penalty.`,
+      message: `${formatCurrency(quote.cashContribution)} cash${debtText}. The company will enter ${destination}. After closing, choose Keep Independent, Integrate Operations, or Aggressive Turnaround.`,
       confirmText: 'Acquire',
-      onConfirm: () => acquireBusiness(target.id, selectedHoldingId),
+      onConfirm: () => acquireBusiness(target.id, selectedHoldingId, fundingMode),
     });
   };
 
@@ -96,8 +114,8 @@ export default function BusinessAcquisitionsScreen() {
             <Text style={styles.summaryValue}>{formatCurrency(netWorth)}</Text>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Available Cash</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(cash)}</Text>
+            <Text style={styles.summaryLabel}>{selectedHolding ? 'Holding Cash' : 'Personal Cash'}</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(sourceCash)}</Text>
           </View>
         </View>
 
@@ -108,7 +126,6 @@ export default function BusinessAcquisitionsScreen() {
               <Text style={styles.lockedTitle}>Late-game M&A</Text>
               <Text style={styles.lockedText}>
                 Business acquisitions unlock at {formatCurrency(ACQUISITION_UNLOCK_NET_WORTH)} net worth.
-                Build capital first, then buy established companies instead of starting every business from zero.
               </Text>
               <Text style={styles.progressText}>
                 {Math.min(100, Math.round(netWorth / ACQUISITION_UNLOCK_NET_WORTH * 100))}% unlocked
@@ -118,9 +135,9 @@ export default function BusinessAcquisitionsScreen() {
         ) : (
           <>
             <GameCard>
-              <Text style={styles.sectionTitle}>Acquire into</Text>
+              <Text style={styles.sectionTitle}>Purchase Entity</Text>
               <Text style={styles.sectionSub}>
-                Choose where the next company sits. Ownership and family-business status remain editable after purchase.
+                A holding purchase uses that holding's cash reserve. Direct purchases use personal cash.
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
                 <Pressable
@@ -128,7 +145,7 @@ export default function BusinessAcquisitionsScreen() {
                   onPress={() => setSelectedHoldingId(null)}
                 >
                   <Ionicons name="person" size={14} color={selectedHoldingId === null ? Colors.white : Colors.textSecondary} />
-                  <Text style={[styles.chipText, selectedHoldingId === null && styles.chipTextActive]}>Direct portfolio</Text>
+                  <Text style={[styles.chipText, selectedHoldingId === null && styles.chipTextActive]}>Direct • {formatCurrency(cash)}</Text>
                 </Pressable>
                 {holdingCompanies.map((holding) => (
                   <Pressable
@@ -137,16 +154,37 @@ export default function BusinessAcquisitionsScreen() {
                     onPress={() => setSelectedHoldingId(holding.id)}
                   >
                     <Ionicons name="business" size={14} color={selectedHoldingId === holding.id ? Colors.white : Colors.textSecondary} />
-                    <Text style={[styles.chipText, selectedHoldingId === holding.id && styles.chipTextActive]}>{holding.name}</Text>
+                    <Text style={[styles.chipText, selectedHoldingId === holding.id && styles.chipTextActive]}>
+                      {holding.name} • {formatCurrency(holding.cashReserve ?? 0)}
+                    </Text>
                   </Pressable>
                 ))}
               </ScrollView>
               {holdingCompanies.length === 0 && (
                 <Pressable style={styles.linkButton} onPress={() => router.push('/business/holdings')}>
-                  <Text style={styles.linkText}>Create a holding company</Text>
+                  <Text style={styles.linkText}>Create and fund a holding company</Text>
                   <Ionicons name="arrow-forward" size={15} color={Colors.primary} />
                 </Pressable>
               )}
+            </GameCard>
+
+            <GameCard>
+              <Text style={styles.sectionTitle}>Financing</Text>
+              <Text style={styles.sectionSub}>
+                Acquisition debt stays on the acquired company and reduces net worth until repaid.
+              </Text>
+              <View style={styles.fundingGrid}>
+                {FUNDING_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.key}
+                    onPress={() => setFundingMode(option.key)}
+                    style={[styles.fundingOption, fundingMode === option.key && styles.fundingOptionActive]}
+                  >
+                    <Text style={[styles.fundingLabel, fundingMode === option.key && { color: Colors.primary }]}>{option.label}</Text>
+                    <Text style={styles.fundingDesc}>{option.desc}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </GameCard>
 
             <View style={styles.marketHeader}>
@@ -172,10 +210,13 @@ export default function BusinessAcquisitionsScreen() {
             ) : sortedTargets.map((target) => {
               const risk = RISK_LABELS[target.risk];
               const price = getAcquisitionPrice(target, negotiationBonus);
+              const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction);
               const premiumPct = target.estimatedValue > 0
                 ? Math.round((price / target.estimatedValue - 1) * 100)
                 : 0;
-              const canAfford = cash >= price;
+              const debtServiceSafe = quote.weeklyPayment <= Math.max(1, target.weeklyProfit) * 0.80;
+              const canAfford = sourceCash >= quote.cashContribution && debtServiceSafe;
+
               return (
                 <GameCard key={target.id}>
                   <View style={styles.targetHeader}>
@@ -193,7 +234,7 @@ export default function BusinessAcquisitionsScreen() {
 
                   <View style={styles.metrics}>
                     <View style={styles.metric}>
-                      <Text style={styles.metricLabel}>Asking</Text>
+                      <Text style={styles.metricLabel}>Price</Text>
                       <Text style={styles.metricValue}>{formatCurrency(price)}</Text>
                     </View>
                     <View style={styles.metric}>
@@ -204,6 +245,23 @@ export default function BusinessAcquisitionsScreen() {
                       <Text style={styles.metricLabel}>Price / value</Text>
                       <Text style={[styles.metricValue, { color: premiumPct <= 0 ? Colors.primary : Colors.warning }]}>
                         {premiumPct > 0 ? '+' : ''}{premiumPct}%
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.metrics}>
+                    <View style={styles.metric}>
+                      <Text style={styles.metricLabel}>Cash needed</Text>
+                      <Text style={styles.metricValue}>{formatCurrency(quote.cashContribution)}</Text>
+                    </View>
+                    <View style={styles.metric}>
+                      <Text style={styles.metricLabel}>Financed</Text>
+                      <Text style={styles.metricValue}>{formatCurrency(quote.debtPrincipal)}</Text>
+                    </View>
+                    <View style={styles.metric}>
+                      <Text style={styles.metricLabel}>Debt service</Text>
+                      <Text style={[styles.metricValue, { color: debtServiceSafe ? Colors.textPrimary : Colors.negative }]}>
+                        {quote.weeklyPayment > 0 ? `${formatCurrency(quote.weeklyPayment)}/wk` : 'None'}
                       </Text>
                     </View>
                   </View>
@@ -232,7 +290,7 @@ export default function BusinessAcquisitionsScreen() {
                       </View>
                     ))}
                     <Text style={styles.integrationText}>
-                      Integration: {target.integrationWeeks} weeks • {Math.round(target.integrationPenalty * 100)}% initial operating penalty
+                      Base integration: {target.integrationWeeks} weeks • {Math.round(target.integrationPenalty * 100)}% disruption. You choose the integration approach after closing.
                     </Text>
                   </View>
 
@@ -244,7 +302,7 @@ export default function BusinessAcquisitionsScreen() {
                       style={[styles.acquireButton, !canAfford && styles.acquireButtonDisabled]}
                     >
                       <Text style={[styles.acquireText, !canAfford && styles.acquireTextDisabled]}>
-                        {canAfford ? 'Acquire' : 'Need cash'}
+                        {!debtServiceSafe ? 'Too leveraged' : sourceCash < quote.cashContribution ? 'Need cash' : 'Acquire'}
                       </Text>
                     </Pressable>
                   </View>
@@ -281,6 +339,11 @@ const styles = StyleSheet.create({
   chipTextActive: { color: Colors.white },
   linkButton: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 12 },
   linkText: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
+  fundingGrid: { gap: 8, marginTop: 12 },
+  fundingOption: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, padding: 10, backgroundColor: Colors.elevated },
+  fundingOptionActive: { borderColor: Colors.primary, backgroundColor: '#10382D' },
+  fundingLabel: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
+  fundingDesc: { color: Colors.textMuted, fontSize: 10, marginTop: 3 },
   marketHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 4 },
   marketTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
   marketSub: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
@@ -307,7 +370,7 @@ const styles = StyleSheet.create({
   integrationText: { color: Colors.textMuted, fontSize: 9, marginTop: 8 },
   sellerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, gap: 12 },
   sellerText: { color: Colors.textMuted, fontSize: 10, flex: 1 },
-  acquireButton: { minWidth: 92, alignItems: 'center', backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  acquireButton: { minWidth: 100, alignItems: 'center', backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
   acquireButtonDisabled: { backgroundColor: Colors.elevated },
   acquireText: { color: Colors.white, fontSize: 12, fontWeight: '900' },
   acquireTextDisabled: { color: Colors.textMuted },
