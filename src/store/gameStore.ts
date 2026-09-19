@@ -1741,7 +1741,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (!state.lifecycle?.isDead) return;
     const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
-    const preview = getSuccessionPreview(state, childId, assetStrategy);
+    const preview = getSuccessionPreview(
+      state,
+      childId,
+      assetStrategy,
+      getPrestigeEffects(state.profile).inheritance_tax_reduction ?? 0,
+    );
     if (!child || !preview || !preview.willingToSucceed) return;
     if (!financeTaxWithLoan && preview.taxCashAvailable < preview.inheritanceTax) return;
 
@@ -2585,6 +2590,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (personality.riskTolerance === 'risk_taking') performance += role === 'executive' ? 4 : -1;
     if (personality.riskTolerance === 'cautious') performance += role === 'board' ? 4 : 1;
     performance += Math.round(((child.parentRelationship ?? 75) - 70) * 0.12);
+    performance += Math.round(getPrestigeEffects(state.profile).family_governance_bonus ?? 0);
     performance = Math.max(20, Math.min(95, performance));
 
     let roles = (business.familyRoles ?? []).filter((item) => item.childId !== childId);
