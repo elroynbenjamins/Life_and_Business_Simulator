@@ -9,6 +9,7 @@ import GameCard from '../src/components/GameCard';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { getSuccessionPreview } from '../src/engine/lifecycleEngine';
+import { getPrestigeEffects } from '../src/engine/prestigeEngine';
 import { SuccessionAssetStrategy } from '../src/types/game';
 
 const STEP_TITLES = ['Estate', 'Choose Heir', 'Tax & Assets'];
@@ -20,17 +21,22 @@ export default function SuccessionScreen() {
   const children = state.relationshipState?.children ?? [];
   const continueAsChild = useGameStore((s) => s.continueAsChild);
   const beginNewGame = useGameStore((s) => s.beginNewGame);
+  const profile = useGameStore((s) => s.profile);
+  const prestigeEffects = getPrestigeEffects(profile);
+  const inheritanceTaxReduction = prestigeEffects.inheritance_tax_reduction ?? 0;
 
   const [step, setStep] = useState(0);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [assetStrategy, setAssetStrategy] = useState<SuccessionAssetStrategy>('liquidate');
 
   const eligible = useMemo(() => children
-    .map((child) => ({ child, preview: getSuccessionPreview(state, child.id, 'liquidate') }))
+    .map((child) => ({ child, preview: getSuccessionPreview(state, child.id, 'liquidate', inheritanceTaxReduction) }))
     .filter((item) => !!item.preview), [children, estate, state.year, state.week]);
 
   const selectedChild = children.find((child) => child.id === selectedChildId) ?? null;
-  const preview = selectedChildId ? getSuccessionPreview(state, selectedChildId, assetStrategy) : null;
+  const preview = selectedChildId
+    ? getSuccessionPreview(state, selectedChildId, assetStrategy, inheritanceTaxReduction)
+    : null;
 
   const finishSuccession = (financeTaxWithLoan: boolean) => {
     if (!selectedChildId || !preview?.willingToSucceed) return;
@@ -226,7 +232,12 @@ export default function SuccessionScreen() {
               <MoneyRow label="Inheritance tax" value={-preview.inheritanceTax} negative strong />
               {preview.loanNeeded > 0 && <MoneyRow label="Minimum financing need" value={preview.loanNeeded} />}
 
-              <View style={styles.taxNote}><Text style={styles.taxNoteText}>Tax is based on inherited value, not on whether assets are sold. Existing personal savings can be used to pay it.</Text></View>
+              <View style={styles.taxNote}>
+                <Text style={styles.taxNoteText}>
+                  Tax is based on inherited value, not on whether assets are sold. Existing personal savings can be used to pay it.
+                  {inheritanceTaxReduction > 0 ? ` Legacy Planning reduces this tax by ${Math.round(inheritanceTaxReduction * 100)}%.` : ''}
+                </Text>
+              </View>
             </GameCard>
 
             <View style={styles.navRow}>
