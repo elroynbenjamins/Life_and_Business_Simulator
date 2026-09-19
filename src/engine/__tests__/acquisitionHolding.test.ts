@@ -30,7 +30,7 @@ describe('business acquisitions and holding companies', () => {
   });
 
   test('applies negotiation prestige to an acquisition price with a safety cap', () => {
-    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const target = generateAcquisitionTargets(120, 1, 1)[0];
 
     expect(getAcquisitionPrice(target, 0.05)).toBe(Math.round(target.askingPrice * 0.95));
@@ -38,7 +38,7 @@ describe('business acquisitions and holding companies', () => {
   });
 
   test('acquired companies enter the normal business simulation with integration risk', () => {
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const target = generateAcquisitionTargets(120, 1, 1)[0];
     const state = {
       ...INITIAL_GAME_STATE,
