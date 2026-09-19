@@ -158,6 +158,7 @@ export function createAcquiredBusiness(
   target: BusinessAcquisitionTarget,
   state: Pick<GameState, 'week' | 'year' | 'inflationMultiplier' | 'playerName' | 'familyTree'>,
   holdingCompanyId: string | null = null,
+  purchasePrice = target.askingPrice,
 ): OwnedBusiness | null {
   const type = getBusinessType(target.typeId);
   const base = createBusiness(target.typeId, target.name, state.week, state.year, state.inflationMultiplier);
@@ -197,7 +198,7 @@ export function createAcquiredBusiness(
     operatingScaleMultiplier,
     holdingCompanyId,
     acquisition: {
-      purchasePrice: target.askingPrice,
+      purchasePrice,
       sellerName: target.sellerName,
       acquiredGlobalWeek: currentGlobalWeek,
       estimatedValueAtPurchase: target.estimatedValue,
@@ -218,7 +219,7 @@ export function createAcquiredBusiness(
       {
         week: state.week,
         year: state.year,
-        title: `🤝 Acquired for €${Math.round(target.askingPrice).toLocaleString('en-US')}`,
+        title: `🤝 Acquired for €${Math.round(purchasePrice).toLocaleString('en-US')}`,
         icon: '🤝',
         kind: 'event',
       },
