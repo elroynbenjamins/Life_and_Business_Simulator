@@ -16,6 +16,7 @@ export function canUnlockPrestige(profile: PlayerProfile, bonusId: string): bool
   const bonus = (prestigeData as any[]).find((b) => b?.id === bonusId);
   if (!bonus) return false;
   if ((profile.prestigePoints ?? 0) < (bonus.cost ?? 0)) return false;
+  if ((profile.gems ?? 0) < (bonus.gemCost ?? 0)) return false;
   // Check prerequisites
   if (bonus.requires) {
     const requirements: string[] = Array.isArray(bonus.requires) ? bonus.requires : [bonus.requires];
@@ -41,6 +42,7 @@ export function unlockPrestige(
   return {
     ...profile,
     prestigePoints: (profile.prestigePoints ?? 0) - (bonus.cost ?? 0),
+    gems: (profile.gems ?? 0) - (bonus.gemCost ?? 0),
     unlockedPrestige: [...(profile.unlockedPrestige ?? []), bonusId],
   };
 }
