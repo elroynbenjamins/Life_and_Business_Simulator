@@ -584,6 +584,8 @@ export interface BusinessTickResult {
 export interface BusinessSimulationModifiers {
   /** Decimal reduction, e.g. 0.075 means 7.5% lower operating expenses. */
   businessCostReduction?: number;
+  /** Decimal reduction applied to the chance of new business crises. */
+  businessCrisisReduction?: number;
 }
 
 /**
@@ -1096,7 +1098,8 @@ export function processBusinessWeek(
     pendingDecision = makeStrategicDecision(biz, globalWeek);
     nextStrategicDecisionWeek = globalWeek + 6 + Math.floor(Math.random() * 7);
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextCrisisCheckWeek) {
-    const crisisChance = Math.max(0.10, 0.24 - (biz.reputation ?? 0) * 0.001);
+    const baseCrisisChance = Math.max(0.10, 0.24 - (biz.reputation ?? 0) * 0.001);
+    const crisisChance = Math.max(0.04, baseCrisisChance * (1 - Math.max(0, Math.min(0.8, modifiers.businessCrisisReduction ?? 0))));
     if (Math.random() < crisisChance) {
       pendingDecision = makeBusinessCrisis(biz, globalWeek);
     }
