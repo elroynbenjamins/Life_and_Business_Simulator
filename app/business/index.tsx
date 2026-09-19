@@ -8,12 +8,17 @@ import GameCard from '../../src/components/GameCard';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
 import { getLevelName, getBusinessType, getAutomationScore, getTotalBusinessValue } from '../../src/engine/businessEngine';
+import { ACQUISITION_UNLOCK_NET_WORTH } from '../../src/engine/acquisitionEngine';
 
 export default function BusinessPortfolioScreen() {
   const router = useRouter();
   const businesses = useGameStore((s) => s?.businesses ?? []);
   const cash = useGameStore((s) => s?.cash ?? 0);
+  const holdingCompanies = useGameStore((s) => s?.holdingCompanies ?? []);
+  const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
 
+  const netWorth = getNetWorthValue();
+  const acquisitionsUnlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
   const totalValue = getTotalBusinessValue(businesses);
   const totalWeeklyProfit = businesses.reduce((t, b) => t + (b?.lastWeekProfit ?? 0), 0);
 
@@ -41,6 +46,46 @@ export default function BusinessPortfolioScreen() {
             </Text>
           </View>
         </View>
+
+        <GameCard>
+          <View style={styles.capitalHeader}>
+            <View style={styles.capitalIcon}>
+              <Ionicons name="layers" size={22} color={Colors.info} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.capitalTitle}>Capital Allocation</Text>
+              <Text style={styles.capitalSub}>
+                {acquisitionsUnlocked
+                  ? 'Buy established companies and organize the dynasty under holding companies.'
+                  : `Unlock M&A at ${formatCurrency(ACQUISITION_UNLOCK_NET_WORTH)} net worth.`}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.capitalActions}>
+            <Pressable
+              style={[styles.capitalButton, !acquisitionsUnlocked && styles.capitalButtonLocked]}
+              onPress={() => router.push('/business/acquisitions')}
+            >
+              <Ionicons name={acquisitionsUnlocked ? 'trending-up' : 'lock-closed'} size={17} color={acquisitionsUnlocked ? Colors.primary : Colors.textMuted} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.capitalButtonTitle, !acquisitionsUnlocked && { color: Colors.textMuted }]}>Acquisitions</Text>
+                <Text style={styles.capitalButtonSub}>{acquisitionsUnlocked ? 'Browse M&A targets' : `${Math.min(100, Math.round(netWorth / ACQUISITION_UNLOCK_NET_WORTH * 100))}% unlocked`}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </Pressable>
+            <Pressable
+              style={[styles.capitalButton, !acquisitionsUnlocked && styles.capitalButtonLocked]}
+              onPress={() => router.push('/business/holdings')}
+            >
+              <Ionicons name="business" size={17} color={acquisitionsUnlocked ? Colors.warning : Colors.textMuted} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.capitalButtonTitle, !acquisitionsUnlocked && { color: Colors.textMuted }]}>Holdings</Text>
+                <Text style={styles.capitalButtonSub}>{holdingCompanies.length} holding {holdingCompanies.length === 1 ? 'company' : 'companies'}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </Pressable>
+          </View>
+        </GameCard>
 
         {/* Business List */}
         {businesses.length === 0 ? (
@@ -73,6 +118,14 @@ export default function BusinessPortfolioScreen() {
                         <View style={styles.familyBadge}>
                           <Ionicons name="people" size={11} color={Colors.warning} />
                           <Text style={styles.familyBadgeText}>Family Business • G{biz.familyBusiness.generationsOwned}</Text>
+                        </View>
+                      )}
+                      {biz.holdingCompanyId && (
+                        <View style={styles.holdingBadge}>
+                          <Ionicons name="layers" size={11} color={Colors.info} />
+                          <Text style={styles.holdingBadgeText}>
+                            {holdingCompanies.find((holding) => holding.id === biz.holdingCompanyId)?.name ?? 'Holding Company'}
+                          </Text>
                         </View>
                       )}
                     </View>
@@ -160,6 +213,17 @@ const styles = StyleSheet.create({
   bizLevel: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   familyBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, backgroundColor: `${Colors.warning}15` },
   familyBadgeText: { color: Colors.warning, fontSize: 9, fontWeight: '800' },
+  holdingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, backgroundColor: '#17263A' },
+  holdingBadgeText: { color: Colors.info, fontSize: 9, fontWeight: '800' },
+  capitalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  capitalIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#17263A', justifyContent: 'center', alignItems: 'center' },
+  capitalTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
+  capitalSub: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
+  capitalActions: { gap: 8, marginTop: 12 },
+  capitalButton: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 48, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9 },
+  capitalButtonLocked: { opacity: 0.75 },
+  capitalButtonTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
+  capitalButtonSub: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
   bizStats: { flexDirection: 'row', marginTop: 12, gap: 8 },
   bizStat: { flex: 1 },
   bizStatLabel: { color: Colors.textMuted, fontSize: 11 },
