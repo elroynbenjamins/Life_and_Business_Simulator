@@ -2758,6 +2758,9 @@ const useGameStore = create<GameStore>((set, get) => ({
       updatedBusiness = {
         ...business,
         balance: (business.balance ?? 0) + requested,
+        // Capital moved from the holding reserve is still part of group equity;
+        // reflect it immediately so portfolio net worth does not dip until the next tick.
+        valuation: (business.valuation ?? 0) + requested,
         acquisition: business.acquisition
           ? {
               ...business.acquisition,
