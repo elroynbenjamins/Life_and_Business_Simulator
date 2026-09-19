@@ -25,14 +25,18 @@ export default function EventModal() {
   const handleEventChoice = useGameStore((s) => s?.handleEventChoice);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const businesses = useGameStore((s) => s?.businesses ?? []);
+  const inject = useGameStore((s) => s.injectCashIntoBusiness);
 
   if (!showEventModal || !event) return null;
 
   const catColor = CATEGORY_COLORS[event.category] ?? Colors.primary;
   const isOpportunity = event.type === 'opportunity';
+  const business = businesses.find(item => item.id === event.businessId);
+  const cheapestChoice = Math.min(...(event.choices ?? []).map(choice => Math.max(0, -(choice.businessCash ?? 0))));
+  const fundingNeeded = business ? Math.ceil(Math.max(0, cheapestChoice - business.balance)) : 0;
 
   return (
-    <Modal visible transparent animationType="fade">
+    <Modal visible transparent animationType="fade" onRequestClose={event.businessId ? dismissEventModal : undefined}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           {/* Header */}
@@ -102,6 +106,15 @@ export default function EventModal() {
               );
             })}
           </ScrollView>
+          {business && <>
+            {fundingNeeded > 0 && Number.isFinite(fundingNeeded) && (
+              <Pressable style={styles.choiceBtn} disabled={cash < fundingNeeded} onPress={() => inject(business.id, fundingNeeded)}>
+                <Text style={styles.choiceText}>Inject {formatCurrency(fundingNeeded)} personal cash</Text>
+                {cash < fundingNeeded && <Text style={styles.description}>Not enough personal cash</Text>}
+              </Pressable>
+            )}
+            <Pressable style={styles.choiceBtn} onPress={dismissEventModal}><Text style={styles.choiceText}>Skip this opportunity</Text></Pressable>
+          </>}
         </View>
       </View>
     </Modal>

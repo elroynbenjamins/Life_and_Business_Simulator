@@ -17,7 +17,7 @@ const STEPS = [
     color: Colors.info,
     title: 'Learn, then build a career',
     text: 'Start with Education to unlock a career path and gain skills and knowledge. A part-time job can provide income while studying, but you cannot keep it after starting a normal career.',
-    tip: 'Higher career levels can require experience, education, an SUV and better housing.',
+    tip: 'Higher career levels can require experience, education, a Sedan or SUV, and better housing.',
   },
   {
     icon: 'wallet-outline' as const,

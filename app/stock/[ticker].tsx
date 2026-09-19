@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Dimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, useWindowDimensions, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../src/theme/colors';
+import { Colors, resolveThemeColor } from '../../src/theme/colors';
 import GameStatusBar from '../../src/components/StatusBar';
 import GameCard from '../../src/components/GameCard';
 import SectorPill from '../../src/components/SectorPill';
@@ -12,8 +12,10 @@ import { formatCurrency, formatPercent } from '../../src/utils/format';
 import stocksData from '../../src/data/stocks.json';
 import { LineChart } from 'react-native-chart-kit';
 import { showGameDialog } from '../../src/components/GameDialog';
+import RepeatStepperButton from '../../src/components/RepeatStepperButton';
 
 export default function StockDetailScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const { ticker = '' } = useLocalSearchParams<{ ticker: string }>();
   const router = useRouter();
   const stocks = useGameStore((s) => s?.stocks ?? []);
@@ -23,6 +25,16 @@ export default function StockDetailScreen() {
   const sellStock = useGameStore((s) => s?.sellStock);
 
   const [qty, setQty] = useState(0);
+  const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
+  const [editingQuantity, setEditingQuantity] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const quantityRef = useRef<TextInput>(null);
+  useEffect(() => {
+    const shown = Keyboard.addListener('keyboardDidShow', () => scrollRef.current?.scrollToEnd({ animated: true }));
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setEditingQuantity(false));
+    return () => { shown.remove(); hidden.remove(); };
+  }, []);
+  const finishQuantity = () => { quantityRef.current?.blur(); Keyboard.dismiss(); setEditingQuantity(false); };
 
   const sd = (stocksData ?? []).find((s) => s?.ticker === ticker);
   const stock = (stocks ?? []).find((s) => s?.ticker === ticker);
@@ -44,7 +56,7 @@ export default function StockDetailScreen() {
   const prevPrice = (history?.length ?? 0) >= 2 ? history[(history?.length ?? 1) - 2] : price;
   const changePercent = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
   const isPositive = changePercent >= 0;
-  const chartWidth = Math.min(Dimensions.get('window').width - 64, 500);
+  const chartWidth = Math.min(screenWidth - 64, 500);
 
   const totalCost = qty * price;
   const maxBuy = price > 0 ? Math.floor(cash / price) : 0;
@@ -58,6 +70,11 @@ export default function StockDetailScreen() {
   // Determine chart line color
   const firstPrice = history?.[0] ?? price;
   const lineColor = price >= firstPrice ? Colors.primary : Colors.negative;
+  const chartBackground = resolveThemeColor(Colors.card) as string;
+  const chartLabel = resolveThemeColor(Colors.textSecondary) as string;
+  const chartGrid = resolveThemeColor(Colors.cardBorder) as string;
+  const historyLow = Math.min(...history.map((value) => value ?? 0));
+  const historyHigh = Math.max(...history.map((value) => value ?? 0));
 
   const handleBuy = () => {
     if (qty <= 0 || totalCost > cash) return;
@@ -86,8 +103,9 @@ export default function StockDetailScreen() {
         </Pressable>
         <Text style={styles.headerTitle}>{sd?.ticker} — {sd?.company}</Text>
       </View>
-      <GameStatusBar />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      {!editingQuantity && <GameStatusBar />}
+      <KeyboardAvoidingView style={styles.scroll} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onContentSizeChange={() => { if (editingQuantity) scrollRef.current?.scrollToEnd({ animated: true }); }}>
         {/* Price Header */}
         <View style={styles.priceRow}>
           <Text style={styles.bigPrice}>{formatCurrency(price, 2)}</Text>
@@ -114,21 +132,35 @@ export default function StockDetailScreen() {
               }}
               width={chartWidth}
               height={200}
+              onDataPointClick={({ index }) => setSelectedPoint(index)}
               yAxisLabel="€"
               yAxisSuffix=""
               chartConfig={{
-                backgroundColor: Colors.card,
-                backgroundGradientFrom: Colors.card,
-                backgroundGradientTo: Colors.card,
-                decimalPlaces: 0,
+                backgroundColor: chartBackground,
+                backgroundGradientFrom: chartBackground,
+                backgroundGradientTo: chartBackground,
+                decimalPlaces: historyHigh < 100 ? 2 : 0,
                 color: () => lineColor,
-                labelColor: () => Colors.textMuted,
+                labelColor: () => chartLabel,
                 propsForDots: { r: '4', strokeWidth: '1', stroke: lineColor },
-                propsForBackgroundLines: { stroke: Colors.cardBorder },
+                propsForBackgroundLines: { stroke: chartGrid, strokeDasharray: '4 4' },
               }}
+              withHorizontalLabels
+              withVerticalLabels
+              withInnerLines
               bezier
               style={{ borderRadius: 8 }}
             />
+            <Text style={styles.chartSummaryValue}>
+              {selectedPoint !== null && history[selectedPoint] !== undefined
+                ? `${history.length - 1 - selectedPoint} weeks ago: ${formatCurrency(history[selectedPoint], 2)}`
+                : 'Tap a chart point to see its week and value'}
+            </Text>
+            <View style={styles.chartSummary}>
+              <View style={styles.chartSummaryItem}><Text style={styles.chartSummaryLabel}>{history.length - 1}w ago</Text><Text style={styles.chartSummaryValue}>{formatCurrency(firstPrice, 2)}</Text></View>
+              <View style={styles.chartSummaryItem}><Text style={styles.chartSummaryLabel}>Low / High</Text><Text style={styles.chartSummaryValue}>{formatCurrency(historyLow, 2)} / {formatCurrency(historyHigh, 2)}</Text></View>
+              <View style={styles.chartSummaryItem}><Text style={styles.chartSummaryLabel}>Now</Text><Text style={[styles.chartSummaryValue, { color: lineColor }]}>{formatCurrency(price, 2)}</Text></View>
+            </View>
             {(sd as any)?.dividendYield ? (
               <Text style={{ color: '#10B981', fontSize: 13, marginTop: 8, textAlign: 'center', fontWeight: '600' }}>
                 💵 Dividend Yield: {((sd as any).dividendYield * 100).toFixed(2)}% annual
@@ -164,13 +196,17 @@ export default function StockDetailScreen() {
         {/* Buy/Sell */}
         <GameCard title="Trade">
           <View style={styles.qtyRow}>
-            <Pressable
+            <RepeatStepperButton
               style={styles.stepperBtn}
-              onPress={() => setQty(Math.max(0, qty - 1))}
+              accessibilityLabel="Decrease shares"
+              disabled={qty <= 0}
+              onStep={(amount) => setQty(current => Math.max(0, current - amount))}
             >
               <Text style={styles.stepperText}>−</Text>
-            </Pressable>
+            </RepeatStepperButton>
             <TextInput
+              ref={quantityRef}
+              accessibilityLabel="Number of shares"
               style={styles.qtyInput}
               value={qty > 0 ? String(qty) : ''}
               placeholder="0"
@@ -181,13 +217,23 @@ export default function StockDetailScreen() {
                 setQty(isNaN(n) ? 0 : Math.max(0, n));
               }}
               keyboardType="number-pad"
+              inputMode="numeric"
+              disableFullscreenUI
+              selectTextOnFocus
+              maxLength={10}
+              returnKeyType="done"
+              onSubmitEditing={finishQuantity}
+              onFocus={() => { setEditingQuantity(true); scrollRef.current?.scrollToEnd({ animated: true }); }}
+              onBlur={() => setEditingQuantity(false)}
             />
-            <Pressable
+            <RepeatStepperButton
               style={styles.stepperBtn}
-              onPress={() => setQty(qty + 1)}
+              accessibilityLabel="Increase shares"
+              disabled={qty >= Math.max(maxBuy, maxSell)}
+              onStep={(amount) => setQty(current => Math.min(Math.max(maxBuy, maxSell), current + amount))}
             >
               <Text style={styles.stepperText}>+</Text>
-            </Pressable>
+            </RepeatStepperButton>
             <Pressable
               style={styles.maxBtn}
               onPress={() => setQty(maxBuy > 0 ? maxBuy : 0)}
@@ -196,20 +242,22 @@ export default function StockDetailScreen() {
             </Pressable>
           </View>
 
+          {editingQuantity && <Pressable style={styles.doneButton} onPress={finishQuantity} accessibilityRole="button"><Text style={styles.doneText}>Done entering quantity</Text></Pressable>}
+          {!editingQuantity && <Text style={styles.cashText}>Tap + / − for 1 share. Hold to change faster.</Text>}
           <Text style={styles.totalText}>Total: {formatCurrency(totalCost, 2)}</Text>
           <Text style={styles.cashText}>Cash: {formatCurrency(cash)}</Text>
 
           <View style={styles.actionRow}>
             <Pressable
               style={[styles.buyBtn, (totalCost > cash || qty <= 0) && styles.disabledBtn]}
-              onPress={handleBuy}
+              onPress={() => { finishQuantity(); handleBuy(); }}
               disabled={totalCost > cash || qty <= 0}
             >
               <Text style={styles.buyText}>Buy</Text>
             </Pressable>
             <Pressable
               style={[styles.sellBtn, (qty > maxSell || qty <= 0) && styles.disabledBtn]}
-              onPress={handleSell}
+              onPress={() => { finishQuantity(); handleSell(); }}
               disabled={qty > maxSell || maxSell === 0 || qty <= 0}
             >
               <Text style={styles.sellText}>Sell</Text>
@@ -222,6 +270,7 @@ export default function StockDetailScreen() {
           )}
         </GameCard>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -234,6 +283,8 @@ const styles = StyleSheet.create({
   error: { color: Colors.negative, fontSize: 18, textAlign: 'center', marginTop: 40 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
+  doneButton: { alignItems: 'center', paddingVertical: 8, marginBottom: 8, borderRadius: 8, backgroundColor: '#047857' },
+  doneText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   bigPrice: { color: Colors.textPrimary, fontSize: 32, fontWeight: '700' },
   changeText: { fontSize: 16, fontWeight: '600' },
@@ -260,6 +311,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     flex: 1,
+    minWidth: 0,
+    width: 0,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
   },
@@ -271,6 +324,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   maxText: { color: Colors.info, fontSize: 14, fontWeight: '600' },
+  chartSummary: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  chartSummaryItem: { flex: 1, alignItems: 'center' },
+  chartSummaryLabel: { color: Colors.textMuted, fontSize: 10, marginBottom: 2 },
+  chartSummaryValue: { color: Colors.textPrimary, fontSize: 11, fontWeight: '700', textAlign: 'center' },
   totalText: { color: Colors.textSecondary, fontSize: 14, marginBottom: 4 },
   cashText: { color: Colors.textMuted, fontSize: 13, marginBottom: 16 },
   actionRow: { flexDirection: 'row', gap: 12 },

@@ -3,18 +3,20 @@
     "name": "Life Empire",
     "slug": "life-empire",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/life-empire-icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.abacusai.lifebusinesssim.t1785763284",
       "buildNumber": "1"
     },
     "android": {
+      "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#071126",
-        "foregroundImage": "./assets/life-empire-icon.png"
+        "foregroundImage": "./assets/life-empire-icon-adaptive.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.elroybenjamins.lifeempire",
@@ -26,6 +28,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-system-ui",
       "expo-iap",
       [
         "react-native-google-mobile-ads",

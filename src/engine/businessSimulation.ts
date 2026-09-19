@@ -2,6 +2,7 @@ import { BusinessEmployee, EmployeeTier, OwnedBusiness } from '../types/game';
 import businessTypesData from '../data/business_types.json';
 import employeeRolesData from '../data/employee_roles.json';
 import { createBusiness, processBusinessWeek } from './businessEngine';
+import { createInitialCompetitors, processCompetitors } from './competitorEngine';
 
 export type EmployeeQuality = 'low' | 'average' | 'high' | 'random';
 export type UpgradeLoadout = 'none' | 'first' | 'all';
@@ -18,6 +19,7 @@ export interface BusinessSimulationScenario {
   pricing?: OwnedBusiness['pricingStrategy'];
   advertising?: OwnedBusiness['advertisingLevel'];
   prestigeBusinessCostReduction?: number;
+  competition?: boolean;
 }
 
 export interface BusinessSimulationResult {
@@ -88,16 +90,21 @@ export function simulateBusinessScenario(scenario: BusinessSimulationScenario): 
       reputation: scenario.reputation ?? 25,
       pricingStrategy: scenario.pricing ?? 'standard', advertisingLevel: scenario.advertising ?? 'none',
       purchasedUpgrades: upgradeIds,
+      id: `simulation_${type.id}_${scenario.seed}`,
       employees: createSimulationEmployees(scenario.employeeCount ?? 3, scenario.employeeQuality),
     };
+    let rivals = { [business.id]: createInitialCompetitors(business, 1) };
 
     const profits: number[] = [];
     let totalRevenue = 0, totalExpenses = 0, cumulativeProfit = 0;
     let lowestBalance = business.balance, firstBreakEvenWeek: number | null = null;
     for (let index = 0; index < scenario.weeks; index++) {
-      const week = (index % 20) + 1;
-      const year = Math.floor(index / 20) + 1;
-      const tick = processBusinessWeek(business, 1, week, year, { businessCostReduction: scenario.prestigeBusinessCostReduction ?? 0 });
+      const globalWeek = index + 2;
+      const week = ((globalWeek - 1) % 20) + 1;
+      const year = Math.floor((globalWeek - 1) / 20) + 1;
+      const competition = scenario.competition ? processCompetitors([business], rivals, globalWeek) : null;
+      if (competition) rivals = competition.updatedCompetitors;
+      const tick = processBusinessWeek(business, 1, week, year, { businessCostReduction: scenario.prestigeBusinessCostReduction ?? 0, competitorRevenueMultipliers: competition?.competitorRevenueMultipliers });
       business = tick.updatedBusiness;
       profits.push(tick.weeklyProfit);
       totalRevenue += tick.weeklyRevenue;

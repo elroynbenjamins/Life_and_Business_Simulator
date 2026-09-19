@@ -1,21 +1,34 @@
 import React from 'react';
-import { ScrollView, View, Text, StyleSheet, Pressable, SafeAreaView, Dimensions } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Pressable, SafeAreaView, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { LineChart } from 'react-native-chart-kit';
 import useGameStore from '../src/store/gameStore';
-import { Colors } from '../src/theme/colors';
+import { useShallow } from 'zustand/react/shallow';
+import { Colors, resolveThemeColor } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
 import { formatCurrency } from '../src/utils/format';
 import { getWeeklySalary, processExpenses } from '../src/engine/financeEngine';
 import { getCareerSalary } from '../src/engine/careerEngine';
 
 export default function StatisticsScreen({ showBack = true }: { showBack?: boolean } = {}) {
+  const { width: screenWidth } = useWindowDimensions();
   const s = useGameStore((st: any) => st.statistics);
   const netWorthHistory = useGameStore((st: any) => st.netWorthHistory);
   const week = useGameStore((st: any) => st.week);
   const year = useGameStore((st: any) => st.year);
   const age = useGameStore((st: any) => st.age);
-  const gameState = useGameStore();
+  const gameState = useGameStore(useShallow((st) => ({
+    currentJobId: st.currentJobId,
+    currentCourseId: st.currentCourseId,
+    currentHousingId: st.currentHousingId,
+    currentCarId: st.currentCarId,
+    inflationMultiplier: st.inflationMultiplier,
+    career: st.career,
+    profile: st.profile,
+    loans: st.loans,
+    partTimeJob: st.partTimeJob,
+    holdings: st.holdings,
+  }))) as ReturnType<typeof useGameStore.getState>;
   const expenses = processExpenses(gameState);
   const careerIncome = gameState.career?.companyId
     ? getCareerSalary(gameState.career, gameState.inflationMultiplier ?? 1, gameState.profile)
@@ -24,7 +37,7 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
   const totalStocksOwned = (gameState.holdings ?? []).reduce((total, holding) => total + (holding.shares ?? 0), 0);
   const weeklyIncome = careerIncome + partTimeIncome;
   const nw = (netWorthHistory ?? []).slice(-1)[0] ?? 0;
-  const chartWidth = Math.min(Dimensions.get('window').width - 64, 500);
+  const chartWidth = Math.min(screenWidth - 64, 500);
   const history: number[] = netWorthHistory ?? [];
   const hasChart = history.length >= 2;
   const firstNW = history[0] ?? 0;
@@ -90,14 +103,14 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
               yAxisLabel="€"
               yAxisSuffix=""
               chartConfig={{
-                backgroundColor: Colors.card,
-                backgroundGradientFrom: Colors.card,
-                backgroundGradientTo: Colors.card,
+                backgroundColor: resolveThemeColor(Colors.card) as string,
+                backgroundGradientFrom: resolveThemeColor(Colors.card) as string,
+                backgroundGradientTo: resolveThemeColor(Colors.card) as string,
                 decimalPlaces: 0,
                 color: () => lineColor,
-                labelColor: () => Colors.textMuted,
+                labelColor: () => resolveThemeColor(Colors.textMuted) as string,
                 propsForDots: { r: '3', strokeWidth: '1', stroke: lineColor },
-                propsForBackgroundLines: { stroke: Colors.cardBorder },
+                propsForBackgroundLines: { stroke: resolveThemeColor(Colors.cardBorder) as string },
               }}
               formatYLabel={(val) => {
                 const num = parseFloat(val) - offset;

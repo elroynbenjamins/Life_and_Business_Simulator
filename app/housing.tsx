@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import { inflated } from '../src/engine/economyEngine';
 import housingData from '../src/data/housing.json';
 import carsData from '../src/data/cars.json';
 import { showGameDialog } from '../src/components/GameDialog';
+import { carItemImages, housingItemImages } from '../src/assets/itemImages';
 // house upgrades removed
 
 export default function LifestyleScreen() {
@@ -60,6 +61,9 @@ export default function LifestyleScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* HOUSING */}
         <Text style={styles.sectionHeader}>🏠 Housing</Text>
+        <View style={styles.pixelArtCard}>
+          <Image source={require('../assets/pixel-art/housing.png')} style={styles.housingArt} resizeMode="contain" accessibilityLabel="Pixel art showing apartment, house, and villa upgrades" />
+        </View>
         {(housingData ?? []).map((h, idx) => {
           const isCurrent = h?.id === currentHousingId;
           const isUpgrade = idx > currentHIdx;
@@ -67,6 +71,7 @@ export default function LifestyleScreen() {
           return (
             <GameCard key={h?.id}>
               <View style={styles.row}>
+                <Image source={housingItemImages[h.id]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${h.name} pixel art`} />
                 <View style={styles.info}>
                   <Text style={styles.name}>{h?.name}</Text>
                   <Text style={styles.cost}>{formatCurrency(inflated(h?.weeklyRent, inflationMultiplier))}/week rent</Text>
@@ -86,6 +91,9 @@ export default function LifestyleScreen() {
 
         {/* CARS */}
         <Text style={styles.sectionHeader}>🚗 Vehicle</Text>
+        <View style={styles.pixelArtCard}>
+          <Image source={require('../assets/pixel-art/cars.png')} style={styles.carArt} resizeMode="contain" accessibilityLabel="Pixel art showing used car, sedan, and SUV progression" />
+        </View>
         {pendingCarDelivery && (
           <GameCard>
             <Text style={styles.deliveryTitle}>Vehicle delivery pending</Text>
@@ -102,6 +110,7 @@ export default function LifestyleScreen() {
           return (
             <GameCard key={c?.id}>
               <View style={styles.row}>
+                {carItemImages[c.id] ? <Image source={carItemImages[c.id]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${c.name} pixel art`} /> : null}
                 <View style={styles.info}>
                   <Text style={styles.name}>{c?.name}</Text>
                   <Text style={styles.desc}>{c?.description}</Text>
@@ -137,8 +146,12 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   sectionHeader: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', marginTop: 16, marginBottom: 12 },
+  pixelArtCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 14, marginBottom: 12, overflow: 'hidden' },
+  housingArt: { width: '100%', height: 180 },
+  carArt: { width: '100%', height: 150 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  info: { flex: 1 },
+  info: { flex: 1, minWidth: 0 },
+  itemIcon: { width: 76, height: 76, marginRight: 12, alignSelf: 'center' },
   name: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
   cost: { color: Colors.primary, fontSize: 14, fontWeight: '600', marginTop: 4 },
   utilityCost: { color: Colors.info, fontSize: 13, marginTop: 2 },

@@ -73,8 +73,9 @@ Welcome to the first closed test of Life Empire.
 - Feature graphic: 1024 × 500 PNG or JPG (still required)
 - Phone screenshots: provide at least 2; 6–8 are recommended
 - Suggested screenshots: Dashboard, Career, Education, Stock Market, Business, Real Estate Auction, Prestige, Statistics
-- Support email: lifeempireapp@gmail.com
-- Privacy policy URL: `https://github.com/elroynbenjamins/Life_and_Business_Simulator/blob/main/docs/privacy-policy.md`
+- Support email: Developerelroy@gmail.com
+- Privacy policy URL: `https://elroynbenjamins.github.io/life-empire/privacy/`
+- Developer website: use the deployed Life Empire website hostname that serves /app-ads.txt at its root. Do not use the GitHub repository or blob URL for this field.
 
 ## Data safety draft
 

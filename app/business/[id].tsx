@@ -1,24 +1,25 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, useWindowDimensions, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PieChart } from 'react-native-chart-kit';
-import { Colors } from '../../src/theme/colors';
+import { Colors, resolveThemeColor } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
 import useGameStore from '../../src/store/gameStore';
+import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
 import {
   getLevelName, getBusinessType, getUpgrade, getEmployeeRole, getAutomationScore, getDemandLabel,
   getAllMoraleActions, getAllTraining, getAllProjects, computeMarketShare, meetsMinStaffing, MIN_EMPLOYEES_REQUIRED,
   TIER_CONFIG, getProjectDifficulty, getProjectOdds,
   BUSINESS_LEVEL_REPUTATION_REQUIREMENTS, getAllBusinessLocationTemplates, getScaledLocationCosts, canStartBusinessExpansion,
+  getBusinessHealthScore, BUSINESS_STRATEGIES,
 } from '../../src/engine/businessEngine';
 import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
+import { businessTypeImages, employeeRoleImages } from '../../src/assets/progressionImages';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
-
-const SCREEN_W = Dimensions.get('window').width;
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -43,6 +44,7 @@ const LOAN_OPTIONS = [
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
 
 export default function BusinessDetailScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
   const { id = '', newBusiness } = useLocalSearchParams();
   const businesses = useGameStore((s) => s?.businesses ?? []);
@@ -57,7 +59,24 @@ export default function BusinessDetailScreen() {
     buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
     injectCashIntoBusiness, withdrawFromBusiness,
     applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, resolveBusinessRetention,
-  } = useGameStore();
+  } = useGameStore(useShallow((s) => ({
+    sellBusiness: s.sellBusiness,
+    openCandidatePool: s.openCandidatePool,
+    hireCandidate: s.hireCandidate,
+    cancelCandidatePool: s.cancelCandidatePool,
+    fireEmployee: s.fireEmployee,
+    setBusinessPricing: s.setBusinessPricing,
+    setBusinessAdvertising: s.setBusinessAdvertising,
+    buyBusinessUpgrade: s.buyBusinessUpgrade,
+    startBusinessExpansion: s.startBusinessExpansion,
+    takeBusinessLoan: s.takeBusinessLoan,
+    injectCashIntoBusiness: s.injectCashIntoBusiness,
+    withdrawFromBusiness: s.withdrawFromBusiness,
+    applyMoraleActionToBusiness: s.applyMoraleActionToBusiness,
+    startEmployeeTraining: s.startEmployeeTraining,
+    startBusinessProject: s.startBusinessProject,
+    resolveBusinessRetention: s.resolveBusinessRetention,
+  })));
 
   const [showHireModal, setShowHireModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState<'inject' | 'withdraw' | null>(null);
@@ -74,7 +93,7 @@ export default function BusinessDetailScreen() {
 
   const biz = businesses.find((b) => b?.id === id);
   useEffect(() => {
-    if (biz && (biz.balance ?? 0) < -50000) setShowFundingNotice(true);
+    // Low-balance warnings are handled globally, including away from this screen.
   }, [biz?.balance]);
   if (!biz) {
     return (
@@ -179,9 +198,7 @@ export default function BusinessDetailScreen() {
         {/* Top Info */}
         <GameCard>
           <View style={styles.topInfo}>
-            <View style={styles.topIconWrap}>
-              <Ionicons name={(type?.icon as any) ?? 'business'} size={28} color={Colors.primary} />
-            </View>
+            <Image source={businessTypeImages[biz.typeId]} style={styles.topArtwork} resizeMode="contain" accessibilityLabel={`${type?.name ?? 'Business'} pixel art`} />
             <View style={styles.topDetails}>
               <Text style={styles.levelBadge}>{getLevelName(biz.level)}</Text>
               <Text style={styles.industry}>{type?.industry ?? ''}</Text>
@@ -192,6 +209,18 @@ export default function BusinessDetailScreen() {
             <TopStat label="Balance" value={formatCurrency(biz.balance)} color={(biz.balance ?? 0) >= 0 ? Colors.primary : Colors.negative} />
             <TopStat label="Reputation" value={`${Math.round(biz.reputation)}/100`} color={Colors.warning} />
           </View>
+          <View style={styles.healthPanel}>
+            <Text style={styles.sectionHint}>Business health</Text>
+            <Text style={[styles.healthScore, { color: getBusinessHealthScore(biz) >= 70 ? Colors.primary : getBusinessHealthScore(biz) >= 45 ? Colors.warning : Colors.negative }]}>{getBusinessHealthScore(biz)}/100</Text>
+            <Text style={styles.sectionHint}>Cash flow 35% · Reputation 30% · Morale 20% · Market share 15%</Text>
+          </View>
+          {type && BUSINESS_STRATEGIES[biz.typeId] && (
+            <View style={styles.strategyPanel}>
+              <Text style={styles.sectionHint}>Strategy guide</Text>
+              <Text style={styles.strategyText}>✓ Advantage: {BUSINESS_STRATEGIES[biz.typeId].advantage}</Text>
+              <Text style={styles.strategyText}>! Watch out: {BUSINESS_STRATEGIES[biz.typeId].weakness}</Text>
+            </View>
+          )}
           <View style={styles.automationRow}>
             <Text style={styles.automationLabel}>Automation: {automation}%</Text>
             <View style={styles.automationTrack}>
@@ -200,13 +229,14 @@ export default function BusinessDetailScreen() {
           </View>
           {biz.level < 7 && (
             <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 8 }}>
-              Next level requires reputation {BUSINESS_LEVEL_REPUTATION_REQUIREMENTS[biz.level + 1]} and the valuation target.
+              Next level requires reputation {BUSINESS_LEVEL_REPUTATION_REQUIREMENTS[biz.level + 1]} and the valuation target. Expansion requirements are shown on each location.
             </Text>
           )}
         </GameCard>
 
         {/* Weekly Financials */}
         <GameCard title="Weekly Financials">
+          <Text style={styles.sectionHint}>Revenue = employees × productivity × reputation demand × market share × upgrades. Reputation improves demand; upgrades add revenue; market share changes customer volume. Lower-reputation companies use leaner overhead and premises.</Text>
           <StatRow label="Revenue" value={biz.lastWeekRevenue} positive />
           <StatRow label="Expenses" value={biz.lastWeekExpenses} />
           <View style={styles.divider} />
@@ -235,20 +265,29 @@ export default function BusinessDetailScreen() {
             <View style={styles.chartWrap}>
               <PieChart
                 data={pieData}
-                width={Math.min(SCREEN_W - 64, 340)}
+                width={Math.min(screenWidth - 64, 340)}
                 height={180}
                 chartConfig={{
-                  color: () => Colors.textSecondary,
-                  labelColor: () => Colors.textSecondary,
-                  backgroundGradientFrom: Colors.card,
-                  backgroundGradientTo: Colors.card,
+                  color: () => resolveThemeColor(Colors.textSecondary) as string,
+                  labelColor: () => resolveThemeColor(Colors.textSecondary) as string,
+                  backgroundGradientFrom: resolveThemeColor(Colors.card) as string,
+                  backgroundGradientTo: resolveThemeColor(Colors.card) as string,
                 }}
                 accessor="population"
                 backgroundColor="transparent"
                 paddingLeft="0"
                 absolute={false}
+                hasLegend={false}
               />
             </View>
+            {pieData.map((entry, index) => <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: entry.color }} />
+              <Text style={{ color: Colors.textPrimary, flex: 1, fontSize: 13 }}>
+                {index === 0 ? biz.name : bizCompetitors[index - 1]?.name}
+                {index > 0 && bizCompetitors[index - 1]?.ceoName ? ` · ${bizCompetitors[index - 1].ceoName}` : ''}
+              </Text>
+              <Text style={{ color: Colors.textSecondary }}>{entry.population.toFixed(1)}%</Text>
+            </View>)}
           </GameCard>
         )}
 
@@ -329,6 +368,7 @@ export default function BusinessDetailScreen() {
             const tierCfg = TIER_CONFIG[tier];
             return (
               <View key={emp.id} style={styles.empRow}>
+                <Image source={employeeRoleImages[emp.roleId]} style={styles.employeeArtwork} resizeMode="contain" accessibilityLabel={`${role?.name ?? 'Employee'} pixel art`} />
                 <View style={styles.empInfo}>
                   <Text style={[styles.empName, { color: tierCfg.color }]}>
                     {emp.name} <Text style={{ fontSize: 10, color: tierCfg.color, fontWeight: '700' }}>[{tierCfg.label}]</Text>
@@ -519,7 +559,7 @@ export default function BusinessDetailScreen() {
                   <View style={styles.upgradeInfo}>
                     <Text style={styles.upgradeName}>{upg.name}</Text>
                     <Text style={styles.upgradeDesc}>{upg.description}</Text>
-                    <Text style={styles.upgradeBoost}>+{Math.round((upg.revenueBoost ?? 0) * 100)}% revenue • +{upg.reputationBoost ?? 0} rep</Text>
+                    <Text style={styles.upgradeBoost}>+{Number(((upg.revenueBoost ?? 0) * 100).toFixed(2))}% revenue • +{upg.reputationBoost ?? 0} rep · 12–23 weeks</Text>
                   </View>
                   <View style={styles.upgradeCostWrap}>
                     <Text style={[styles.upgradeCost, { color: affordable ? Colors.primary : Colors.negative }]}>{formatCurrency(cost)}</Text>
@@ -628,6 +668,7 @@ export default function BusinessDetailScreen() {
                   style={styles.roleOption}
                   onPress={() => { openCandidatePool(biz.id, role.id); setShowHireModal(false); }}
                 >
+                  <Image source={employeeRoleImages[role.id]} style={styles.roleArtwork} resizeMode="contain" accessibilityLabel={`${role.name} pixel art`} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.roleName}>{role.name}</Text>
                     <Text style={styles.roleDesc}>{role.description}</Text>
@@ -797,13 +838,13 @@ export default function BusinessDetailScreen() {
       <Modal visible={showFundingNotice} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{(biz.balance ?? 0) < -50000 ? 'Business funding required' : 'Fund your new business'}</Text>
+            <Text style={styles.modalTitle}>Fund your new business</Text>
             <Text style={styles.modalSubtitle}>Recruitment, training, projects, morale actions, and upgrades are paid only from the business balance. Inject personal cash first or use a business loan.</Text>
-            <Pressable style={styles.modalClose} onPress={() => { setShowFundingNotice(false); setShowTransferModal('inject'); }}>
-              <Text style={styles.modalCloseText}>Inject cash</Text>
+            <Pressable style={[styles.modalClose, { backgroundColor: '#047857', borderRadius: 10 }]} onPress={() => { setShowFundingNotice(false); setShowTransferModal('inject'); }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Inject cash</Text>
             </Pressable>
-            <Pressable style={[styles.modalClose, { backgroundColor: Colors.info }]} onPress={() => { takeBusinessLoan(biz.id, 50000, 0.10, 52); setShowFundingNotice(false); }}>
-              <Text style={styles.modalCloseText}>Take €50K business loan</Text>
+            <Pressable style={[styles.modalClose, { backgroundColor: '#1D4ED8', borderRadius: 10 }]} onPress={() => { takeBusinessLoan(biz.id, 50000, 0.10, 52); setShowFundingNotice(false); }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Take €50K business loan</Text>
             </Pressable>
             <Pressable style={[styles.modalClose, { backgroundColor: Colors.cardBorder }]} onPress={() => setShowFundingNotice(false)}>
               <Text style={styles.modalCloseText}>Not now</Text>
@@ -890,6 +931,7 @@ const styles = StyleSheet.create({
   warningText: { color: Colors.warning, fontSize: 13, fontWeight: '600', flex: 1 },
   topInfo: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   topIconWrap: { width: 52, height: 52, borderRadius: 14, backgroundColor: `${Colors.primary}20`, justifyContent: 'center', alignItems: 'center' },
+  topArtwork: { width: 70, height: 70 },
   topDetails: {},
   levelBadge: { color: Colors.primary, fontSize: 16, fontWeight: '700' },
   industry: { color: Colors.textSecondary, fontSize: 13, marginTop: 2 },
@@ -898,6 +940,10 @@ const styles = StyleSheet.create({
   topStatLabel: { color: Colors.textMuted, fontSize: 11 },
   topStatValue: { fontSize: 15, fontWeight: '700', marginTop: 2 },
   automationRow: { marginTop: 12 },
+  healthPanel: { marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: Colors.elevated },
+  healthScore: { fontSize: 28, fontWeight: '800', marginBottom: 2 },
+  strategyPanel: { marginTop: 10, padding: 12, borderRadius: 12, backgroundColor: Colors.elevated },
+  strategyText: { color: Colors.textPrimary, fontSize: 13, marginTop: 4 },
   automationLabel: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
   automationTrack: { height: 6, backgroundColor: Colors.elevated, borderRadius: 3 },
   automationFill: { height: 6, backgroundColor: Colors.primary, borderRadius: 3 },
@@ -930,6 +976,7 @@ const styles = StyleSheet.create({
   optionChipLabelActive: { color: Colors.primary },
   optionChipDesc: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
   empRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  employeeArtwork: { width: 52, height: 52, marginRight: 8 },
   empInfo: { flex: 1 },
   empName: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
   empRole: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
@@ -986,6 +1033,7 @@ const styles = StyleSheet.create({
   modalTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 16 },
   modalSubtitle: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19, marginBottom: 10 },
   roleOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  roleArtwork: { width: 52, height: 52, marginRight: 10 },
   roleName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   roleDesc: { color: Colors.textMuted, fontSize: 12, marginTop: 2, maxWidth: 200 },
   roleSalary: { color: Colors.primary, fontSize: 14, fontWeight: '600' },

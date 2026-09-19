@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -8,14 +8,18 @@ import GameCard from '../src/components/GameCard';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { inflated } from '../src/engine/economyEngine';
-import { getTotalPropertyValue } from '../src/engine/propertyEngine';
+import { getTotalPropertyValue, getPropertyWeeklyRent } from '../src/engine/propertyEngine';
+import { getPrestigeEffects } from '../src/engine/prestigeEngine';
 import propertiesData from '../src/data/properties.json';
 import { showGameDialog } from '../src/components/GameDialog';
 import { getInspectionCost } from '../src/engine/auctionEngine';
+import { propertyItemImages } from '../src/assets/itemImages';
 
 export default function PropertiesScreen() {
   const router = useRouter();
   const cash = useGameStore((s) => s?.cash ?? 0);
+  const profile = useGameStore(s => s.profile);
+  const rentBonus = getPrestigeEffects(profile).property_income ?? 0;
   const properties = useGameStore((s) => s?.properties ?? []);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const week = useGameStore((s) => s?.week ?? 1);
@@ -33,10 +37,11 @@ export default function PropertiesScreen() {
   const globalWeek = ((year - 1) * 20) + week;
 
   const totalValue = getTotalPropertyValue(properties);
-  const weeklyIncome = properties.filter((p) => p.isRentedOut).reduce((t, p) => t + (p.weeklyIncome ?? 0), 0);
+  const weeklyIncome = properties.filter((p) => p.isRentedOut).reduce((t, p) => t + getPropertyWeeklyRent(p, inflationMultiplier, rentBonus), 0);
 
   const confirmAction = (title: string, msg: string, action: () => void) => {
-    showGameDialog({ title, message: msg, onConfirm: action });
+    const confirmText = title.includes('Bid') ? 'Bid' : title.includes('Sell') ? 'Sell' : title.includes('Inspect') ? 'Inspect' : title.includes('Renovat') ? 'Renovate' : title.includes('Buy') ? 'Buy' : 'Confirm';
+    showGameDialog({ title, message: msg, confirmText, destructive: title.includes('Sell'), onConfirm: action });
   };
 
   return (
@@ -66,25 +71,37 @@ export default function PropertiesScreen() {
           </Pressable>
         </View>
 
+        <View style={styles.pixelArtCard}>
+          <Image
+            source={tab === 'auctions' ? require('../assets/pixel-art/auctions.png') : require('../assets/pixel-art/real-estate.png')}
+            style={styles.pixelArt}
+            resizeMode="contain"
+            accessibilityLabel={tab === 'auctions' ? 'Pixel art real estate auction' : 'Pixel art real estate portfolio'}
+          />
+        </View>
+
         {/* Owned Properties */}
         {properties.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>My Properties</Text>
             {properties.map((prop) => (
               <GameCard key={prop.id} style={styles.propCard}>
+                <View style={styles.itemIntro}>
+                  <Image source={propertyItemImages[prop.typeId]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${prop.name} pixel art`} />
                 <View style={styles.propHeader}>
-                  <View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.propName}>{prop.name}</Text>
                     <Text style={styles.propType}>{prop.isRenovated ? '✨ Renovated' : ''} {prop.isRentedOut ? '🔑 Rented Out' : '🏠 Vacant'}</Text>
                     {prop.acquisitionType === 'auction' && <Text style={styles.auctionBadge}>Acquired at auction · Condition {prop.conditionScore ?? '?'} / 100</Text>}
                   </View>
-                  <Text style={styles.propValue}>{formatCurrency(prop.currentValue)}</Text>
                 </View>
+                </View>
+                <Text style={styles.propValue}>Value: {formatCurrency(prop.currentValue)}</Text>
                 {prop.hiddenIssue && !prop.isRenovated && <Text style={styles.issueText}>⚠ Hidden issue discovered: {prop.hiddenIssue}</Text>}
                 <View style={styles.propStats}>
                   <Text style={styles.propStat}>Bought: {formatCurrency(prop.purchasePrice)}</Text>
                   <Text style={[styles.propStat, { color: Colors.primary }]}>
-                    {prop.isRentedOut ? `+${formatCurrency(prop.weeklyIncome)}/wk` : 'Not rented'}
+                    {prop.isRentedOut ? `+${formatCurrency(getPropertyWeeklyRent(prop, inflationMultiplier, rentBonus))}/wk` : 'Not rented'}
                   </Text>
                   <Text style={styles.propStat}>Maint: {formatCurrency(prop.weeklyMaintenance)}/wk</Text>
                 </View>
@@ -126,11 +143,14 @@ export default function PropertiesScreen() {
           const canAfford = cash >= price;
           return (
             <GameCard key={prop.id} style={styles.propCard}>
+              <View style={styles.itemIntro}>
+                <Image source={propertyItemImages[prop.id]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${prop.name} pixel art`} />
               <View style={styles.propHeader}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.propName}>{prop.name}</Text>
                   <Text style={styles.propDesc}>{prop.description}</Text>
                 </View>
+              </View>
               </View>
               <View style={styles.propStats}>
                 <Text style={styles.propStat}>Price: {formatCurrency(price)}</Text>
@@ -159,14 +179,17 @@ export default function PropertiesScreen() {
             const strongBid = minimumBid + auction.minimumBidIncrease * 2;
             const aggressiveBid = minimumBid + auction.minimumBidIncrease * 6;
             const inspectCost = getInspectionCost(auction);
-            const bid = (amount: number) => confirmAction('Place Auction Bid', `Bid ${formatCurrency(amount)} on ${auction.propertyName}? AI investors may counter immediately.`, () => placePropertyAuctionBid?.(auction.id, amount));
+            const bid = (amount: number) => confirmAction('Place Auction Bid', `Bid ${formatCurrency(amount)} on ${auction.propertyName}? Other bidders may counter immediately.`, () => placePropertyAuctionBid?.(auction.id, amount));
             return <GameCard key={auction.id} style={styles.propCard}>
+              <View style={styles.itemIntro}>
+                <Image source={propertyItemImages[auction.propertyTypeId]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${auction.propertyName} pixel art`} />
               <View style={styles.propHeader}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.propName}>{auction.rareOpportunity ? '⭐ ' : ''}{auction.propertyName}</Text>
                   <Text style={styles.propDesc}>{auction.location} · {auction.auctionType}</Text>
                 </View>
                 <Text style={styles.endsText}>{remaining} wk left</Text>
+              </View>
               </View>
               <View style={styles.auctionMainStats}>
                 <View><Text style={styles.miniLabel}>Estimated value</Text><Text style={styles.miniValue}>{formatCurrency(auction.estimatedValueMin)} – {formatCurrency(auction.estimatedValueMax)}</Text></View>
@@ -217,8 +240,12 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: Colors.primary },
   tabText: { color: Colors.textSecondary, fontWeight: '700' },
   tabTextActive: { color: Colors.white },
+  pixelArtCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 14, marginBottom: 16, overflow: 'hidden' },
+  pixelArt: { width: '100%', height: 180 },
   propCard: { marginBottom: 12 },
-  propHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  itemIntro: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  itemIcon: { width: 82, height: 82, flexShrink: 0 },
+  propHeader: { flex: 1, minWidth: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   propName: { color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
   propType: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   auctionBadge: { color: Colors.warning, fontSize: 11, marginTop: 4 },

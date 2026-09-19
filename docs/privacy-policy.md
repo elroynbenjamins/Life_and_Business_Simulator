@@ -77,11 +77,11 @@ Life Empire minimizes data collection by keeping game saves on your device and n
 - Google and other third-party providers retain information according to their own policies and legal obligations.
 - Because Life Empire does not provide an account or store gameplay information on a Snelroy server, there is no separate server-side Life Empire account to delete.
 
-For privacy questions or requests relating to information directly controlled by Snelroy, email **lifeempireapp@gmail.com**. For information controlled by Google, Discord, or another provider, you may also need to use that provider's privacy controls or contact process.
+For privacy questions or requests relating to information directly controlled by Snelroy, email **Developerelroy@gmail.com**. For information controlled by Google, Discord, or another provider, you may also need to use that provider's privacy controls or contact process.
 
 ## Children's privacy
 
-Life Empire is not directed to children under 13. We do not knowingly collect personal information directly from children through a Life Empire account or server. Parents or guardians who believe a child has provided information directly to us can contact **lifeempireapp@gmail.com**.
+Life Empire is not directed to children under 13. We do not knowingly collect personal information directly from children through a Life Empire account or server. Parents or guardians who believe a child has provided information directly to us can contact **Developerelroy@gmail.com**.
 
 ## International users
 
@@ -97,5 +97,5 @@ Privacy contact and publisher details:
 
 **Snelroy**  
 Operated by **Elroy N Benjamins**  
-Email: **lifeempireapp@gmail.com**  
+Email: **Developerelroy@gmail.com**
 Country: **The Netherlands**

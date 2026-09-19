@@ -4,8 +4,8 @@
     "baseId": "retail",
     "name": "Retail Basics",
     "level": 1,
-    "duration": 14,
-    "cost": 4300,
+    "duration": 13,
+    "cost": 4050,
     "weeklyCost": 0,
     "prerequisite": null,
     "category": "Sales",
@@ -23,8 +23,8 @@
     "baseId": "retail",
     "name": "Retail Advanced",
     "level": 2,
-    "duration": 8,
-    "cost": 8000,
+    "duration": 7,
+    "cost": 7750,
     "weeklyCost": 400,
     "prerequisite": "retail_basics",
     "category": "Sales",
@@ -42,8 +42,8 @@
     "baseId": "retail",
     "name": "Retail Expert",
     "level": 3,
-    "duration": 10,
-    "cost": 10000,
+    "duration": 9,
+    "cost": 9750,
     "weeklyCost": 1350,
     "prerequisite": "retail_advanced",
     "category": "Sales",
@@ -62,8 +62,8 @@
     "baseId": "office",
     "name": "Office Administration",
     "level": 1,
-    "duration": 16,
-    "cost": 4600,
+    "duration": 15,
+    "cost": 4350,
     "weeklyCost": 0,
     "prerequisite": null,
     "category": "Administration",
@@ -81,8 +81,8 @@
     "baseId": "office",
     "name": "Office Admin Advanced",
     "level": 2,
-    "duration": 10,
-    "cost": 8000,
+    "duration": 9,
+    "cost": 7750,
     "weeklyCost": 480,
     "prerequisite": "office_administration",
     "category": "Administration",
@@ -101,8 +101,8 @@
     "baseId": "office",
     "name": "Office Admin Expert",
     "level": 3,
-    "duration": 12,
-    "cost": 10000,
+    "duration": 11,
+    "cost": 9750,
     "weeklyCost": 1500,
     "prerequisite": "office_admin_advanced",
     "category": "Administration",
@@ -121,8 +121,8 @@
     "baseId": "sales",
     "name": "Sales",
     "level": 1,
-    "duration": 14,
-    "cost": 5050,
+    "duration": 13,
+    "cost": 4800,
     "weeklyCost": 0,
     "prerequisite": null,
     "category": "Sales",
@@ -141,8 +141,8 @@
     "baseId": "sales",
     "name": "Sales Advanced",
     "level": 2,
-    "duration": 12,
-    "cost": 8000,
+    "duration": 11,
+    "cost": 7750,
     "weeklyCost": 520,
     "prerequisite": "sales",
     "category": "Sales",
@@ -161,8 +161,8 @@
     "baseId": "sales",
     "name": "Sales Expert",
     "level": 3,
-    "duration": 14,
-    "cost": 10000,
+    "duration": 13,
+    "cost": 9750,
     "weeklyCost": 1650,
     "prerequisite": "sales_advanced",
     "category": "Sales",
@@ -182,8 +182,8 @@
     "baseId": "accounting",
     "name": "Accounting",
     "level": 1,
-    "duration": 18,
-    "cost": 7750,
+    "duration": 17,
+    "cost": 7500,
     "weeklyCost": 0,
     "prerequisite": null,
     "category": "Finance",
@@ -201,8 +201,8 @@
     "baseId": "accounting",
     "name": "Accounting Advanced",
     "level": 2,
-    "duration": 16,
-    "cost": 8000,
+    "duration": 15,
+    "cost": 7750,
     "weeklyCost": 800,
     "prerequisite": "accounting",
     "category": "Finance",
@@ -221,8 +221,8 @@
     "baseId": "accounting",
     "name": "Accounting Expert",
     "level": 3,
-    "duration": 20,
-    "cost": 10000,
+    "duration": 19,
+    "cost": 9750,
     "weeklyCost": 2625,
     "prerequisite": "accounting_advanced",
     "category": "Finance",
@@ -242,8 +242,8 @@
     "baseId": "marketing",
     "name": "Marketing",
     "level": 1,
-    "duration": 20,
-    "cost": 9250,
+    "duration": 19,
+    "cost": 9000,
     "weeklyCost": 0,
     "prerequisite": null,
     "category": "Marketing",
@@ -261,8 +261,8 @@
     "baseId": "marketing",
     "name": "Marketing Advanced",
     "level": 2,
-    "duration": 18,
-    "cost": 8000,
+    "duration": 17,
+    "cost": 7750,
     "weeklyCost": 1000,
     "prerequisite": "marketing",
     "category": "Marketing",
@@ -281,8 +281,8 @@
     "baseId": "marketing",
     "name": "Marketing Expert",
     "level": 3,
-    "duration": 22,
-    "cost": 10000,
+    "duration": 21,
+    "cost": 9750,
     "weeklyCost": 3000,
     "prerequisite": "marketing_advanced",
     "category": "Marketing",
@@ -301,8 +301,8 @@
     "baseId": "software",
     "name": "Software Development",
     "level": 1,
-    "duration": 22,
-    "cost": 13000,
+    "duration": 21,
+    "cost": 11000,
     "weeklyCost": 0,
     "prerequisite": null,
     "category": "Technology",
@@ -320,8 +320,8 @@
     "baseId": "software",
     "name": "Software Dev Advanced",
     "level": 2,
-    "duration": 24,
-    "cost": 8000,
+    "duration": 23,
+    "cost": 6000,
     "weeklyCost": 1200,
     "prerequisite": "software_development",
     "category": "Technology",
@@ -340,8 +340,8 @@
     "baseId": "software",
     "name": "Software Dev Expert",
     "level": 3,
-    "duration": 28,
-    "cost": 10000,
+    "duration": 27,
+    "cost": 8000,
     "weeklyCost": 3750,
     "prerequisite": "software_dev_advanced",
     "category": "Technology",
@@ -355,16 +355,224 @@
       "data_science": 10
     }
   },
-  {"id":"healthcare_basics","baseId":"healthcare","name":"Healthcare Basics","level":1,"duration":18,"cost":7200,"weeklyCost":0,"prerequisite":null,"category":"Healthcare","skillRewards":{"communication":8,"attention_to_detail":8},"knowledgeRewards":{"healthcare":12}},
-  {"id":"healthcare_advanced","baseId":"healthcare","name":"Healthcare Advanced","level":2,"duration":20,"cost":9000,"weeklyCost":850,"prerequisite":"healthcare_basics","category":"Healthcare","skillRewards":{"communication":12,"leadership":6},"knowledgeRewards":{"healthcare":18}},
-  {"id":"healthcare_expert","baseId":"healthcare","name":"Healthcare Expert","level":3,"duration":24,"cost":12000,"weeklyCost":2200,"prerequisite":"healthcare_advanced","category":"Healthcare","skillRewards":{"leadership":15,"organization":12},"knowledgeRewards":{"healthcare":25,"business":10}},
-  {"id":"legal_basics","baseId":"legal","name":"Legal Studies Basics","level":1,"duration":18,"cost":7500,"weeklyCost":0,"prerequisite":null,"category":"Legal","skillRewards":{"attention_to_detail":10,"communication":6},"knowledgeRewards":{"legal":12}},
-  {"id":"legal_advanced","baseId":"legal","name":"Legal Studies Advanced","level":2,"duration":22,"cost":9500,"weeklyCost":900,"prerequisite":"legal_basics","category":"Legal","skillRewards":{"negotiation":12,"problem_solving":10},"knowledgeRewards":{"legal":18}},
-  {"id":"legal_expert","baseId":"legal","name":"Legal Studies Expert","level":3,"duration":26,"cost":13000,"weeklyCost":2400,"prerequisite":"legal_advanced","category":"Legal","skillRewards":{"negotiation":16,"leadership":12},"knowledgeRewards":{"legal":25,"business":10}},
-  {"id":"logistics_basics","baseId":"logistics","name":"Logistics Basics","level":1,"duration":14,"cost":4800,"weeklyCost":0,"prerequisite":null,"category":"Logistics","skillRewards":{"organization":10,"time_management":8},"knowledgeRewards":{"logistics":12}},
-  {"id":"logistics_advanced","baseId":"logistics","name":"Logistics Advanced","level":2,"duration":18,"cost":8200,"weeklyCost":650,"prerequisite":"logistics_basics","category":"Logistics","skillRewards":{"organization":14,"problem_solving":10},"knowledgeRewards":{"logistics":18}},
-  {"id":"logistics_expert","baseId":"logistics","name":"Logistics Expert","level":3,"duration":22,"cost":11000,"weeklyCost":1800,"prerequisite":"logistics_advanced","category":"Logistics","skillRewards":{"leadership":14,"organization":16},"knowledgeRewards":{"logistics":25,"business":10}},
-  {"id":"hospitality_basics","baseId":"hospitality","name":"Hospitality Basics","level":1,"duration":14,"cost":4600,"weeklyCost":0,"prerequisite":null,"category":"Hospitality","skillRewards":{"customer_service":10,"communication":6},"knowledgeRewards":{"hospitality":12}},
-  {"id":"hospitality_advanced","baseId":"hospitality","name":"Hospitality Advanced","level":2,"duration":18,"cost":8000,"weeklyCost":600,"prerequisite":"hospitality_basics","category":"Hospitality","skillRewards":{"customer_service":14,"organization":10},"knowledgeRewards":{"hospitality":18}},
-  {"id":"hospitality_expert","baseId":"hospitality","name":"Hospitality Expert","level":3,"duration":22,"cost":10500,"weeklyCost":1750,"prerequisite":"hospitality_advanced","category":"Hospitality","skillRewards":{"leadership":14,"customer_service":16},"knowledgeRewards":{"hospitality":25,"business":10}}
+  {
+    "id": "healthcare_basics",
+    "baseId": "healthcare",
+    "name": "Healthcare Basics",
+    "level": 1,
+    "duration": 17,
+    "cost": 6950,
+    "weeklyCost": 0,
+    "prerequisite": null,
+    "category": "Healthcare",
+    "skillRewards": {
+      "communication": 8,
+      "attention_to_detail": 8
+    },
+    "knowledgeRewards": {
+      "healthcare": 12
+    }
+  },
+  {
+    "id": "healthcare_advanced",
+    "baseId": "healthcare",
+    "name": "Healthcare Advanced",
+    "level": 2,
+    "duration": 19,
+    "cost": 8750,
+    "weeklyCost": 850,
+    "prerequisite": "healthcare_basics",
+    "category": "Healthcare",
+    "skillRewards": {
+      "communication": 12,
+      "leadership": 6
+    },
+    "knowledgeRewards": {
+      "healthcare": 18
+    }
+  },
+  {
+    "id": "healthcare_expert",
+    "baseId": "healthcare",
+    "name": "Healthcare Expert",
+    "level": 3,
+    "duration": 23,
+    "cost": 11750,
+    "weeklyCost": 2200,
+    "prerequisite": "healthcare_advanced",
+    "category": "Healthcare",
+    "skillRewards": {
+      "leadership": 15,
+      "organization": 12
+    },
+    "knowledgeRewards": {
+      "healthcare": 25,
+      "business": 10
+    }
+  },
+  {
+    "id": "legal_basics",
+    "baseId": "legal",
+    "name": "Legal Studies Basics",
+    "level": 1,
+    "duration": 17,
+    "cost": 7250,
+    "weeklyCost": 0,
+    "prerequisite": null,
+    "category": "Legal",
+    "skillRewards": {
+      "attention_to_detail": 10,
+      "communication": 6
+    },
+    "knowledgeRewards": {
+      "legal": 12
+    }
+  },
+  {
+    "id": "legal_advanced",
+    "baseId": "legal",
+    "name": "Legal Studies Advanced",
+    "level": 2,
+    "duration": 21,
+    "cost": 9250,
+    "weeklyCost": 900,
+    "prerequisite": "legal_basics",
+    "category": "Legal",
+    "skillRewards": {
+      "negotiation": 12,
+      "problem_solving": 10
+    },
+    "knowledgeRewards": {
+      "legal": 18
+    }
+  },
+  {
+    "id": "legal_expert",
+    "baseId": "legal",
+    "name": "Legal Studies Expert",
+    "level": 3,
+    "duration": 25,
+    "cost": 12750,
+    "weeklyCost": 2400,
+    "prerequisite": "legal_advanced",
+    "category": "Legal",
+    "skillRewards": {
+      "negotiation": 16,
+      "leadership": 12
+    },
+    "knowledgeRewards": {
+      "legal": 25,
+      "business": 10
+    }
+  },
+  {
+    "id": "logistics_basics",
+    "baseId": "logistics",
+    "name": "Logistics Basics",
+    "level": 1,
+    "duration": 13,
+    "cost": 4550,
+    "weeklyCost": 0,
+    "prerequisite": null,
+    "category": "Logistics",
+    "skillRewards": {
+      "organization": 10,
+      "time_management": 8
+    },
+    "knowledgeRewards": {
+      "logistics": 12
+    }
+  },
+  {
+    "id": "logistics_advanced",
+    "baseId": "logistics",
+    "name": "Logistics Advanced",
+    "level": 2,
+    "duration": 17,
+    "cost": 7950,
+    "weeklyCost": 650,
+    "prerequisite": "logistics_basics",
+    "category": "Logistics",
+    "skillRewards": {
+      "organization": 14,
+      "problem_solving": 10
+    },
+    "knowledgeRewards": {
+      "logistics": 18
+    }
+  },
+  {
+    "id": "logistics_expert",
+    "baseId": "logistics",
+    "name": "Logistics Expert",
+    "level": 3,
+    "duration": 21,
+    "cost": 10750,
+    "weeklyCost": 1800,
+    "prerequisite": "logistics_advanced",
+    "category": "Logistics",
+    "skillRewards": {
+      "leadership": 14,
+      "organization": 16
+    },
+    "knowledgeRewards": {
+      "logistics": 25,
+      "business": 10
+    }
+  },
+  {
+    "id": "hospitality_basics",
+    "baseId": "hospitality",
+    "name": "Hospitality Basics",
+    "level": 1,
+    "duration": 13,
+    "cost": 4350,
+    "weeklyCost": 0,
+    "prerequisite": null,
+    "category": "Hospitality",
+    "skillRewards": {
+      "customer_service": 10,
+      "communication": 6
+    },
+    "knowledgeRewards": {
+      "hospitality": 12
+    }
+  },
+  {
+    "id": "hospitality_advanced",
+    "baseId": "hospitality",
+    "name": "Hospitality Advanced",
+    "level": 2,
+    "duration": 17,
+    "cost": 7750,
+    "weeklyCost": 600,
+    "prerequisite": "hospitality_basics",
+    "category": "Hospitality",
+    "skillRewards": {
+      "customer_service": 14,
+      "organization": 10
+    },
+    "knowledgeRewards": {
+      "hospitality": 18
+    }
+  },
+  {
+    "id": "hospitality_expert",
+    "baseId": "hospitality",
+    "name": "Hospitality Expert",
+    "level": 3,
+    "duration": 21,
+    "cost": 10250,
+    "weeklyCost": 1750,
+    "prerequisite": "hospitality_advanced",
+    "category": "Hospitality",
+    "skillRewards": {
+      "leadership": 14,
+      "customer_service": 16
+    },
+    "knowledgeRewards": {
+      "hospitality": 25,
+      "business": 10
+    }
+  }
 ]

@@ -4,6 +4,7 @@ import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
 import { inflated } from '../engine/economyEngine';
+import { getBusinessUpgradeWeeks } from '../engine/businessEngine';
 import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts } from '../engine/businessEngine';
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
 import { ensureAuctions, getInspectionCost, inspectAuction, leaveAuction, placeAuctionBid } from '../engine/auctionEngine';
@@ -22,6 +23,8 @@ import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
 import { AD_GEM_REWARD, GEM_CASH_RATE } from '../constants/rewards';
 import { AD_CONFIG } from '../services/adConfig';
+import { showGameDialog } from '../components/GameDialog';
+import { canUseCareerAsset } from '../engine/careerRequirements';
 
 interface GameStore extends GameState {
   isLoading: boolean;
@@ -31,6 +34,7 @@ interface GameStore extends GameState {
   showSlotPicker: boolean;
   showMainMenu: boolean;
   showTutorial: boolean;
+  showEducationOnboarding: boolean;
   slotPickerMode: 'load' | 'new';
   showNegativeCashModal: boolean;
   showPeriodReport: boolean;
@@ -76,6 +80,7 @@ interface GameStore extends GameState {
   beginNewGame: () => void;
   openTutorial: () => void;
   dismissTutorial: () => void;
+  dismissEducationOnboarding: () => void;
   selectNewGameSlot: (slot: number) => Promise<void>;
 
   enrollCourse: (courseId: string) => void;
@@ -159,6 +164,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   showSlotPicker: false,
   showMainMenu: false,
   showTutorial: false,
+  showEducationOnboarding: false,
   slotPickerMode: 'load',
   showNegativeCashModal: false,
   showPeriodReport: false,
@@ -328,7 +334,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     };
     await saveGame(newState, activeSlot);
     const slotMeta = await loadAllSlotMeta();
-    set({ ...newState, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showTutorial: true, slotPickerMode: 'load', lastSummary: null, showSummary: false, slotMeta });
+    set({ ...newState, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showTutorial: true, showEducationOnboarding: true, slotPickerMode: 'load', lastSummary: null, showSummary: false, slotMeta });
   },
 
   deleteSlot: async (slot: number) => {
@@ -575,6 +581,7 @@ const useGameStore = create<GameStore>((set, get) => ({
   openMainMenu: () => set({ showMainMenu: true }),
   openTutorial: () => set({ showTutorial: true }),
   dismissTutorial: () => set({ showTutorial: false }),
+  dismissEducationOnboarding: () => set({ showEducationOnboarding: false }),
   beginNewGame: () => set({ showSlotPicker: true, slotPickerMode: 'new' }),
   selectNewGameSlot: async (slot: number) => {
     await setActiveSlot(slot);
@@ -645,7 +652,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     if ((state?.totalWeeksWorked ?? 0) < (job?.requiredExperienceWeeks ?? 0)) return;
     if (job?.requiresCar && (!state?.currentCarId || state?.currentCarId === 'none')) return;
     const housingTiers: Record<string, number> = { cheap_apartment: 0, studio_apartment: 1, small_house: 2, family_house: 3, luxury_villa: 4, mansion: 5 };
-    const requiredHousingTier = (job.level ?? 1) >= 5 ? 2 : (job.level ?? 1) >= 3 ? 1 : 0;
+    const requiredHousingTier = (job.level ?? 1) >= 7 ? 4 : (job.level ?? 1) >= 6 ? 3 : (job.level ?? 1) >= 5 ? 2 : (job.level ?? 1) >= 3 ? 1 : 0;
     if ((housingTiers[state.currentHousingId ?? 'cheap_apartment'] ?? 0) < requiredHousingTier) return;
     if (state?.currentCourseId) {
       const currentCourse = (coursesData ?? []).find((c) => c?.id === state.currentCourseId);
@@ -753,6 +760,10 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   changeHousing: (housingId: string) => {
     const state = get();
+    if (!canUseCareerAsset(state, 'housing', housingId)) {
+      showGameDialog({ title: 'Housing required for your job', message: 'You cannot move below the housing requirement of your current career level.' });
+      return;
+    }
     const housing = (housingData ?? []).find((h) => h?.id === housingId);
     if (!housing) return;
     const newHistory = [...new Set([...(state?.housingHistory ?? []), housingId])];
@@ -763,6 +774,10 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   changeCar: (carId: string) => {
     const state = get();
+    if (!canUseCareerAsset(state, 'car', carId)) {
+      showGameDialog({ title: 'Vehicle required for your job', message: 'You cannot downgrade below the vehicle requirement of your current career level.' });
+      return;
+    }
     if (state.pendingCarDelivery) return;
     const car = (carsData ?? []).find((c) => c?.id === carId);
     if (!car) return;
@@ -826,7 +841,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
     const yesterdayDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
     const streak = profile.lastLoginClaimDate === yesterdayDate ? (profile.loginStreak ?? 0) + 1 : 1;
-    return { available: true, streak, reward: Math.min(50, 10 + (streak - 1) * 5) };
+    return { available: true, streak, reward: 10 };
   },
 
   claimDailyLoginReward: () => {
@@ -965,15 +980,15 @@ const useGameStore = create<GameStore>((set, get) => ({
     });
     if (!hasCourse) return;
 
-    // Car requirement: L1/L2 need used_car+, L3+ need suv+
+    // Car requirement: L1/L2 need a used car, L3/L4 a sedan, and L5+ an SUV.
     const CAR_TIER: Record<string, number> = { none: 0, used_car: 1, sedan: 2, suv: 3, sports_car: 4, luxury_car: 5 };
     const currentCarTier = CAR_TIER[state?.currentCarId ?? 'none'] ?? 0;
-    const minCarTier = level >= 3 ? 3 : 1;
+    const minCarTier = level >= 5 ? 3 : level >= 3 ? 2 : 1;
     if (currentCarTier < minCarTier) return;
 
-    // Housing requirement: L3/L4 need Studio Apartment+, L5+ need Small House+.
+    // Housing requirement: Studio at L3/L4, Small House at L5, Family House at L6, Villa at L7+.
     const HOUSING_TIER: Record<string, number> = { cheap_apartment: 0, studio_apartment: 1, small_house: 2, family_house: 3, luxury_villa: 4, mansion: 5 };
-    const minHousingTier = level >= 5 ? 2 : level >= 3 ? 1 : 0;
+    const minHousingTier = level >= 7 ? 4 : level >= 6 ? 3 : level >= 5 ? 2 : level >= 3 ? 1 : 0;
     if ((HOUSING_TIER[state.currentHousingId ?? 'cheap_apartment'] ?? 0) < minHousingTier) return;
 
     // Can't apply while studying full-time (level 1 course)
@@ -1351,8 +1366,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     const bizBal = biz.balance ?? 0;
     if (bizBal < cost) return;
     biz.balance = bizBal - cost;
-    // Start upgrade timer (16-30 weeks)
-    const weeks = 16 + Math.floor(Math.random() * 15);
+    // 25% faster than the original 16–30 week timer, rounded to whole weeks.
+    const weeks = getBusinessUpgradeWeeks();
     biz.activeUpgrade = { upgradeId, weeksRemaining: weeks };
     businesses[idx] = biz;
     const updates = { businesses };

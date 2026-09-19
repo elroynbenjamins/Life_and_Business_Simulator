@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/theme/colors';
@@ -10,9 +10,10 @@ import { formatCurrency } from '../../src/utils/format';
 import { inflated } from '../../src/engine/economyEngine';
 import { meetsExperienceRequirement } from '../../src/engine/educationEngine';
 import coursesData from '../../src/data/courses.json';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 import { loadRewardedAd, showRewardedAd } from '../../src/services/adManager';
+import { shouldSimulateNativeFeatures } from '../../src/services/runtimeEnvironment';
+import { disciplineImages } from '../../src/assets/progressionImages';
+import { getEducationAvailabilityNotice } from '../../src/engine/playerNotificationEngine';
 
 const CATEGORIES = ['Sales', 'Administration', 'Finance', 'Marketing', 'Technology', 'Healthcare', 'Legal', 'Logistics', 'Hospitality'];
 const CATEGORY_ICONS: Record<string, string> = {
@@ -42,6 +43,13 @@ export default function EducationScreen() {
   const weeksEmployed = useGameStore((s) => s?.statistics?.weeksEmployed ?? 0);
   const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
   const adsRemoved = useGameStore((s) => s.profile?.adsRemoved ?? false);
+  const educationNotice = getEducationAvailabilityNotice({
+    currentCourseId: currentCourseId ?? null,
+    completedCourses,
+    weeksEmployed,
+    cash,
+    inflationMultiplier,
+  });
 
   const completedIds = new Set(completedCourses.map((c) => c?.courseId));
   const currentCourse = currentCourseId
@@ -51,7 +59,7 @@ export default function EducationScreen() {
   const speedUp = async () => {
     setAdMessage('Loading advertisement...');
     const grant = () => { speedUpEducationWithAd?.(); setAdMessage('Education completed!'); };
-    if (Platform.OS === 'web' || Constants.expoGoConfig != null) {
+    if (shouldSimulateNativeFeatures()) {
       if (simulatedAdReady) {
         setSimulatedAdReady(false);
         grant();
@@ -87,6 +95,13 @@ export default function EducationScreen() {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        {educationNotice.available && (
+          <GameCard>
+            <Text style={styles.currentLabel}>NEW EDUCATION AVAILABLE</Text>
+            <Text style={styles.currentTitle}>{educationNotice.courseName}</Text>
+            <Text style={styles.hint}>You now meet the requirements and have enough cash to begin this {educationNotice.level === 3 ? 'Expert' : 'Advanced'} education.</Text>
+          </GameCard>
+        )}
         {/* Current Course */}
         {currentCourse ? (
           <GameCard style={styles.currentCard}>
@@ -102,6 +117,7 @@ export default function EducationScreen() {
                   <Ionicons name="play-circle" size={18} color={Colors.white} />
                   <Text style={styles.enrollBtnText}>{simulatedAdReady ? 'Claim reward: complete education' : simulatedAdPlaying ? 'Watching ad...' : 'Watch ad: complete education'}</Text>
                 </Pressable>}
+                {!adsRemoved && <Text style={styles.adMessage}>Reward: finish this education. No gems are awarded.</Text>}
                 {!!adMessage && <Text style={styles.adMessage}>{adMessage}</Text>}
               </>);
             })()}
@@ -153,6 +169,7 @@ export default function EducationScreen() {
                 return (
                   <GameCard key={course.id} style={[styles.courseCard, isDone && styles.courseDone]}>
                     <View style={styles.courseRow}>
+                      <Image source={disciplineImages[course.baseId] ?? disciplineImages[cat.toLowerCase()]} style={[styles.courseArtwork, isDone && styles.courseArtworkDone]} resizeMode="contain" accessibilityLabel={`${course.name} pixel art`} />
                       <View style={{ flex: 1 }}>
                         <View style={styles.courseTitleRow}>
                           <Text style={[styles.courseName, isDone && styles.courseDoneText]}>{course.name}</Text>
@@ -212,6 +229,8 @@ const styles = StyleSheet.create({
   courseCard: { marginBottom: 8 },
   courseDone: { opacity: 0.6 },
   courseRow: { flexDirection: 'row', alignItems: 'center' },
+  courseArtwork: { width: 58, height: 58, marginRight: 10 },
+  courseArtworkDone: { opacity: 0.6 },
   courseTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   courseName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   courseDoneText: { textDecorationLine: 'line-through' },

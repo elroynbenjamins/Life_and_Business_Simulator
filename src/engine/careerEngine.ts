@@ -1,9 +1,11 @@
 import { GameState, CareerState, INITIAL_CAREER_STATE } from '../types/game';
 import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
+import coursesData from '../data/courses.json';
 import { inflated } from './economyEngine';
 import { meetsPositionRequirements } from './skillEngine';
 import { getPrestigeEffects } from './prestigeEngine';
+import { FULL_TIME_BASE_SALARY_INCREASE } from '../constants/balance';
 
 export interface CareerTickResult {
   updatedCareer: CareerState;
@@ -16,9 +18,14 @@ export interface CareerTickResult {
 
 /** Compute min/max salary for a position (defaults ±20% around baseSalary). */
 export function getPositionSalaryRange(position: any): { min: number; max: number } {
-  const base = position?.baseSalary ?? 0;
-  const min = position?.minSalary ?? Math.round(base * 0.85);
-  const max = position?.maxSalary ?? Math.round(base * 1.30);
+  const factor = position?.level <= 2 ? 1.03 : position?.level === 3 ? 1.02 : position?.level === 4 ? 1.01 : 1;
+  const base = ((position?.baseSalary ?? 0) + FULL_TIME_BASE_SALARY_INCREASE) * factor;
+  const min = position?.minSalary != null
+    ? Math.round((position.minSalary + FULL_TIME_BASE_SALARY_INCREASE) * factor)
+    : Math.round(base * 0.85);
+  const max = position?.maxSalary != null
+    ? Math.round((position.maxSalary + FULL_TIME_BASE_SALARY_INCREASE) * factor)
+    : Math.round(base * 1.30);
   return { min, max };
 }
 
@@ -35,7 +42,8 @@ export function getCareerSalary(career: CareerState, inflationMultiplier: number
   const position = (path.positions as any[]).find((p: any) => p?.level === career.positionLevel);
   if (!position) return 0;
 
-  const base = position.baseSalary ?? 0;
+  const salaryAdjustment = career.positionLevel <= 2 ? 1.03 : career.positionLevel === 3 ? 1.02 : career.positionLevel === 4 ? 1.01 : 1;
+  const base = ((position.baseSalary ?? 0) + FULL_TIME_BASE_SALARY_INCREASE) * salaryAdjustment;
   const companySalaryMult = company.salaryMultiplier ?? 1.0;
   const inferredRaises = Math.round(((career.salaryBonus ?? 1) - 1) / 0.03);
   const raisesAtLevel = Math.max(0, Math.min(5, career.performanceRaisesAtLevel ?? inferredRaises));
@@ -164,15 +172,20 @@ export function processCareerTick(
     const nextPosition = positions.find((p: any) => p?.level === currentLevel + 1);
     if (nextPosition) {
       const carTiers: Record<string, number> = { none: 0, used_car: 1, sedan: 2, suv: 3, sports_car: 4, luxury_car: 5 };
-      const needsSuv = nextPosition.level >= 3;
-      const hasRequiredCar = !needsSuv || (carTiers[state.currentCarId ?? 'none'] ?? 0) >= carTiers.suv;
+      const requiredCarTier = nextPosition.level >= 5 ? carTiers.suv : nextPosition.level >= 3 ? carTiers.sedan : carTiers.used_car;
+      const hasRequiredCar = (carTiers[state.currentCarId ?? 'none'] ?? 0) >= requiredCarTier;
       const housingTiers: Record<string, number> = { cheap_apartment: 0, studio_apartment: 1, small_house: 2, family_house: 3, luxury_villa: 4, mansion: 5 };
-      const requiredHousingTier = nextPosition.level >= 5 ? 2 : nextPosition.level >= 3 ? 1 : 0;
+      const requiredHousingTier = nextPosition.level >= 7 ? 4 : nextPosition.level >= 6 ? 3 : nextPosition.level >= 5 ? 2 : nextPosition.level >= 3 ? 1 : 0;
       const hasRequiredHousing = (housingTiers[state.currentHousingId ?? 'cheap_apartment'] ?? 0) >= requiredHousingTier;
-      if (!hasRequiredCar) {
-        promotionBlockedReason = `Promotion to ${nextPosition.title} is ready, but you need an SUV or better vehicle.`;
+      const requiredEducationLevel = nextPosition.level >= 5 ? 3 : nextPosition.level >= 3 ? 2 : 1;
+      const hasEducation = (state.completedCourses ?? []).some((completed) => coursesData.some((course) => course.id === completed.courseId && course.baseId === path.requiredCourseBase && course.level >= requiredEducationLevel));
+      if (!hasEducation) {
+        promotionBlockedReason = `Complete the ${requiredEducationLevel === 3 ? 'Expert' : requiredEducationLevel === 2 ? 'Advanced' : 'Basic'} course for this career before promotion to ${nextPosition.title}.`;
+      } else if (!hasRequiredCar) {
+        promotionBlockedReason = `Promotion to ${nextPosition.title} is ready, but you need ${nextPosition.level >= 5 ? 'an SUV' : nextPosition.level >= 3 ? 'a Sedan' : 'a Used Car'} or better vehicle.`;
       } else if (!hasRequiredHousing) {
-        promotionBlockedReason = `Promotion to ${nextPosition.title} is ready, but you need ${nextPosition.level >= 5 ? 'a Small House or better' : 'a Studio Apartment or better'}.`;
+        const housingName = nextPosition.level >= 7 ? 'a Luxury Villa' : nextPosition.level >= 6 ? 'a Family House' : nextPosition.level >= 5 ? 'a Small House' : 'a Studio Apartment';
+        promotionBlockedReason = `Promotion to ${nextPosition.title} is ready, but you need ${housingName} or better.`;
       } else {
       updatedCareer.positionLevel = nextPosition.level;
       updatedCareer.weeksInPosition = 0;

@@ -5,6 +5,7 @@ import {
   getUnrealizedProfitLoss,
   getWeeklyUtilityCost,
   getWeeklyFoodCost,
+  getWeeklySalary,
   processLoans,
   processTaxes,
 } from '../financeEngine';
@@ -29,6 +30,11 @@ describe('financeEngine', () => {
     expect(getWeeklyFoodCost(state({ career: { ...INITIAL_GAME_STATE.career, companyId: 'company', positionLevel: 6 }, inflationMultiplier: 1.2 }))).toBe(210);
   });
 
+  test('includes the flat 50 increase and low-level salary adjustment', () => {
+    expect(getWeeklySalary(state({ currentJobId: 'cashier', inflationMultiplier: 1 }))).toBe(412);
+    expect(getWeeklySalary(state({ currentJobId: 'software_developer', inflationMultiplier: 1 }))).toBe(1_391);
+  });
+
   test.each([
     [0, 0],
     [5_000, 750],
@@ -36,6 +42,10 @@ describe('financeEngine', () => {
     [20_000, 5_000],
   ])('calculates progressive tax for %i earnings', (earnings, expected) => {
     expect(calculateTax(earnings)).toBe(expected);
+  });
+
+  test('indexes tax thresholds with inflation without changing tax rates', () => {
+    expect(calculateTax(20_000, 2)).toBe(4_000);
   });
 
   test('collects tax every 20 weeks and resets period earnings', () => {

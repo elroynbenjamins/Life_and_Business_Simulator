@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import GameCard from '../src/components/GameCard';
 import useGameStore from '../src/store/gameStore';
 import { getPrestigeBonuses } from '../src/engine/prestigeEngine';
 import { showGameDialog } from '../src/components/GameDialog';
+import { prestigeImages, prestigeImageKey } from '../src/assets/progressionImages';
 
 export default function PrestigeScreen() {
   const router = useRouter();
@@ -16,7 +17,8 @@ export default function PrestigeScreen() {
   const bonuses = getPrestigeBonuses();
 
   const handleUnlock = (bonusId: string, cost: number) => {
-    showGameDialog({ title: 'Unlock Bonus', message: `Spend ${cost} Prestige Points?`, confirmText: 'Unlock', onConfirm: () => unlockPrestigeBonus?.(bonusId) });
+    const gemCost = bonuses.find(b => b.id === bonusId)?.gemCost ?? 0;
+    showGameDialog({ title: 'Unlock Bonus', message: `Spend ${cost} Prestige Points${gemCost ? ' + ' + gemCost + ' gems' : ''}?`, confirmText: 'Unlock', onConfirm: () => unlockPrestigeBonus?.(bonusId) });
   };
 
   return (
@@ -38,7 +40,7 @@ export default function PrestigeScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {bonuses.map((bonus: any) => {
           const isUnlocked = (profile?.unlockedPrestige ?? []).includes(bonus.id);
-          const canAfford = (profile?.prestigePoints ?? 0) >= (bonus.cost ?? 0);
+          const canAfford = (profile?.prestigePoints ?? 0) >= (bonus.cost ?? 0) && (profile?.gems ?? 0) >= (bonus.gemCost ?? 0);
           const rawReq = bonus.requires;
           const prereqs: string[] = Array.isArray(rawReq) ? rawReq : rawReq ? [rawReq] : [];
           const hasPrereqs = prereqs.every((rid: string) => (profile?.unlockedPrestige ?? []).includes(rid));
@@ -51,7 +53,7 @@ export default function PrestigeScreen() {
           return (
             <GameCard key={bonus.id} style={[styles.bonusCard, isUnlocked && styles.bonusUnlocked]}>
               <View style={styles.bonusRow}>
-                <Text style={styles.bonusIcon}>{bonus.icon}</Text>
+                <Image source={prestigeImages[prestigeImageKey(bonus.id)]} style={[styles.bonusArtwork, isUnlocked && styles.bonusArtworkActive]} resizeMode="contain" accessibilityLabel={`${bonus.name} pixel art`} />
                 <View style={styles.bonusInfo}>
                   <Text style={styles.bonusName}>{bonus.name}</Text>
                   <Text style={styles.bonusDesc}>{bonus.description}</Text>
@@ -71,7 +73,7 @@ export default function PrestigeScreen() {
                       onPress={() => canUnlock && handleUnlock(bonus.id, bonus.cost)}
                       disabled={!canUnlock}
                     >
-                      <Text style={styles.unlockBtnText}>{bonus.cost} PP</Text>
+                      <Text style={styles.unlockBtnText}>{bonus.cost} PP{bonus.gemCost ? ` + ${bonus.gemCost} gems` : ''}</Text>
                     </Pressable>
                   )}
                 </View>
@@ -97,6 +99,8 @@ const styles = StyleSheet.create({
   bonusUnlocked: { borderColor: Colors.primary, borderWidth: 1 },
   bonusRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   bonusIcon: { fontSize: 32 },
+  bonusArtwork: { width: 58, height: 58, opacity: 0.55 },
+  bonusArtworkActive: { opacity: 1 },
   bonusInfo: { flex: 1 },
   bonusName: { color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
   bonusDesc: { color: Colors.textSecondary, fontSize: 13, marginTop: 2 },

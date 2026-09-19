@@ -8,13 +8,18 @@ export interface PropertyTickResult {
   totalMaintenance: number;
 }
 
+export function getPropertyWeeklyRent(property: OwnedProperty, inflationMultiplier = 1, rentBonus = 0): number {
+  return Math.round(inflated(property.weeklyIncome ?? 0, inflationMultiplier) * (1 + rentBonus));
+}
+
 /**
  * Process all owned properties for a week.
  * Rental income collected, maintenance paid, values appreciate.
  */
 export function processProperties(
   properties: OwnedProperty[],
-  inflationMultiplier: number
+  inflationMultiplier: number,
+  rentBonus = 0
 ): PropertyTickResult {
   let totalIncome = 0;
   let totalMaintenance = 0;
@@ -29,7 +34,7 @@ export function processProperties(
 
     // Collect rent if rented out
     if (prop.isRentedOut) {
-      const income = inflated(prop.weeklyIncome ?? 0, inflationMultiplier);
+      const income = getPropertyWeeklyRent(prop, inflationMultiplier, rentBonus);
       totalIncome += income;
     }
 

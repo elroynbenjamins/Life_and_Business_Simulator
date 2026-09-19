@@ -371,6 +371,7 @@ export const INITIAL_STATISTICS: LifetimeStatistics = {
 };
 
 export interface EducationCareerReminder {
+  courseLevel?: number;
   courseName: string;
   jobTitle: string;
   missingRequirements: string[];

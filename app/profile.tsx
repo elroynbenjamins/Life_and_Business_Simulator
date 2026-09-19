@@ -11,6 +11,7 @@ import { formatCurrency } from '../src/utils/format';
 import { INITIAL_STATISTICS } from '../src/types/game';
 import achievementsData from '../src/data/achievements.json';
 import { showGameDialog } from '../src/components/GameDialog';
+import { ThemePreference, useThemePreference } from '../src/theme/ThemeProvider';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function ProfileScreen() {
   const startNewGame = useGameStore((s) => s?.startNewGame);
   const openSlotPicker = useGameStore((s) => s?.openSlotPicker);
   const activeSlot = useGameStore((s) => s?.activeSlot ?? 0);
+  const { preference, resolvedScheme, setPreference } = useThemePreference();
 
   const netWorth = getNetWorthValue?.() ?? 0;
 
@@ -66,6 +68,27 @@ export default function ProfileScreen() {
               <Ionicons name="diamond" size={22} color="#8B5CF6" />
               <Text style={styles.profileValue}>{profile?.gems ?? 0} Gems</Text>
             </View>
+          </View>
+        </GameCard>
+
+        <GameCard title="Appearance">
+          <Text style={styles.appearanceDescription}>
+            System follows your phone automatically. Current appearance: {resolvedScheme === 'light' ? 'Light' : 'Dark'}.
+          </Text>
+          <View style={styles.themeOptions}>
+            {([
+              ['system', 'phone-portrait-outline', 'System'],
+              ['light', 'sunny-outline', 'Light'],
+              ['dark', 'moon-outline', 'Dark'],
+            ] as [ThemePreference, keyof typeof Ionicons.glyphMap, string][]).map(([value, icon, label]) => {
+              const selected = preference === value;
+              return (
+                <Pressable key={value} style={[styles.themeOption, selected && styles.themeOptionSelected]} onPress={() => setPreference(value)}>
+                  <Ionicons name={icon} size={19} color={selected ? Colors.white : Colors.textSecondary} />
+                  <Text style={[styles.themeOptionText, selected && styles.themeOptionTextSelected]}>{label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </GameCard>
 
@@ -186,6 +209,12 @@ const styles = StyleSheet.create({
   profileRow: { flexDirection: 'row', justifyContent: 'space-around' },
   profileItem: { alignItems: 'center', gap: 4 },
   profileValue: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
+  appearanceDescription: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18, marginBottom: 12 },
+  themeOptions: { flexDirection: 'row', gap: 8 },
+  themeOption: { flex: 1, minHeight: 46, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
+  themeOptionSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  themeOptionText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
+  themeOptionTextSelected: { color: Colors.white },
   divider: { height: 1, backgroundColor: Colors.cardBorder, marginVertical: 6 },
   statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
   statRowLabel: { color: Colors.textSecondary, fontSize: 14 },

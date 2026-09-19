@@ -8,6 +8,7 @@ import GameStatusBar from '../src/components/StatusBar';
 import GameCard from '../src/components/GameCard';
 import ProgressBar from '../src/components/ProgressBar';
 import useGameStore from '../src/store/gameStore';
+import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../src/utils/format';
 import { getNetWorth } from '../src/engine/financeEngine';
 import loansData from '../src/data/loans.json';
@@ -28,7 +29,16 @@ export default function LoansScreen() {
   const [depositAmount, setDepositAmount] = useState('');
   const [depositTerm, setDepositTerm] = useState<20 | 40 | 60>(20);
   const hasJob = !!(currentJobId || career?.companyId);
-  const state = useGameStore();
+  const state = useGameStore(useShallow((s) => ({
+    cash: s.cash,
+    stocks: s.stocks,
+    holdings: s.holdings,
+    loans: s.loans,
+    bankDeposits: s.bankDeposits,
+    businesses: s.businesses,
+    properties: s.properties,
+    profile: s.profile,
+  }))) as ReturnType<typeof useGameStore.getState>;
   const netWorth = getNetWorth(state);
   const prestigeEffects = getPrestigeEffects(state.profile);
   const loanRateReduction = prestigeEffects.loan_rate_reduction ?? 0;

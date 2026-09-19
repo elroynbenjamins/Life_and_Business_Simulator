@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import GameCard from '../../src/components/GameCard';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
 import { getLevelName, getBusinessType, getAutomationScore, getTotalBusinessValue } from '../../src/engine/businessEngine';
+import { businessTypeImages } from '../../src/assets/progressionImages';
 
 export default function BusinessPortfolioScreen() {
   const router = useRouter();
@@ -63,9 +64,7 @@ export default function BusinessPortfolioScreen() {
               >
                 <GameCard>
                   <View style={styles.bizHeader}>
-                    <View style={styles.bizIconWrap}>
-                      <Ionicons name={(type?.icon as any) ?? 'business'} size={24} color={Colors.primary} />
-                    </View>
+                    <Image source={businessTypeImages[biz.typeId]} style={styles.bizArtwork} resizeMode="contain" accessibilityLabel={`${type?.name ?? 'Business'} pixel art`} />
                     <View style={styles.bizInfo}>
                       <Text style={styles.bizName}>{biz.name}</Text>
                       <Text style={styles.bizLevel}>{getLevelName(biz.level)} • {type?.industry ?? ''}</Text>
@@ -134,6 +133,7 @@ const styles = StyleSheet.create({
   emptySubtitle: { color: Colors.textSecondary, fontSize: 14, marginTop: 4, textAlign: 'center' },
   bizHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   bizIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: `${Colors.primary}20`, justifyContent: 'center', alignItems: 'center' },
+  bizArtwork: { width: 58, height: 58 },
   bizInfo: { flex: 1 },
   bizName: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
   bizLevel: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },

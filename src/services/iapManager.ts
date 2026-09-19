@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+import { isExpoGoRuntime } from './runtimeEnvironment';
 
 export const REMOVE_ADS_PRODUCT_ID = 'remove_ads';
 export const GEM_PRODUCTS = [
@@ -21,7 +21,7 @@ let purchaseSub: { remove: () => void } | null = null;
 let errorSub: { remove: () => void } | null = null;
 
 export function isNativeStoreAvailable() {
-  return Platform.OS !== 'web' && Constants.expoGoConfig == null;
+  return Platform.OS !== 'web' && !isExpoGoRuntime();
 }
 
 export async function connectStore(handlers: PurchaseHandlers): Promise<StoreProduct[]> {

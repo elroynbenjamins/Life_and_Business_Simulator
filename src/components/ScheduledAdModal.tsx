@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet, Platform } from 'react-native';
-import Constants from 'expo-constants';
+import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Colors } from '../theme/colors';
 import useGameStore from '../store/gameStore';
 import { loadInterstitialAd, showInterstitialAd } from '../services/adManager';
+import { shouldSimulateNativeFeatures } from '../services/runtimeEnvironment';
 
 export default function ScheduledAdModal() {
   const visible = useGameStore((state) => state.showScheduledAd);
   const dismiss = useGameStore((state) => state.dismissScheduledAd);
   const adsRemoved = useGameStore((state) => state.profile?.adsRemoved ?? false);
   const [ready, setReady] = useState(false);
-  const simulated = Platform.OS === 'web' || Constants.expoGoConfig != null;
+  const simulated = shouldSimulateNativeFeatures();
 
   useEffect(() => {
     if (adsRemoved && visible) { dismiss(); return; }
@@ -33,7 +33,9 @@ export default function ScheduledAdModal() {
       <View style={styles.screen}>
         <Text style={styles.sponsor}>SPONSORED</Text>
         <Text style={styles.title}>Advertisement</Text>
-        <Text style={styles.copy}>This simulated ad is shown in Expo Go and on web. Development builds use the configured AdMob interstitial.</Text>
+        <Text style={styles.copy}>{simulated
+          ? 'This simulated ad is shown only in Expo Go and on web.'
+          : 'The advertisement is unavailable right now. You may continue playing.'}</Text>
         <Pressable disabled={!ready} onPress={dismiss} style={[styles.button, !ready && styles.disabled]}>
           <Text style={styles.buttonText}>{ready ? 'Continue' : 'Ad playing...'}</Text>
         </Pressable>

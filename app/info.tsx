@@ -21,7 +21,7 @@ const sections = [
   {
     title: 'Career',
     icon: '💼',
-    content: 'Complete a matching course and meet skill, knowledge, experience, vehicle and housing requirements to apply. Performance checks occur every 5 weeks and successful D20 rolls increase promotion progress. Each level allows up to five 3% performance raises; inflation continues separately. Levels 3–4 require a Studio Apartment or better, levels 5+ require a Small House or better, and level 3+ requires an SUV or better.',
+    content: 'Complete a matching course and meet skill, knowledge, experience, vehicle and housing requirements to apply. Performance checks occur every 5 weeks and successful D20 rolls increase promotion progress. Each level allows up to five 3% performance raises; inflation continues separately. Levels 3–4 require a Studio Apartment and Sedan, level 5 a Small House, level 6 a Family House, and level 7 a Luxury Villa. Levels 5+ also require an SUV or better.',
   },
   {
     title: 'Education',

@@ -1,18 +1,38 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Colors } from '../../src/theme/colors';
+import { Colors, resolveThemeColor } from '../../src/theme/colors';
 import GameStatusBar from '../../src/components/StatusBar';
 import GameCard from '../../src/components/GameCard';
 import useGameStore from '../../src/store/gameStore';
+import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
 import { getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyCarCost, getWeeklyFoodCost, getWeeklyCourseCost, getWeeklyLoanPayments } from '../../src/engine/financeEngine';
 import { BarChart } from 'react-native-chart-kit';
 
 export default function FinanceScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
-  const state = useGameStore();
+  const state = useGameStore(useShallow((s) => ({
+    cash: s.cash,
+    currentJobId: s.currentJobId,
+    currentCourseId: s.currentCourseId,
+    currentHousingId: s.currentHousingId,
+    currentCarId: s.currentCarId,
+    inflationMultiplier: s.inflationMultiplier,
+    career: s.career,
+    loans: s.loans,
+    bankDeposits: s.bankDeposits,
+    stocks: s.stocks,
+    holdings: s.holdings,
+    businesses: s.businesses,
+    properties: s.properties,
+    netWorthHistory: s.netWorthHistory,
+    totalTaxPaid: s.totalTaxPaid,
+    getPortfolioValueTotal: s.getPortfolioValueTotal,
+    getNetWorthValue: s.getNetWorthValue,
+  }))) as ReturnType<typeof useGameStore.getState>;
   const salary = getWeeklySalary(state);
   const rent = getWeeklyRent(state);
   const utilityCost = getWeeklyUtilityCost(state);
@@ -30,7 +50,7 @@ export default function FinanceScreen() {
   const inflationMultiplier = state?.inflationMultiplier ?? 1;
 
   const last8 = netWorthHistory.slice(-8);
-  const chartWidth = Math.min(Dimensions.get('window').width - 64, 500);
+  const chartWidth = Math.min(screenWidth - 64, 500);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -76,14 +96,14 @@ export default function FinanceScreen() {
               yAxisLabel="€"
               yAxisSuffix=""
               chartConfig={{
-                backgroundColor: Colors.card,
-                backgroundGradientFrom: Colors.card,
-                backgroundGradientTo: Colors.card,
+                backgroundColor: resolveThemeColor(Colors.card) as string,
+                backgroundGradientFrom: resolveThemeColor(Colors.card) as string,
+                backgroundGradientTo: resolveThemeColor(Colors.card) as string,
                 decimalPlaces: 0,
                 color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
-                labelColor: () => Colors.textMuted,
+                labelColor: () => resolveThemeColor(Colors.textMuted) as string,
                 barPercentage: 0.6,
-                propsForBackgroundLines: { stroke: Colors.cardBorder },
+                propsForBackgroundLines: { stroke: resolveThemeColor(Colors.cardBorder) as string },
               }}
               style={{ borderRadius: 8 }}
             />

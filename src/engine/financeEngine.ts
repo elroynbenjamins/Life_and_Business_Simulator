@@ -4,6 +4,14 @@ import housingData from '../data/housing.json';
 import jobsData from '../data/jobs.json';
 import carsData from '../data/cars.json';
 import coursesData from '../data/courses.json';
+import { FULL_TIME_BASE_SALARY_INCREASE } from '../constants/balance';
+
+// Static game data never changes at runtime. Index it once instead of scanning the
+// JSON arrays several times during every weekly tick and screen render.
+const jobsById = new Map((jobsData ?? []).map((job) => [job.id, job]));
+const housingById = new Map((housingData ?? []).map((housing) => [housing.id, housing]));
+const carsById = new Map((carsData ?? []).map((car) => [car.id, car]));
+const coursesById = new Map((coursesData ?? []).map((course) => [course.id, course]));
 
 /**
  * Step 8: Income Collection
@@ -13,11 +21,13 @@ import coursesData from '../data/courses.json';
  */
 export function getWeeklySalary(state: GameState): number {
   if (!state?.currentJobId) return 0;
-  const job = (jobsData ?? []).find((j) => j?.id === state.currentJobId);
-  let salary = inflated(job?.weeklySalary ?? 0, state?.inflationMultiplier ?? 1);
+  const job = jobsById.get(state.currentJobId);
+  let salary = inflated((job?.weeklySalary ?? 0) + FULL_TIME_BASE_SALARY_INCREASE, state?.inflationMultiplier ?? 1);
+  const level = job?.level ?? 0;
+  salary = Math.round(salary * (level >= 1 && level <= 2 ? 1.03 : level === 3 ? 1.02 : level === 4 ? 1.01 : 1));
   // Reduce salary by 20% when doing advanced/expert course
   if (state?.currentCourseId) {
-    const course = (coursesData ?? []).find((c) => c?.id === state.currentCourseId);
+    const course = coursesById.get(state.currentCourseId);
     if ((course?.level ?? 1) >= 2) {
       salary = Math.round(salary * 0.8);
     }
@@ -28,7 +38,7 @@ export function getWeeklySalary(state: GameState): number {
 /** Check if salary is currently reduced due to studying */
 export function isSalaryReduced(state: GameState): boolean {
   if (!state?.currentJobId || !state?.currentCourseId) return false;
-  const course = (coursesData ?? []).find((c) => c?.id === state.currentCourseId);
+  const course = coursesById.get(state.currentCourseId);
   return (course?.level ?? 1) >= 2;
 }
 
@@ -36,7 +46,7 @@ export function isSalaryReduced(state: GameState): boolean {
  * Step 9: Expense helpers. All apply inflation to base values.
  */
 export function getWeeklyRent(state: GameState): number {
-  const housing = (housingData ?? []).find((h) => h?.id === state?.currentHousingId);
+  const housing = state?.currentHousingId ? housingById.get(state.currentHousingId) : undefined;
   return inflated(housing?.weeklyRent ?? 150, state?.inflationMultiplier ?? 1);
 }
 
@@ -45,12 +55,12 @@ export function getWeeklyUtilityCost(state: GameState): number {
 }
 
 export function getWeeklyCarCost(state: GameState): number {
-  const car = (carsData ?? []).find((c) => c?.id === state?.currentCarId);
+  const car = state?.currentCarId ? carsById.get(state.currentCarId) : undefined;
   return inflated(car?.weeklyCost ?? 0, state?.inflationMultiplier ?? 1);
 }
 
 export function getWeeklyFoodCost(state: GameState): number {
-  const legacyJob = (jobsData ?? []).find((job) => job?.id === state?.currentJobId);
+  const legacyJob = state?.currentJobId ? jobsById.get(state.currentJobId) : undefined;
   const jobLevel = state?.career?.companyId
     ? Math.max(1, state.career.positionLevel ?? 1)
     : Math.max(1, legacyJob?.level ?? 1);
@@ -59,7 +69,7 @@ export function getWeeklyFoodCost(state: GameState): number {
 
 export function getWeeklyCourseCost(state: GameState): number {
   if (!state?.currentCourseId) return 0;
-  const course = (coursesData ?? []).find((c) => c?.id === state.currentCourseId);
+  const course = coursesById.get(state.currentCourseId);
   return inflated(course?.weeklyCost ?? 0, state?.inflationMultiplier ?? 1);
 }
 
@@ -130,17 +140,20 @@ export function processLoans(state: GameState): { loans: ActiveLoan[]; totalPaid
 /**
  * Step 11: Tax calculation
  */
-export function calculateTax(earnings: number): number {
+export function calculateTax(earnings: number, inflationMultiplier = 1, jobLevel = 0): number {
   if (earnings <= 0) return 0;
+  const lowerThreshold = 5000 * Math.max(1, inflationMultiplier);
+  const upperThreshold = 15000 * Math.max(1, inflationMultiplier);
   let tax = 0;
-  if (earnings <= 5000) {
+  if (earnings <= lowerThreshold) {
     tax = earnings * 0.15;
-  } else if (earnings <= 15000) {
-    tax = 5000 * 0.15 + (earnings - 5000) * 0.25;
+  } else if (earnings <= upperThreshold) {
+    tax = lowerThreshold * 0.15 + (earnings - lowerThreshold) * 0.25;
   } else {
-    tax = 5000 * 0.15 + 10000 * 0.25 + (earnings - 15000) * 0.35;
+    tax = lowerThreshold * 0.15 + (upperThreshold - lowerThreshold) * 0.25 + (earnings - upperThreshold) * 0.35;
   }
-  return Math.round(tax);
+  const reduction = jobLevel >= 1 && jobLevel <= 2 ? 0.03 : jobLevel === 3 ? 0.02 : jobLevel === 4 ? 0.01 : 0;
+  return Math.round(Math.max(0, tax - earnings * reduction));
 }
 
 export interface TaxResult {
@@ -156,7 +169,8 @@ export function processTaxes(state: GameState, salary: number, currentWeek: numb
   let earningsForPeriod = 0;
   if (isTaxWeek) {
     earningsForPeriod = earningsSinceLastTax;
-    taxAmount = calculateTax(earningsSinceLastTax);
+    const jobLevel = state.career?.companyId ? state.career.positionLevel : jobsById.get(state.currentJobId ?? '')?.level ?? 0;
+    taxAmount = calculateTax(earningsSinceLastTax, state?.inflationMultiplier ?? 1, jobLevel);
     earningsSinceLastTax = 0;
   }
   return { isTaxWeek, taxAmount, earningsForPeriod, newEarningsSinceLastTax: earningsSinceLastTax };
@@ -166,18 +180,19 @@ export function processTaxes(state: GameState, salary: number, currentWeek: numb
  * Portfolio and net worth helpers (no inflation needed — already in current prices).
  */
 export function getPortfolioValue(stocks: StockState[], holdings: StockHolding[]): number {
+  const pricesByTicker = new Map((stocks ?? []).map((stock) => [stock?.ticker, stock?.currentPrice ?? 0]));
   return (holdings ?? []).reduce((total, h) => {
-    const stock = (stocks ?? []).find((s) => s?.ticker === h?.ticker);
-    return total + (h?.shares ?? 0) * (stock?.currentPrice ?? 0);
+    return total + (h?.shares ?? 0) * (pricesByTicker.get(h?.ticker) ?? 0);
   }, 0);
 }
 
 /** Current paper profit/loss for all open positions, based on weighted average purchase prices. */
 export function getUnrealizedProfitLoss(stocks: StockState[], holdings: StockHolding[]): number {
+  const pricesByTicker = new Map((stocks ?? []).map((stock) => [stock?.ticker, stock?.currentPrice ?? 0]));
   return (holdings ?? []).reduce((total, holding) => {
-    const stock = (stocks ?? []).find((candidate) => candidate?.ticker === holding?.ticker);
-    if (!stock) return total;
-    return total + (holding?.shares ?? 0) * ((stock?.currentPrice ?? 0) - (holding?.avgBuyPrice ?? 0));
+    const price = pricesByTicker.get(holding?.ticker);
+    if (price === undefined) return total;
+    return total + (holding?.shares ?? 0) * (price - (holding?.avgBuyPrice ?? 0));
   }, 0);
 }
 

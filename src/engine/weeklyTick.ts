@@ -86,7 +86,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const jobs = processJobs(stateWithInflation);
 
   // ---------- Step 6.5: Career v2 Processing ----------
-  const careerTick = processCareerTick({ ...stateWithInflation, skills: updatedSkills, knowledge: updatedKnowledge }, globalWeek);
+  const careerTick = processCareerTick({ ...stateWithInflation, completedCourses: edu.completedCourses, skills: updatedSkills, knowledge: updatedKnowledge }, globalWeek);
 
   // ---------- Step 6.6: Skill Growth from Work ----------
   let skillGains: Record<string, number> = {};
@@ -117,7 +117,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const loanResult = processLoans(stateWithInflation);
 
   // ---------- Step 11: Taxes ----------
-  const taxes = processTaxes(stateWithInflation, salary, globalWeek);
+  const taxes = processTaxes({ ...stateWithInflation, career: careerTick.updatedCareer }, salary, globalWeek);
 
   // ---------- Step 11.5: Part-Time Income ----------
   const partTimeIncome = partTimeActive ? Math.floor(275 + Math.random() * 151) : 0;
@@ -138,7 +138,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   let newCash = (state?.cash ?? 0) + salary + partTimeIncome + dividendIncome + bankDepositMaturityIncome - totalExpenses - taxes.taxAmount;
 
   // ---------- Step 12.3: Property Income ----------
-  const propResult = processProperties(state?.properties ?? [], economy.inflationMultiplier);
+  const propResult = processProperties(state?.properties ?? [], economy.inflationMultiplier, prestigeEffects.property_income ?? 0);
   const propertyNetIncome = propResult.totalIncome - propResult.totalMaintenance;
   newCash += propertyNetIncome;
 
@@ -208,18 +208,11 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   // ---------- Step 12.65: Business Processing ----------
   const bizResult = processAllBusinesses(state?.businesses ?? [], economy.inflationMultiplier, newWeek, newYear, {
     businessCostReduction: prestigeEffects.business_cost_reduction ?? 0,
+    competitorRevenueMultipliers: compResult.competitorRevenueMultipliers,
   });
   triggeredEvent = bizResult.decisionEvent;
-  let adjustedBizProfit = bizResult.totalProfit;
-  const adjustedBusinesses = bizResult.updatedBusinesses.map((b) => {
-    const mult = compResult.competitorRevenueMultipliers[b.id] ?? 1;
-    const shareMultiplier = Math.max(0.7, 1 + (b.marketShareModifier ?? 0) / 100);
-    const adjustedRevenue = Math.round(b.lastWeekRevenue * mult * shareMultiplier);
-    const revenueDifference = b.lastWeekRevenue - adjustedRevenue;
-    adjustedBizProfit -= revenueDifference;
-    const adjusted = { ...b, lastWeekRevenue: adjustedRevenue, lastWeekProfit: b.lastWeekProfit - revenueDifference };
-    return { ...adjusted, valuation: calculateValuation(adjusted) };
-  });
+  const adjustedBizProfit = bizResult.totalProfit;
+  const adjustedBusinesses = bizResult.updatedBusinesses;
   newCash += bizResult.totalDividend;
 
   // ---------- Step 12.7: Tick Temp Happiness Effects ----------
@@ -326,7 +319,11 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const housingIndex = (housingData as any[]).findIndex((housing) => housing.id === tempState.currentHousingId);
   const studioIndex = (housingData as any[]).findIndex((housing) => housing.id === 'studio_apartment');
   const smallHouseIndex = (housingData as any[]).findIndex((housing) => housing.id === 'small_house');
-  const requiredHousing = completedJob?.level >= 5 ? { index: smallHouseIndex, name: 'Small House' }
+  const familyHouseIndex = (housingData as any[]).findIndex((housing) => housing.id === 'family_house');
+  const luxuryVillaIndex = (housingData as any[]).findIndex((housing) => housing.id === 'luxury_villa');
+  const requiredHousing = completedJob?.level >= 7 ? { index: luxuryVillaIndex, name: 'Luxury Villa' }
+    : completedJob?.level >= 6 ? { index: familyHouseIndex, name: 'Family House' }
+    : completedJob?.level >= 5 ? { index: smallHouseIndex, name: 'Small House' }
     : completedJob?.level >= 3 ? { index: studioIndex, name: 'Studio Apartment' }
       : null;
   const missingRequirements: string[] = [];
@@ -373,6 +370,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     dividendIncome,
     partTimeIncome,
     educationCareerReminder: edu.completedCourseData ? {
+      courseLevel: edu.completedCourseData.level,
       courseName: edu.completedCourseData.name,
       jobTitle: completedJob?.title ?? 'a matching career',
       missingRequirements,

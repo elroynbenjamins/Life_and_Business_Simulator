@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Platform, Lin
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import { Colors } from '../src/theme/colors';
 import GameStatusBar from '../src/components/StatusBar';
 import GameCard from '../src/components/GameCard';
@@ -17,6 +16,7 @@ import { saveProfile } from '../src/utils/storage';
 import { showGameDialog } from '../src/components/GameDialog';
 import { fulfillPurchase } from '../src/services/purchaseFulfillment';
 import { showAdPrivacyOptions } from '../src/services/adPrivacyManager';
+import { shouldSimulateNativeFeatures } from '../src/services/runtimeEnvironment';
 
 export default function SupportScreen() {
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function SupportScreen() {
 
   const gems = profile?.gems ?? 0;
   const adUsage = getAdUsage?.() ?? { watchedToday: 0, remaining: 5, limitReached: false };
-  const useSimulatedAd = Platform.OS === 'web' || Constants.expoGoConfig != null;
+  const useSimulatedAd = shouldSimulateNativeFeatures();
   const storeAvailable = isNativeStoreAvailable();
   const adsRemoved = profile?.adsRemoved ?? false;
   const loginStatus = getDailyLoginStatus();
@@ -177,7 +177,7 @@ export default function SupportScreen() {
 
   const handleDailyLogin = () => {
     const reward = claimDailyLoginReward();
-    setLoginMessage(reward > 0 ? `Claimed ${reward} gems! Come back tomorrow to continue your streak.` : 'Today’s reward has already been claimed.');
+    setLoginMessage(reward > 0 ? `Claimed ${reward} gems! Come back tomorrow for another 10 gems.` : 'Today’s reward has already been claimed.');
   };
 
   return (
@@ -208,7 +208,7 @@ export default function SupportScreen() {
         </GameCard>
 
         <GameCard title="Daily Login Reward">
-          <Text style={styles.desc}>Login streak: {loginStatus.streak} day{loginStatus.streak === 1 ? '' : 's'}. Consecutive days add 5 gems to the reward.</Text>
+          <Text style={styles.desc}>Claim 10 gems once per day.</Text>
           <Pressable style={[styles.adBtn, !loginStatus.available && styles.disabledBtn]} onPress={handleDailyLogin} disabled={!loginStatus.available}>
             <Ionicons name="gift" size={21} color={Colors.white} />
             <Text style={styles.adBtnText}>{loginStatus.available ? `Claim ${loginStatus.reward} gems` : 'Claimed today'}</Text>
@@ -222,6 +222,15 @@ export default function SupportScreen() {
           <Text style={styles.desc}>
             {useSimulatedAd ? 'Complete a short simulated ad' : 'Watch a short ad'} and earn {AD_GEM_REWARD} gems!
           </Text>
+          <View style={styles.adSupportNote}>
+            <Ionicons name="heart" size={17} color={Colors.warning} />
+            <Text style={styles.adSupportText}>
+              Watching is optional, but every completed ad helps support the continued development of Life Empire. Thank you!
+            </Text>
+          </View>
+          {AD_CONFIG.USE_TEST_ADS && !useSimulatedAd && (
+            <Text style={styles.testAdLabel}>Closed testing: Google test advertisement</Text>
+          )}
           <Pressable
             style={[styles.adBtn, (adState === 'loading' || adState === 'showing' || adUsage.limitReached) && styles.disabledBtn]}
             onPress={handleWatchAd}
@@ -301,18 +310,20 @@ export default function SupportScreen() {
 
         <GameCard title="Advertising Privacy">
           <Text style={styles.desc}>Review or change the consent choices used by Google AdMob.</Text>
-          <Pressable style={styles.adBtn} onPress={handlePrivacyOptions}>
-            <Ionicons name="shield-checkmark" size={20} color={Colors.white} />
-            <Text style={styles.adBtnText}>Privacy and cookie settings</Text>
-          </Pressable>
-          <Pressable style={styles.adBtn} onPress={() => Linking.openURL('https://github.com/elroynbenjamins/Life_and_Business_Simulator/blob/main/docs/privacy-policy.md')}>
-            <Ionicons name="document-text" size={20} color={Colors.white} />
-            <Text style={styles.adBtnText}>Read Privacy Policy</Text>
-          </Pressable>
-          <Pressable style={styles.adBtn} onPress={() => Linking.openURL('mailto:lifeempireapp@gmail.com')}>
-            <Ionicons name="mail" size={20} color={Colors.white} />
-            <Text style={styles.adBtnText}>Contact Support</Text>
-          </Pressable>
+          <View style={styles.privacyActions}>
+            <Pressable style={styles.adBtn} onPress={handlePrivacyOptions}>
+              <Ionicons name="shield-checkmark" size={20} color={Colors.white} />
+              <Text style={styles.adBtnText}>Privacy and cookie settings</Text>
+            </Pressable>
+            <Pressable style={styles.adBtn} onPress={() => router.push('/privacy')}>
+              <Ionicons name="document-text" size={20} color={Colors.white} />
+              <Text style={styles.adBtnText}>Read Privacy Policy</Text>
+            </Pressable>
+            <Pressable style={styles.adBtn} onPress={() => Linking.openURL('mailto:Developerelroy@gmail.com')}>
+              <Ionicons name="mail" size={20} color={Colors.white} />
+              <Text style={styles.adBtnText}>Contact Support</Text>
+            </Pressable>
+          </View>
           {privacyMessage !== '' && <Text style={styles.purchaseMessage}>{privacyMessage}</Text>}
         </GameCard>
       </ScrollView>
@@ -334,6 +345,10 @@ const styles = StyleSheet.create({
   desc: { color: Colors.textSecondary, fontSize: 14, marginBottom: 12 },
   adBtn: { backgroundColor: '#8B5CF6', borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   adBtnText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
+  adSupportNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.elevated, borderRadius: 10, padding: 12, marginBottom: 12 },
+  adSupportText: { flex: 1, color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
+  testAdLabel: { color: Colors.warning, fontSize: 12, fontWeight: '700', textAlign: 'center', marginBottom: 10 },
+  privacyActions: { gap: 10 },
   disabledBtn: { opacity: 0.5 },
   packRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.elevated, borderRadius: 10, padding: 14, marginBottom: 8 },
   packLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },

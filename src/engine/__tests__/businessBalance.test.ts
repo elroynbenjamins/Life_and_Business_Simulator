@@ -86,7 +86,7 @@ describe('business balancing', () => {
     ] as any;
     let seed = 1234;
     const random = jest.spyOn(Math, 'random').mockImplementation(() => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296));
-    const profits = Array.from({ length: 40 }, (_, index) => processBusinessWeek(business, 1, (index % 20) + 1, 1 + Math.floor(index / 20)).weeklyProfit);
+    const profits = Array.from({ length: 40 }, (_, index) => processBusinessWeek(business, 1, (index % 20) + 1, 1 + Math.floor(index / 20), { competitorRevenueMultipliers: { [business.id]: 0.7 } }).weeklyProfit);
     random.mockRestore();
     expect(profits.some((profit) => profit > 0)).toBe(true);
     expect(profits.some((profit) => profit < 0)).toBe(true);

@@ -25,7 +25,9 @@ export default function EducationCareerReminderModal() {
           <View style={styles.icon}><Ionicons name="school" size={30} color={Colors.primary} /></View>
           <Text style={styles.title}>Education Completed</Text>
           <Text style={styles.message}>You completed {reminder.courseName}.</Text>
-          {ready ? (
+          {(reminder.courseLevel ?? 1) > 1 ? (
+            <Text style={styles.ready}>Your qualification is complete. Career promotions still require promotion progress and the required housing and vehicle.</Text>
+          ) : ready ? (
             <Text style={styles.ready}>You can now visit Career and apply for {reminder.jobTitle}.</Text>
           ) : (
             <View style={styles.requirements}>

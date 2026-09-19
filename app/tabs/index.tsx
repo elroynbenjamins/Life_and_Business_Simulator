@@ -8,6 +8,7 @@ import GameStatusBar from '../../src/components/StatusBar';
 import GameCard from '../../src/components/GameCard';
 import ProgressBar from '../../src/components/ProgressBar';
 import useGameStore from '../../src/store/gameStore';
+import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
 import { getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyCarCost, getWeeklyFoodCost, getWeeklyCourseCost, getWeeklyLoanPayments } from '../../src/engine/financeEngine';
 import { getCareerSalary } from '../../src/engine/careerEngine';
@@ -29,7 +30,17 @@ export default function DashboardScreen() {
   const gems = useGameStore((s) => s?.profile?.gems ?? 0);
   const prestigePoints = useGameStore((s) => s?.profile?.prestigePoints ?? 0);
   const loginRewardAvailable = useGameStore((s) => s.getDailyLoginStatus().available);
-  const state = useGameStore();
+  const state = useGameStore(useShallow((s) => ({
+    currentJobId: s.currentJobId,
+    currentCourseId: s.currentCourseId,
+    currentHousingId: s.currentHousingId,
+    currentCarId: s.currentCarId,
+    inflationMultiplier: s.inflationMultiplier,
+    career: s.career,
+    loans: s.loans,
+    year: s.year,
+    week: s.week,
+  }))) as ReturnType<typeof useGameStore.getState>;
 
   const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
   const course = (coursesData ?? []).find((c) => c?.id === currentCourseId);

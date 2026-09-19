@@ -5,24 +5,36 @@
   },
   "build": {
     "preview": {
+      "env": {
+        "EXPO_PUBLIC_AD_MODE": "test"
+      },
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       }
     },
     "play-internal": {
+      "env": {
+        "EXPO_PUBLIC_AD_MODE": "test"
+      },
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
       }
     },
     "closed-testing": {
+      "env": {
+        "EXPO_PUBLIC_AD_MODE": "production"
+      },
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
       }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_AD_MODE": "production"
+      },
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"

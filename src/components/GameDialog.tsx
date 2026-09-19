@@ -23,7 +23,7 @@ const useDialogStore = create<DialogState>((set) => ({
   visible: false,
   title: '',
   message: '',
-  open: (options) => set({ ...options, visible: true }),
+  open: (options) => set({ confirmText: undefined, cancelText: undefined, destructive: false, onConfirm: undefined, ...options, visible: true }),
   close: () => set({ visible: false, onConfirm: undefined }),
 }));
 

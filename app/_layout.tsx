@@ -15,15 +15,23 @@ import EventModal from '../src/components/EventModal';
 import ScheduledAdModal from '../src/components/ScheduledAdModal';
 import MainMenu from '../src/components/MainMenu';
 import GameDialog from '../src/components/GameDialog';
+import BusinessBalanceWarning from '../src/components/BusinessBalanceWarning';
 import TutorialModal from '../src/components/TutorialModal';
+import EducationOnboardingModal from '../src/components/EducationOnboardingModal';
 import { initializeAdConsent } from '../src/services/adPrivacyManager';
 import EducationCareerReminderModal from '../src/components/EducationCareerReminderModal';
+import { ThemeProvider, useThemePreference } from '../src/theme/ThemeProvider';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  return <ThemeProvider><RootContent /></ThemeProvider>;
+}
+
+function RootContent() {
   const isLoading = useGameStore((s) => s?.isLoading);
   const loadSavedGame = useGameStore((s) => s?.loadSavedGame);
+  const { resolvedScheme } = useThemePreference();
 
   useEffect(() => {
     loadSavedGame?.();
@@ -45,8 +53,8 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
+    <SafeAreaProvider key={resolvedScheme}>
+      <StatusBar style={resolvedScheme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -66,11 +74,13 @@ export default function RootLayout() {
         <Stack.Screen name="prestige" />
         <Stack.Screen name="properties" />
         <Stack.Screen name="info" />
+        <Stack.Screen name="privacy" />
       </Stack>
       <MainMenu />
       <SaveSlotPicker />
       <NameEntryModal />
       <TutorialModal />
+      <EducationOnboardingModal />
       <WeekSummarySheet />
       <NegativeCashModal />
       <EventModal />
@@ -78,6 +88,7 @@ export default function RootLayout() {
       <ScheduledAdModal />
       <EducationCareerReminderModal />
       <GameDialog />
+      <BusinessBalanceWarning />
     </SafeAreaProvider>
   );
 }

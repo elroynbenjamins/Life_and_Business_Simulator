@@ -104,6 +104,31 @@ import businessLocationsData from '../data/business_locations.json';
 
 export const MIN_EMPLOYEES_REQUIRED = 3;
 export const BUSINESS_LEVEL_REPUTATION_REQUIREMENTS = [0, 20, 30, 40, 52, 65, 78, 90];
+
+/** Player-facing strategic identity for each business type. */
+export const BUSINESS_STRATEGIES: Record<string, { advantage: string; weakness: string }> = {
+  coffee_shop: { advantage: 'Strong repeat customers and seasonal demand', weakness: 'Reputation drops quickly after service issues' },
+  food_truck: { advantage: 'Very low premises overhead', weakness: 'Limited capacity and high demand volatility' },
+  restaurant: { advantage: 'High revenue ceiling with a full team', weakness: 'Large staffing and premises costs' },
+  clothing_store: { advantage: 'Premium pricing works well with reputation', weakness: 'Fashion cycles can sharply reduce demand' },
+  tech_startup: { advantage: 'Upgrades and skilled employees scale revenue strongly', weakness: 'Early products are vulnerable to weak demand' },
+  fitness_gym: { advantage: 'Stable recurring membership income', weakness: 'Heavy rent and maintenance overhead' },
+  construction_co: { advantage: 'Largest contract revenue potential', weakness: 'Long projects create uneven cash flow' },
+  digital_agency: { advantage: 'Flexible low-overhead operation', weakness: 'Client competition suppresses market share' },
+  pharmacy: { advantage: 'Defensive demand in weak markets', weakness: 'High compliance and operating costs' },
+  auto_repair: { advantage: 'Reliable local service demand', weakness: 'Equipment failures are expensive' },
+  real_estate_agency: { advantage: 'Reputation compounds through successful deals', weakness: 'Revenue is sensitive to market cycles' },
+  bakery: { advantage: 'Low-cost start with loyal local demand', weakness: 'Thin margins without efficient production' },
+};
+
+export function getBusinessHealthScore(biz: OwnedBusiness): number {
+  const cashFlow = Math.max(0, Math.min(100, 50 + ((biz.lastWeekProfit ?? 0) / Math.max(1, Math.abs(biz.lastWeekExpenses ?? 1))) * 50));
+  const morale = (biz.employees?.length ?? 0) > 0
+    ? (biz.employees ?? []).reduce((sum, employee) => sum + (employee.morale ?? 50), 0) / biz.employees.length
+    : 0;
+  const marketShare = Math.max(0, Math.min(100, 10 + (biz.marketShareModifier ?? 0)));
+  return Math.round(cashFlow * 0.35 + (biz.reputation ?? 0) * 0.30 + morale * 0.20 + marketShare * 0.15);
+}
 export const VALUATION_TARGET_SCALE = 0.4;
 
 export function scaleValuationTargets(thresholds: number[]): number[] {
@@ -161,7 +186,18 @@ export function getBusinessType(typeId: string) {
 }
 
 export function getUpgrade(upgradeId: string) {
-  return (businessUpgradesData ?? []).find((u) => u?.id === upgradeId);
+  const upgrade = (businessUpgradesData ?? []).find((u) => u?.id === upgradeId);
+  return upgrade ? { ...upgrade, revenueBoost: 0.02, reputationBoost: upgrade.reputationBoost * 0.75 } : undefined;
+}
+
+export function getBusinessUpgradeWeeks(randomRoll = Math.random()): number {
+  return Math.max(1, Math.round((16 + Math.floor(Math.max(0, Math.min(0.999999, randomRoll)) * 15)) * 0.75));
+}
+
+/** Lean premises and overhead gradually expand with customer reputation. Wages are contractual. */
+export function getBusinessOperatingScale(reputation: number) {
+  const maturity = Math.max(0, Math.min(1, reputation / 70));
+  return { overhead: 0.25 + 0.75 * maturity, premises: 0.65 + 0.35 * maturity };
 }
 
 export function getEmployeeRole(roleId: string) {
@@ -387,6 +423,7 @@ export interface BusinessTickResult {
 export interface BusinessSimulationModifiers {
   /** Decimal reduction, e.g. 0.075 means 7.5% lower operating expenses. */
   businessCostReduction?: number;
+  competitorRevenueMultipliers?: Record<string, number>;
 }
 
 /**
@@ -443,8 +480,9 @@ export function processBusinessWeek(
     'Real Estate': [0.85, 1.15, 1.15, 0.90],
   };
   const seasonMult = SEASON_MULT[type.industry ?? '']?.[seasonIdx] ?? 1.0;
-  // Larger random fluctuation ±15%
-  const revenueFluctuation = 0.85 + Math.random() * 0.30;
+  // Young companies face wider demand swings while they establish repeat
+  // customers. Mature firms still benefit from the same market variance.
+  const revenueFluctuation = 0.80 + Math.random() * 0.40;
   const demand = pricingMod.demand * (1 + adMod.demandBoost) * reputationFactor * competitionPenalty * seasonMult * revenueFluctuation;
 
   // Employee productivity — increased impact of skill
@@ -456,7 +494,8 @@ export function processBusinessWeek(
   }, 0);
   // Aggregate buffs across all employees (D&D tier bonuses)
   const buffAgg = aggregateEmployeeBuffs(biz.employees ?? []);
-  const productivityMultiplier = Math.max(0.4, 0.4 + totalProductivity * 0.14) * buffAgg.productivityMult;
+  const employeeScaleDampening = (biz.employees?.length ?? 0) > 12 ? 0.92 : 1;
+  const productivityMultiplier = Math.max(0.4, 0.4 + totalProductivity * 0.14) * employeeScaleDampening * buffAgg.productivityMult;
 
   const rawUpgradeRevenueBoost = [...new Set(biz.purchasedUpgrades ?? [])].reduce((t, uid) => {
     const u = getUpgrade(uid);
@@ -486,6 +525,8 @@ export function processBusinessWeek(
   // a compact-operation boost that substitutes for unavailable staff scaling.
   const compactBusinessRevenueBoost = (type.maxEmployees ?? 4) <= 3 ? 1.18 : (type.maxEmployees ?? 6) <= 5 ? 1.45 : 1;
   const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121 * compactBusinessRevenueBoost;
+  const businessAge = globalWeek - (((biz.foundedYear ?? currentYear) - 1) * 20 + (biz.foundedWeek ?? currentWeek));
+  const startupSupport = businessAge > 0 && businessAge <= 75;
   const levelBonus = 1 + biz.level * 0.1;
   let revenue = Math.round(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
@@ -500,24 +541,39 @@ export function processBusinessWeek(
 
   // Expenses (detailed breakdown) — variable costs SCALE with actual revenue.
   const prestigeCostMultiplier = 1 - Math.max(0, Math.min(0.5, modifiers.businessCostReduction ?? 0));
-  const baseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier;
+  const operatingScale = getBusinessOperatingScale(biz.reputation ?? 25);
+  const fullBaseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier;
+  const baseExp = fullBaseExp * operatingScale.overhead;
   // Revenue scaling factor: if revenue is 5x the expected base, variable costs go up ~4x
   let revScale = baseRev > 0 ? revenue / baseRev : 1;
   // Variable-cost scaling: 60% fixed baseline + 40% × revScale (dampened)
   let variableScale = 0.6 + 0.4 * Math.min(6, revScale);
   // Rent scales with revenue: base rent + 2% of revenue above baseline
-  const baseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier * prestigeCostMultiplier;
+  const fullBaseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier * prestigeCostMultiplier;
+  const baseRent = fullBaseRent * operatingScale.premises;
   let rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
   let rent = Math.round(rentScale);
-  const salaries = Math.round((biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0));
+  const normalSalaries = (biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0);
+  const salaries = Math.round(normalSalaries * (startupSupport ? 0.95 : 1));
   const adCost = Math.round((adMod.weeklyCost ?? 0) * inflationMultiplier * prestigeCostMultiplier);
-  if ((biz.level ?? 0) === 0 && (biz.employees?.length ?? 0) >= MIN_EMPLOYEES_REQUIRED && (biz.reputation ?? 0) < 45) {
-    revenue = Math.max(revenue, getStartupRevenueTarget(baseExp * eventExpenseMultiplier, baseRent, salaries, adCost, Math.random()));
+  const starterDemandWeight = Math.max(0, Math.min(1, (70 - (biz.reputation ?? 25)) / 30));
+  if (starterDemandWeight > 0) {
+    // Local contracts taper smoothly; a level-up never removes all starting customers.
+    const compactStarterSupport = (type.maxEmployees ?? 6) <= 3 ? 1.12 : (type.maxEmployees ?? 6) <= 5 ? 1.04 : 1;
+    const starterRevenue = getStartupRevenueTarget(fullBaseExp * eventExpenseMultiplier, fullBaseRent, normalSalaries, adCost, Math.random()) * compactStarterSupport;
+    revenue += Math.max(0, starterRevenue - revenue) * starterDemandWeight;
     revScale = baseRev > 0 ? revenue / baseRev : 1;
     variableScale = 0.6 + 0.4 * Math.min(6, revScale);
     rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
     rent = Math.round(rentScale);
   }
+  // Apply competition and temporary support before costs, taxes, dividends and balances.
+  revenue = Math.round(revenue * (startupSupport ? 1.03 : 1) * (modifiers.competitorRevenueMultipliers?.[biz.id] ?? 1) * Math.max(0.7, 1 + (biz.marketShareModifier ?? 0) / 100));
+  // Occasional cancelled local orders keep young firms risky, not guaranteed profitable.
+  if ((biz.reputation ?? 25) < 55 && revenueFluctuation < 0.88) revenue = Math.round(revenue * 0.64);
+  revScale = baseRev > 0 ? revenue / baseRev : 1;
+  variableScale = 0.6 + 0.4 * Math.min(6, revScale);
+  rent = Math.round(revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent);
   // COGS and delivery costs rise with scale, preventing unrealistically large
   // margins once employee and upgrade multipliers compound.
   const cogs = Math.round(Math.max(baseExp * 0.45, revenue * 0.17) * eventExpenseMultiplier * buffAgg.expenseMult);
@@ -653,7 +709,8 @@ export function processBusinessWeek(
 
   // Reputation update
   const reputationHeadroom = Math.max(0, 1 - (biz.reputation ?? 25) / 100);
-  const repGrowth = (type.reputationGrowthRate ?? 0.5) * (profit > 0 ? 0.24 * reputationHeadroom : -0.07);
+  const reputationGrowthRate = (biz.reputation ?? 25) < 40 ? 0.16 : 0.24;
+  const repGrowth = (type.reputationGrowthRate ?? 0.5) * (profit > 0 ? reputationGrowthRate * reputationHeadroom : -0.07);
   const adRepBoost = (adMod.reputationBoost ?? 0) * reputationHeadroom * (profit >= 0 ? 1 : 0.35);
   const pricingRepEffect = pricingMod.reputation ?? 0;
   const projectRepBoost = updatedProjects
@@ -724,7 +781,8 @@ export function processBusinessWeek(
   let playerDividend = 0;
   if (newBalance > 0 && profit > 0) {
     const dividendRate = 0.7;
-    playerDividend = Math.round(Math.max(0, profit * dividendRate));
+    const operatingReserve = totalExpenses * 6;
+    playerDividend = Math.round(Math.min(Math.max(0, profit * dividendRate), Math.max(0, newBalance - operatingReserve)));
     newBalance -= playerDividend;
   }
   valuation = calculateValuation({
@@ -782,6 +840,7 @@ export function processBusinessWeek(
       // Complete the upgrade
       if (!(biz.purchasedUpgrades ?? []).includes(activeUpgrade.upgradeId)) {
         completedUpgradeId = activeUpgrade.upgradeId;
+        newReputation = Math.min(100, newReputation + (getUpgrade(completedUpgradeId)?.reputationBoost ?? 0));
       }
       timelineAdds.push({ week: currentWeek, year: currentYear, title: `Upgrade completed: ${activeUpgrade.upgradeId}`, icon: '🔧', kind: 'upgrade' as any });
       activeUpgrade = null;
@@ -860,6 +919,8 @@ export function processBusinessWeek(
     lastBusinessEventWeek: triggeredEventId ? globalWeek : biz.lastBusinessEventWeek,
     businessEventCooldowns: triggeredEventId ? { ...eventCooldowns, [triggeredEventId]: globalWeek } : eventCooldowns,
   };
+  updatedBusiness.valuation = calculateValuation(updatedBusiness);
+  updatedBusiness.level = getBusinessLevelForMetrics(thresholds, updatedBusiness.valuation, updatedBusiness.reputation);
 
   return {
     updatedBusiness,

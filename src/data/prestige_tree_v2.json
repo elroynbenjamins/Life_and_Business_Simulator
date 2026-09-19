@@ -1,36 +1,459 @@
 [
-  {"id":"salary_boost","name":"Salary Boost I","description":"Total salary bonus: +1%","icon":"💰","cost":70,"effect":{"type":"salary_multiplier","value":0.01}},
-  {"id":"salary_boost_2","name":"Salary Boost II","description":"Total salary bonus: +3%","icon":"💰","cost":85,"effect":{"type":"salary_multiplier","value":0.02},"requires":"salary_boost"},
-  {"id":"salary_boost_3","name":"Salary Boost III","description":"Total salary bonus: +5%","icon":"💰","cost":100,"effect":{"type":"salary_multiplier","value":0.02},"requires":"salary_boost_2"},
-  {"id":"salary_boost_4","name":"Salary Boost IV","description":"Total salary bonus: +7.5%","icon":"💰","cost":115,"effect":{"type":"salary_multiplier","value":0.025},"requires":"salary_boost_3"},
-  {"id":"study_speed","name":"Quick Learner I","description":"Total study-speed bonus: +1%","icon":"📚","cost":70,"effect":{"type":"study_speed","value":0.01}},
-  {"id":"study_speed_2","name":"Quick Learner II","description":"Total study-speed bonus: +3%","icon":"📚","cost":80,"effect":{"type":"study_speed","value":0.02},"requires":"study_speed"},
-  {"id":"study_speed_3","name":"Quick Learner III","description":"Total study-speed bonus: +5%","icon":"📚","cost":95,"effect":{"type":"study_speed","value":0.02},"requires":"study_speed_2"},
-  {"id":"study_speed_4","name":"Quick Learner IV","description":"Total study-speed bonus: +7.5%","icon":"📚","cost":110,"effect":{"type":"study_speed","value":0.025},"requires":"study_speed_3"},
-  {"id":"starting_cash","name":"Trust Fund I","description":"Total starting-cash bonus: €1,000","icon":"🏦","cost":70,"effect":{"type":"starting_cash","value":1000}},
-  {"id":"starting_cash_2","name":"Trust Fund II","description":"Total starting-cash bonus: €2,500","icon":"🏦","cost":85,"effect":{"type":"starting_cash","value":1500},"requires":"starting_cash"},
-  {"id":"starting_cash_3","name":"Trust Fund III","description":"Total starting-cash bonus: €5,000","icon":"🏦","cost":105,"effect":{"type":"starting_cash","value":2500},"requires":"starting_cash_2"},
-  {"id":"starting_cash_4","name":"Trust Fund IV","description":"Total starting-cash bonus: €7,500","icon":"🏦","cost":125,"effect":{"type":"starting_cash","value":2500},"requires":"starting_cash_3"},
-  {"id":"business_costs","name":"Cost Cutter I","description":"Total business-cost reduction: 1%","icon":"✂️","cost":75,"effect":{"type":"business_cost_reduction","value":0.01}},
-  {"id":"business_costs_2","name":"Cost Cutter II","description":"Total business-cost reduction: 3%","icon":"✂️","cost":90,"effect":{"type":"business_cost_reduction","value":0.02},"requires":"business_costs"},
-  {"id":"business_costs_3","name":"Cost Cutter III","description":"Total business-cost reduction: 5%","icon":"✂️","cost":105,"effect":{"type":"business_cost_reduction","value":0.02},"requires":"business_costs_2"},
-  {"id":"business_costs_4","name":"Cost Cutter IV","description":"Total business-cost reduction: 7.5%","icon":"✂️","cost":120,"effect":{"type":"business_cost_reduction","value":0.025},"requires":"business_costs_3"},
-  {"id":"skill_growth","name":"Fast Learner I","description":"Total skill-growth bonus: +1%","icon":"⚡","cost":75,"effect":{"type":"skill_growth","value":0.01}},
-  {"id":"skill_growth_2","name":"Fast Learner II","description":"Total skill-growth bonus: +3%","icon":"⚡","cost":90,"effect":{"type":"skill_growth","value":0.02},"requires":"skill_growth"},
-  {"id":"skill_growth_3","name":"Fast Learner III","description":"Total skill-growth bonus: +5%","icon":"⚡","cost":105,"effect":{"type":"skill_growth","value":0.02},"requires":"skill_growth_2"},
-  {"id":"skill_growth_4","name":"Fast Learner IV","description":"Total skill-growth bonus: +7.5%","icon":"⚡","cost":120,"effect":{"type":"skill_growth","value":0.025},"requires":"skill_growth_3"},
-  {"id":"loan_rate","name":"Credit Score+ I","description":"Total loan-interest reduction: 1%","icon":"🏦","cost":120,"effect":{"type":"loan_rate_reduction","value":0.01,"stacking":"highest"}},
-  {"id":"loan_rate_2","name":"Credit Score+ II","description":"Total loan-interest reduction: 3%","icon":"🏦","cost":145,"effect":{"type":"loan_rate_reduction","value":0.03,"stacking":"highest"},"requires":"loan_rate"},
-  {"id":"deposit_interest","name":"Deposit Investor I","description":"Total fixed-deposit interest bonus: +1%","icon":"🏛️","cost":120,"effect":{"type":"bank_deposit_interest_bonus","value":0.01,"stacking":"highest"}},
-  {"id":"deposit_interest_2","name":"Deposit Investor II","description":"Total fixed-deposit interest bonus: +3%","icon":"🏛️","cost":145,"effect":{"type":"bank_deposit_interest_bonus","value":0.03,"stacking":"highest"},"requires":"deposit_interest"},
-  {"id":"property_income","name":"Landlord Pro","description":"+10% property rental income","icon":"🏠","cost":130,"effect":{"type":"property_income","value":0.10}},
-  {"id":"tax_reduction","name":"Tax Planning I","description":"Total effective-tax reduction: 1%","icon":"💸","cost":80,"effect":{"type":"tax_reduction","value":0.01}},
-  {"id":"tax_reduction_2","name":"Tax Planning II","description":"Total effective-tax reduction: 3%","icon":"💸","cost":95,"effect":{"type":"tax_reduction","value":0.02},"requires":"tax_reduction"},
-  {"id":"tax_reduction_3","name":"Tax Planning III","description":"Total effective-tax reduction: 5%","icon":"💸","cost":110,"effect":{"type":"tax_reduction","value":0.02},"requires":"tax_reduction_2"},
-  {"id":"tax_reduction_4","name":"Tax Planning IV","description":"Total effective-tax reduction: 7.5%","icon":"💸","cost":125,"effect":{"type":"tax_reduction","value":0.025},"requires":"tax_reduction_3"},
-  {"id":"dividend_boost","name":"Dividend Hunter I","description":"Total dividend-income bonus: +5%","icon":"💵","cost":135,"effect":{"type":"dividend_boost","value":0.05,"stacking":"highest"}},
-  {"id":"dividend_boost_2","name":"Dividend Hunter II","description":"Total dividend-income bonus: +10%","icon":"💵","cost":155,"effect":{"type":"dividend_boost","value":0.10,"stacking":"highest"},"requires":"dividend_boost"},
-  {"id":"dividend_boost_3","name":"Dividend Hunter III","description":"Total dividend-income bonus: +15%","icon":"💵","cost":175,"effect":{"type":"dividend_boost","value":0.15,"stacking":"highest"},"requires":"dividend_boost_2"},
-  {"id":"dividend_boost_4","name":"Dividend Hunter IV","description":"Total dividend-income bonus: +20%","icon":"💵","cost":195,"effect":{"type":"dividend_boost","value":0.20,"stacking":"highest"},"requires":"dividend_boost_3"},
-  {"id":"negotiation","name":"Master Negotiator","description":"+5% better business prices","icon":"🤝","cost":145,"effect":{"type":"negotiation","value":0.05}}
+  {
+    "id": "salary_boost",
+    "name": "Salary Boost I",
+    "description": "Total salary bonus: +1%",
+    "icon": "💰",
+    "cost": 70,
+    "effect": {
+      "type": "salary_multiplier",
+      "value": 0.01
+    },
+    "gemCost": 0
+  },
+  {
+    "id": "salary_boost_2",
+    "name": "Salary Boost II",
+    "description": "Total salary bonus: +3%",
+    "icon": "💰",
+    "cost": 85,
+    "effect": {
+      "type": "salary_multiplier",
+      "value": 0.02
+    },
+    "requires": "salary_boost",
+    "gemCost": 0
+  },
+  {
+    "id": "salary_boost_3",
+    "name": "Salary Boost III",
+    "description": "Total salary bonus: +5%",
+    "icon": "💰",
+    "cost": 100,
+    "effect": {
+      "type": "salary_multiplier",
+      "value": 0.02
+    },
+    "requires": "salary_boost_2",
+    "gemCost": 0
+  },
+  {
+    "id": "salary_boost_4",
+    "name": "Salary Boost IV",
+    "description": "Total salary bonus: +7.5%",
+    "icon": "💰",
+    "cost": 115,
+    "effect": {
+      "type": "salary_multiplier",
+      "value": 0.025
+    },
+    "requires": "salary_boost_3",
+    "gemCost": 5
+  },
+  {
+    "id": "study_speed",
+    "name": "Quick Learner I",
+    "description": "Total study-speed bonus: +1%",
+    "icon": "📚",
+    "cost": 70,
+    "effect": {
+      "type": "study_speed",
+      "value": 0.01
+    },
+    "gemCost": 0
+  },
+  {
+    "id": "study_speed_2",
+    "name": "Quick Learner II",
+    "description": "Total study-speed bonus: +3%",
+    "icon": "📚",
+    "cost": 80,
+    "effect": {
+      "type": "study_speed",
+      "value": 0.02
+    },
+    "requires": "study_speed",
+    "gemCost": 0
+  },
+  {
+    "id": "study_speed_3",
+    "name": "Quick Learner III",
+    "description": "Total study-speed bonus: +5%",
+    "icon": "📚",
+    "cost": 95,
+    "effect": {
+      "type": "study_speed",
+      "value": 0.02
+    },
+    "requires": "study_speed_2",
+    "gemCost": 0
+  },
+  {
+    "id": "study_speed_4",
+    "name": "Quick Learner IV",
+    "description": "Total study-speed bonus: +7.5%",
+    "icon": "📚",
+    "cost": 110,
+    "effect": {
+      "type": "study_speed",
+      "value": 0.025
+    },
+    "requires": "study_speed_3",
+    "gemCost": 5
+  },
+  {
+    "id": "starting_cash",
+    "name": "Trust Fund I",
+    "description": "Total starting-cash bonus: €1,000",
+    "icon": "🏦",
+    "cost": 70,
+    "effect": {
+      "type": "starting_cash",
+      "value": 1000
+    },
+    "gemCost": 0
+  },
+  {
+    "id": "starting_cash_2",
+    "name": "Trust Fund II",
+    "description": "Total starting-cash bonus: €2,500",
+    "icon": "🏦",
+    "cost": 85,
+    "effect": {
+      "type": "starting_cash",
+      "value": 1500
+    },
+    "requires": "starting_cash",
+    "gemCost": 0
+  },
+  {
+    "id": "starting_cash_3",
+    "name": "Trust Fund III",
+    "description": "Total starting-cash bonus: €5,000",
+    "icon": "🏦",
+    "cost": 105,
+    "effect": {
+      "type": "starting_cash",
+      "value": 2500
+    },
+    "requires": "starting_cash_2",
+    "gemCost": 0
+  },
+  {
+    "id": "starting_cash_4",
+    "name": "Trust Fund IV",
+    "description": "Total starting-cash bonus: €7,500",
+    "icon": "🏦",
+    "cost": 125,
+    "effect": {
+      "type": "starting_cash",
+      "value": 2500
+    },
+    "requires": "starting_cash_3",
+    "gemCost": 5
+  },
+  {
+    "id": "business_costs",
+    "name": "Cost Cutter I",
+    "description": "Total business-cost reduction: 1%",
+    "icon": "✂️",
+    "cost": 75,
+    "effect": {
+      "type": "business_cost_reduction",
+      "value": 0.01
+    },
+    "gemCost": 0
+  },
+  {
+    "id": "business_costs_2",
+    "name": "Cost Cutter II",
+    "description": "Total business-cost reduction: 3%",
+    "icon": "✂️",
+    "cost": 90,
+    "effect": {
+      "type": "business_cost_reduction",
+      "value": 0.02
+    },
+    "requires": "business_costs",
+    "gemCost": 0
+  },
+  {
+    "id": "business_costs_3",
+    "name": "Cost Cutter III",
+    "description": "Total business-cost reduction: 5%",
+    "icon": "✂️",
+    "cost": 105,
+    "effect": {
+      "type": "business_cost_reduction",
+      "value": 0.02
+    },
+    "requires": "business_costs_2",
+    "gemCost": 0
+  },
+  {
+    "id": "business_costs_4",
+    "name": "Cost Cutter IV",
+    "description": "Total business-cost reduction: 7.5%",
+    "icon": "✂️",
+    "cost": 120,
+    "effect": {
+      "type": "business_cost_reduction",
+      "value": 0.025
+    },
+    "requires": "business_costs_3",
+    "gemCost": 5
+  },
+  {
+    "id": "skill_growth",
+    "name": "Rental Growth I",
+    "description": "Total extra real estate rent bonus: +2%",
+    "icon": "🏘️",
+    "cost": 75,
+    "effect": {
+      "type": "rental_growth",
+      "value": 0.02,
+      "stacking": "highest"
+    },
+    "gemCost": 0
+  },
+  {
+    "id": "skill_growth_2",
+    "name": "Rental Growth II",
+    "description": "Total extra real estate rent bonus: +4%",
+    "icon": "🏘️",
+    "cost": 90,
+    "effect": {
+      "type": "rental_growth",
+      "value": 0.04,
+      "stacking": "highest"
+    },
+    "requires": "skill_growth",
+    "gemCost": 0
+  },
+  {
+    "id": "skill_growth_3",
+    "name": "Rental Growth III",
+    "description": "Total extra real estate rent bonus: +6%",
+    "icon": "🏘️",
+    "cost": 105,
+    "effect": {
+      "type": "rental_growth",
+      "value": 0.06,
+      "stacking": "highest"
+    },
+    "requires": "skill_growth_2",
+    "gemCost": 0
+  },
+  {
+    "id": "skill_growth_4",
+    "name": "Rental Growth IV",
+    "description": "Total extra real estate rent bonus: +8%",
+    "icon": "🏘️",
+    "cost": 120,
+    "effect": {
+      "type": "rental_growth",
+      "value": 0.08,
+      "stacking": "highest"
+    },
+    "requires": "skill_growth_3",
+    "gemCost": 0
+  },
+  {
+    "id": "skill_growth_5",
+    "name": "Rental Growth V",
+    "description": "Total extra real estate rent bonus: +10%",
+    "icon": "🏘️",
+    "cost": 135,
+    "requires": "skill_growth_4",
+    "effect": {
+      "type": "rental_growth",
+      "value": 0.1,
+      "stacking": "highest"
+    },
+    "gemCost": 5
+  },
+  {
+    "id": "loan_rate",
+    "name": "Credit Score+ I",
+    "description": "Total loan-interest reduction: 1%",
+    "icon": "🏦",
+    "cost": 120,
+    "effect": {
+      "type": "loan_rate_reduction",
+      "value": 0.01,
+      "stacking": "highest"
+    },
+    "gemCost": 0
+  },
+  {
+    "id": "loan_rate_2",
+    "name": "Credit Score+ II",
+    "description": "Total loan-interest reduction: 3%",
+    "icon": "🏦",
+    "cost": 145,
+    "effect": {
+      "type": "loan_rate_reduction",
+      "value": 0.03,
+      "stacking": "highest"
+    },
+    "requires": "loan_rate",
+    "gemCost": 5
+  },
+  {
+    "id": "deposit_interest",
+    "name": "Deposit Investor I",
+    "description": "Total fixed-deposit interest bonus: +1%",
+    "icon": "🏛️",
+    "cost": 120,
+    "effect": {
+      "type": "bank_deposit_interest_bonus",
+      "value": 0.01,
+      "stacking": "highest"
+    },
+    "gemCost": 0
+  },
+  {
+    "id": "deposit_interest_2",
+    "name": "Deposit Investor II",
+    "description": "Total fixed-deposit interest bonus: +3%",
+    "icon": "🏛️",
+    "cost": 145,
+    "effect": {
+      "type": "bank_deposit_interest_bonus",
+      "value": 0.03,
+      "stacking": "highest"
+    },
+    "requires": "deposit_interest",
+    "gemCost": 5
+  },
+  {
+    "id": "property_income",
+    "name": "Landlord Pro",
+    "description": "+10% property rental income",
+    "icon": "🏠",
+    "cost": 130,
+    "effect": {
+      "type": "property_income",
+      "value": 0.1
+    },
+    "gemCost": 5
+  },
+  {
+    "id": "tax_reduction",
+    "name": "Tax Planning I",
+    "description": "Total effective-tax reduction: 1%",
+    "icon": "💸",
+    "cost": 80,
+    "effect": {
+      "type": "tax_reduction",
+      "value": 0.01
+    },
+    "gemCost": 0
+  },
+  {
+    "id": "tax_reduction_2",
+    "name": "Tax Planning II",
+    "description": "Total effective-tax reduction: 3%",
+    "icon": "💸",
+    "cost": 95,
+    "effect": {
+      "type": "tax_reduction",
+      "value": 0.02
+    },
+    "requires": "tax_reduction",
+    "gemCost": 0
+  },
+  {
+    "id": "tax_reduction_3",
+    "name": "Tax Planning III",
+    "description": "Total effective-tax reduction: 5%",
+    "icon": "💸",
+    "cost": 110,
+    "effect": {
+      "type": "tax_reduction",
+      "value": 0.02
+    },
+    "requires": "tax_reduction_2",
+    "gemCost": 0
+  },
+  {
+    "id": "tax_reduction_4",
+    "name": "Tax Planning IV",
+    "description": "Total effective-tax reduction: 7.5%",
+    "icon": "💸",
+    "cost": 125,
+    "effect": {
+      "type": "tax_reduction",
+      "value": 0.025
+    },
+    "requires": "tax_reduction_3",
+    "gemCost": 5
+  },
+  {
+    "id": "dividend_boost",
+    "name": "Dividend Hunter I",
+    "description": "Total dividend-income bonus: +5%",
+    "icon": "💵",
+    "cost": 135,
+    "effect": {
+      "type": "dividend_boost",
+      "value": 0.05,
+      "stacking": "highest"
+    },
+    "gemCost": 0
+  },
+  {
+    "id": "dividend_boost_2",
+    "name": "Dividend Hunter II",
+    "description": "Total dividend-income bonus: +10%",
+    "icon": "💵",
+    "cost": 155,
+    "effect": {
+      "type": "dividend_boost",
+      "value": 0.1,
+      "stacking": "highest"
+    },
+    "requires": "dividend_boost",
+    "gemCost": 0
+  },
+  {
+    "id": "dividend_boost_3",
+    "name": "Dividend Hunter III",
+    "description": "Total dividend-income bonus: +15%",
+    "icon": "💵",
+    "cost": 175,
+    "effect": {
+      "type": "dividend_boost",
+      "value": 0.15,
+      "stacking": "highest"
+    },
+    "requires": "dividend_boost_2",
+    "gemCost": 0
+  },
+  {
+    "id": "dividend_boost_4",
+    "name": "Dividend Hunter IV",
+    "description": "Total dividend-income bonus: +20%",
+    "icon": "💵",
+    "cost": 195,
+    "effect": {
+      "type": "dividend_boost",
+      "value": 0.2,
+      "stacking": "highest"
+    },
+    "requires": "dividend_boost_3",
+    "gemCost": 5
+  },
+  {
+    "id": "negotiation",
+    "name": "Master Negotiator",
+    "description": "+5% better business prices",
+    "icon": "🤝",
+    "cost": 145,
+    "effect": {
+      "type": "negotiation",
+      "value": 0.05
+    },
+    "gemCost": 5
+  }
 ]

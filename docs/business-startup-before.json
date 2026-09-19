@@ -1,0 +1,1905 @@
+{
+  "assumptions": "3 randomized employees, reputation 25, 15000 operating cash after acquisition, no upgrades, no prestige, standard pricing, no advertising, real rival simulation, fixed inflation 1. No loans, cash injections, recruitment or manual interventions.",
+  "summaries": [
+    {
+      "weeks": 20,
+      "runs": 60,
+      "medianProfit": -13647,
+      "greenWeeks": 0,
+      "negativeCashRuns": 11,
+      "medianBalance": 4421
+    },
+    {
+      "weeks": 75,
+      "runs": 60,
+      "medianProfit": -46918,
+      "greenWeeks": 0,
+      "negativeCashRuns": 60,
+      "medianBalance": -23084
+    },
+    {
+      "weeks": 150,
+      "runs": 60,
+      "medianProfit": -106752,
+      "greenWeeks": 0,
+      "negativeCashRuns": 60,
+      "medianBalance": -67248
+    }
+  ],
+  "byType": [
+    {
+      "type": "Coffee Shop",
+      "profit": -40793,
+      "green": 0,
+      "balance": -17678
+    },
+    {
+      "type": "Food Truck",
+      "profit": -33463,
+      "green": 0,
+      "balance": -12302
+    },
+    {
+      "type": "Restaurant",
+      "profit": -64421,
+      "green": 0,
+      "balance": -36897
+    },
+    {
+      "type": "Clothing Store",
+      "profit": -49601,
+      "green": 0,
+      "balance": -24921
+    },
+    {
+      "type": "Software Company",
+      "profit": -52148,
+      "green": 0,
+      "balance": -27042
+    },
+    {
+      "type": "Fitness Gym",
+      "profit": -51233,
+      "green": 0,
+      "balance": -26107
+    },
+    {
+      "type": "Construction Company",
+      "profit": -65156,
+      "green": 0,
+      "balance": -37568
+    },
+    {
+      "type": "Digital Agency",
+      "profit": -44494,
+      "green": 0,
+      "balance": -20849
+    },
+    {
+      "type": "Pharmacy",
+      "profit": -62963,
+      "green": 0,
+      "balance": -35409
+    },
+    {
+      "type": "Auto Repair Shop",
+      "profit": -45617,
+      "green": 0,
+      "balance": -21790
+    },
+    {
+      "type": "Real Estate Agency",
+      "profit": -46139,
+      "green": 0,
+      "balance": -21995
+    },
+    {
+      "type": "Bakery",
+      "profit": -38741,
+      "green": 0,
+      "balance": -16215
+    }
+  ],
+  "results": [
+    {
+      "type": "coffee_shop",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -13549,
+      "green": 0,
+      "balance": 4070,
+      "low": 1426,
+      "rep": 17
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -13065,
+      "green": 0,
+      "balance": 5108,
+      "low": 2307,
+      "rep": 23
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -13098,
+      "green": 0,
+      "balance": 4595,
+      "low": 2369,
+      "rep": 17
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -12780,
+      "green": 0,
+      "balance": 5322,
+      "low": 2592,
+      "rep": 23
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -12695,
+      "green": 0,
+      "balance": 5299,
+      "low": 3025,
+      "rep": 17
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -45216,
+      "green": 0,
+      "balance": -21794,
+      "low": -21794,
+      "rep": 5.5
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -40762,
+      "green": 0,
+      "balance": -17678,
+      "low": -17678,
+      "rep": 11.5
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -42519,
+      "green": 0,
+      "balance": -19248,
+      "low": -19248,
+      "rep": 0
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -40793,
+      "green": 0,
+      "balance": -17655,
+      "low": -17655,
+      "rep": 11.5
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -40692,
+      "green": 0,
+      "balance": -17512,
+      "low": -17512,
+      "rep": 5.5
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -99148,
+      "green": 0,
+      "balance": -62006,
+      "low": -62006,
+      "rep": 0
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -88987,
+      "green": 0,
+      "balance": -53560,
+      "low": -53560,
+      "rep": 0
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -95091,
+      "green": 0,
+      "balance": -58598,
+      "low": -58598,
+      "rep": 0
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -92694,
+      "green": 0,
+      "balance": -56460,
+      "low": -56460,
+      "rep": 0
+    },
+    {
+      "type": "coffee_shop",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -93747,
+      "green": 0,
+      "balance": -56905,
+      "low": -56905,
+      "rep": 0
+    },
+    {
+      "type": "food_truck",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -12260,
+      "green": 0,
+      "balance": 5066,
+      "low": 2420,
+      "rep": 23
+    },
+    {
+      "type": "food_truck",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -12970,
+      "green": 0,
+      "balance": 4931,
+      "low": 2654,
+      "rep": 23
+    },
+    {
+      "type": "food_truck",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -13220,
+      "green": 0,
+      "balance": 4761,
+      "low": 2167,
+      "rep": 23
+    },
+    {
+      "type": "food_truck",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -13224,
+      "green": 0,
+      "balance": 4933,
+      "low": 2373,
+      "rep": 23
+    },
+    {
+      "type": "food_truck",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -12554,
+      "green": 0,
+      "balance": 5434,
+      "low": 3050,
+      "rep": 23
+    },
+    {
+      "type": "food_truck",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -33463,
+      "green": 0,
+      "balance": -12302,
+      "low": -12302,
+      "rep": 5.5
+    },
+    {
+      "type": "food_truck",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -34898,
+      "green": 0,
+      "balance": -13018,
+      "low": -13018,
+      "rep": 0
+    },
+    {
+      "type": "food_truck",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -35903,
+      "green": 0,
+      "balance": -13782,
+      "low": -13782,
+      "rep": 11.5
+    },
+    {
+      "type": "food_truck",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -33276,
+      "green": 0,
+      "balance": -11497,
+      "low": -11497,
+      "rep": 17.5
+    },
+    {
+      "type": "food_truck",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -33168,
+      "green": 0,
+      "balance": -11372,
+      "low": -11372,
+      "rep": 5.5
+    },
+    {
+      "type": "food_truck",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -74329,
+      "green": 0,
+      "balance": -42889,
+      "low": -42889,
+      "rep": 0
+    },
+    {
+      "type": "food_truck",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -72888,
+      "green": 0,
+      "balance": -41106,
+      "low": -41106,
+      "rep": 0
+    },
+    {
+      "type": "food_truck",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -74482,
+      "green": 0,
+      "balance": -42491,
+      "low": -42491,
+      "rep": 0
+    },
+    {
+      "type": "food_truck",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -72725,
+      "green": 0,
+      "balance": -41044,
+      "low": -41044,
+      "rep": 0
+    },
+    {
+      "type": "food_truck",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -72520,
+      "green": 0,
+      "balance": -40761,
+      "low": -40761,
+      "rep": 0
+    },
+    {
+      "type": "restaurant",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -17781,
+      "green": 0,
+      "balance": 1399,
+      "low": -1719,
+      "rep": 19
+    },
+    {
+      "type": "restaurant",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -17855,
+      "green": 0,
+      "balance": 1387,
+      "low": -1969,
+      "rep": 25
+    },
+    {
+      "type": "restaurant",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -17091,
+      "green": 0,
+      "balance": 1740,
+      "low": -1918,
+      "rep": 19
+    },
+    {
+      "type": "restaurant",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -17161,
+      "green": 0,
+      "balance": 1989,
+      "low": -1601,
+      "rep": 19
+    },
+    {
+      "type": "restaurant",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -16615,
+      "green": 0,
+      "balance": 1489,
+      "low": -1057,
+      "rep": 25
+    },
+    {
+      "type": "restaurant",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -68836,
+      "green": 0,
+      "balance": -40201,
+      "low": -40201,
+      "rep": 13
+    },
+    {
+      "type": "restaurant",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -64325,
+      "green": 0,
+      "balance": -36897,
+      "low": -36897,
+      "rep": 19
+    },
+    {
+      "type": "restaurant",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -64421,
+      "green": 0,
+      "balance": -36948,
+      "low": -36948,
+      "rep": 7
+    },
+    {
+      "type": "restaurant",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -64456,
+      "green": 0,
+      "balance": -36742,
+      "low": -36742,
+      "rep": 7
+    },
+    {
+      "type": "restaurant",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -63318,
+      "green": 0,
+      "balance": -36612,
+      "low": -36612,
+      "rep": 13
+    },
+    {
+      "type": "restaurant",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -146957,
+      "green": 0,
+      "balance": -97783,
+      "low": -97783,
+      "rep": 1
+    },
+    {
+      "type": "restaurant",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -141386,
+      "green": 0,
+      "balance": -93706,
+      "low": -93706,
+      "rep": 13
+    },
+    {
+      "type": "restaurant",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -145397,
+      "green": 0,
+      "balance": -97486,
+      "low": -97486,
+      "rep": 1
+    },
+    {
+      "type": "restaurant",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -143788,
+      "green": 0,
+      "balance": -95497,
+      "low": -95497,
+      "rep": 1
+    },
+    {
+      "type": "restaurant",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -140114,
+      "green": 0,
+      "balance": -93617,
+      "low": -93617,
+      "rep": 1
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -12450,
+      "green": 0,
+      "balance": 4825,
+      "low": 2545,
+      "rep": 19
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -12186,
+      "green": 0,
+      "balance": 5713,
+      "low": 3404,
+      "rep": 25
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -13822,
+      "green": 0,
+      "balance": 4468,
+      "low": 1842,
+      "rep": 25
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -13199,
+      "green": 0,
+      "balance": 4729,
+      "low": 1933,
+      "rep": 25
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -12201,
+      "green": 0,
+      "balance": 5631,
+      "low": 3674,
+      "rep": 25
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -51035,
+      "green": 0,
+      "balance": -26749,
+      "low": -26749,
+      "rep": 19
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -49601,
+      "green": 0,
+      "balance": -24921,
+      "low": -24921,
+      "rep": 19
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -50496,
+      "green": 0,
+      "balance": -26041,
+      "low": -26041,
+      "rep": 25
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -47076,
+      "green": 0,
+      "balance": -23345,
+      "low": -23345,
+      "rep": 25
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -46760,
+      "green": 0,
+      "balance": -22823,
+      "low": -22823,
+      "rep": 19
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -115391,
+      "green": 0,
+      "balance": -74686,
+      "low": -74686,
+      "rep": 7
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -107112,
+      "green": 0,
+      "balance": -67389,
+      "low": -67389,
+      "rep": 19
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -112123,
+      "green": 0,
+      "balance": -71477,
+      "low": -71477,
+      "rep": 19
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -104435,
+      "green": 0,
+      "balance": -65953,
+      "low": -65953,
+      "rep": 13
+    },
+    {
+      "type": "clothing_store",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -107629,
+      "green": 0,
+      "balance": -68072,
+      "low": -68072,
+      "rep": 19
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -13958,
+      "green": 0,
+      "balance": 3353,
+      "low": 740,
+      "rep": 10
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -13911,
+      "green": 0,
+      "balance": 4386,
+      "low": 1813,
+      "rep": 23
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -13815,
+      "green": 0,
+      "balance": 3680,
+      "low": 822,
+      "rep": 18
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -13317,
+      "green": 0,
+      "balance": 4576,
+      "low": 1970,
+      "rep": 9
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -15133,
+      "green": 0,
+      "balance": 2270,
+      "low": -465,
+      "rep": 15
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -55307,
+      "green": 0,
+      "balance": -30489,
+      "low": -30489,
+      "rep": 0
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -52148,
+      "green": 0,
+      "balance": -27042,
+      "low": -27042,
+      "rep": 0
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -51357,
+      "green": 0,
+      "balance": -26945,
+      "low": -26945,
+      "rep": 0
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -49357,
+      "green": 0,
+      "balance": -24869,
+      "low": -24869,
+      "rep": 0
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -53533,
+      "green": 0,
+      "balance": -29256,
+      "low": -29256,
+      "rep": 0
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -123843,
+      "green": 0,
+      "balance": -81447,
+      "low": -81447,
+      "rep": 0
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -114142,
+      "green": 0,
+      "balance": -72990,
+      "low": -72990,
+      "rep": 0
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -116962,
+      "green": 0,
+      "balance": -76087,
+      "low": -76087,
+      "rep": 0
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -113817,
+      "green": 0,
+      "balance": -72840,
+      "low": -72840,
+      "rep": 0
+    },
+    {
+      "type": "tech_startup",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -116271,
+      "green": 0,
+      "balance": -75520,
+      "low": -75520,
+      "rep": 0
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -12980,
+      "green": 0,
+      "balance": 4423,
+      "low": 2043,
+      "rep": 19
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -12726,
+      "green": 0,
+      "balance": 5302,
+      "low": 2888,
+      "rep": 25
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -14469,
+      "green": 0,
+      "balance": 3975,
+      "low": 1223,
+      "rep": 25
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -13810,
+      "green": 0,
+      "balance": 4194,
+      "low": 1256,
+      "rep": 20
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -12647,
+      "green": 0,
+      "balance": 5285,
+      "low": 3271,
+      "rep": 25
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -53363,
+      "green": 0,
+      "balance": -28626,
+      "low": -28626,
+      "rep": 14
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -51233,
+      "green": 0,
+      "balance": -26107,
+      "low": -26107,
+      "rep": 19
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -52835,
+      "green": 0,
+      "balance": -27983,
+      "low": -27983,
+      "rep": 12
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -49351,
+      "green": 0,
+      "balance": -24966,
+      "low": -24966,
+      "rep": 6
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -48713,
+      "green": 0,
+      "balance": -24217,
+      "low": -24217,
+      "rep": 12
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -120622,
+      "green": 0,
+      "balance": -78728,
+      "low": -78728,
+      "rep": 0
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -112179,
+      "green": 0,
+      "balance": -71306,
+      "low": -71306,
+      "rep": 8
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -116626,
+      "green": 0,
+      "balance": -74998,
+      "low": -74998,
+      "rep": 1
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -109949,
+      "green": 0,
+      "balance": -69921,
+      "low": -69921,
+      "rep": 0
+    },
+    {
+      "type": "fitness_gym",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -111108,
+      "green": 0,
+      "balance": -70971,
+      "low": -70971,
+      "rep": 0
+    },
+    {
+      "type": "construction_co",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -14915,
+      "green": 0,
+      "balance": 2947,
+      "low": 296,
+      "rep": 19
+    },
+    {
+      "type": "construction_co",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -14948,
+      "green": 0,
+      "balance": 3599,
+      "low": 812,
+      "rep": 25
+    },
+    {
+      "type": "construction_co",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -15535,
+      "green": 0,
+      "balance": 3133,
+      "low": 330,
+      "rep": 25
+    },
+    {
+      "type": "construction_co",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -16194,
+      "green": 0,
+      "balance": 2458,
+      "low": -986,
+      "rep": 19
+    },
+    {
+      "type": "construction_co",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -14613,
+      "green": 0,
+      "balance": 3615,
+      "low": 1323,
+      "rep": 19
+    },
+    {
+      "type": "construction_co",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -66347,
+      "green": 0,
+      "balance": -39147,
+      "low": -39147,
+      "rep": 13
+    },
+    {
+      "type": "construction_co",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -65203,
+      "green": 0,
+      "balance": -37568,
+      "low": -37568,
+      "rep": 19
+    },
+    {
+      "type": "construction_co",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -65131,
+      "green": 0,
+      "balance": -37521,
+      "low": -37521,
+      "rep": 13
+    },
+    {
+      "type": "construction_co",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -65156,
+      "green": 0,
+      "balance": -38205,
+      "low": -38205,
+      "rep": 13
+    },
+    {
+      "type": "construction_co",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -60174,
+      "green": 0,
+      "balance": -33569,
+      "low": -33569,
+      "rep": 7
+    },
+    {
+      "type": "construction_co",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -151678,
+      "green": 0,
+      "balance": -102766,
+      "low": -102766,
+      "rep": 0
+    },
+    {
+      "type": "construction_co",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -141046,
+      "green": 0,
+      "balance": -93515,
+      "low": -93515,
+      "rep": 13
+    },
+    {
+      "type": "construction_co",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -146825,
+      "green": 0,
+      "balance": -98404,
+      "low": -98404,
+      "rep": 1
+    },
+    {
+      "type": "construction_co",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -144026,
+      "green": 0,
+      "balance": -96469,
+      "low": -96469,
+      "rep": 1
+    },
+    {
+      "type": "construction_co",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -144855,
+      "green": 0,
+      "balance": -96329,
+      "low": -96329,
+      "rep": 0
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -14128,
+      "green": 0,
+      "balance": 4045,
+      "low": 868,
+      "rep": 9
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -15417,
+      "green": 0,
+      "balance": 3350,
+      "low": -68,
+      "rep": 23
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -13720,
+      "green": 0,
+      "balance": 4431,
+      "low": 1402,
+      "rep": 23
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -13575,
+      "green": 0,
+      "balance": 3972,
+      "low": 1154,
+      "rep": 17
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -10979,
+      "green": 0,
+      "balance": 5892,
+      "low": 3840,
+      "rep": 18
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -45840,
+      "green": 0,
+      "balance": -21971,
+      "low": -21971,
+      "rep": 0
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -46528,
+      "green": 0,
+      "balance": -22412,
+      "low": -22412,
+      "rep": 4.5
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -44494,
+      "green": 0,
+      "balance": -20849,
+      "low": -20849,
+      "rep": 0
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -41995,
+      "green": 0,
+      "balance": -19247,
+      "low": -19247,
+      "rep": 0
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -41902,
+      "green": 0,
+      "balance": -19248,
+      "low": -19248,
+      "rep": 1.5
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -98684,
+      "green": 0,
+      "balance": -61037,
+      "low": -61037,
+      "rep": 0
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -98239,
+      "green": 0,
+      "balance": -60757,
+      "low": -60757,
+      "rep": 0
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -96570,
+      "green": 0,
+      "balance": -59535,
+      "low": -59535,
+      "rep": 0
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -93509,
+      "green": 0,
+      "balance": -57623,
+      "low": -57623,
+      "rep": 0
+    },
+    {
+      "type": "digital_agency",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -94858,
+      "green": 0,
+      "balance": -58718,
+      "low": -58718,
+      "rep": 0
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -15689,
+      "green": 0,
+      "balance": 3045,
+      "low": 65,
+      "rep": 25
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -17259,
+      "green": 0,
+      "balance": 1865,
+      "low": -1495,
+      "rep": 17
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -17205,
+      "green": 0,
+      "balance": 1780,
+      "low": -940,
+      "rep": 25
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -17387,
+      "green": 0,
+      "balance": 1672,
+      "low": -2040,
+      "rep": 20
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -15618,
+      "green": 0,
+      "balance": 2998,
+      "low": 538,
+      "rep": 25
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -62963,
+      "green": 0,
+      "balance": -35409,
+      "low": -35409,
+      "rep": 9
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -64344,
+      "green": 0,
+      "balance": -36842,
+      "low": -36842,
+      "rep": 17
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -68888,
+      "green": 0,
+      "balance": -40355,
+      "low": -40355,
+      "rep": 15
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -62079,
+      "green": 0,
+      "balance": -34915,
+      "low": -34915,
+      "rep": 6
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -60996,
+      "green": 0,
+      "balance": -33861,
+      "low": -33861,
+      "rep": 12
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -143062,
+      "green": 0,
+      "balance": -95273,
+      "low": -95273,
+      "rep": 0
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -138065,
+      "green": 0,
+      "balance": -91482,
+      "low": -91482,
+      "rep": 6
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -148587,
+      "green": 0,
+      "balance": -99259,
+      "low": -99259,
+      "rep": 9
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -137228,
+      "green": 0,
+      "balance": -90622,
+      "low": -90622,
+      "rep": 0
+    },
+    {
+      "type": "pharmacy",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -138516,
+      "green": 0,
+      "balance": -91929,
+      "low": -91929,
+      "rep": 0
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -13256,
+      "green": 0,
+      "balance": 4914,
+      "low": 2321,
+      "rep": 19
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -13754,
+      "green": 0,
+      "balance": 4206,
+      "low": 1410,
+      "rep": 20
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -14020,
+      "green": 0,
+      "balance": 4341,
+      "low": 1555,
+      "rep": 25
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -11733,
+      "green": 0,
+      "balance": 6079,
+      "low": 3751,
+      "rep": 19
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -13843,
+      "green": 0,
+      "balance": 4418,
+      "low": 1956,
+      "rep": 19
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -44529,
+      "green": 0,
+      "balance": -20648,
+      "low": -20648,
+      "rep": 8
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -45617,
+      "green": 0,
+      "balance": -21790,
+      "low": -21790,
+      "rep": 14
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -45983,
+      "green": 0,
+      "balance": -22056,
+      "low": -22056,
+      "rep": 20
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -43325,
+      "green": 0,
+      "balance": -19777,
+      "low": -19777,
+      "rep": 19
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -46548,
+      "green": 0,
+      "balance": -22310,
+      "low": -22310,
+      "rep": 8
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -100797,
+      "green": 0,
+      "balance": -62655,
+      "low": -62655,
+      "rep": 0
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -96625,
+      "green": 0,
+      "balance": -59657,
+      "low": -59657,
+      "rep": 8
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -100597,
+      "green": 0,
+      "balance": -62479,
+      "low": -62479,
+      "rep": 8
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -94946,
+      "green": 0,
+      "balance": -58127,
+      "low": -58127,
+      "rep": 8
+    },
+    {
+      "type": "auto_repair",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -100259,
+      "green": 0,
+      "balance": -61963,
+      "low": -61963,
+      "rep": 2
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -12739,
+      "green": 0,
+      "balance": 5281,
+      "low": 2919,
+      "rep": 19
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -13283,
+      "green": 0,
+      "balance": 4730,
+      "low": 2303,
+      "rep": 19
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -14371,
+      "green": 0,
+      "balance": 4058,
+      "low": 1286,
+      "rep": 25
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -14115,
+      "green": 0,
+      "balance": 4187,
+      "low": 1792,
+      "rep": 19
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -12690,
+      "green": 0,
+      "balance": 5268,
+      "low": 3168,
+      "rep": 25
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -46139,
+      "green": 0,
+      "balance": -21995,
+      "low": -21995,
+      "rep": 7
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -46628,
+      "green": 0,
+      "balance": -22642,
+      "low": -22642,
+      "rep": 19
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -48606,
+      "green": 0,
+      "balance": -24203,
+      "low": -24203,
+      "rep": 19
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -45675,
+      "green": 0,
+      "balance": -21457,
+      "low": -21457,
+      "rep": 19
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -44994,
+      "green": 0,
+      "balance": -20913,
+      "low": -20913,
+      "rep": 19
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -106503,
+      "green": 0,
+      "balance": -67165,
+      "low": -67165,
+      "rep": 1
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -100246,
+      "green": 0,
+      "balance": -62420,
+      "low": -62420,
+      "rep": 13
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -107001,
+      "green": 0,
+      "balance": -67332,
+      "low": -67332,
+      "rep": 7
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -101081,
+      "green": 0,
+      "balance": -63024,
+      "low": -63024,
+      "rep": 1
+    },
+    {
+      "type": "real_estate_agency",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -101267,
+      "green": 0,
+      "balance": -63068,
+      "low": -63068,
+      "rep": 13
+    },
+    {
+      "type": "bakery",
+      "weeks": 20,
+      "seed": 11,
+      "profit": -12285,
+      "green": 0,
+      "balance": 5269,
+      "low": 2780,
+      "rep": 23
+    },
+    {
+      "type": "bakery",
+      "weeks": 20,
+      "seed": 29,
+      "profit": -12395,
+      "green": 0,
+      "balance": 5412,
+      "low": 2713,
+      "rep": 17
+    },
+    {
+      "type": "bakery",
+      "weeks": 20,
+      "seed": 47,
+      "profit": -12928,
+      "green": 0,
+      "balance": 4759,
+      "low": 2414,
+      "rep": 17
+    },
+    {
+      "type": "bakery",
+      "weeks": 20,
+      "seed": 71,
+      "profit": -12448,
+      "green": 0,
+      "balance": 5280,
+      "low": 2568,
+      "rep": 17
+    },
+    {
+      "type": "bakery",
+      "weeks": 20,
+      "seed": 97,
+      "profit": -12506,
+      "green": 0,
+      "balance": 5487,
+      "low": 3027,
+      "rep": 23
+    },
+    {
+      "type": "bakery",
+      "weeks": 75,
+      "seed": 11,
+      "profit": -38657,
+      "green": 0,
+      "balance": -16215,
+      "low": -16215,
+      "rep": 5.5
+    },
+    {
+      "type": "bakery",
+      "weeks": 75,
+      "seed": 29,
+      "profit": -38282,
+      "green": 0,
+      "balance": -15906,
+      "low": -15906,
+      "rep": 5.5
+    },
+    {
+      "type": "bakery",
+      "weeks": 75,
+      "seed": 47,
+      "profit": -39482,
+      "green": 0,
+      "balance": -17006,
+      "low": -17006,
+      "rep": 0
+    },
+    {
+      "type": "bakery",
+      "weeks": 75,
+      "seed": 71,
+      "profit": -39228,
+      "green": 0,
+      "balance": -16895,
+      "low": -16895,
+      "rep": 5.5
+    },
+    {
+      "type": "bakery",
+      "weeks": 75,
+      "seed": 97,
+      "profit": -38741,
+      "green": 0,
+      "balance": -15976,
+      "low": -15976,
+      "rep": 11.5
+    },
+    {
+      "type": "bakery",
+      "weeks": 150,
+      "seed": 11,
+      "profit": -86865,
+      "green": 0,
+      "balance": -52070,
+      "low": -52070,
+      "rep": 0
+    },
+    {
+      "type": "bakery",
+      "weeks": 150,
+      "seed": 29,
+      "profit": -83911,
+      "green": 0,
+      "balance": -49883,
+      "low": -49883,
+      "rep": 0
+    },
+    {
+      "type": "bakery",
+      "weeks": 150,
+      "seed": 47,
+      "profit": -87511,
+      "green": 0,
+      "balance": -52886,
+      "low": -52886,
+      "rep": 0
+    },
+    {
+      "type": "bakery",
+      "weeks": 150,
+      "seed": 71,
+      "profit": -84531,
+      "green": 0,
+      "balance": -50456,
+      "low": -50456,
+      "rep": 0
+    },
+    {
+      "type": "bakery",
+      "weeks": 150,
+      "seed": 97,
+      "profit": -85288,
+      "green": 0,
+      "balance": -50656,
+      "low": -50656,
+      "rep": 0
+    }
+  ]
+}

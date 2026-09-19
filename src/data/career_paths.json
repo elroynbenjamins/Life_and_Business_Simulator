@@ -2,32 +2,34 @@
   {
     "id":"retail","name":"Retail & Customer Service","requiredCourseBase":"retail",
     "positions":[
-      {"level":1,"title":"Sales Associate","baseSalary":418,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},
-      {"level":2,"title":"Senior Associate","baseSalary":572,"reqKnowledge":{"business":10},"reqSkills":{"customer_service":15},"reqWeeks":26},
-      {"level":3,"title":"Store Supervisor","baseSalary":792,"reqKnowledge":{"business":20},"reqSkills":{"customer_service":25,"leadership":10},"reqWeeks":52},
-      {"level":4,"title":"Store Manager","baseSalary":1078,"reqKnowledge":{"business":35},"reqSkills":{"customer_service":35,"leadership":25},"reqWeeks":104},
-      {"level":5,"title":"Regional Manager","baseSalary":1540,"reqKnowledge":{"business":50},"reqSkills":{"leadership":40,"organization":30},"reqWeeks":156}
+      {"level":1,"title":"Sales Associate","baseSalary":650,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},
+      {"level":2,"title":"Senior Associate","baseSalary":800,"reqKnowledge":{"business":10},"reqSkills":{"customer_service":15},"reqWeeks":26},
+      {"level":3,"title":"Store Supervisor","baseSalary":1300,"reqKnowledge":{"business":20},"reqSkills":{"customer_service":25,"leadership":10},"reqWeeks":52},
+      {"level":4,"title":"Store Manager","baseSalary":1800,"reqKnowledge":{"business":35},"reqSkills":{"customer_service":35,"leadership":25},"reqWeeks":104},
+      {"level":5,"title":"Regional Manager","baseSalary":2800,"reqKnowledge":{"business":50},"reqSkills":{"leadership":40,"organization":30},"reqWeeks":156},
+      {"level":6,"title":"VP of Retail Operations","baseSalary":3750,"reqKnowledge":{"business":70},"reqSkills":{"leadership":55,"organization":45},"reqWeeks":260}
     ]
   },
   {
     "id":"administration","name":"Administration & Operations","requiredCourseBase":"office",
     "positions":[
-      {"level":1,"title":"Administrative Assistant","baseSalary":495,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},
+      {"level":1,"title":"Administrative Assistant","baseSalary":650,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},
       {"level":2,"title":"Office Coordinator","baseSalary":715,"reqKnowledge":{"administration":10},"reqSkills":{"organization":15,"communication":10},"reqWeeks":26},
-      {"level":3,"title":"Office Manager","baseSalary":1045,"reqKnowledge":{"administration":25,"business":10},"reqSkills":{"organization":25,"leadership":15},"reqWeeks":52},
-      {"level":4,"title":"Operations Manager","baseSalary":1485,"reqKnowledge":{"administration":40,"business":25},"reqSkills":{"leadership":30,"organization":35},"reqWeeks":104},
-      {"level":5,"title":"Director of Operations","baseSalary":2090,"reqKnowledge":{"administration":55,"business":40},"reqSkills":{"leadership":45,"organization":45},"reqWeeks":156}
+      {"level":3,"title":"Office Manager","baseSalary":1250,"reqKnowledge":{"administration":25,"business":10},"reqSkills":{"organization":25,"leadership":15},"reqWeeks":52},
+      {"level":4,"title":"Operations Manager","baseSalary":1750,"reqKnowledge":{"administration":40,"business":25},"reqSkills":{"leadership":30,"organization":35},"reqWeeks":104},
+      {"level":5,"title":"Director of Operations","baseSalary":2750,"reqKnowledge":{"administration":55,"business":40},"reqSkills":{"leadership":45,"organization":45},"reqWeeks":156},
+      {"level":6,"title":"Chief Operating Officer","baseSalary":3700,"reqKnowledge":{"administration":75,"business":55},"reqSkills":{"leadership":60,"organization":60},"reqWeeks":260}
     ]
   },
   {
     "id":"sales","name":"Sales & Business Development","requiredCourseBase":"sales",
     "positions":[
-      {"level":1,"title":"Sales Representative","baseSalary":605,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},
+      {"level":1,"title":"Sales Representative","baseSalary":650,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},
       {"level":2,"title":"Account Manager","baseSalary":880,"reqKnowledge":{"sales_knowledge":15},"reqSkills":{"sales_ability":20,"negotiation":10},"reqWeeks":26},
-      {"level":3,"title":"Senior Account Manager","baseSalary":1210,"reqKnowledge":{"sales_knowledge":25,"business":10},"reqSkills":{"sales_ability":30,"negotiation":20},"reqWeeks":52},
-      {"level":4,"title":"Sales Manager","baseSalary":1650,"reqKnowledge":{"sales_knowledge":40,"business":20},"reqSkills":{"sales_ability":40,"leadership":25,"negotiation":30},"reqWeeks":104},
-      {"level":5,"title":"Sales Director","baseSalary":2310,"reqKnowledge":{"sales_knowledge":55,"business":35},"reqSkills":{"leadership":40,"negotiation":40},"reqWeeks":156},
-      {"level":6,"title":"VP of Sales","baseSalary":3300,"reqKnowledge":{"sales_knowledge":70,"business":50},"reqSkills":{"leadership":55,"negotiation":50},"reqWeeks":260}
+      {"level":3,"title":"Senior Account Manager","baseSalary":1350,"reqKnowledge":{"sales_knowledge":25,"business":10},"reqSkills":{"sales_ability":30,"negotiation":20},"reqWeeks":52},
+      {"level":4,"title":"Sales Manager","baseSalary":1800,"reqKnowledge":{"sales_knowledge":40,"business":20},"reqSkills":{"sales_ability":40,"leadership":25,"negotiation":30},"reqWeeks":104},
+      {"level":5,"title":"Sales Director","baseSalary":2800,"reqKnowledge":{"sales_knowledge":55,"business":35},"reqSkills":{"leadership":40,"negotiation":40},"reqWeeks":156},
+      {"level":6,"title":"VP of Sales","baseSalary":3750,"reqKnowledge":{"sales_knowledge":70,"business":50},"reqSkills":{"leadership":55,"negotiation":50},"reqWeeks":260}
     ]
   },
   {
@@ -37,7 +39,7 @@
       {"level":2,"title":"Accountant","baseSalary":1650,"reqKnowledge":{"finance":15,"accounting":15},"reqSkills":{"financial_analysis":15,"attention_to_detail":15},"reqWeeks":26},
       {"level":3,"title":"Senior Accountant","baseSalary":2200,"reqKnowledge":{"finance":30,"accounting":25},"reqSkills":{"financial_analysis":25,"attention_to_detail":25},"reqWeeks":52},
       {"level":4,"title":"Finance Manager","baseSalary":2970,"reqKnowledge":{"finance":45,"accounting":35},"reqSkills":{"financial_analysis":35,"leadership":20},"reqWeeks":104},
-      {"level":5,"title":"Finance Director","baseSalary":3850,"reqKnowledge":{"finance":60,"economics":20},"reqSkills":{"financial_analysis":45,"leadership":35},"reqWeeks":156},
+      {"level":5,"title":"Finance Director","baseSalary":3970,"reqKnowledge":{"finance":60,"economics":20},"reqSkills":{"financial_analysis":45,"leadership":35},"reqWeeks":156},
       {"level":6,"title":"CFO","baseSalary":5500,"reqKnowledge":{"finance":75,"economics":40,"business":30},"reqSkills":{"leadership":55,"financial_analysis":60},"reqWeeks":260}
     ]
   },
@@ -48,7 +50,7 @@
       {"level":2,"title":"Marketing Specialist","baseSalary":1540,"reqKnowledge":{"marketing":15},"reqSkills":{"communication":15,"creativity":10},"reqWeeks":26},
       {"level":3,"title":"Marketing Manager","baseSalary":2090,"reqKnowledge":{"marketing":30,"business":10},"reqSkills":{"communication":25,"creativity":20,"leadership":10},"reqWeeks":52},
       {"level":4,"title":"Brand Director","baseSalary":2860,"reqKnowledge":{"marketing":45,"business":25},"reqSkills":{"communication":35,"creativity":30,"leadership":25},"reqWeeks":104},
-      {"level":5,"title":"Marketing Director","baseSalary":3630,"reqKnowledge":{"marketing":60,"business":35},"reqSkills":{"leadership":40,"creativity":40},"reqWeeks":156},
+      {"level":5,"title":"Marketing Director","baseSalary":3860,"reqKnowledge":{"marketing":60,"business":35},"reqSkills":{"leadership":40,"creativity":40},"reqWeeks":156},
       {"level":6,"title":"CMO","baseSalary":4950,"reqKnowledge":{"marketing":75,"business":50},"reqSkills":{"leadership":55,"creativity":50},"reqWeeks":260}
     ]
   },
@@ -59,13 +61,13 @@
       {"level":2,"title":"Software Developer","baseSalary":1870,"reqKnowledge":{"technology":15},"reqSkills":{"technical":20,"problem_solving":10},"reqWeeks":26},
       {"level":3,"title":"Senior Developer","baseSalary":2530,"reqKnowledge":{"technology":30,"data_science":10},"reqSkills":{"technical":30,"problem_solving":25},"reqWeeks":52},
       {"level":4,"title":"Tech Lead","baseSalary":3300,"reqKnowledge":{"technology":45,"data_science":20},"reqSkills":{"technical":40,"problem_solving":35,"leadership":20},"reqWeeks":104},
-      {"level":5,"title":"Engineering Manager","baseSalary":4180,"reqKnowledge":{"technology":55,"business":15},"reqSkills":{"leadership":35,"technical":45},"reqWeeks":156},
+      {"level":5,"title":"Engineering Manager","baseSalary":4300,"reqKnowledge":{"technology":55,"business":15},"reqSkills":{"leadership":35,"technical":45},"reqWeeks":156},
       {"level":6,"title":"VP of Engineering","baseSalary":5280,"reqKnowledge":{"technology":70,"business":30},"reqSkills":{"leadership":50,"technical":50},"reqWeeks":208},
-      {"level":7,"title":"CTO","baseSalary":6600,"reqKnowledge":{"technology":85,"business":45},"reqSkills":{"leadership":60,"technical":55},"reqWeeks":312}
+      {"level":7,"title":"CTO","baseSalary":8150,"reqKnowledge":{"technology":85,"business":45},"reqSkills":{"leadership":60,"technical":55},"reqWeeks":312}
     ]
   },
   {"id":"healthcare","name":"Healthcare Management","requiredCourseBase":"healthcare","positions":[{"level":1,"title":"Healthcare Assistant","baseSalary":900,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},{"level":2,"title":"Care Coordinator","baseSalary":1320,"reqKnowledge":{"healthcare":15},"reqSkills":{"communication":15},"reqWeeks":26},{"level":3,"title":"Department Supervisor","baseSalary":1870,"reqKnowledge":{"healthcare":30},"reqSkills":{"leadership":15},"reqWeeks":52},{"level":4,"title":"Healthcare Manager","baseSalary":2640,"reqKnowledge":{"healthcare":45},"reqSkills":{"leadership":30},"reqWeeks":104},{"level":5,"title":"Hospital Director","baseSalary":3740,"reqKnowledge":{"healthcare":65,"business":30},"reqSkills":{"leadership":45},"reqWeeks":156},{"level":6,"title":"Healthcare Executive","baseSalary":5060,"reqKnowledge":{"healthcare":80,"business":50},"reqSkills":{"leadership":60},"reqWeeks":260}]},
   {"id":"legal","name":"Legal Services","requiredCourseBase":"legal","positions":[{"level":1,"title":"Legal Assistant","baseSalary":990,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},{"level":2,"title":"Paralegal","baseSalary":1430,"reqKnowledge":{"legal":15},"reqSkills":{"attention_to_detail":15},"reqWeeks":26},{"level":3,"title":"Senior Paralegal","baseSalary":1980,"reqKnowledge":{"legal":30},"reqSkills":{"negotiation":15},"reqWeeks":52},{"level":4,"title":"Legal Operations Manager","baseSalary":2750,"reqKnowledge":{"legal":45},"reqSkills":{"leadership":25},"reqWeeks":104},{"level":5,"title":"Legal Director","baseSalary":3850,"reqKnowledge":{"legal":65,"business":30},"reqSkills":{"leadership":45},"reqWeeks":156},{"level":6,"title":"Chief Legal Officer","baseSalary":5280,"reqKnowledge":{"legal":80,"business":50},"reqSkills":{"leadership":60},"reqWeeks":260}]},
   {"id":"logistics","name":"Logistics & Supply Chain","requiredCourseBase":"logistics","positions":[{"level":1,"title":"Warehouse Coordinator","baseSalary":660,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},{"level":2,"title":"Logistics Planner","baseSalary":990,"reqKnowledge":{"logistics":15},"reqSkills":{"organization":15},"reqWeeks":26},{"level":3,"title":"Supply Chain Supervisor","baseSalary":1430,"reqKnowledge":{"logistics":30},"reqSkills":{"leadership":15},"reqWeeks":52},{"level":4,"title":"Logistics Manager","baseSalary":2090,"reqKnowledge":{"logistics":45},"reqSkills":{"leadership":30},"reqWeeks":104},{"level":5,"title":"Supply Chain Director","baseSalary":2970,"reqKnowledge":{"logistics":65,"business":30},"reqSkills":{"leadership":45},"reqWeeks":156},{"level":6,"title":"Chief Supply Chain Officer","baseSalary":4180,"reqKnowledge":{"logistics":80,"business":50},"reqSkills":{"leadership":60},"reqWeeks":260}]},
-  {"id":"hospitality","name":"Hospitality Management","requiredCourseBase":"hospitality","positions":[{"level":1,"title":"Guest Services Associate","baseSalary":605,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},{"level":2,"title":"Guest Services Supervisor","baseSalary":880,"reqKnowledge":{"hospitality":15},"reqSkills":{"customer_service":15},"reqWeeks":26},{"level":3,"title":"Hotel Supervisor","baseSalary":1320,"reqKnowledge":{"hospitality":30},"reqSkills":{"leadership":15},"reqWeeks":52},{"level":4,"title":"Hotel Manager","baseSalary":1870,"reqKnowledge":{"hospitality":45},"reqSkills":{"leadership":30},"reqWeeks":104},{"level":5,"title":"Regional Hospitality Director","baseSalary":2750,"reqKnowledge":{"hospitality":65,"business":30},"reqSkills":{"leadership":45},"reqWeeks":156},{"level":6,"title":"Hospitality Executive","baseSalary":3960,"reqKnowledge":{"hospitality":80,"business":50},"reqSkills":{"leadership":60},"reqWeeks":260}]}
+  {"id":"hospitality","name":"Hospitality Management","requiredCourseBase":"hospitality","positions":[{"level":1,"title":"Guest Services Associate","baseSalary":700,"reqKnowledge":{},"reqSkills":{},"reqWeeks":0},{"level":2,"title":"Guest Services Supervisor","baseSalary":880,"reqKnowledge":{"hospitality":15},"reqSkills":{"customer_service":15},"reqWeeks":26},{"level":3,"title":"Hotel Supervisor","baseSalary":1320,"reqKnowledge":{"hospitality":30},"reqSkills":{"leadership":15},"reqWeeks":52},{"level":4,"title":"Hotel Manager","baseSalary":1870,"reqKnowledge":{"hospitality":45},"reqSkills":{"leadership":30},"reqWeeks":104},{"level":5,"title":"Regional Hospitality Director","baseSalary":2750,"reqKnowledge":{"hospitality":65,"business":30},"reqSkills":{"leadership":45},"reqWeeks":156},{"level":6,"title":"Hospitality Executive","baseSalary":3960,"reqKnowledge":{"hospitality":80,"business":50},"reqSkills":{"leadership":60},"reqWeeks":260}]}
 ]

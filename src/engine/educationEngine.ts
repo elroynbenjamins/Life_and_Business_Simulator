@@ -11,7 +11,7 @@ export interface EducationResult {
   completedCourses: CompletedCourse[];
   courseProgress: string | null;
   justCompleted: boolean;
-  completedCourseData: { id: string; name: string; baseId?: string; skillRewards?: Record<string, number>; knowledgeRewards?: Record<string, number> } | null;
+  completedCourseData: { id: string; name: string; level: number; baseId?: string; skillRewards?: Record<string, number>; knowledgeRewards?: Record<string, number> } | null;
 }
 
 /**
@@ -48,6 +48,7 @@ export function processEducation(state: GameState, currentWeek: number, partTime
       completedCourseData = {
         id: courseData?.id ?? courseId,
         name: courseName,
+        level: courseData?.level ?? 1,
         baseId: courseData?.baseId,
         skillRewards: courseData?.skillRewards ?? undefined,
         knowledgeRewards: courseData?.knowledgeRewards ?? undefined,

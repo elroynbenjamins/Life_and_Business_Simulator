@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
 import { inflated } from '../../src/engine/economyEngine';
 import businessTypesData from '../../src/data/business_types.json';
+import { businessTypeImages } from '../../src/assets/progressionImages';
 
 const INDUSTRIES = [...new Set((businessTypesData ?? []).map((t) => t.industry))];
 
@@ -83,9 +84,7 @@ export default function StartBusinessScreen() {
             >
               <GameCard style={[styles.typeCard, isSelected && styles.typeCardSelected]}>
                 <View style={styles.typeHeader}>
-                  <View style={[styles.typeIcon, isSelected && { backgroundColor: `${Colors.primary}30` }]}>
-                    <Ionicons name={(type.icon as any) ?? 'business'} size={22} color={isSelected ? Colors.primary : Colors.textSecondary} />
-                  </View>
+                  <Image source={businessTypeImages[type.id]} style={styles.typeArtwork} resizeMode="contain" accessibilityLabel={`${type.name} pixel art`} />
                   <View style={styles.typeInfo}>
                     <Text style={styles.typeName}>{type.name}</Text>
                     <Text style={styles.typeIndustry}>{type.industry}</Text>
@@ -175,6 +174,7 @@ const styles = StyleSheet.create({
   typeCardSelected: { borderColor: Colors.primary, borderWidth: 1.5 },
   typeHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   typeIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.elevated, justifyContent: 'center', alignItems: 'center' },
+  typeArtwork: { width: 64, height: 64, marginRight: 4 },
   typeInfo: { flex: 1 },
   typeName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   typeIndustry: { color: Colors.textMuted, fontSize: 12 },
