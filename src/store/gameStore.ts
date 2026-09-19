@@ -13,6 +13,15 @@ import { createInitialFamilyTree, syncFamilyTree, transitionFamilyTreeToChild } 
 import { getCareerSalary } from '../engine/careerEngine';
 import { applyEducationRewards } from '../engine/skillEngine';
 import { createInitialCompetitors, migrateBusinessCompetitors } from '../engine/competitorEngine';
+import {
+  ACQUISITION_MARKET_REFRESH_WEEKS,
+  ACQUISITION_UNLOCK_NET_WORTH,
+  HOLDING_COMPANY_SETUP_COST,
+  createAcquiredBusiness,
+  createHoldingCompany as buildHoldingCompany,
+  generateAcquisitionTargets,
+  getAcquisitionPrice,
+} from '../engine/acquisitionEngine';
 import { generateRelationshipCandidates, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
 import coursesData from '../data/courses.json';
@@ -162,6 +171,11 @@ interface GameStore extends GameState {
 
   // Business
   foundBusiness: (typeId: string, customName: string | null) => void;
+  ensureAcquisitionMarket: () => void;
+  refreshAcquisitionMarket: () => void;
+  acquireBusiness: (targetId: string, holdingCompanyId?: string | null) => void;
+  createHoldingCompany: (name: string) => void;
+  assignBusinessToHolding: (businessId: string, holdingCompanyId: string | null) => void;
   sellBusiness: (businessId: string) => void;
   designateFamilyBusiness: (businessId: string) => void;
   setBusinessStrategicFocus: (businessId: string, focus: BusinessStrategicFocus) => void;
@@ -1882,6 +1896,17 @@ const useGameStore = create<GameStore>((set, get) => ({
     const inheritedCompetitors = Object.fromEntries(
       inheritedBusinesses.map((business) => [business.id, state.competitors?.[business.id] ?? []])
     );
+    const inheritedHoldingIds = new Set(
+      inheritedBusinesses.map((business) => business.holdingCompanyId).filter(Boolean)
+    );
+    const inheritedHoldingCompanies = (state.holdingCompanies ?? [])
+      .filter((holding) => inheritedHoldingIds.has(holding.id))
+      .map((holding) => ({
+        ...holding,
+        generationsOwned: Math.max(1, holding.generationsOwned ?? 1) + 1,
+        controllerName: child.name,
+        controllerPersonId: `person:${child.id}`,
+      }));
     const inheritedJob = inheritedJobId ? (jobsData as any[]).find((job) => job.id === inheritedJobId) : null;
     const inheritedCourse = inheritedJob
       ? (coursesData as any[]).find((course) => course.id === inheritedJob.requiredCourse)
@@ -2035,6 +2060,9 @@ const useGameStore = create<GameStore>((set, get) => ({
       pendingInvestments: [],
       recentEventIds: [],
       businesses: inheritedBusinesses,
+      holdingCompanies: inheritedHoldingCompanies,
+      acquisitionTargets: [],
+      lastAcquisitionRefreshWeek: 0,
       skills: {},
       knowledge: {},
       career: { ...INITIAL_CAREER_STATE },
@@ -2464,6 +2492,126 @@ const useGameStore = create<GameStore>((set, get) => ({
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  ensureAcquisitionMarket: () => {
+    const state = get();
+    if (state.lifecycle?.isDead || getNetWorth(state) < ACQUISITION_UNLOCK_NET_WORTH) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const lastRefresh = state.lastAcquisitionRefreshWeek ?? 0;
+    const shouldRefresh = lastRefresh <= 0
+      || globalWeek - lastRefresh >= ACQUISITION_MARKET_REFRESH_WEEKS;
+    if (!shouldRefresh) return;
+
+    const acquisitionTargets = generateAcquisitionTargets(
+      globalWeek,
+      state.inflationMultiplier ?? 1,
+    );
+    const updates = {
+      acquisitionTargets,
+      lastAcquisitionRefreshWeek: globalWeek,
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  refreshAcquisitionMarket: () => {
+    const state = get();
+    if (state.lifecycle?.isDead || getNetWorth(state) < ACQUISITION_UNLOCK_NET_WORTH) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const lastRefresh = state.lastAcquisitionRefreshWeek ?? 0;
+    if (lastRefresh > 0 && globalWeek - lastRefresh < ACQUISITION_MARKET_REFRESH_WEEKS) return;
+
+    const acquisitionTargets = generateAcquisitionTargets(
+      globalWeek,
+      state.inflationMultiplier ?? 1,
+    );
+    const updates = {
+      acquisitionTargets,
+      lastAcquisitionRefreshWeek: globalWeek,
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  acquireBusiness: (targetId, holdingCompanyId = null) => {
+    const state = get();
+    if (state.lifecycle?.isDead || getNetWorth(state) < ACQUISITION_UNLOCK_NET_WORTH) return;
+    const target = (state.acquisitionTargets ?? []).find((item) => item.id === targetId);
+    if (!target) return;
+    if (holdingCompanyId && !(state.holdingCompanies ?? []).some((holding) => holding.id === holdingCompanyId)) return;
+
+    const negotiationBonus = getPrestigeEffects(state.profile).negotiation ?? 0;
+    const purchasePrice = getAcquisitionPrice(target, negotiationBonus);
+    if ((state.cash ?? 0) < purchasePrice) return;
+
+    const acquired = createAcquiredBusiness(target, state, holdingCompanyId, purchasePrice);
+    if (!acquired) return;
+
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const updates = {
+      cash: (state.cash ?? 0) - purchasePrice,
+      businesses: [...(state.businesses ?? []), acquired],
+      acquisitionTargets: (state.acquisitionTargets ?? []).filter((item) => item.id !== targetId),
+      competitors: {
+        ...(state.competitors ?? {}),
+        [acquired.id]: createInitialCompetitors(acquired, globalWeek),
+      },
+      currentHeadline: `Acquired ${acquired.name} for ${formatCurrencySafe(purchasePrice)}.`,
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  createHoldingCompany: (name) => {
+    const state = get();
+    if (state.lifecycle?.isDead || getNetWorth(state) < ACQUISITION_UNLOCK_NET_WORTH) return;
+    const cleanName = name.trim();
+    if (!cleanName) return;
+    if ((state.holdingCompanies ?? []).some((holding) => holding.name.toLowerCase() === cleanName.toLowerCase())) return;
+    const setupCost = Math.round(HOLDING_COMPANY_SETUP_COST * Math.max(0.5, state.inflationMultiplier ?? 1));
+    if ((state.cash ?? 0) < setupCost) return;
+
+    const holding = buildHoldingCompany(cleanName, state);
+    const updates = {
+      cash: (state.cash ?? 0) - setupCost,
+      holdingCompanies: [...(state.holdingCompanies ?? []), holding],
+      currentHeadline: `${holding.name} was established as the family investment holding company.`,
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  assignBusinessToHolding: (businessId, holdingCompanyId) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business) return;
+    const holding = holdingCompanyId
+      ? (state.holdingCompanies ?? []).find((item) => item.id === holdingCompanyId)
+      : null;
+    if (holdingCompanyId && !holding) return;
+
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            holdingCompanyId,
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: holding ? `🏢 Added to ${holding.name}` : '🏢 Removed from holding company',
+                icon: '🏢',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
   designateFamilyBusiness: (businessId) => {
