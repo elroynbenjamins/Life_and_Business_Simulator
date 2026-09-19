@@ -862,5 +862,69 @@
       "commodity"
     ],
     "durationWeeks": 8
+  },
+  {
+    "id": "sector_crypto_adoption_wave",
+    "title": "Institutional Crypto Adoption",
+    "description": "Large investors and payment platforms increase digital-asset adoption.",
+    "effects": {
+      "crypto": 0.05,
+      "Crypto Reserve": 0.04,
+      "Crypto Utility": 0.05
+    },
+    "assetTypes": [
+      "crypto"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_crypto_regulation_shock",
+    "title": "Crypto Regulation Shock",
+    "description": "New restrictions and compliance rules hit digital-asset sentiment.",
+    "effects": {
+      "crypto": -0.08,
+      "Crypto Speculative": -0.04
+    },
+    "assetTypes": [
+      "crypto"
+    ],
+    "durationWeeks": 5
+  },
+  {
+    "id": "sector_crypto_network_upgrade",
+    "title": "Major Blockchain Upgrade",
+    "description": "A successful network upgrade boosts confidence in utility-focused crypto.",
+    "effects": {
+      "Crypto Utility": 0.1
+    },
+    "assetTypes": [
+      "crypto"
+    ],
+    "durationWeeks": 6
+  },
+  {
+    "id": "sector_crypto_meme_frenzy",
+    "title": "Meme Coin Frenzy",
+    "description": "Retail traders pile into speculative tokens as social hype explodes.",
+    "effects": {
+      "Crypto Speculative": 0.14
+    },
+    "assetTypes": [
+      "crypto"
+    ],
+    "durationWeeks": 4
+  },
+  {
+    "id": "sector_crypto_exchange_failure",
+    "title": "Major Crypto Exchange Failure",
+    "description": "A large trading venue collapses, triggering a broad digital-asset selloff.",
+    "effects": {
+      "crypto": -0.11,
+      "Crypto Speculative": -0.05
+    },
+    "assetTypes": [
+      "crypto"
+    ],
+    "durationWeeks": 5
   }
 ]

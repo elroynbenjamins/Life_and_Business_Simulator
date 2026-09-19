@@ -26,15 +26,27 @@ export default function ProfileScreen() {
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const profile = useGameStore((s) => s?.profile);
   const getNetWorthValue = useGameStore((s) => s?.getNetWorthValue);
-  const startNewGame = useGameStore((s) => s?.startNewGame);
+  const beginNewGame = useGameStore((s) => s?.beginNewGame);
   const openSlotPicker = useGameStore((s) => s?.openSlotPicker);
   const activeSlot = useGameStore((s) => s?.activeSlot ?? 0);
   const { preference, resolvedScheme, setPreference } = useThemePreference();
+  const generation = useGameStore((s) => s?.generation ?? 1);
+  const familyLegacy = useGameStore((s) => s?.familyLegacy ?? []);
+  const familyTree = useGameStore((s) => s?.familyTree);
+  const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
+  const relationshipState = useGameStore((s) => s?.relationshipState);
+  const setRelationshipModeEnabled = useGameStore((s) => s?.setRelationshipModeEnabled);
 
   const netWorth = getNetWorthValue?.() ?? 0;
+  const personalLifeHasCommitments =
+    !!relationshipState?.partnerId ||
+    (relationshipState?.activeConnections?.length ?? 0) > 0 ||
+    (relationshipState?.children?.length ?? 0) > 0 ||
+    (relationshipState?.financialObligations?.length ?? 0) > 0 ||
+    (relationshipState?.familyExpansionWeeksRemaining ?? 0) > 0;
 
   const handleNewGame = () => {
-    showGameDialog({ title: 'New Game', message: 'Start a new game? All progress in this slot will be lost.', confirmText: 'New Game', destructive: true, onConfirm: () => startNewGame?.() });
+    showGameDialog({ title: 'New Game', message: 'Start a new game? All progress in this slot will be lost.', confirmText: 'New Game', destructive: true, onConfirm: () => beginNewGame?.() });
   };
 
   return (
@@ -49,7 +61,7 @@ export default function ProfileScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <GameCard>
           <Text style={styles.playerName}>{playerName}</Text>
-          <Text style={styles.playerMeta}>Age {age} • Week {week} • Year {year} • Slot {activeSlot + 1}</Text>
+          <Text style={styles.playerMeta}>Age {age} • Week {week} • Year {year} • Generation {generation} • Slot {activeSlot + 1}</Text>
           <View style={styles.statsGrid}>
             <StatItem label="Net Worth" value={formatCurrency(netWorth)} color={Colors.primary} />
             <StatItem label="Weeks Played" value={`${statistics.weeksPlayed}`} color={Colors.info} />
@@ -91,7 +103,62 @@ export default function ProfileScreen() {
             })}
           </View>
         </GameCard>
+        <GameCard title="Game Modes">
+          <View style={styles.modeRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modeTitle}>Personal Life</Text>
+              <Text style={styles.modeDesc}>
+                Optional dating, relationships and family gameplay. You can disable it again while there are no active dating, family or legal commitments.
+              </Text>
+              {relationshipModeEnabled && personalLifeHasCommitments ? (
+                <Text style={styles.modeSaved}>Mode is locked on while active personal/family/legal commitments remain.</Text>
+              ) : (relationshipState?.partnerId || (relationshipState?.activeConnections?.length ?? 0) > 0) ? (
+                <Text style={styles.modeSaved}>Existing relationship progress is preserved.</Text>
+              ) : null}
+            </View>
+            <Pressable
+              disabled={relationshipModeEnabled && personalLifeHasCommitments}
+              style={[styles.modeToggle, relationshipModeEnabled && styles.modeToggleOn, relationshipModeEnabled && personalLifeHasCommitments && { opacity: 0.45 }]}
+              onPress={() => setRelationshipModeEnabled?.(!relationshipModeEnabled)}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: relationshipModeEnabled }}
+            >
+              <View style={[styles.modeThumb, relationshipModeEnabled && styles.modeThumbOn]} />
+            </Pressable>
+          </View>
+        </GameCard>
 
+        {(relationshipModeEnabled || (familyTree?.people?.length ?? 0) > 1 || familyLegacy.length > 0) && (
+          <GameCard title="Family Tree" onPress={() => router.push('/family-tree')}>
+            <View style={styles.treeLinkRow}>
+              <Ionicons name="git-network-outline" size={24} color={Colors.info} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.historyTitle}>View Dynasty</Text>
+                <Text style={styles.historyMeta}>Partners, children, siblings, grandchildren and previous playable generations.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            </View>
+          </GameCard>
+        )}
+
+        {familyLegacy.length > 0 && (
+          <GameCard title="Family Legacy">
+            {[...familyLegacy].reverse().slice(0, 6).map((entry) => (
+              <View key={entry.generation} style={styles.historyRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historyTitle}>Generation {entry.generation} • {entry.name}</Text>
+                  <Text style={styles.historyMeta}>
+                    Died age {entry.deathAge} • Year {entry.deathYear}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[styles.statRowValue, { color: Colors.primary }]}>{formatCurrency(entry.finalNetWorth)}</Text>
+                  {entry.successorName && <Text style={styles.historyMeta}>→ {entry.successorName}</Text>}
+                </View>
+              </View>
+            ))}
+          </GameCard>
+        )}
         {/* Lifetime Statistics */}
         <GameCard title="Lifetime Statistics">
           <StatRow label="Total Salary Earned" value={formatCurrency(statistics.totalSalaryEarned)} />
@@ -216,11 +283,20 @@ const styles = StyleSheet.create({
   themeOptionText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
   themeOptionTextSelected: { color: Colors.white },
   divider: { height: 1, backgroundColor: Colors.cardBorder, marginVertical: 6 },
+  modeRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  modeTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  modeDesc: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 3 },
+  modeSaved: { color: Colors.happiness, fontSize: 11, marginTop: 6, fontWeight: '600' },
+  modeToggle: { width: 48, height: 28, borderRadius: 14, padding: 3, backgroundColor: Colors.cardBorder, justifyContent: 'center' },
+  modeToggleOn: { backgroundColor: Colors.happiness },
+  modeThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.white },
+  modeThumbOn: { alignSelf: 'flex-end' },
   statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
   statRowLabel: { color: Colors.textSecondary, fontSize: 14 },
   statRowValue: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
   achText: { color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
   xpText: { color: Colors.warning, fontSize: 14, fontWeight: '600', marginTop: 4 },
+  treeLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   historyRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   historyTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   historyMeta: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },

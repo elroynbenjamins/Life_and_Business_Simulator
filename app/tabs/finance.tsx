@@ -9,6 +9,7 @@ import useGameStore from '../../src/store/gameStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
 import { getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyCarCost, getWeeklyFoodCost, getWeeklyCourseCost, getWeeklyLoanPayments } from '../../src/engine/financeEngine';
+import { calculatePartnerContribution } from '../../src/engine/relationshipEngine';
 import { BarChart } from 'react-native-chart-kit';
 
 export default function FinanceScreen() {
@@ -40,14 +41,21 @@ export default function FinanceScreen() {
   const foodCost = getWeeklyFoodCost(state);
   const courseCost = getWeeklyCourseCost(state);
   const loanPayments = getWeeklyLoanPayments(state);
-  const totalExpenses = rent + utilityCost + carCost + foodCost + courseCost + loanPayments;
-  const netFlow = salary - totalExpenses;
+  const inflationMultiplier = state?.inflationMultiplier ?? 1;
+  const partner = state?.relationshipModeEnabled
+    ? (state?.relationshipState?.activeConnections ?? []).find((item) => item.id === state?.relationshipState?.partnerId) ?? null
+    : null;
+  const household = calculatePartnerContribution(partner, state);
+  const relationshipNet = household.contribution - household.householdExtraCost - household.familyCost - household.obligationCost;
+  const totalExpenses = rent + utilityCost + carCost + foodCost + courseCost + loanPayments + household.householdExtraCost + household.familyCost + household.obligationCost;
+  const netFlow = salary + household.contribution - totalExpenses;
   const portfolioValue = state?.getPortfolioValueTotal?.() ?? 0;
   const netWorth = state?.getNetWorthValue?.() ?? 0;
   const netWorthHistory = state?.netWorthHistory ?? [];
   const totalTaxPaid = state?.totalTaxPaid ?? 0;
   const loanDebt = (state?.loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
-  const inflationMultiplier = state?.inflationMultiplier ?? 1;
+  const relationshipDebt = (state?.relationshipState?.financialObligations ?? [])
+    .reduce((total, obligation) => total + (obligation?.remainingAmount ?? 0), 0);
 
   const last8 = netWorthHistory.slice(-8);
   const chartWidth = Math.min(screenWidth - 64, 500);
@@ -67,6 +75,7 @@ export default function FinanceScreen() {
         {/* Weekly Summary */}
         <GameCard title="Weekly Summary">
           <FRow label="Job Income" value={salary} color={Colors.primary} prefix="+" />
+          {household.contribution > 0 && <FRow label="Partner Household Contribution" value={household.contribution} color={Colors.primary} prefix="+" />}
           <View style={styles.divider} />
           <FRow label="Rent" value={rent} color={Colors.negative} prefix="-" />
           <FRow label="Utilities" value={utilityCost} color={Colors.negative} prefix="-" />
@@ -74,6 +83,9 @@ export default function FinanceScreen() {
           {carCost > 0 && <FRow label="Car" value={carCost} color={Colors.negative} prefix="-" />}
           {courseCost > 0 && <FRow label="Course" value={courseCost} color={Colors.negative} prefix="-" />}
           {loanPayments > 0 && <FRow label="Loan Payments" value={loanPayments} color={Colors.negative} prefix="-" />}
+          {household.householdExtraCost > 0 && <FRow label="Additional Household Costs" value={household.householdExtraCost} color={Colors.negative} prefix="-" />}
+          {household.familyCost > 0 && <FRow label="Children & Family Costs" value={household.familyCost} color={Colors.negative} prefix="-" />}
+          {household.obligationCost > 0 && <FRow label="Relationship Legal / Settlement" value={household.obligationCost} color={Colors.negative} prefix="-" />}
           <View style={styles.divider} />
           <View style={styles.row}>
             <Text style={[styles.label, { fontWeight: '600' }]}>Net Cash Flow</Text>
@@ -82,6 +94,27 @@ export default function FinanceScreen() {
             </Text>
           </View>
         </GameCard>
+
+        {partner && (partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married') && (
+          <GameCard title="Household">
+            <View style={styles.row}>
+              <Text style={styles.label}>Partner</Text>
+              <Text style={styles.value}>{partner.name}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Shared-cost arrangement</Text>
+              <Text style={styles.value}>
+                {partner.householdSplit === 'proportional' ? 'Proportional' : partner.householdSplit === 'player_pays_most' ? 'You pay most' : '50 / 50'}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Net household effect</Text>
+              <Text style={[styles.value, { color: relationshipNet >= 0 ? Colors.primary : Colors.negative }]}>
+                {relationshipNet >= 0 ? '+' : ''}{formatCurrency(relationshipNet)}/wk
+              </Text>
+            </View>
+          </GameCard>
+        )}
 
         {/* Net Worth Chart */}
         {(last8?.length ?? 0) > 1 ? (
@@ -115,6 +148,7 @@ export default function FinanceScreen() {
           <FRow label="Cash" value={state?.cash ?? 0} color={Colors.textPrimary} />
           <FRow label="Stock Portfolio" value={portfolioValue} color={Colors.textPrimary} />
           {loanDebt > 0 && <FRow label="Loan Debt" value={-loanDebt} color={Colors.negative} />}
+          {relationshipDebt > 0 && <FRow label="Relationship / Legal Liability" value={-relationshipDebt} color={Colors.negative} />}
           <View style={styles.divider} />
           <View style={styles.row}>
             <Text style={[styles.label, { fontWeight: '700' }]}>Total Net Worth</Text>

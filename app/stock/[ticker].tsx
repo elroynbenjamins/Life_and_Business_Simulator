@@ -46,12 +46,15 @@ export default function StockDetailScreen() {
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
         </Pressable>
-        <Text style={styles.error}>Stock not found</Text>
+        <Text style={styles.error}>Asset not found</Text>
       </SafeAreaView>
     );
   }
 
   const price = stock?.currentPrice ?? 0;
+  const assetMeta = sd as any;
+  const isCrypto = sd?.type === 'crypto';
+  const unitLabel = isCrypto ? 'coins' : 'shares';
   const history = stock?.priceHistory ?? [price];
   const prevPrice = (history?.length ?? 0) >= 2 ? history[(history?.length ?? 1) - 2] : price;
   const changePercent = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
@@ -78,20 +81,20 @@ export default function StockDetailScreen() {
 
   const handleBuy = () => {
     if (qty <= 0 || totalCost > cash) return;
-    const message = `Buy ${qty} shares of ${sd?.ticker} for ${formatCurrency(totalCost, 2)}?`;
+    const message = `Buy ${qty} ${unitLabel} of ${sd?.ticker} for ${formatCurrency(totalCost, 2)}?`;
     showGameDialog({ title: 'Confirm Purchase', message, confirmText: 'Buy', onConfirm: () => { buyStock?.(ticker, qty); setQty(0); } });
   };
 
   const handleSell = () => {
     if (qty <= 0 || qty > maxSell) return;
-    const message = `Sell ${qty} shares of ${sd?.ticker} for ${formatCurrency(qty * price, 2)}?`;
+    const message = `Sell ${qty} ${unitLabel} of ${sd?.ticker} for ${formatCurrency(qty * price, 2)}?`;
     showGameDialog({ title: 'Confirm Sale', message, confirmText: 'Sell', onConfirm: () => { sellStock?.(ticker, qty); setQty(0); } });
   };
 
   const handleSellAll = () => {
     if (maxSell <= 0) return;
     const totalSaleValue = maxSell * price;
-    const message = `Sell all ${maxSell} shares of ${sd?.ticker} for ${formatCurrency(totalSaleValue, 2)}?`;
+    const message = `Sell all ${maxSell} ${unitLabel} of ${sd?.ticker} for ${formatCurrency(totalSaleValue, 2)}?`;
     showGameDialog({ title: 'Sell All', message, confirmText: 'Sell All', destructive: true, onConfirm: () => { sellStock?.(ticker, maxSell); setQty(0); } });
   };
 
@@ -114,6 +117,30 @@ export default function StockDetailScreen() {
           </Text>
           <SectorPill sector={sd?.sector ?? ''} />
         </View>
+
+        {isCrypto && (
+          <GameCard title="Crypto Profile">
+            <Text style={styles.cryptoDescription}>{assetMeta.description}</Text>
+            <View style={styles.cryptoMechanicBox}>
+              <Text style={styles.cryptoMechanicTitle}>Unique Mechanic</Text>
+              <Text style={styles.cryptoMechanicText}>{assetMeta.mechanic}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Profile</Text>
+              <Text style={styles.val}>
+                {assetMeta.cryptoStyle === 'reserve' ? 'Digital Reserve'
+                  : assetMeta.cryptoStyle === 'utility' ? 'Utility Network'
+                    : 'Speculative / Meme'}
+              </Text>
+            </View>
+            {assetMeta.stakingYield ? (
+              <View style={styles.row}>
+                <Text style={styles.label}>Annual Staking</Text>
+                <Text style={[styles.val, { color: Colors.primary }]}>{(assetMeta.stakingYield * 100).toFixed(1)}%</Text>
+              </View>
+            ) : null}
+          </GameCard>
+        )}
 
         {/* Chart */}
         {(history?.length ?? 0) >= 2 ? (
@@ -139,7 +166,7 @@ export default function StockDetailScreen() {
                 backgroundColor: chartBackground,
                 backgroundGradientFrom: chartBackground,
                 backgroundGradientTo: chartBackground,
-                decimalPlaces: historyHigh < 100 ? 2 : 0,
+                decimalPlaces: (isCrypto && price < 10) || historyHigh < 100 ? 2 : 0,
                 color: () => lineColor,
                 labelColor: () => chartLabel,
                 propsForDots: { r: '4', strokeWidth: '1', stroke: lineColor },
@@ -161,9 +188,13 @@ export default function StockDetailScreen() {
               <View style={styles.chartSummaryItem}><Text style={styles.chartSummaryLabel}>Low / High</Text><Text style={styles.chartSummaryValue}>{formatCurrency(historyLow, 2)} / {formatCurrency(historyHigh, 2)}</Text></View>
               <View style={styles.chartSummaryItem}><Text style={styles.chartSummaryLabel}>Now</Text><Text style={[styles.chartSummaryValue, { color: lineColor }]}>{formatCurrency(price, 2)}</Text></View>
             </View>
-            {(sd as any)?.dividendYield ? (
+            {assetMeta.dividendYield ? (
               <Text style={{ color: '#10B981', fontSize: 13, marginTop: 8, textAlign: 'center', fontWeight: '600' }}>
-                💵 Dividend Yield: {((sd as any).dividendYield * 100).toFixed(2)}% annual
+                💵 Dividend Yield: {(assetMeta.dividendYield * 100).toFixed(2)}% annual
+              </Text>
+            ) : assetMeta.stakingYield ? (
+              <Text style={{ color: '#10B981', fontSize: 13, marginTop: 8, textAlign: 'center', fontWeight: '600' }}>
+                ⛓️ Staking Yield: {(assetMeta.stakingYield * 100).toFixed(2)}% annual
               </Text>
             ) : null}
           </GameCard>
@@ -173,7 +204,7 @@ export default function StockDetailScreen() {
         {(holding?.shares ?? 0) > 0 ? (
           <GameCard title="Your Position">
             <View style={styles.row}>
-              <Text style={styles.label}>Shares Owned</Text>
+              <Text style={styles.label}>{isCrypto ? 'Coins Owned' : 'Shares Owned'}</Text>
               <Text style={styles.val}>{holding?.shares}</Text>
             </View>
             <View style={styles.row}>
@@ -265,7 +296,7 @@ export default function StockDetailScreen() {
           </View>
           {maxSell > 0 && (
             <Pressable style={styles.sellAllBtn} onPress={handleSellAll}>
-              <Text style={styles.sellAllText}>Sell All ({maxSell} shares)</Text>
+              <Text style={styles.sellAllText}>Sell All ({maxSell} {unitLabel})</Text>
             </Pressable>
           )}
         </GameCard>
@@ -286,6 +317,10 @@ const styles = StyleSheet.create({
   doneButton: { alignItems: 'center', paddingVertical: 8, marginBottom: 8, borderRadius: 8, backgroundColor: '#047857' },
   doneText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  cryptoDescription: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
+  cryptoMechanicBox: { backgroundColor: `${Colors.info}12`, borderRadius: 8, padding: 10, marginVertical: 10, borderWidth: 1, borderColor: `${Colors.info}28` },
+  cryptoMechanicTitle: { color: Colors.info, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
+  cryptoMechanicText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 3 },
   bigPrice: { color: Colors.textPrimary, fontSize: 32, fontWeight: '700' },
   changeText: { fontSize: 16, fontWeight: '600' },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },

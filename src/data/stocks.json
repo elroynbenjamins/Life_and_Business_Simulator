@@ -1,36 +1,302 @@
 [
-  {"ticker":"MCRS","company":"MacroSoft","sector":"Tech","startPrice":312,"type":"stock"},
-  {"ticker":"PEAR","company":"Pear Systems","sector":"Tech","startPrice":187,"type":"stock"},
-  {"ticker":"SRCH","company":"Searchly","sector":"Tech","startPrice":142,"type":"stock"},
-  {"ticker":"AMZN","company":"Amazeon","sector":"E-Commerce","startPrice":178,"type":"stock"},
-  {"ticker":"VLTR","company":"Voltra Motors","sector":"EV","startPrice":245,"type":"stock"},
-  {"ticker":"META","company":"MetaSphere","sector":"Social Media","startPrice":312,"type":"stock"},
-  {"ticker":"GCAP","company":"Global Capital","sector":"Banking","startPrice":89,"type":"stock","dividendYield":0.045},
-  {"ticker":"GVLT","company":"GreenVolt","sector":"Energy","startPrice":67,"type":"stock","dividendYield":0.038},
-  {"ticker":"MEDI","company":"MediCore","sector":"Healthcare","startPrice":134,"type":"stock","dividendYield":0.022},
-  {"ticker":"MMART","company":"MegaMart","sector":"Retail","startPrice":56,"type":"stock","dividendYield":0.032},
-  {"ticker":"NVDV","company":"NV Devices","sector":"Semiconductors","startPrice":480,"type":"stock"},
-  {"ticker":"STRM","company":"StreamBox","sector":"Entertainment","startPrice":95,"type":"stock"},
-  {"ticker":"SKYJ","company":"SkyJet","sector":"Airlines","startPrice":42,"type":"stock"},
-  {"ticker":"PAUT","company":"Prime Auto","sector":"Automotive","startPrice":168,"type":"stock","dividendYield":0.028},
-  {"ticker":"STWK","company":"SteelWorks","sector":"Industrial","startPrice":74,"type":"stock","dividendYield":0.035},
-  {"ticker":"BIOH","company":"BioHealth","sector":"Pharma","startPrice":210,"type":"stock","dividendYield":0.025},
-  {"ticker":"CONE","company":"ConnectOne","sector":"Telecom","startPrice":58,"type":"stock","dividendYield":0.052},
-  {"ticker":"UBNK","company":"Unity Bank","sector":"Banking","startPrice":112,"type":"stock","dividendYield":0.048},
-  {"ticker":"FFDS","company":"FreshFoods","sector":"Consumer Goods","startPrice":34,"type":"stock","dividendYield":0.034},
-  {"ticker":"ALPH","company":"Alpha Investments","sector":"Finance","startPrice":156,"type":"stock","dividendYield":0.038},
-  {"ticker":"CYBD","company":"CyberDefend","sector":"Tech","startPrice":98,"type":"stock"},
-  {"ticker":"SOLR","company":"SolarPeak","sector":"Energy","startPrice":72,"type":"stock","dividendYield":0.030},
-  {"ticker":"LUXR","company":"LuxeRetail","sector":"Retail","startPrice":45,"type":"stock"},
-  {"ticker":"NXBN","company":"NexBank","sector":"Banking","startPrice":65,"type":"stock","dividendYield":0.042},
-  {"ticker":"ARSP","company":"AeroSpace Dynamics","sector":"Industrial","startPrice":220,"type":"stock","dividendYield":0.020},
-  {"ticker":"HLTH","company":"HealthFirst","sector":"Healthcare","startPrice":88,"type":"stock","dividendYield":0.026},
-  {"ticker":"GOLD","company":"Gold","sector":"Commodity","startPrice":1850,"type":"commodity"},
-  {"ticker":"OIL","company":"Crude Oil","sector":"Commodity","startPrice":78,"type":"commodity"},
-  {"ticker":"SLVR","company":"Silver","sector":"Commodity","startPrice":24,"type":"commodity"},
-  {"ticker":"NGAS","company":"Natural Gas","sector":"Commodity","startPrice":45,"type":"commodity"},
-  {"ticker":"WHEA","company":"Wheat","sector":"Commodity","startPrice":32,"type":"commodity"},
-  {"ticker":"GLBL","company":"Global Index ETF","sector":"Index","startPrice":100,"type":"etf"},
-  {"ticker":"TCHE","company":"Tech Leaders ETF","sector":"Tech","startPrice":150,"type":"etf"},
-  {"ticker":"DIVD","company":"Dividend Income ETF","sector":"Finance","startPrice":80,"type":"etf","dividendYield":0.055}
+  {
+    "ticker": "MCRS",
+    "company": "MacroSoft",
+    "sector": "Tech",
+    "startPrice": 312,
+    "type": "stock"
+  },
+  {
+    "ticker": "PEAR",
+    "company": "Pear Systems",
+    "sector": "Tech",
+    "startPrice": 187,
+    "type": "stock"
+  },
+  {
+    "ticker": "SRCH",
+    "company": "Searchly",
+    "sector": "Tech",
+    "startPrice": 142,
+    "type": "stock"
+  },
+  {
+    "ticker": "AMZN",
+    "company": "Amazeon",
+    "sector": "E-Commerce",
+    "startPrice": 178,
+    "type": "stock"
+  },
+  {
+    "ticker": "VLTR",
+    "company": "Voltra Motors",
+    "sector": "EV",
+    "startPrice": 245,
+    "type": "stock"
+  },
+  {
+    "ticker": "META",
+    "company": "MetaSphere",
+    "sector": "Social Media",
+    "startPrice": 312,
+    "type": "stock"
+  },
+  {
+    "ticker": "GCAP",
+    "company": "Global Capital",
+    "sector": "Banking",
+    "startPrice": 89,
+    "type": "stock",
+    "dividendYield": 0.045
+  },
+  {
+    "ticker": "GVLT",
+    "company": "GreenVolt",
+    "sector": "Energy",
+    "startPrice": 67,
+    "type": "stock",
+    "dividendYield": 0.038
+  },
+  {
+    "ticker": "MEDI",
+    "company": "MediCore",
+    "sector": "Healthcare",
+    "startPrice": 134,
+    "type": "stock",
+    "dividendYield": 0.022
+  },
+  {
+    "ticker": "MMART",
+    "company": "MegaMart",
+    "sector": "Retail",
+    "startPrice": 56,
+    "type": "stock",
+    "dividendYield": 0.032
+  },
+  {
+    "ticker": "NVDV",
+    "company": "NV Devices",
+    "sector": "Semiconductors",
+    "startPrice": 480,
+    "type": "stock"
+  },
+  {
+    "ticker": "STRM",
+    "company": "StreamBox",
+    "sector": "Entertainment",
+    "startPrice": 95,
+    "type": "stock"
+  },
+  {
+    "ticker": "SKYJ",
+    "company": "SkyJet",
+    "sector": "Airlines",
+    "startPrice": 42,
+    "type": "stock"
+  },
+  {
+    "ticker": "PAUT",
+    "company": "Prime Auto",
+    "sector": "Automotive",
+    "startPrice": 168,
+    "type": "stock",
+    "dividendYield": 0.028
+  },
+  {
+    "ticker": "STWK",
+    "company": "SteelWorks",
+    "sector": "Industrial",
+    "startPrice": 74,
+    "type": "stock",
+    "dividendYield": 0.035
+  },
+  {
+    "ticker": "BIOH",
+    "company": "BioHealth",
+    "sector": "Pharma",
+    "startPrice": 210,
+    "type": "stock",
+    "dividendYield": 0.025
+  },
+  {
+    "ticker": "CONE",
+    "company": "ConnectOne",
+    "sector": "Telecom",
+    "startPrice": 58,
+    "type": "stock",
+    "dividendYield": 0.052
+  },
+  {
+    "ticker": "UBNK",
+    "company": "Unity Bank",
+    "sector": "Banking",
+    "startPrice": 112,
+    "type": "stock",
+    "dividendYield": 0.048
+  },
+  {
+    "ticker": "FFDS",
+    "company": "FreshFoods",
+    "sector": "Consumer Goods",
+    "startPrice": 34,
+    "type": "stock",
+    "dividendYield": 0.034
+  },
+  {
+    "ticker": "ALPH",
+    "company": "Alpha Investments",
+    "sector": "Finance",
+    "startPrice": 156,
+    "type": "stock",
+    "dividendYield": 0.038
+  },
+  {
+    "ticker": "CYBD",
+    "company": "CyberDefend",
+    "sector": "Tech",
+    "startPrice": 98,
+    "type": "stock"
+  },
+  {
+    "ticker": "SOLR",
+    "company": "SolarPeak",
+    "sector": "Energy",
+    "startPrice": 72,
+    "type": "stock",
+    "dividendYield": 0.03
+  },
+  {
+    "ticker": "LUXR",
+    "company": "LuxeRetail",
+    "sector": "Retail",
+    "startPrice": 45,
+    "type": "stock"
+  },
+  {
+    "ticker": "NXBN",
+    "company": "NexBank",
+    "sector": "Banking",
+    "startPrice": 65,
+    "type": "stock",
+    "dividendYield": 0.042
+  },
+  {
+    "ticker": "ARSP",
+    "company": "AeroSpace Dynamics",
+    "sector": "Industrial",
+    "startPrice": 220,
+    "type": "stock",
+    "dividendYield": 0.02
+  },
+  {
+    "ticker": "HLTH",
+    "company": "HealthFirst",
+    "sector": "Healthcare",
+    "startPrice": 88,
+    "type": "stock",
+    "dividendYield": 0.026
+  },
+  {
+    "ticker": "GOLD",
+    "company": "Gold",
+    "sector": "Commodity",
+    "startPrice": 1850,
+    "type": "commodity"
+  },
+  {
+    "ticker": "OIL",
+    "company": "Crude Oil",
+    "sector": "Commodity",
+    "startPrice": 78,
+    "type": "commodity"
+  },
+  {
+    "ticker": "SLVR",
+    "company": "Silver",
+    "sector": "Commodity",
+    "startPrice": 24,
+    "type": "commodity"
+  },
+  {
+    "ticker": "NGAS",
+    "company": "Natural Gas",
+    "sector": "Commodity",
+    "startPrice": 45,
+    "type": "commodity"
+  },
+  {
+    "ticker": "WHEA",
+    "company": "Wheat",
+    "sector": "Commodity",
+    "startPrice": 32,
+    "type": "commodity"
+  },
+  {
+    "ticker": "GLBL",
+    "company": "Global Index ETF",
+    "sector": "Index",
+    "startPrice": 100,
+    "type": "etf"
+  },
+  {
+    "ticker": "TCHE",
+    "company": "Tech Leaders ETF",
+    "sector": "Tech",
+    "startPrice": 150,
+    "type": "etf"
+  },
+  {
+    "ticker": "DIVD",
+    "company": "Dividend Income ETF",
+    "sector": "Finance",
+    "startPrice": 80,
+    "type": "etf",
+    "dividendYield": 0.055
+  },
+  {
+    "ticker": "AURX",
+    "company": "AurumX",
+    "sector": "Crypto Reserve",
+    "startPrice": 420,
+    "type": "crypto",
+    "cryptoStyle": "reserve",
+    "annualTrend": 0.025,
+    "baseVolatility": 0.1,
+    "momentumFactor": 0.03,
+    "inflationSensitivity": 0.0025,
+    "macroShockMultiplier": 0.55,
+    "description": "A scarce digital-reserve asset designed to behave more defensively than other cryptocurrencies.",
+    "mechanic": "Lower crypto volatility, benefits modestly from inflation, and takes only part of broad market crash shocks."
+  },
+  {
+    "ticker": "NEXA",
+    "company": "NexaChain",
+    "sector": "Crypto Utility",
+    "startPrice": 72,
+    "type": "crypto",
+    "cryptoStyle": "utility",
+    "annualTrend": 0.04,
+    "baseVolatility": 0.16,
+    "momentumFactor": 0.08,
+    "techSensitivity": 0.45,
+    "stakingYield": 0.04,
+    "macroShockMultiplier": 1,
+    "description": "A utility-network token whose adoption rises and falls with technology investment and usage.",
+    "mechanic": "Medium-high volatility, reacts to Tech sentiment, and pays a 4% annual staking reward."
+  },
+  {
+    "ticker": "MOJO",
+    "company": "MojoCoin",
+    "sector": "Crypto Speculative",
+    "startPrice": 4.5,
+    "type": "crypto",
+    "cryptoStyle": "speculative",
+    "annualTrend": 0.01,
+    "baseVolatility": 0.3,
+    "momentumFactor": 0.32,
+    "macroShockMultiplier": 1.25,
+    "maniaChance": 0.04,
+    "description": "A culture-driven speculative coin powered by hype, momentum and retail mania.",
+    "mechanic": "Extreme volatility, strong short-term momentum, occasional mania/crash bursts, and no yield."
+  }
 ]

@@ -1,3 +1,329 @@
+
+// ── Personal Life / Relationships ──
+export type DatingPreference = 'women' | 'men' | 'everyone';
+export type FinancialStyle = 'frugal' | 'balanced' | 'luxury';
+export type RiskTolerance = 'cautious' | 'balanced' | 'risk_taking';
+export type AmbitionLevel = 'relaxed' | 'career_minded' | 'driven';
+export type FamilyGoal = 'no_children' | 'unsure' | 'wants_children';
+export type FamilyPlan = 'not_discussed' | 'no_children' | 'later' | 'trying';
+export type RelationshipStage = 'dating' | 'partner' | 'living_together' | 'engaged' | 'married';
+export type HouseholdSplit = 'equal' | 'proportional' | 'player_pays_most';
+export type MarriageAgreement = 'separate' | 'shared_future';
+
+export interface RelationshipCandidate {
+  id: string;
+  name: string;
+  gender: 'woman' | 'man';
+  age: number;
+  occupationId: string;
+  occupationTitle: string;
+  weeklyIncome: number;
+  savings: number;
+  financialStyle: FinancialStyle;
+  riskTolerance: RiskTolerance;
+  ambition: AmbitionLevel;
+  familyGoal: FamilyGoal;
+  visibleTraits: Array<'financialStyle' | 'riskTolerance' | 'ambition' | 'familyGoal'>;
+}
+
+export interface RelationshipConnection extends RelationshipCandidate {
+  stage: RelationshipStage;
+  connection: number;
+  relationship: number;
+  dates: number;
+  weeksKnown: number;
+  becamePartnerWeek?: number;
+  movedInWeek?: number;
+  engagedWeek?: number;
+  marriedWeek?: number;
+  householdSplit?: HouseholdSplit;
+  isCohabiting?: boolean;
+  marriageAgreement?: MarriageAgreement;
+  netWorthAtMarriage?: number;
+  endedWeek?: number;
+  endedReason?: 'breakup' | 'divorce' | 'death';
+  employmentStatus?: 'employed' | 'unemployed';
+  unemploymentWeeks?: number;
+  careerLevel?: number;
+  lastCareerEventWeek?: number;
+  familyTreePersonId?: string;
+}
+
+export type ChildIndependence = 'close' | 'balanced' | 'independent';
+export type ChildResilience = 'fragile' | 'balanced' | 'resilient';
+export type AdultChildStatus = 'employed' | 'unemployed' | 'entrepreneur';
+
+export interface ChildPersonality {
+  ambition: AmbitionLevel;
+  financialStyle: FinancialStyle;
+  riskTolerance: RiskTolerance;
+  independence: ChildIndependence;
+  resilience: ChildResilience;
+}
+
+export interface RelationshipDescendant {
+  id: string;
+  name: string;
+  gender: 'girl' | 'boy';
+  birthGlobalWeek: number;
+  age: number;
+}
+
+export interface RelationshipChild {
+  id: string;
+  name: string;
+  gender: 'girl' | 'boy';
+  birthGlobalWeek: number;
+  age: number;
+  educationFund: number;
+  status?: 'dependent' | 'independent';
+  occupationTitle?: string | null;
+  weeklyIncome?: number;
+  educationOutcome?: 'limited' | 'solid' | 'strong' | 'elite';
+  launchedGlobalWeek?: number;
+  savings?: number;
+  homeStatus?: 'renting' | 'homeowner';
+  partnerName?: string | null;
+  partnerGender?: 'woman' | 'man' | null;
+  childrenCount?: number;
+  descendants?: RelationshipDescendant[];
+  otherParentId?: string | null;
+  parentRelationship?: number;
+  lastParentInteractionWeek?: number;
+  personality?: ChildPersonality;
+  adultStatus?: AdultChildStatus;
+  debt?: number;
+  failureCount?: number;
+  businessValue?: number;
+  lastAdultEventYear?: number;
+}
+
+export type RelationshipObligationType = 'divorce_settlement' | 'legal_fees';
+
+export type SharedGoalType = 'cash_buffer' | 'net_worth' | 'better_home' | 'family_fund';
+export type EstatePlanType = 'default' | 'spouse_first' | 'children_first' | 'equal_family';
+export type EstateStructureType = 'none' | 'will' | 'family_trust';
+
+export interface EstatePlan {
+  planType: EstatePlanType;
+  structure: EstateStructureType;
+  successorId: string | null;
+  updatedGlobalWeek: number;
+}
+
+export interface EstateBeneficiaryShare {
+  id: string;
+  name: string;
+  relationship: 'spouse' | 'child';
+  share: number;
+  amount: number;
+}
+
+export interface EstateSettlement {
+  grossEstate: number;
+  outstandingRelationshipObligations: number;
+  administrationCost: number;
+  netEstate: number;
+  beneficiaries: EstateBeneficiaryShare[];
+  successorName: string | null;
+  businessValue: number;
+}
+
+export type SuccessionAssetStrategy = 'liquidate' | 'keep_stocks' | 'keep_properties' | 'keep_both';
+
+export interface SuccessionPreview {
+  childId: string;
+  childName: string;
+  childAge: number;
+  existingSavings: number;
+  existingBusinessStakeValue: number;
+  assetStrategy: SuccessionAssetStrategy;
+  inheritedCash: number;
+  inheritedStockValue: number;
+  inheritedPropertyValue: number;
+  inheritedPropertyIds: string[];
+  inheritedBusinessValue: number;
+  inheritanceTaxBase: number;
+  inheritanceTax: number;
+  taxCashAvailable: number;
+  loanNeeded: number;
+  parentRelationship: number;
+  willingToSucceed: boolean;
+  futurePotentialScore: number;
+  futurePotentialLabel: 'Developing' | 'Solid' | 'Strong' | 'Exceptional';
+}
+
+export interface FamilyTreePerson {
+  id: string;
+  name: string;
+  gender?: 'woman' | 'man' | 'girl' | 'boy' | null;
+  generation: number;
+  status: 'living' | 'deceased';
+  age: number;
+  birthYear: number;
+  deathYear?: number | null;
+  deathAge?: number | null;
+  occupationTitle?: string | null;
+  parentIds: string[];
+  partnerIds: string[];
+  childIds: string[];
+  playableGeneration?: number | null;
+  finalNetWorth?: number | null;
+  liquidWealth?: number;
+}
+
+export interface FamilyTreeState {
+  currentPlayerId: string | null;
+  people: FamilyTreePerson[];
+}
+
+export const INITIAL_FAMILY_TREE_STATE: FamilyTreeState = {
+  currentPlayerId: null,
+  people: [],
+};
+
+export interface FamilyLegacyEntry {
+  generation: number;
+  name: string;
+  deathAge: number;
+  deathYear: number;
+  finalNetWorth: number;
+  successorName: string | null;
+}
+
+export interface RelationshipSharedGoal {
+  type: SharedGoalType;
+  target: number;
+  startedGlobalWeek: number;
+  completed: boolean;
+}
+
+export interface RelationshipFinancialObligation {
+  id: string;
+  type: RelationshipObligationType;
+  label: string;
+  remainingAmount: number;
+  weeklyPayment: number;
+  weeksRemaining: number;
+}
+
+export interface RelationshipTimelineEntry {
+  week: number;
+  year: number;
+  title: string;
+}
+
+export interface RelationshipFinancialSnapshot {
+  globalWeek: number;
+  netWorth: number;
+  cash: number;
+  personalDebt: number;
+  businessValue: number;
+  businessCount: number;
+  housingId: string;
+  carId: string;
+}
+
+export interface RelationshipEventChoice {
+  text: string;
+  cost?: number;
+  relationship?: number;
+  happiness?: number;
+  happinessDuration?: number;
+  childId?: string;
+  childSavings?: number;
+  childRelationship?: number;
+}
+
+export interface RelationshipEvent {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  choices: RelationshipEventChoice[];
+}
+
+export interface RelationshipState {
+  preferencesSet: boolean;
+  preference: DatingPreference;
+  minAge: number;
+  maxAge: number;
+  minAgeOffset: number;
+  maxAgeOffset: number;
+  weeklyCandidates: RelationshipCandidate[];
+  candidateRefreshWeek: number;
+  activeConnections: RelationshipConnection[];
+  formerPartners: RelationshipConnection[];
+  partnerId: string | null;
+  personalActionWeek: number;
+  timeline: RelationshipTimelineEntry[];
+  children: RelationshipChild[];
+  financialObligations: RelationshipFinancialObligation[];
+  familyPlan: FamilyPlan;
+  familyExpansionWeeksRemaining: number;
+  lastFamilyAttemptWeek: number;
+  lastRelationshipEventWeek: number;
+  recentRelationshipEventIds: string[];
+  pendingEvent: RelationshipEvent | null;
+  financialSnapshot: RelationshipFinancialSnapshot | null;
+  sharedGoal: RelationshipSharedGoal | null;
+  lastStabilityWarningWeek: number;
+  estatePlan: EstatePlan;
+  estateSettlement: EstateSettlement | null;
+  familyTrustCash: number;
+}
+
+export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
+  preferencesSet: false,
+  preference: 'everyone',
+  minAge: 18,
+  maxAge: 24,
+  minAgeOffset: -2,
+  maxAgeOffset: 4,
+  weeklyCandidates: [],
+  candidateRefreshWeek: 0,
+  activeConnections: [],
+  formerPartners: [],
+  partnerId: null,
+  personalActionWeek: 0,
+  timeline: [],
+  children: [],
+  financialObligations: [],
+  familyPlan: 'not_discussed',
+  familyExpansionWeeksRemaining: 0,
+  lastFamilyAttemptWeek: 0,
+  lastRelationshipEventWeek: 0,
+  recentRelationshipEventIds: [],
+  pendingEvent: null,
+  financialSnapshot: null,
+  sharedGoal: null,
+  lastStabilityWarningWeek: 0,
+  estatePlan: {
+    planType: 'default',
+    structure: 'none',
+    successorId: null,
+    updatedGlobalWeek: 0,
+  },
+  estateSettlement: null,
+  familyTrustCash: 0,
+};
+
+export interface LifecycleState {
+  isDead: boolean;
+  deathAge: number | null;
+  deathWeek: number | null;
+  deathYear: number | null;
+  causeOfDeath: string | null;
+}
+
+export const INITIAL_LIFECYCLE_STATE: LifecycleState = {
+  isDead: false,
+  deathAge: null,
+  deathWeek: null,
+  deathYear: null,
+  causeOfDeath: null,
+};
+
 // ── Skills & Knowledge ──
 export interface SkillCategoryData {
   id: string;
@@ -83,7 +409,7 @@ export interface ActiveMarketEvent {
   id: string;
   title: string;
   effects: Record<string, number>;
-  assetTypes?: Array<'stock' | 'commodity' | 'etf'>;
+  assetTypes?: Array<'stock' | 'commodity' | 'etf' | 'crypto'>;
   weeksRemaining: number;
 }
 
@@ -176,6 +502,9 @@ export interface PrestigeBonus {
   description: string;
   icon: string;
   cost: number;
+  gemCost?: number;
+  tier?: number;
+  requires?: string | string[];
   effect: { type: string; value: number; stacking?: 'additive' | 'highest' };
 }
 
@@ -227,6 +556,17 @@ export interface StockData {
   sector: string;
   startPrice: number;
   type: string;
+  cryptoStyle?: 'reserve' | 'utility' | 'speculative';
+  annualTrend?: number;
+  baseVolatility?: number;
+  momentumFactor?: number;
+  inflationSensitivity?: number;
+  techSensitivity?: number;
+  stakingYield?: number;
+  macroShockMultiplier?: number;
+  maniaChance?: number;
+  description?: string;
+  mechanic?: string;
 }
 
 export interface HousingData {
@@ -423,6 +763,24 @@ export interface WeekSummary {
   // Part-time income
   partTimeIncome: number;
   educationCareerReminder: EducationCareerReminder | null;
+  // Personal life
+  partnerContribution: number;
+  relationshipChange: number;
+  relationshipHeadline: string | null;
+  relationshipHouseholdCost: number;
+  familyCost: number;
+  relationshipObligationCost: number;
+  relationshipEventTitle: string | null;
+  childBornName: string | null;
+  relationshipGoalCompleted: string | null;
+  partnerCareerEvent: string | null;
+  partnerDiedName: string | null;
+  partnerInheritance: number;
+  familyMilestones: string[];
+  // Macro correction
+  crashEvent: { title: string; inflationReduction: number; stockShock: number } | null;
+  // Lifecycle
+  diedThisWeek: boolean;
 }
 
 /** Yearly summary (every 20 weeks) - combines period report + tax */
@@ -560,6 +918,7 @@ export interface BusinessLoan {
   weeklyPayment: number;
   weeksRemaining: number;
   interestRate: number;
+  purpose?: 'operating' | 'acquisition';
 }
 
 /** Active business event effect */
@@ -571,6 +930,142 @@ export interface ActiveBusinessEvent {
 }
 
 /** Owned business instance */
+export interface FamilyBusinessState {
+  isFamilyBusiness: boolean;
+  familyName: string;
+  founderGeneration: number;
+  generationsOwned: number;
+  controllerName: string;
+  controllerPersonId: string | null;
+  familyOwnershipPct: number;
+  designatedYear: number;
+}
+
+export type BusinessStrategicFocus = 'balanced' | 'growth' | 'margin' | 'premium' | 'automation' | 'rd';
+export type BusinessDecisionKind = 'strategy' | 'crisis';
+export type BusinessGovernanceRole = 'manager' | 'executive' | 'board' | 'successor';
+export type BusinessOwnerType = 'player' | 'child' | 'family_trust' | 'investor';
+
+export type AcquisitionRisk = 'low' | 'medium' | 'high';
+export type AcquisitionTier = 'regional' | 'national' | 'enterprise';
+export type AcquisitionFundingMode = 'cash' | 'balanced' | 'leveraged';
+export type AcquisitionIntegrationStrategy = 'pending' | 'independent' | 'integrate' | 'turnaround';
+export type AcquisitionIntegrationOutcome = 'pending' | 'success' | 'mixed' | 'failed';
+export type HoldingCapitalPurpose = 'capital' | 'debt';
+export type BusinessPortfolioIntent = 'active' | 'long_term_family';
+
+export interface BusinessAcquisitionTarget {
+  id: string;
+  name: string;
+  typeId: string;
+  industry: string;
+  tier: AcquisitionTier;
+  askingPrice: number;
+  estimatedValue: number;
+  weeklyRevenue: number;
+  weeklyProfit: number;
+  reputation: number;
+  diligenceScore: number;
+  risk: AcquisitionRisk;
+  diligenceNotes: string[];
+  integrationWeeks: number;
+  integrationPenalty: number;
+  sellerName: string;
+  generatedGlobalWeek: number;
+}
+
+export interface BusinessAcquisitionState {
+  purchasePrice: number;
+  cashContribution: number;
+  debtFinanced: number;
+  fundingMode: AcquisitionFundingMode;
+  sellerName: string;
+  acquiredGlobalWeek: number;
+  estimatedValueAtPurchase: number;
+  baseIntegrationWeeks: number;
+  baseIntegrationPenalty: number;
+  integrationStrategy: AcquisitionIntegrationStrategy;
+  integrationOutcome: AcquisitionIntegrationOutcome;
+  integrationWeeksRemaining: number;
+  integrationPenalty: number;
+  integrationSuccessChance: number;
+  postIntegrationRevenueBonus: number;
+  postIntegrationExpenseReduction: number;
+  initialRisk: AcquisitionRisk;
+  diligenceScore: number;
+  additionalCapitalInvested: number;
+}
+
+export interface HoldingCompany {
+  id: string;
+  name: string;
+  createdGlobalWeek: number;
+  founderGeneration: number;
+  generationsOwned: number;
+  controllerName: string;
+  controllerPersonId: string | null;
+  cashReserve: number;
+  totalCapitalDeployed: number;
+  executiveChildId: string | null;
+  executiveChildName: string | null;
+  executivePerformance: number;
+  designatedSuccessorChildId: string | null;
+  designatedSuccessorChildName: string | null;
+}
+
+export interface BusinessOwnershipStake {
+  ownerType: BusinessOwnerType;
+  ownerId: string;
+  ownerName: string;
+  percent: number;
+  votingPercent: number;
+}
+
+export interface BusinessFamilyRole {
+  childId: string;
+  childName: string;
+  role: BusinessGovernanceRole;
+  appointedYear: number;
+  experienceWeeks: number;
+  performance: number;
+  weeklySalary: number;
+}
+
+export interface BusinessStrategyModifier {
+  id: string;
+  title: string;
+  revenueMultiplier: number;
+  expenseMultiplier: number;
+  reputationPerWeek: number;
+  moralePerWeek: number;
+  weeksRemaining: number;
+}
+
+export interface BusinessPendingDecisionChoice {
+  id: string;
+  text: string;
+  description: string;
+  businessCashCost?: number;
+  revenueMultiplier?: number;
+  expenseMultiplier?: number;
+  reputationDelta?: number;
+  moraleDelta?: number;
+  marketShareDelta?: number;
+  durationWeeks?: number;
+}
+
+export interface BusinessPendingDecision {
+  id: string;
+  kind: BusinessDecisionKind;
+  title: string;
+  description: string;
+  icon: string;
+  createdGlobalWeek: number;
+  deadlineGlobalWeek: number;
+  defaultChoiceId: string;
+  choices: BusinessPendingDecisionChoice[];
+}
+
 export interface OwnedBusiness {
   id: string; // unique instance id
   typeId: string; // references business_types.json
@@ -628,6 +1123,20 @@ export interface OwnedBusiness {
   timeline?: BusinessTimelineEntry[];
   lastBusinessEventWeek?: number;
   businessEventCooldowns?: Record<string, number>;
+  familyBusiness?: FamilyBusinessState | null;
+  strategicFocus?: BusinessStrategicFocus;
+  strategyModifiers?: BusinessStrategyModifier[];
+  pendingDecision?: BusinessPendingDecision | null;
+  nextStrategicDecisionWeek?: number;
+  nextCrisisCheckWeek?: number;
+  ownership?: BusinessOwnershipStake[];
+  familyRoles?: BusinessFamilyRole[];
+  /** Optional organizational parent for portfolio-level capital allocation. */
+  holdingCompanyId?: string | null;
+  /** Scales mature acquired companies beyond startup-size base economics. */
+  operatingScaleMultiplier?: number;
+  acquisition?: BusinessAcquisitionState | null;
+  portfolioIntent?: BusinessPortfolioIntent;
 }
 
 export interface BusinessLocation {
@@ -707,6 +1216,9 @@ export interface GameState {
   recentEventIds: string[]; // last 10 event IDs to avoid repeats
   // Business
   businesses: OwnedBusiness[];
+  holdingCompanies: HoldingCompany[];
+  acquisitionTargets: BusinessAcquisitionTarget[];
+  lastAcquisitionRefreshWeek: number;
   // Skills & Knowledge
   skills: Record<string, number>;
   knowledge: Record<string, number>;
@@ -728,6 +1240,13 @@ export interface GameState {
   partTimeJob?: boolean;
   adWatchedToday: number;
   adLastWatchDate: string; // YYYY-MM-DD
+  relationshipModeEnabled: boolean;
+  relationshipState: RelationshipState;
+  lifecycle: LifecycleState;
+  lastMacroCrashWeek: number;
+  generation: number;
+  familyLegacy: FamilyLegacyEntry[];
+  familyTree: FamilyTreeState;
 }
 
 export const INITIAL_GAME_STATE: GameState = {
@@ -766,6 +1285,9 @@ export const INITIAL_GAME_STATE: GameState = {
   pendingInvestments: [],
   recentEventIds: [],
   businesses: [],
+  holdingCompanies: [],
+  acquisitionTargets: [],
+  lastAcquisitionRefreshWeek: 0,
   skills: {},
   knowledge: {},
   career: { ...INITIAL_CAREER_STATE },
@@ -779,6 +1301,13 @@ export const INITIAL_GAME_STATE: GameState = {
   partTimeJob: false,
   adWatchedToday: 0,
   adLastWatchDate: '',
+  relationshipModeEnabled: false,
+  relationshipState: { ...INITIAL_RELATIONSHIP_STATE },
+  lifecycle: { ...INITIAL_LIFECYCLE_STATE },
+  lastMacroCrashWeek: 0,
+  generation: 1,
+  familyLegacy: [],
+  familyTree: { ...INITIAL_FAMILY_TREE_STATE },
 };
 
 /** Player profile — persists prestige points and gems across all games/save slots */

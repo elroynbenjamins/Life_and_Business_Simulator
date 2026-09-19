@@ -137,6 +137,62 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   check('realized_profit_2_5m', (state?.totalRealizedProfitLoss ?? 0) >= 2500000);
   check('realized_profit_5m', (state?.totalRealizedProfitLoss ?? 0) >= 5000000);
 
+  // Relationships, family and dynasty
+  const activePartner = state.relationshipState?.partnerId
+    ? (state.relationshipState?.activeConnections ?? []).find((connection) => connection.id === state.relationshipState.partnerId)
+    : null;
+  check('relationship_official', !!activePartner && activePartner.stage !== 'dating');
+  check('relationship_married', activePartner?.stage === 'married');
+  check('first_child', (state.relationshipState?.children?.length ?? 0) >= 1);
+  check('parent_bond_90', (state.relationshipState?.children ?? []).some((child) => (child.parentRelationship ?? 0) >= 90));
+  check('grandparent', (state.relationshipState?.children ?? []).some((child) => (child.descendants?.length ?? 0) > 0));
+  check('family_tree_10', (state.familyTree?.people?.length ?? 0) >= 10);
+  check('generation_2', (state.generation ?? 1) >= 2);
+  check('generation_3', (state.generation ?? 1) >= 3);
+
+  const estateStructure = state.relationshipState?.estatePlan?.structure ?? 'none';
+  check('estate_planner', estateStructure === 'will' || estateStructure === 'family_trust');
+  check('family_trust_established', estateStructure === 'family_trust');
+
+  // Family business, governance and ownership
+  check('family_business_first', (state.businesses ?? []).some((business) => business.familyBusiness?.isFamilyBusiness));
+  check('family_business_gen2', (state.businesses ?? []).some((business) => (business.familyBusiness?.generationsOwned ?? 0) >= 2));
+  check('family_business_gen3', (state.businesses ?? []).some((business) => (business.familyBusiness?.generationsOwned ?? 0) >= 3));
+  check('family_governance_first', (state.businesses ?? []).some((business) => (business.familyRoles?.length ?? 0) > 0));
+  check('business_strategy_decision', (state.businesses ?? []).some((business) =>
+    (business.timeline ?? []).some((entry) => (entry.title ?? '').startsWith('🧭'))
+  ));
+  check('business_crisis_resolved', (state.businesses ?? []).some((business) =>
+    (business.timeline ?? []).some((entry) => (entry.title ?? '').startsWith('⚠️'))
+  ));
+  check('outside_investors', (state.businesses ?? []).some((business) =>
+    (business.ownership ?? []).some((stake) => stake.ownerType === 'investor' && (stake.percent ?? 0) > 0)
+  ));
+  check('child_shareholder', (state.businesses ?? []).some((business) =>
+    (business.ownership ?? []).some((stake) => stake.ownerType === 'child' && (stake.percent ?? 0) > 0)
+  ));
+
+  // Cryptocurrency
+  const cryptoTickers = new Set(['AURX', 'NEXA', 'MOJO']);
+  const cryptoHoldings = (state.holdings ?? []).filter((holding) =>
+    cryptoTickers.has(holding.ticker) && (holding.shares ?? 0) > 0
+  );
+  check('crypto_first', cryptoHoldings.length > 0);
+  check('crypto_trinity', ['AURX', 'NEXA', 'MOJO'].every((ticker) =>
+    cryptoHoldings.some((holding) => holding.ticker === ticker)
+  ));
+
+  const cryptoValue = cryptoHoldings.reduce((sum, holding) => {
+    const stock = (state.stocks ?? []).find((item) => item.ticker === holding.ticker);
+    return sum + (holding.shares ?? 0) * (stock?.currentPrice ?? 0);
+  }, 0);
+  check('crypto_100k', cryptoValue >= 100000);
+
+  const mojoHolding = cryptoHoldings.find((holding) => holding.ticker === 'MOJO');
+  const mojoPrice = (state.stocks ?? []).find((stock) => stock.ticker === 'MOJO')?.currentPrice ?? 0;
+  check('mojo_double', !!mojoHolding && (mojoHolding.avgBuyPrice ?? 0) > 0
+    && mojoPrice >= (mojoHolding.avgBuyPrice ?? 0) * 2);
+
   // New achievements
   check('multi_business_3', (state?.businesses?.length ?? 0) >= 3);
   check('legendary_hire', (state?.businesses ?? []).some((b) => (b.employees ?? []).some((e) => e.tier === 'legendary')));

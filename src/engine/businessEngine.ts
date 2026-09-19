@@ -1,4 +1,4 @@
-import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, TriggeredEvent } from '../types/game';
+import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessStrategicFocus, HoldingCompany } from '../types/game';
 
 // -----------------------------------------------------------------------------
 // D&D-style tier system for employees
@@ -99,8 +99,267 @@ import moraleActionsData from '../data/morale_actions.json';
 import trainingData from '../data/employee_training.json';
 import projectsData from '../data/business_projects.json';
 import moraleEventsData from '../data/business_morale_events.json';
-import choiceEventsData from '../data/business_choice_events.json';
 import businessLocationsData from '../data/business_locations.json';
+
+export function getPlayerOwnershipPct(biz: OwnedBusiness): number {
+  const ownership = biz.ownership ?? [];
+  if (ownership.length === 0) return 100;
+  return Math.max(0, Math.min(100, ownership
+    .filter((stake) => stake.ownerType === 'player')
+    .reduce((sum, stake) => sum + (stake.percent ?? 0), 0)));
+}
+
+export function getFamilyOwnershipPct(biz: OwnedBusiness): number {
+  const ownership = biz.ownership ?? [];
+  if (ownership.length === 0) return 100;
+  return Math.max(0, Math.min(100, ownership
+    .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
+    .reduce((sum, stake) => sum + (stake.percent ?? 0), 0)));
+}
+
+export interface HoldingSynergyProfile {
+  revenueBonus: number;
+  expenseReduction: number;
+  crisisReduction: number;
+  sameIndustrySiblings: number;
+  relatedIndustrySiblings: number;
+  uniqueIndustries: number;
+}
+
+const HOLDING_INDUSTRY_CLUSTERS: Record<string, string> = {
+  Retail: 'consumer',
+  'Food & Beverage': 'consumer',
+  Hospitality: 'consumer',
+  Entertainment: 'consumer',
+  Fitness: 'consumer',
+  Beauty: 'consumer',
+  Technology: 'services',
+  Services: 'services',
+  'Real Estate': 'services',
+  Real_Estate: 'services',
+  Automotive: 'industrial',
+  Construction: 'industrial',
+  Manufacturing: 'industrial',
+  Healthcare: 'health',
+};
+
+export function getHoldingSynergyProfile(
+  biz: OwnedBusiness,
+  businesses: OwnedBusiness[],
+  holdingCompanies: HoldingCompany[] = [],
+): HoldingSynergyProfile {
+  if (!biz.holdingCompanyId) {
+    return { revenueBonus: 0, expenseReduction: 0, crisisReduction: 0, sameIndustrySiblings: 0, relatedIndustrySiblings: 0, uniqueIndustries: 0 };
+  }
+
+  const group = (businesses ?? []).filter((item) => item.holdingCompanyId === biz.holdingCompanyId);
+  if (group.length < 2) {
+    return { revenueBonus: 0, expenseReduction: 0, crisisReduction: 0, sameIndustrySiblings: 0, relatedIndustrySiblings: 0, uniqueIndustries: group.length ? 1 : 0 };
+  }
+
+  const type = getBusinessType(biz.typeId);
+  const industry = type?.industry ?? '';
+  const cluster = HOLDING_INDUSTRY_CLUSTERS[industry] ?? industry;
+  const siblings = group.filter((item) => item.id !== biz.id);
+  const sameIndustrySiblings = siblings.filter((item) => (getBusinessType(item.typeId)?.industry ?? '') === industry).length;
+  const relatedIndustrySiblings = siblings.filter((item) => {
+    const siblingIndustry = getBusinessType(item.typeId)?.industry ?? '';
+    return siblingIndustry !== industry && (HOLDING_INDUSTRY_CLUSTERS[siblingIndustry] ?? siblingIndustry) === cluster;
+  }).length;
+  const uniqueIndustries = new Set(group.map((item) => getBusinessType(item.typeId)?.industry ?? item.typeId)).size;
+  const holding = holdingCompanies.find((item) => item.id === biz.holdingCompanyId);
+  const executivePerformance = Math.max(0, Math.min(100, holding?.executivePerformance ?? 50));
+  const executiveMultiplier = 0.90 + executivePerformance / 500;
+
+  let integrationSynergyFactor = 1;
+  if (biz.acquisition) {
+    if (biz.acquisition.integrationStrategy === 'pending') integrationSynergyFactor = 0.25;
+    else if (biz.acquisition.integrationStrategy === 'independent') integrationSynergyFactor = 0.50;
+    else if (biz.acquisition.integrationOutcome === 'pending') integrationSynergyFactor = 0.60;
+    else if (biz.acquisition.integrationStrategy === 'turnaround' && biz.acquisition.integrationOutcome === 'success') integrationSynergyFactor = 1.10;
+  }
+
+  const expenseReduction = Math.min(0.05, sameIndustrySiblings * 0.02) * executiveMultiplier * integrationSynergyFactor;
+  const revenueBonus = Math.min(0.04, sameIndustrySiblings * 0.005 + relatedIndustrySiblings * 0.0125) * executiveMultiplier * integrationSynergyFactor;
+  const crisisReduction = (uniqueIndustries >= 3 ? Math.min(0.15, (uniqueIndustries - 2) * 0.05) : 0) * executiveMultiplier;
+
+  return {
+    revenueBonus: Math.max(0, Math.min(0.05, revenueBonus)),
+    expenseReduction: Math.max(0, Math.min(0.06, expenseReduction)),
+    crisisReduction: Math.max(0, Math.min(0.18, crisisReduction)),
+    sameIndustrySiblings,
+    relatedIndustrySiblings,
+    uniqueIndustries,
+  };
+}
+
+function strategicFocusModifiers(focus: BusinessStrategicFocus | undefined): {
+  revenue: number;
+  expense: number;
+  reputation: number;
+  morale: number;
+} {
+  switch (focus ?? 'balanced') {
+    case 'growth': return { revenue: 1.08, expense: 1.06, reputation: 0.04, morale: -0.05 };
+    case 'margin': return { revenue: 0.97, expense: 0.91, reputation: -0.02, morale: -0.10 };
+    case 'premium': return { revenue: 1.04, expense: 1.02, reputation: 0.10, morale: 0 };
+    case 'automation': return { revenue: 1.02, expense: 0.95, reputation: 0, morale: -0.12 };
+    case 'rd': return { revenue: 0.98, expense: 1.07, reputation: 0.08, morale: 0.04 };
+    default: return { revenue: 1, expense: 1, reputation: 0, morale: 0 };
+  }
+}
+
+function getStrategyModifierTotals(biz: OwnedBusiness): {
+  revenue: number;
+  expense: number;
+  reputation: number;
+  morale: number;
+} {
+  const focus = strategicFocusModifiers(biz.strategicFocus);
+  let revenue = focus.revenue;
+  let expense = focus.expense;
+  let reputation = focus.reputation;
+  let morale = focus.morale;
+
+  for (const modifier of biz.strategyModifiers ?? []) {
+    revenue *= modifier.revenueMultiplier ?? 1;
+    expense *= modifier.expenseMultiplier ?? 1;
+    reputation += modifier.reputationPerWeek ?? 0;
+    morale += modifier.moralePerWeek ?? 0;
+  }
+  for (const familyRole of biz.familyRoles ?? []) {
+    const normalized = Math.max(-20, Math.min(20, (familyRole.performance ?? 50) - 50));
+    if (familyRole.role === 'manager') {
+      expense *= 1 - normalized * 0.0008;
+    } else if (familyRole.role === 'executive') {
+      revenue *= 1 + normalized * 0.0012;
+      expense *= 1 - normalized * 0.0005;
+    } else if (familyRole.role === 'board') {
+      reputation += normalized * 0.004;
+    } else if (familyRole.role === 'successor') {
+      revenue *= 1 + normalized * 0.0008;
+      reputation += normalized * 0.003;
+    }
+  }
+  return { revenue, expense, reputation, morale };
+}
+
+function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): BusinessPendingDecision {
+  const options: BusinessPendingDecision[] = [
+    {
+      id: `strategy_product_${biz.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Product Positioning Review',
+      description: `${biz.name} has room to reposition its offer. The decision will shape several weeks of performance.`,
+      icon: '🎯',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'hold_course',
+      choices: [
+        { id: 'budget_push', text: 'Push Lower Prices', description: 'Chase volume at thinner margins.', revenueMultiplier: 1.10, expenseMultiplier: 1.05, reputationDelta: -1, marketShareDelta: 2, durationWeeks: 8 },
+        { id: 'move_upscale', text: 'Move Upscale', description: 'Accept lower volume for brand and margin.', revenueMultiplier: 1.04, expenseMultiplier: 0.98, reputationDelta: 3, marketShareDelta: -1, durationWeeks: 10 },
+        { id: 'hold_course', text: 'Stay Balanced', description: 'Avoid disruption and preserve flexibility.', durationWeeks: 1 },
+      ],
+    },
+    {
+      id: `strategy_people_${biz.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Workforce Strategy',
+      description: `${biz.name} needs a clear people strategy for the next phase.`,
+      icon: '👥',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'no_change',
+      choices: [
+        { id: 'raise_wages', text: 'Increase Wages', description: 'Higher costs, better morale and retention.', businessCashCost: 3000, expenseMultiplier: 1.04, moraleDelta: 7, reputationDelta: 1, durationWeeks: 10 },
+        { id: 'automate', text: 'Accelerate Automation', description: 'Lower costs but tougher on morale.', businessCashCost: 7000, revenueMultiplier: 1.03, expenseMultiplier: 0.91, moraleDelta: -6, durationWeeks: 12 },
+        { id: 'no_change', text: 'No Major Change', description: 'Keep the current operating model.', durationWeeks: 1 },
+      ],
+    },
+    {
+      id: `strategy_invest_${biz.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Investment Priority',
+      description: `Management wants a clear capital priority for ${biz.name}.`,
+      icon: '🧭',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'cash_reserve',
+      choices: [
+        { id: 'rd', text: 'Invest in R&D', description: 'Expensive now; stronger demand and reputation if sustained.', businessCashCost: 10000, revenueMultiplier: 1.08, expenseMultiplier: 1.04, reputationDelta: 3, durationWeeks: 12 },
+        { id: 'cost_program', text: 'Cut Operating Waste', description: 'Improve efficiency, with a small morale cost.', businessCashCost: 4000, expenseMultiplier: 0.90, moraleDelta: -3, durationWeeks: 10 },
+        { id: 'cash_reserve', text: 'Protect Cash', description: 'No temporary modifier; retain liquidity.', durationWeeks: 1 },
+      ],
+    },
+  ];
+  return options[Math.floor(Math.random() * options.length)];
+}
+
+function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPendingDecision {
+  const candidates: BusinessPendingDecision[] = [
+    {
+      id: `crisis_supplier_${biz.id}_${globalWeek}`,
+      kind: 'crisis',
+      title: 'Supplier Cost Shock',
+      description: `A key supplier to ${biz.name} has raised prices sharply.`,
+      icon: '⚠️',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'absorb',
+      choices: [
+        { id: 'absorb', text: 'Absorb the Cost', description: 'Protect customers, accept higher costs.', expenseMultiplier: 1.14, reputationDelta: 2, durationWeeks: 8 },
+        { id: 'raise_prices', text: 'Pass It On', description: 'Protect margins but risk demand and reputation.', revenueMultiplier: 0.94, expenseMultiplier: 1.03, reputationDelta: -2, durationWeeks: 7 },
+        { id: 'switch_supplier', text: 'Switch Supplier', description: 'Pay to transition and reduce long-term impact.', businessCashCost: 9000, expenseMultiplier: 1.03, reputationDelta: 1, durationWeeks: 4 },
+      ],
+    },
+    {
+      id: `crisis_competitor_${biz.id}_${globalWeek}`,
+      kind: 'crisis',
+      title: 'Competitor Price War',
+      description: `A rival is aggressively undercutting ${biz.name}.`,
+      icon: '📉',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'hold',
+      choices: [
+        { id: 'match', text: 'Match Prices', description: 'Defend share at lower profitability.', revenueMultiplier: 1.02, expenseMultiplier: 1.08, marketShareDelta: 2, durationWeeks: 8 },
+        { id: 'differentiate', text: 'Differentiate on Quality', description: 'Spend on quality and protect brand.', businessCashCost: 7500, revenueMultiplier: 1.01, reputationDelta: 4, marketShareDelta: 1, durationWeeks: 10 },
+        { id: 'hold', text: 'Hold Pricing', description: 'Accept short-term market-share pressure.', revenueMultiplier: 0.90, marketShareDelta: -3, durationWeeks: 6 },
+      ],
+    },
+    {
+      id: `crisis_client_${biz.id}_${globalWeek}`,
+      kind: 'crisis',
+      title: 'Major Customer Lost',
+      description: `${biz.name} has lost a significant customer or account.`,
+      icon: '💼',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'ride_out',
+      choices: [
+        { id: 'sales_push', text: 'Launch Sales Push', description: 'Spend aggressively to replace the revenue.', businessCashCost: 8000, revenueMultiplier: 0.98, expenseMultiplier: 1.04, marketShareDelta: 2, durationWeeks: 7 },
+        { id: 'cut_costs', text: 'Cut Costs Quickly', description: 'Protect cash but damage morale.', expenseMultiplier: 0.88, moraleDelta: -8, reputationDelta: -1, durationWeeks: 8 },
+        { id: 'ride_out', text: 'Ride It Out', description: 'Preserve cash, accept a deeper temporary revenue hit.', revenueMultiplier: 0.82, durationWeeks: 6 },
+      ],
+    },
+    {
+      id: `crisis_location_${biz.id}_${globalWeek}`,
+      kind: 'crisis',
+      title: 'Underperforming Operation',
+      description: `Part of ${biz.name}'s operation is materially underperforming.`,
+      icon: '🏚️',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'accept',
+      choices: [
+        { id: 'turnaround', text: 'Fund a Turnaround', description: 'Invest to recover performance.', businessCashCost: 12000, revenueMultiplier: 1.05, expenseMultiplier: 1.03, reputationDelta: 2, durationWeeks: 10 },
+        { id: 'restructure', text: 'Restructure', description: 'Lower costs, with a morale and reputation cost.', expenseMultiplier: 0.86, moraleDelta: -7, reputationDelta: -2, durationWeeks: 10 },
+        { id: 'accept', text: 'Accept Weak Performance', description: 'Avoid spending, take the revenue hit.', revenueMultiplier: 0.86, durationWeeks: 8 },
+      ],
+    },
+  ];
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
 
 export const MIN_EMPLOYEES_REQUIRED = 3;
 export const BUSINESS_LEVEL_REPUTATION_REQUIREMENTS = [0, 20, 30, 40, 52, 65, 78, 90];
@@ -406,6 +665,19 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     recruitCharges: 0,
     recruitProgress: 0,
     timeline: [{ week, year, title: `${name} founded`, icon: '🎉', kind: 'founded' }],
+    strategicFocus: 'balanced',
+    strategyModifiers: [],
+    pendingDecision: null,
+    nextStrategicDecisionWeek: ((year - 1) * 20 + week) + 6 + Math.floor(Math.random() * 7),
+    nextCrisisCheckWeek: ((year - 1) * 20 + week) + 10 + Math.floor(Math.random() * 11),
+    ownership: [{
+      ownerType: 'player',
+      ownerId: 'player',
+      ownerName: 'Player',
+      percent: 100,
+      votingPercent: 100,
+    }],
+    familyRoles: [],
   };
 }
 
@@ -415,6 +687,7 @@ export interface BusinessTickResult {
   weeklyExpenses: number;
   weeklyProfit: number;
   playerDividend: number;
+  ownershipDistributions: Array<{ ownerType: 'player' | 'child' | 'family_trust' | 'investor'; ownerId: string; ownerName: string; amount: number }>;
   taxRefund: number;
   newEvent: { businessName: string; eventTitle: string; icon: string } | null;
   newRetention: { businessName: string; employeeName: string; type: string } | null;
@@ -424,6 +697,12 @@ export interface BusinessSimulationModifiers {
   /** Decimal reduction, e.g. 0.075 means 7.5% lower operating expenses. */
   businessCostReduction?: number;
   competitorRevenueMultipliers?: Record<string, number>;
+  /** Decimal reduction applied to the chance of new business crises. */
+  businessCrisisReduction?: number;
+  /** Capped portfolio synergy from a parent holding company. */
+  holdingRevenueBonus?: number;
+  holdingExpenseReduction?: number;
+  holdingCrisisReduction?: number;
 }
 
 /**
@@ -438,7 +717,7 @@ export function processBusinessWeek(
 ): BusinessTickResult {
   const type = getBusinessType(biz.typeId);
   if (!type) {
-    return { updatedBusiness: biz, weeklyRevenue: 0, weeklyExpenses: 0, weeklyProfit: 0, playerDividend: 0, taxRefund: 0, newEvent: null, newRetention: null };
+    return { updatedBusiness: biz, weeklyRevenue: 0, weeklyExpenses: 0, weeklyProfit: 0, playerDividend: 0, ownershipDistributions: [], taxRefund: 0, newEvent: null, newRetention: null };
   }
 
   // Minimum staffing check - business earns NOTHING if under staffed
@@ -449,6 +728,7 @@ export function processBusinessWeek(
       weeklyExpenses: 0,
       weeklyProfit: 0,
       playerDividend: 0,
+      ownershipDistributions: [],
       taxRefund: 0,
       newEvent: null,
       newRetention: null,
@@ -459,6 +739,7 @@ export function processBusinessWeek(
   const adMod = ADVERTISING_COSTS[biz.advertisingLevel ?? 'none'] ?? ADVERTISING_COSTS.none;
   const reputationFactor = 0.6 + (biz.reputation / 100) * 0.8; // 0.6 at 0 rep, 1.4 at 100 rep
   const competitionPenalty = 1 - (type.competitionLevel ?? 0.5) * 0.15;
+  const acquisitionOperatingScale = Math.max(1, Math.min(1000, biz.operatingScaleMultiplier ?? 1));
 
   // ---- Seasons: every 5 weeks = new season; industry-specific multipliers ----
   const globalWeek = ((currentYear - 1) * 20) + currentWeek;
@@ -506,9 +787,26 @@ export function processBusinessWeek(
   const upgradeRevenueBoost = 1 - Math.exp(-rawUpgradeRevenueBoost);
   const locationRevenueBoost = (biz.locations ?? []).reduce((total, location) => total + (location.revenueBoost ?? 0), 0);
 
-  // Active event & project multipliers
-  let eventRevenueMultiplier = 1;
-  let eventExpenseMultiplier = 1;
+  // Active event, strategic and project multipliers
+  const strategyTotals = getStrategyModifierTotals(biz);
+  let eventRevenueMultiplier = strategyTotals.revenue;
+  let eventExpenseMultiplier = strategyTotals.expense;
+  const acquisition = biz.acquisition ?? null;
+  if (acquisition?.integrationStrategy === 'pending') {
+    // A newly acquired company waits for an integration decision. It suffers a
+    // small coordination drag, but the actual integration clock does not start.
+    const holdingPatternPenalty = Math.max(0.01, Math.min(0.05, (acquisition.baseIntegrationPenalty ?? acquisition.integrationPenalty ?? 0.08) * 0.35));
+    eventRevenueMultiplier *= (1 - holdingPatternPenalty);
+    eventExpenseMultiplier *= (1 + holdingPatternPenalty * 0.50);
+  } else if ((acquisition?.integrationWeeksRemaining ?? 0) > 0) {
+    const integrationPenalty = Math.max(0, Math.min(0.25, acquisition?.integrationPenalty ?? 0));
+    eventRevenueMultiplier *= (1 - integrationPenalty);
+    eventExpenseMultiplier *= (1 + integrationPenalty * 0.75);
+  } else if (acquisition && acquisition.integrationOutcome !== 'pending') {
+    eventRevenueMultiplier *= 1 + Math.max(-0.05, Math.min(0.08, acquisition.postIntegrationRevenueBonus ?? 0));
+    eventExpenseMultiplier *= 1 - Math.max(-0.05, Math.min(0.08, acquisition.postIntegrationExpenseReduction ?? 0));
+  }
+  eventRevenueMultiplier *= 1 + Math.max(0, Math.min(0.05, modifiers.holdingRevenueBonus ?? 0));
   for (const ae of biz.activeEvents ?? []) {
     eventRevenueMultiplier *= ae.revenueMultiplier ?? 1;
     eventExpenseMultiplier *= ae.expenseMultiplier ?? 1;
@@ -524,7 +822,7 @@ export function processBusinessWeek(
   // Very small businesses cannot add more than three employees, so they receive
   // a compact-operation boost that substitutes for unavailable staff scaling.
   const compactBusinessRevenueBoost = (type.maxEmployees ?? 4) <= 3 ? 1.18 : (type.maxEmployees ?? 6) <= 5 ? 1.45 : 1;
-  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121 * compactBusinessRevenueBoost;
+  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121 * compactBusinessRevenueBoost * acquisitionOperatingScale;
   const businessAge = globalWeek - (((biz.foundedYear ?? currentYear) - 1) * 20 + (biz.foundedWeek ?? currentWeek));
   const startupSupport = businessAge > 0 && businessAge <= 75;
   const levelBonus = 1 + biz.level * 0.1;
@@ -532,29 +830,27 @@ export function processBusinessWeek(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
     (1 + upgradeRevenueBoost + locationRevenueBoost) * levelBonus * eventRevenueMultiplier * buffAgg.revenueMult
   );
-  // Mature companies still encounter occasional weak demand weeks. This keeps
-  // late-game firms strong without making every single week guaranteed green.
-  const matureDemandShockChance = Math.max(0.04, 0.13 - (biz.reputation ?? 0) * 0.0007);
-  if ((biz.reputation ?? 0) >= 55 && Math.random() < matureDemandShockChance) {
-    revenue = Math.round(revenue * (0.08 + Math.random() * 0.20));
-  }
-
   // Expenses (detailed breakdown) — variable costs SCALE with actual revenue.
-  const prestigeCostMultiplier = 1 - Math.max(0, Math.min(0.5, modifiers.businessCostReduction ?? 0));
-  const operatingScale = getBusinessOperatingScale(biz.reputation ?? 25);
-  const fullBaseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier;
-  const baseExp = fullBaseExp * operatingScale.overhead;
+  const combinedCostReduction = 1 - (1 - Math.max(0, Math.min(0.5, modifiers.businessCostReduction ?? 0))) * (1 - Math.max(0, Math.min(0.10, modifiers.holdingExpenseReduction ?? 0)));
+  const prestigeCostMultiplier = 1 - Math.max(0, Math.min(0.55, combinedCostReduction));
+  const reputationOperatingScale = getBusinessOperatingScale(biz.reputation ?? 25);
+  const fullBaseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier * acquisitionOperatingScale;
+  const baseExp = fullBaseExp * reputationOperatingScale.overhead;
   // Revenue scaling factor: if revenue is 5x the expected base, variable costs go up ~4x
   let revScale = baseRev > 0 ? revenue / baseRev : 1;
   // Variable-cost scaling: 60% fixed baseline + 40% × revScale (dampened)
   let variableScale = 0.6 + 0.4 * Math.min(6, revScale);
   // Rent scales with revenue: base rent + 2% of revenue above baseline
-  const fullBaseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier * prestigeCostMultiplier;
-  const baseRent = fullBaseRent * operatingScale.premises;
+  const fullBaseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier * prestigeCostMultiplier * Math.sqrt(acquisitionOperatingScale);
+  const baseRent = fullBaseRent * reputationOperatingScale.premises;
   let rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
   let rent = Math.round(rentScale);
-  const normalSalaries = (biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0);
-  const salaries = Math.round(normalSalaries * (startupSupport ? 0.95 : 1));
+  const employeeSalaries = (biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0);
+  const familyGovernanceSalaries = (biz.familyRoles ?? []).reduce((t, role) => t + (role.weeklySalary ?? 0), 0);
+  const normalSalaries = employeeSalaries + familyGovernanceSalaries;
+  // Startup wage support applies only to ordinary employees. Family governance
+  // appointments remain contractual and must always be paid in full.
+  const salaries = Math.round(employeeSalaries * (startupSupport ? 0.95 : 1) + familyGovernanceSalaries);
   const adCost = Math.round((adMod.weeklyCost ?? 0) * inflationMultiplier * prestigeCostMultiplier);
   const starterDemandWeight = Math.max(0, Math.min(1, (70 - (biz.reputation ?? 25)) / 30));
   if (starterDemandWeight > 0) {
@@ -618,6 +914,44 @@ export function processBusinessWeek(
   // Bad seasonal event injection: fires on the first week of a season
   const seasonStart = (globalWeek - 1) % 5 === 0;
   const timelineAdds: BusinessTimelineEntry[] = [];
+  let updatedAcquisition = biz.acquisition ? { ...biz.acquisition } : null;
+  let integrationRepDelta = 0;
+  if (updatedAcquisition && updatedAcquisition.integrationStrategy !== 'pending') {
+    const remaining = Math.max(0, updatedAcquisition.integrationWeeksRemaining ?? 0);
+    if (remaining === 1) {
+      const strategy = updatedAcquisition.integrationStrategy;
+      const roll = Math.random();
+      const successChance = Math.max(0, Math.min(1, updatedAcquisition.integrationSuccessChance ?? 0.8));
+      const outcome = roll < successChance ? 'success' : roll < Math.min(1, successChance + 0.18) ? 'mixed' : 'failed';
+      let revenueBonus = 0;
+      let expenseReduction = 0;
+      if (strategy === 'integrate') {
+        if (outcome === 'success') { revenueBonus = 0.015; expenseReduction = 0.02; integrationRepDelta = 2; }
+        else if (outcome === 'mixed') { revenueBonus = 0.005; expenseReduction = 0.01; }
+        else { expenseReduction = -0.005; integrationRepDelta = -2; }
+      } else if (strategy === 'turnaround') {
+        if (outcome === 'success') { revenueBonus = 0.04; expenseReduction = 0.04; integrationRepDelta = 4; }
+        else if (outcome === 'mixed') { revenueBonus = 0.015; expenseReduction = 0.015; integrationRepDelta = -1; }
+        else { revenueBonus = -0.02; expenseReduction = -0.02; integrationRepDelta = -5; }
+      }
+      updatedAcquisition = {
+        ...updatedAcquisition,
+        integrationOutcome: outcome,
+        integrationWeeksRemaining: 0,
+        postIntegrationRevenueBonus: revenueBonus,
+        postIntegrationExpenseReduction: expenseReduction,
+      };
+      timelineAdds.push({
+        week: currentWeek,
+        year: currentYear,
+        title: `Acquisition integration ${outcome}: ${strategy.replace('_', ' ')}`,
+        icon: outcome === 'success' ? '✅' : outcome === 'mixed' ? '⚖️' : '⚠️',
+        kind: 'event',
+      });
+    } else if (remaining > 1) {
+      updatedAcquisition = { ...updatedAcquisition, integrationWeeksRemaining: remaining - 1 };
+    }
+  }
   if (seasonStart) {
     const bad = getBadSeasonForIndustry(type.industry ?? '', seasonIdx);
     const badId = bad ? `bad_season_${type.industry}_${seasonIdx}` : null;
@@ -663,6 +997,9 @@ export function processBusinessWeek(
   }
 
   const eligibleEvents = (businessEventsData ?? []).filter((ev: any) => {
+    // Major negative surprises use the persistent crisis-choice system so the
+    // player can respond. Automatic events are upside/flavour only.
+    if (ev.positive === false) return false;
     if ((ev.minReputation ?? 0) > (biz.reputation ?? 0)) return false;
     if (!eventSpacingReady || globalWeek - (eventCooldowns[ev.id] ?? -100) < 40) return false;
     const industries = ev.industries ?? [];
@@ -716,7 +1053,7 @@ export function processBusinessWeek(
   const projectRepBoost = updatedProjects
     .filter((project) => project.resolved && project.succeeded && !biz.activeProjects?.find((old) => old.id === project.id)?.resolved)
     .reduce((total, project) => total + project.reputationBonus, 0);
-  let newReputation = (biz.reputation ?? 25) + repGrowth + adRepBoost + pricingRepEffect + eventRepChange + projectRepBoost + buffAgg.weeklyRepBoost;
+  let newReputation = (biz.reputation ?? 25) + repGrowth + adRepBoost + pricingRepEffect + eventRepChange + projectRepBoost + buffAgg.weeklyRepBoost + strategyTotals.reputation + integrationRepDelta;
   newReputation = Math.max(0, Math.min(100, newReputation));
 
   // Employee morale & skill growth
@@ -740,7 +1077,7 @@ export function processBusinessWeek(
     }
     return {
       ...emp,
-      morale: Math.max(10, Math.min(100, (emp.morale ?? 50) + moraleChange + buffAgg.weeklyMoraleBoost - moraleDrop)),
+      morale: Math.max(10, Math.min(100, (emp.morale ?? 50) + moraleChange + buffAgg.weeklyMoraleBoost + strategyTotals.morale - moraleDrop)),
       skill: newSkill,
       experience: (emp.experience ?? 0) + 1,
       weeksEmployed: (emp.weeksEmployed ?? 0) + 1,
@@ -779,11 +1116,26 @@ export function processBusinessWeek(
   // Balance & dividend
   let newBalance = (biz.balance ?? 0) + profit + extraCashDelta;
   let playerDividend = 0;
+  let ownershipDistributions: BusinessTickResult['ownershipDistributions'] = [];
   if (newBalance > 0 && profit > 0) {
     const dividendRate = 0.7;
     const operatingReserve = totalExpenses * 6;
-    playerDividend = Math.round(Math.min(Math.max(0, profit * dividendRate), Math.max(0, newBalance - operatingReserve)));
-    newBalance -= playerDividend;
+    const totalDividend = Math.round(Math.min(Math.max(0, profit * dividendRate), Math.max(0, newBalance - operatingReserve)));
+    const ownership = biz.ownership?.length
+      ? biz.ownership
+      : [{ ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 100, votingPercent: 100 }];
+    ownershipDistributions = ownership
+      .filter((stake) => (stake.percent ?? 0) > 0)
+      .map((stake) => ({
+        ownerType: stake.ownerType,
+        ownerId: stake.ownerId,
+        ownerName: stake.ownerName,
+        amount: Math.round(totalDividend * (stake.percent ?? 0) / 100),
+      }));
+    playerDividend = ownershipDistributions
+      .filter((distribution) => distribution.ownerType === 'player')
+      .reduce((sum, distribution) => sum + distribution.amount, 0);
+    newBalance -= totalDividend;
   }
   valuation = calculateValuation({
     ...biz,
@@ -882,7 +1234,75 @@ export function processBusinessWeek(
   if (newEvent) {
     timelineAdds.push({ week: currentWeek, year: currentYear, title: newEvent.eventTitle, icon: newEvent.icon, kind: 'event' });
   }
-  const timeline = [...(biz.timeline ?? []), ...timelineAdds].slice(-50);
+  let timeline = [...(biz.timeline ?? []), ...timelineAdds].slice(-50);
+
+  let strategyModifiers = (biz.strategyModifiers ?? [])
+    .filter((modifier) => (modifier.weeksRemaining ?? 0) > 1)
+    .map((modifier) => ({ ...modifier, weeksRemaining: (modifier.weeksRemaining ?? 1) - 1 }));
+
+  const familyRoles = (biz.familyRoles ?? []).map((role) => ({
+    ...role,
+    experienceWeeks: (role.experienceWeeks ?? 0) + 1,
+    performance: Math.max(0, Math.min(100, (role.performance ?? 50) + ((role.performance ?? 50) >= 50 ? 0.05 : -0.02))),
+  }));
+
+  let pendingDecision = biz.pendingDecision ?? null;
+  let nextStrategicDecisionWeek = biz.nextStrategicDecisionWeek ?? (globalWeek + 8);
+  let nextCrisisCheckWeek = biz.nextCrisisCheckWeek ?? (globalWeek + 14);
+  let autoResolvedDecision = false;
+  let resolvedMarketShareModifier = biz.marketShareModifier ?? 0;
+
+  if (pendingDecision && globalWeek > (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4)) {
+    const fallback = pendingDecision.choices.find((choice) => choice.id === pendingDecision!.defaultChoiceId)
+      ?? pendingDecision.choices[pendingDecision.choices.length - 1];
+
+    if (fallback) {
+      if ((fallback.durationWeeks ?? 0) > 1) {
+        strategyModifiers.push({
+          id: `${pendingDecision.id}:${fallback.id}:auto`,
+          title: `${pendingDecision.title} — ignored / ${fallback.text}`,
+          revenueMultiplier: fallback.revenueMultiplier ?? 1,
+          expenseMultiplier: fallback.expenseMultiplier ?? 1,
+          reputationPerWeek: 0,
+          moralePerWeek: 0,
+          weeksRemaining: fallback.durationWeeks ?? 1,
+        });
+      }
+      newReputation = Math.max(0, Math.min(100, newReputation + (fallback.reputationDelta ?? 0)));
+      resolvedMarketShareModifier = Math.max(-30, Math.min(30, resolvedMarketShareModifier + (fallback.marketShareDelta ?? 0)));
+      if (fallback.moraleDelta) {
+        updatedEmployees = updatedEmployees.map((employee) => ({
+          ...employee,
+          morale: Math.max(10, Math.min(100, (employee.morale ?? 50) + (fallback.moraleDelta ?? 0))),
+        }));
+      }
+      timeline = [
+        ...timeline,
+        {
+          week: currentWeek,
+          year: currentYear,
+          title: `⏱️ ${pendingDecision.title}: no response — ${fallback.text}`,
+          icon: '⏱️',
+          kind: 'event' as const,
+        },
+      ].slice(-50);
+    }
+    pendingDecision = null;
+    autoResolvedDecision = true;
+  }
+
+  if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextStrategicDecisionWeek) {
+    pendingDecision = makeStrategicDecision(biz, globalWeek);
+    nextStrategicDecisionWeek = globalWeek + 6 + Math.floor(Math.random() * 7);
+  } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextCrisisCheckWeek) {
+    const baseCrisisChance = Math.max(0.10, 0.24 - (biz.reputation ?? 0) * 0.001);
+    const combinedCrisisReduction = 1 - (1 - Math.max(0, Math.min(0.8, modifiers.businessCrisisReduction ?? 0))) * (1 - Math.max(0, Math.min(0.25, modifiers.holdingCrisisReduction ?? 0)));
+    const crisisChance = Math.max(0.04, baseCrisisChance * (1 - combinedCrisisReduction));
+    if (Math.random() < crisisChance) {
+      pendingDecision = makeBusinessCrisis(biz, globalWeek);
+    }
+    nextCrisisCheckWeek = globalWeek + 8 + Math.floor(Math.random() * 10);
+  }
 
   const updatedBusiness: OwnedBusiness = {
     ...biz,
@@ -895,6 +1315,7 @@ export function processBusinessWeek(
     reputation: Math.round(newReputation * 10) / 10,
     level: newLevel,
     valuation,
+    marketShareModifier: resolvedMarketShareModifier,
     employees: updatedEmployees,
     businessLoans: updatedLoans,
     activeEvents: newActiveEvents,
@@ -918,6 +1339,21 @@ export function processBusinessWeek(
     ])],
     lastBusinessEventWeek: triggeredEventId ? globalWeek : biz.lastBusinessEventWeek,
     businessEventCooldowns: triggeredEventId ? { ...eventCooldowns, [triggeredEventId]: globalWeek } : eventCooldowns,
+    strategicFocus: biz.strategicFocus ?? 'balanced',
+    strategyModifiers,
+    familyRoles,
+    ownership: biz.ownership?.length ? biz.ownership : [{
+      ownerType: 'player',
+      ownerId: 'player',
+      ownerName: 'Player',
+      percent: 100,
+      votingPercent: 100,
+    }],
+    pendingDecision,
+    nextStrategicDecisionWeek,
+    nextCrisisCheckWeek,
+    operatingScaleMultiplier: acquisitionOperatingScale,
+    acquisition: updatedAcquisition,
   };
   updatedBusiness.valuation = calculateValuation(updatedBusiness);
   updatedBusiness.level = getBusinessLevelForMetrics(thresholds, updatedBusiness.valuation, updatedBusiness.reputation);
@@ -928,6 +1364,7 @@ export function processBusinessWeek(
     weeklyExpenses: totalExpenses,
     weeklyProfit: profit,
     playerDividend,
+    ownershipDistributions,
     taxRefund,
     newEvent,
     newRetention,
@@ -1129,21 +1566,6 @@ export function computeMarketShare(biz: OwnedBusiness, competitorStrengths: numb
   };
 }
 
-function rollBusinessChoiceEvent(businesses: OwnedBusiness[], globalWeek: number): TriggeredEvent | null {
-  if ((businesses?.length ?? 0) === 0 || Math.random() >= 0.08) return null;
-  const eligibleBusinesses = businesses.filter((business) => globalWeek - (business.lastBusinessEventWeek ?? -100) >= 10);
-  const biz = eligibleBusinesses[Math.floor(Math.random() * eligibleBusinesses.length)];
-  const eligibleTemplates = (choiceEventsData as any[]).filter((template: any) => globalWeek - (biz?.businessEventCooldowns?.[template.id] ?? -100) >= 40);
-  const template: any = eligibleTemplates[Math.floor(Math.random() * eligibleTemplates.length)];
-  if (!biz || !template) return null;
-  return {
-    ...template,
-    id: `${template.id}_${biz.id}`,
-    businessId: biz.id,
-    description: String(template.description ?? '').replace('{business}', biz.name),
-  } as TriggeredEvent;
-}
-
 /** Process all businesses for one week. */
 export function processAllBusinesses(
   businesses: OwnedBusiness[],
@@ -1151,46 +1573,65 @@ export function processAllBusinesses(
   currentWeek: number,
   currentYear: number,
   modifiers: BusinessSimulationModifiers = {},
+  holdingCompanies: HoldingCompany[] = [],
 ): {
   updatedBusinesses: OwnedBusiness[];
   totalProfit: number;
   totalDividend: number;
+  ownershipDistributions: BusinessTickResult['ownershipDistributions'];
   totalTaxRefund: number;
   events: { businessName: string; eventTitle: string; icon: string }[];
   retentionEvents: { businessName: string; employeeName: string; type: string }[];
-  decisionEvent: TriggeredEvent | null;
 } {
   let totalProfit = 0;
   let totalDividend = 0;
   let totalTaxRefund = 0;
+  const ownershipDistributions: BusinessTickResult['ownershipDistributions'] = [];
   const events: { businessName: string; eventTitle: string; icon: string }[] = [];
   const retentionEvents: { businessName: string; employeeName: string; type: string }[] = [];
   const updatedBusinesses: OwnedBusiness[] = [];
+  const globalWeek = ((currentYear - 1) * 20) + currentWeek;
+  let createdDecisionThisWeek = false;
 
   for (const biz of businesses ?? []) {
-    const result = processBusinessWeek(biz, inflationMultiplier, currentWeek, currentYear, modifiers);
-    updatedBusinesses.push(result.updatedBusiness);
+    const holdingSynergy = getHoldingSynergyProfile(biz, businesses, holdingCompanies);
+    const result = processBusinessWeek(biz, inflationMultiplier, currentWeek, currentYear, {
+      ...modifiers,
+      holdingRevenueBonus: holdingSynergy.revenueBonus,
+      holdingExpenseReduction: holdingSynergy.expenseReduction,
+      holdingCrisisReduction: holdingSynergy.crisisReduction,
+    });
+    let updatedBusiness = result.updatedBusiness;
+
+    const createdNewDecision = !biz.pendingDecision && !!updatedBusiness.pendingDecision;
+    if (createdNewDecision) {
+      if (createdDecisionThisWeek) {
+        const deferred = updatedBusiness.pendingDecision!;
+        updatedBusiness = {
+          ...updatedBusiness,
+          pendingDecision: null,
+          nextStrategicDecisionWeek: deferred.kind === 'strategy'
+            ? globalWeek + 2
+            : updatedBusiness.nextStrategicDecisionWeek,
+          nextCrisisCheckWeek: deferred.kind === 'crisis'
+            ? globalWeek + 2
+            : updatedBusiness.nextCrisisCheckWeek,
+        };
+      } else {
+        createdDecisionThisWeek = true;
+      }
+    }
+
+    updatedBusinesses.push(updatedBusiness);
     totalProfit += result.weeklyProfit;
     totalDividend += result.playerDividend;
+    ownershipDistributions.push(...result.ownershipDistributions);
     totalTaxRefund += result.taxRefund;
     if (result.newEvent) events.push(result.newEvent);
     if (result.newRetention) retentionEvents.push(result.newRetention);
   }
 
-  const globalWeek = ((currentYear - 1) * 20) + currentWeek;
-  const decisionEvent = rollBusinessChoiceEvent(updatedBusinesses, globalWeek);
-  if (decisionEvent?.businessId) {
-    const idx = updatedBusinesses.findIndex((business) => business.id === decisionEvent.businessId);
-    if (idx >= 0) {
-      const templateId = String(decisionEvent.id).replace(`_${decisionEvent.businessId}`, '');
-      updatedBusinesses[idx] = {
-        ...updatedBusinesses[idx],
-        lastBusinessEventWeek: globalWeek,
-        businessEventCooldowns: { ...(updatedBusinesses[idx].businessEventCooldowns ?? {}), [templateId]: globalWeek },
-      };
-    }
-  }
-  return { updatedBusinesses, totalProfit, totalDividend, totalTaxRefund, events, retentionEvents, decisionEvent };
+  return { updatedBusinesses, totalProfit, totalDividend, ownershipDistributions, totalTaxRefund, events, retentionEvents };
 }
 
 export function getTotalBusinessValue(businesses: OwnedBusiness[]): number {

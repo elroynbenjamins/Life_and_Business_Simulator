@@ -10,7 +10,7 @@ import useGameStore from '../../src/store/gameStore';
 import { formatCurrency, formatPercent } from '../../src/utils/format';
 import stocksData from '../../src/data/stocks.json';
 
-type FilterType = 'all' | 'stock' | 'commodity' | 'etf';
+type FilterType = 'all' | 'stock' | 'commodity' | 'etf' | 'crypto';
 
 export default function MarketScreen() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function MarketScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.headerTitle}>Stock Market</Text>
+          <Text style={styles.headerTitle}>Markets</Text>
           <Text style={styles.headerSub}>Prices update weekly</Text>
         </View>
         <Pressable style={styles.portfolioBtn} onPress={() => router.push('/portfolio')}>
@@ -35,15 +35,15 @@ export default function MarketScreen() {
       <GameStatusBar />
 
       {/* Filter Tabs */}
-      <View style={styles.filterRow}>
-        {(['all', 'stock', 'etf', 'commodity'] as FilterType[]).map((f) => (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+        {(['all', 'stock', 'etf', 'commodity', 'crypto'] as FilterType[]).map((f) => (
           <Pressable key={f} style={[styles.filterTab, filter === f && styles.filterActive]} onPress={() => setFilter(f)}>
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f === 'all' ? 'All' : f === 'stock' ? 'Stocks' : f === 'etf' ? 'ETFs' : 'Commodities'}
+              {f === 'all' ? 'All' : f === 'stock' ? 'Stocks' : f === 'etf' ? 'ETFs' : f === 'crypto' ? 'Crypto' : 'Commodities'}
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {filtered.map((sd) => {
@@ -72,7 +72,7 @@ export default function MarketScreen() {
                   {isPositive ? '▲' : '▼'} {formatPercent(changePercent)}
                 </Text>
                 {(holding?.shares ?? 0) > 0 ? (
-                  <Text style={styles.sharesBadge}>{holding?.shares} shares</Text>
+                  <Text style={styles.sharesBadge}>{holding?.shares} {sd?.type === 'crypto' ? 'coins' : 'shares'}</Text>
                 ) : null}
               </View>
             </Pressable>
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   headerSub: { color: Colors.textMuted, fontSize: 13 },
   portfolioBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary },
   portfolioBtnText: { color: Colors.primary, fontSize: 13, fontWeight: '600' },
-  filterRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
+  filterRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingBottom: 8, paddingRight: 24 },
   filterTab: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder },
   filterActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },

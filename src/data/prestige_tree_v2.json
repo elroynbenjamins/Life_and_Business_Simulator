@@ -9,6 +9,7 @@
       "type": "salary_multiplier",
       "value": 0.01
     },
+    "tier": 1,
     "gemCost": 0
   },
   {
@@ -22,6 +23,7 @@
       "value": 0.02
     },
     "requires": "salary_boost",
+    "tier": 2,
     "gemCost": 0
   },
   {
@@ -35,7 +37,8 @@
       "value": 0.02
     },
     "requires": "salary_boost_2",
-    "gemCost": 0
+    "gemCost": 10,
+    "tier": 3
   },
   {
     "id": "salary_boost_4",
@@ -48,7 +51,8 @@
       "value": 0.025
     },
     "requires": "salary_boost_3",
-    "gemCost": 5
+    "gemCost": 25,
+    "tier": 4
   },
   {
     "id": "study_speed",
@@ -60,6 +64,7 @@
       "type": "study_speed",
       "value": 0.01
     },
+    "tier": 1,
     "gemCost": 0
   },
   {
@@ -73,6 +78,7 @@
       "value": 0.02
     },
     "requires": "study_speed",
+    "tier": 2,
     "gemCost": 0
   },
   {
@@ -86,7 +92,8 @@
       "value": 0.02
     },
     "requires": "study_speed_2",
-    "gemCost": 0
+    "gemCost": 10,
+    "tier": 3
   },
   {
     "id": "study_speed_4",
@@ -99,7 +106,8 @@
       "value": 0.025
     },
     "requires": "study_speed_3",
-    "gemCost": 5
+    "gemCost": 25,
+    "tier": 4
   },
   {
     "id": "starting_cash",
@@ -111,6 +119,7 @@
       "type": "starting_cash",
       "value": 1000
     },
+    "tier": 1,
     "gemCost": 0
   },
   {
@@ -124,6 +133,7 @@
       "value": 1500
     },
     "requires": "starting_cash",
+    "tier": 2,
     "gemCost": 0
   },
   {
@@ -137,7 +147,8 @@
       "value": 2500
     },
     "requires": "starting_cash_2",
-    "gemCost": 0
+    "gemCost": 10,
+    "tier": 3
   },
   {
     "id": "starting_cash_4",
@@ -150,7 +161,8 @@
       "value": 2500
     },
     "requires": "starting_cash_3",
-    "gemCost": 5
+    "gemCost": 25,
+    "tier": 4
   },
   {
     "id": "business_costs",
@@ -162,6 +174,7 @@
       "type": "business_cost_reduction",
       "value": 0.01
     },
+    "tier": 1,
     "gemCost": 0
   },
   {
@@ -175,6 +188,7 @@
       "value": 0.02
     },
     "requires": "business_costs",
+    "tier": 2,
     "gemCost": 0
   },
   {
@@ -188,7 +202,8 @@
       "value": 0.02
     },
     "requires": "business_costs_2",
-    "gemCost": 0
+    "gemCost": 10,
+    "tier": 3
   },
   {
     "id": "business_costs_4",
@@ -201,7 +216,8 @@
       "value": 0.025
     },
     "requires": "business_costs_3",
-    "gemCost": 5
+    "gemCost": 25,
+    "tier": 4
   },
   {
     "id": "skill_growth",
@@ -214,6 +230,7 @@
       "value": 0.02,
       "stacking": "highest"
     },
+    "tier": 1,
     "gemCost": 0
   },
   {
@@ -228,6 +245,7 @@
       "stacking": "highest"
     },
     "requires": "skill_growth",
+    "tier": 2,
     "gemCost": 0
   },
   {
@@ -242,7 +260,8 @@
       "stacking": "highest"
     },
     "requires": "skill_growth_2",
-    "gemCost": 0
+    "gemCost": 10,
+    "tier": 3
   },
   {
     "id": "skill_growth_4",
@@ -256,21 +275,8 @@
       "stacking": "highest"
     },
     "requires": "skill_growth_3",
-    "gemCost": 0
-  },
-  {
-    "id": "skill_growth_5",
-    "name": "Rental Growth V",
-    "description": "Total extra real estate rent bonus: +10%",
-    "icon": "🏘️",
-    "cost": 135,
-    "requires": "skill_growth_4",
-    "effect": {
-      "type": "rental_growth",
-      "value": 0.1,
-      "stacking": "highest"
-    },
-    "gemCost": 5
+    "gemCost": 25,
+    "tier": 4
   },
   {
     "id": "loan_rate",
@@ -348,6 +354,7 @@
       "type": "tax_reduction",
       "value": 0.01
     },
+    "tier": 1,
     "gemCost": 0
   },
   {
@@ -361,6 +368,7 @@
       "value": 0.02
     },
     "requires": "tax_reduction",
+    "tier": 2,
     "gemCost": 0
   },
   {
@@ -374,7 +382,8 @@
       "value": 0.02
     },
     "requires": "tax_reduction_2",
-    "gemCost": 0
+    "gemCost": 10,
+    "tier": 3
   },
   {
     "id": "tax_reduction_4",
@@ -387,7 +396,8 @@
       "value": 0.025
     },
     "requires": "tax_reduction_3",
-    "gemCost": 5
+    "gemCost": 25,
+    "tier": 4
   },
   {
     "id": "dividend_boost",
@@ -400,6 +410,7 @@
       "value": 0.05,
       "stacking": "highest"
     },
+    "tier": 1,
     "gemCost": 0
   },
   {
@@ -414,6 +425,7 @@
       "stacking": "highest"
     },
     "requires": "dividend_boost",
+    "tier": 2,
     "gemCost": 0
   },
   {
@@ -428,7 +440,8 @@
       "stacking": "highest"
     },
     "requires": "dividend_boost_2",
-    "gemCost": 0
+    "gemCost": 10,
+    "tier": 3
   },
   {
     "id": "dividend_boost_4",
@@ -442,7 +455,8 @@
       "stacking": "highest"
     },
     "requires": "dividend_boost_3",
-    "gemCost": 5
+    "gemCost": 25,
+    "tier": 4
   },
   {
     "id": "negotiation",
@@ -453,6 +467,248 @@
     "effect": {
       "type": "negotiation",
       "value": 0.05
+    },
+    "gemCost": 5
+  },
+  {
+    "id": "business_resilience",
+    "name": "Business Resilience I",
+    "description": "Reduce the chance of new business crises by 5%",
+    "icon": "🛡️",
+    "cost": 95,
+    "tier": 1,
+    "effect": {
+      "type": "business_crisis_reduction",
+      "value": 0.05,
+      "stacking": "highest"
+    }
+  },
+  {
+    "id": "business_resilience_2",
+    "name": "Business Resilience II",
+    "description": "Reduce the chance of new business crises by 10%",
+    "icon": "🛡️",
+    "cost": 115,
+    "tier": 2,
+    "effect": {
+      "type": "business_crisis_reduction",
+      "value": 0.1,
+      "stacking": "highest"
+    },
+    "requires": "business_resilience"
+  },
+  {
+    "id": "business_resilience_3",
+    "name": "Business Resilience III",
+    "description": "Reduce the chance of new business crises by 15%",
+    "icon": "🛡️",
+    "cost": 135,
+    "gemCost": 10,
+    "tier": 3,
+    "effect": {
+      "type": "business_crisis_reduction",
+      "value": 0.15,
+      "stacking": "highest"
+    },
+    "requires": "business_resilience_2"
+  },
+  {
+    "id": "business_resilience_4",
+    "name": "Business Resilience IV",
+    "description": "Reduce the chance of new business crises by 20%",
+    "icon": "🛡️",
+    "cost": 155,
+    "gemCost": 25,
+    "tier": 4,
+    "effect": {
+      "type": "business_crisis_reduction",
+      "value": 0.2,
+      "stacking": "highest"
+    },
+    "requires": "business_resilience_3"
+  },
+  {
+    "id": "family_leadership",
+    "name": "Family Leadership I",
+    "description": "+3 starting performance for family governance appointments",
+    "icon": "👪",
+    "cost": 90,
+    "tier": 1,
+    "effect": {
+      "type": "family_governance_bonus",
+      "value": 3,
+      "stacking": "highest"
+    }
+  },
+  {
+    "id": "family_leadership_2",
+    "name": "Family Leadership II",
+    "description": "+6 starting performance for family governance appointments",
+    "icon": "👪",
+    "cost": 110,
+    "tier": 2,
+    "effect": {
+      "type": "family_governance_bonus",
+      "value": 6,
+      "stacking": "highest"
+    },
+    "requires": "family_leadership"
+  },
+  {
+    "id": "family_leadership_3",
+    "name": "Family Leadership III",
+    "description": "+9 starting performance for family governance appointments",
+    "icon": "👪",
+    "cost": 130,
+    "gemCost": 10,
+    "tier": 3,
+    "effect": {
+      "type": "family_governance_bonus",
+      "value": 9,
+      "stacking": "highest"
+    },
+    "requires": "family_leadership_2"
+  },
+  {
+    "id": "family_leadership_4",
+    "name": "Family Leadership IV",
+    "description": "+12 starting performance for family governance appointments",
+    "icon": "👪",
+    "cost": 150,
+    "gemCost": 25,
+    "tier": 4,
+    "effect": {
+      "type": "family_governance_bonus",
+      "value": 12,
+      "stacking": "highest"
+    },
+    "requires": "family_leadership_3"
+  },
+  {
+    "id": "legacy_planning",
+    "name": "Legacy Planning I",
+    "description": "Reduce child inheritance tax by 2%",
+    "icon": "📜",
+    "cost": 110,
+    "tier": 1,
+    "effect": {
+      "type": "inheritance_tax_reduction",
+      "value": 0.02,
+      "stacking": "highest"
+    }
+  },
+  {
+    "id": "legacy_planning_2",
+    "name": "Legacy Planning II",
+    "description": "Reduce child inheritance tax by 5%",
+    "icon": "📜",
+    "cost": 130,
+    "tier": 2,
+    "effect": {
+      "type": "inheritance_tax_reduction",
+      "value": 0.05,
+      "stacking": "highest"
+    },
+    "requires": "legacy_planning"
+  },
+  {
+    "id": "legacy_planning_3",
+    "name": "Legacy Planning III",
+    "description": "Reduce child inheritance tax by 8%",
+    "icon": "📜",
+    "cost": 150,
+    "gemCost": 10,
+    "tier": 3,
+    "effect": {
+      "type": "inheritance_tax_reduction",
+      "value": 0.08,
+      "stacking": "highest"
+    },
+    "requires": "legacy_planning_2"
+  },
+  {
+    "id": "legacy_planning_4",
+    "name": "Legacy Planning IV",
+    "description": "Reduce child inheritance tax by 10%",
+    "icon": "📜",
+    "cost": 170,
+    "gemCost": 25,
+    "tier": 4,
+    "effect": {
+      "type": "inheritance_tax_reduction",
+      "value": 0.1,
+      "stacking": "highest"
+    },
+    "requires": "legacy_planning_3"
+  },
+  {
+    "id": "crypto_risk_control",
+    "name": "Crypto Risk Control I",
+    "description": "Reduce negative crypto price moves by 4%",
+    "icon": "🪙",
+    "cost": 90,
+    "tier": 1,
+    "effect": {
+      "type": "crypto_downside_reduction",
+      "value": 0.04,
+      "stacking": "highest"
+    }
+  },
+  {
+    "id": "crypto_risk_control_2",
+    "name": "Crypto Risk Control II",
+    "description": "Reduce negative crypto price moves by 8%",
+    "icon": "🪙",
+    "cost": 110,
+    "tier": 2,
+    "effect": {
+      "type": "crypto_downside_reduction",
+      "value": 0.08,
+      "stacking": "highest"
+    },
+    "requires": "crypto_risk_control"
+  },
+  {
+    "id": "crypto_risk_control_3",
+    "name": "Crypto Risk Control III",
+    "description": "Reduce negative crypto price moves by 12%",
+    "icon": "🪙",
+    "cost": 130,
+    "gemCost": 10,
+    "tier": 3,
+    "effect": {
+      "type": "crypto_downside_reduction",
+      "value": 0.12,
+      "stacking": "highest"
+    },
+    "requires": "crypto_risk_control_2"
+  },
+  {
+    "id": "crypto_risk_control_4",
+    "name": "Crypto Risk Control IV",
+    "description": "Reduce negative crypto price moves by 16%",
+    "icon": "🪙",
+    "cost": 150,
+    "gemCost": 25,
+    "tier": 4,
+    "effect": {
+      "type": "crypto_downside_reduction",
+      "value": 0.16,
+      "stacking": "highest"
+    },
+    "requires": "crypto_risk_control_3"
+  },
+  {
+    "id": "skill_growth_5",
+    "name": "Rental Growth V",
+    "description": "Total extra real estate rent bonus: +10%",
+    "icon": "🏘️",
+    "cost": 135,
+    "requires": "skill_growth_4",
+    "effect": {
+      "type": "rental_growth",
+      "value": 0.1,
+      "stacking": "highest"
     },
     "gemCost": 5
   }

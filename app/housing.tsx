@@ -10,6 +10,7 @@ import StatusPill from '../src/components/StatusPill';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { inflated } from '../src/engine/economyEngine';
+import { getHouseholdSize, getHousingCapacity } from '../src/engine/relationshipEngine';
 import housingData from '../src/data/housing.json';
 import carsData from '../src/data/cars.json';
 import { showGameDialog } from '../src/components/GameDialog';
@@ -23,6 +24,9 @@ export default function LifestyleScreen() {
   const pendingCarDelivery = useGameStore((s) => s?.pendingCarDelivery);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
+  const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
+  const fullState = useGameStore();
+  const householdSize = relationshipModeEnabled ? getHouseholdSize(fullState) : 1;
   const changeHousing = useGameStore((s) => s?.changeHousing);
   const changeCar = useGameStore((s) => s?.changeCar);
   // buyHouseUpgrade removed
@@ -76,6 +80,12 @@ export default function LifestyleScreen() {
                   <Text style={styles.name}>{h?.name}</Text>
                   <Text style={styles.cost}>{formatCurrency(inflated(h?.weeklyRent, inflationMultiplier))}/week rent</Text>
                   <Text style={styles.utilityCost}>⚡ Utilities: {formatCurrency(utilCost)}/week</Text>
+                  {relationshipModeEnabled && (
+                    <>
+                      <Text style={styles.capacityText}>👥 Comfortable household: {getHousingCapacity(h.id)} • Yours: {householdSize}</Text>
+                      {householdSize > getHousingCapacity(h.id) && <Text style={styles.crowdedText}>Too small for your current household</Text>}
+                    </>
+                  )}
                   {/* happiness hidden */}
                 </View>
                 {isCurrent ? <StatusPill label="Current" color={Colors.info} /> : null}
@@ -157,6 +167,8 @@ const styles = StyleSheet.create({
   utilityCost: { color: Colors.info, fontSize: 13, marginTop: 2 },
   desc: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
   happinessText: { color: Colors.happiness, fontSize: 12, marginTop: 2 },
+  capacityText: { color: Colors.textSecondary, fontSize: 12, marginTop: 3 },
+  crowdedText: { color: Colors.negative, fontSize: 11, fontWeight: '700', marginTop: 2 },
   actionBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginTop: 10 },
   actionText: { fontWeight: '600', fontSize: 14 },
   cantAfford: { color: Colors.textMuted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },

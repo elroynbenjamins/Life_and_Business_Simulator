@@ -43,11 +43,13 @@ describe('September gameplay regressions', () => {
     const property = { ...createProperty('studio', 1, 1, 1)!, weeklyIncome: 100, weeklyMaintenance: 0, isRentedOut: true };
     expect(processProperties([property], 2, effects.property_income).totalIncome).toBe(220);
   });
-  test('only final nodes require 5 gems', () => {
+  test('expanded prestige tiers use the current gem costs', () => {
     const bonuses = getPrestigeBonuses();
     for (const bonus of bonuses) {
       const hasChild = bonuses.some(other => (Array.isArray(other.requires) ? other.requires : [other.requires]).includes(bonus.id));
-      expect(bonus.gemCost).toBe(hasChild ? 0 : 5);
+      if (bonus.tier === 3) expect(bonus.gemCost).toBe(10);
+      else if (bonus.tier === 4) expect(bonus.gemCost).toBe(25);
+      else expect(bonus.gemCost ?? 0).toBe(hasChild ? 0 : 5);
     }
   });
   function staffedBusiness() {

@@ -85,6 +85,24 @@ export function calculateHappiness(state: GameState): number {
     if (anyLosing) happiness -= 5;
   }
 
+  // Personal life bonus/strain (only when the optional mode is enabled)
+  if (state?.relationshipModeEnabled) {
+    const partner = state?.relationshipState?.partnerId
+      ? (state?.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState.partnerId)
+      : null;
+    if (partner) {
+      happiness += 4;
+      if (partner.stage === 'married') happiness += 3;
+      else if (partner.isCohabiting || partner.stage === 'living_together') happiness += 2;
+
+      if ((partner.relationship ?? 70) >= 85) happiness += 3;
+      if ((partner.relationship ?? 70) < 40) happiness -= 8;
+    }
+
+    const children = state?.relationshipState?.children ?? [];
+    if (children.length > 0) happiness += Math.min(5, children.length * 2);
+  }
+
   // Temporary happiness effects from life events
   for (const effect of state?.tempHappinessEffects ?? []) {
     happiness += effect?.amount ?? 0;

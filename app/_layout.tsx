@@ -21,6 +21,8 @@ import EducationOnboardingModal from '../src/components/EducationOnboardingModal
 import { initializeAdConsent } from '../src/services/adPrivacyManager';
 import EducationCareerReminderModal from '../src/components/EducationCareerReminderModal';
 import { ThemeProvider, useThemePreference } from '../src/theme/ThemeProvider';
+import DeathModal from '../src/components/DeathModal';
+import RelationshipEventModal from '../src/components/RelationshipEventModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -75,6 +77,9 @@ function RootContent() {
         <Stack.Screen name="properties" />
         <Stack.Screen name="info" />
         <Stack.Screen name="privacy" />
+        <Stack.Screen name="relationships" />
+        <Stack.Screen name="family-tree" />
+        <Stack.Screen name="succession" />
       </Stack>
       <MainMenu />
       <SaveSlotPicker />
@@ -87,6 +92,8 @@ function RootContent() {
       <PeriodReportModal />
       <ScheduledAdModal />
       <EducationCareerReminderModal />
+      <RelationshipEventModal />
+      <DeathModal />
       <GameDialog />
       <BusinessBalanceWarning />
     </SafeAreaProvider>

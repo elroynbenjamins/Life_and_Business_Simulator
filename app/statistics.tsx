@@ -140,12 +140,12 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
           <Row label="Courses Completed" value={`${s?.coursesCompleted ?? 0}`} />
         </GameCard>
 
-        <GameCard title="Stocks">
-          <Row label="Total Dividends Received" value={formatCurrency(s?.totalDividendsReceived ?? 0)} tone="positive" />
-          <Row label="Highest Profit on a Sold Stock" value={`${(s?.highestSoldStockProfitPercent ?? 0).toFixed(1)}%`} tone="positive" />
+        <GameCard title="Market Investments">
+          <Row label="Dividends / Staking Received" value={formatCurrency(s?.totalDividendsReceived ?? 0)} tone="positive" />
+          <Row label="Highest Profit on a Sold Asset" value={`${(s?.highestSoldStockProfitPercent ?? 0).toFixed(1)}%`} tone="positive" />
           <Row label="Lifetime Realized Profit / Loss" value={formatCurrency(s?.totalRealizedProfitLoss ?? 0)} amount={s?.totalRealizedProfitLoss ?? 0} />
-          <Row label="Total Stocks Owned" value={`${totalStocksOwned} shares`} />
-          <Row label="Highest Stock Portfolio Value" value={formatCurrency(s?.highestStockPortfolioValue ?? 0)} tone="positive" />
+          <Row label="Total Units Owned" value={`${totalStocksOwned} units`} />
+          <Row label="Highest Market Portfolio Value" value={formatCurrency(s?.highestStockPortfolioValue ?? 0)} tone="positive" />
         </GameCard>
 
         <GameCard title="Living">

@@ -7,6 +7,7 @@ export default function NameEntryModal() {
   const showNameModal = useGameStore((s) => s?.showNameModal);
   const startNewGame = useGameStore((s) => s?.startNewGame);
   const [name, setName] = useState('');
+  const [relationshipModeEnabled, setRelationshipModeEnabled] = useState(false);
 
   if (!showNameModal) return null;
 
@@ -25,9 +26,27 @@ export default function NameEntryModal() {
             autoFocus
             maxLength={20}
           />
+          <View style={styles.modeBox}>
+            <View style={styles.modeHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modeTitle}>Personal Life</Text>
+                <Text style={styles.modeDesc}>Optional dating and relationship gameplay that can affect household finances and happiness.</Text>
+              </View>
+              <Pressable
+                style={[styles.toggle, relationshipModeEnabled && styles.toggleOn]}
+                onPress={() => setRelationshipModeEnabled((value) => !value)}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: relationshipModeEnabled }}
+              >
+                <View style={[styles.toggleThumb, relationshipModeEnabled && styles.toggleThumbOn]} />
+              </Pressable>
+            </View>
+            <Text style={styles.modeStatus}>{relationshipModeEnabled ? 'Enabled for this save' : 'Disabled — economy-only play remains unchanged'}</Text>
+          </View>
+
           <Pressable
             style={styles.button}
-            onPress={() => startNewGame?.(name)}
+            onPress={() => startNewGame?.(name, relationshipModeEnabled)}
           >
             <Text style={styles.buttonText}>Start Game</Text>
           </Pressable>
@@ -74,6 +93,55 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
+  },
+  modeBox: {
+    backgroundColor: Colors.elevated,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  modeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  modeTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modeDesc: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 3,
+  },
+  modeStatus: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 10,
+  },
+  toggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.cardBorder,
+    padding: 3,
+    justifyContent: 'center',
+  },
+  toggleOn: {
+    backgroundColor: Colors.happiness,
+  },
+  toggleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.white,
+  },
+  toggleThumbOn: {
+    alignSelf: 'flex-end',
   },
   button: {
     backgroundColor: Colors.primary,

@@ -1,5 +1,8 @@
 import { GameState, WeekSummary, LifetimeStatistics, INITIAL_STATISTICS, INITIAL_CAREER_STATE, TriggeredEvent, TempHappinessEffect, PendingInvestment, AuctionResult, RealEstateAuction } from '../types/game';
 import { processEconomy } from './economyEngine';
+import { processRelationships } from './relationshipEngine';
+import { processLifecycle } from './lifecycleEngine';
+import { syncFamilyTree } from './familyTreeEngine';
 import { processNews } from './newsEngine';
 import { processStocks, rollMarketSentiment, rollMarketEvent, processDividends } from './stockEngine';
 import { processEducation } from './educationEngine';
@@ -43,6 +46,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     week: newWeek,
     year: newYear,
     age: newAge,
+    lastMacroCrashWeek: economy.crashEvent ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
   };
 
   // Purchased vehicles arrive after this week's progression has completed.
@@ -64,7 +68,12 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const news = processNews();
 
   // ---------- Step 4: Stocks ----------
-  const stockResult = processStocks(stateWithInflation, news);
+  const stockResult = processStocks(
+    stateWithInflation,
+    news,
+    economy.crashEvent?.stockShock ?? 0,
+    prestigeEffects.crypto_downside_reduction ?? 0,
+  );
 
   // ---------- Step 4.5: Dividends ----------
   const baseDividendIncome = processDividends({ ...stateWithInflation, stocks: stockResult.stocks }, globalWeek);
@@ -104,6 +113,9 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     globalWeek
   );
 
+  // ---------- Step 7.5: Personal Life ----------
+  const relationshipTick = processRelationships(stateWithInflation);
+
   // ---------- Step 8: Income ----------
   const salaryReduced = isSalaryReduced(stateWithInflation);
   const legacyIncome = processIncome(stateWithInflation);
@@ -134,8 +146,16 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   });
 
   // ---------- Step 12: Cash Settlement ----------
-  const totalExpenses = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + expenses.courseCost + loanResult.totalPaid;
-  let newCash = (state?.cash ?? 0) + salary + partTimeIncome + dividendIncome + bankDepositMaturityIncome - totalExpenses - taxes.taxAmount;
+  const totalExpenses = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + expenses.courseCost + loanResult.totalPaid + relationshipTick.householdExtraCost + relationshipTick.familyCost + relationshipTick.obligationCost;
+  let newCash = (state?.cash ?? 0)
+    + salary
+    + partTimeIncome
+    + dividendIncome
+    + bankDepositMaturityIncome
+    + relationshipTick.partnerContribution
+    + relationshipTick.partnerInheritance
+    - totalExpenses
+    - taxes.taxAmount;
 
   // ---------- Step 12.3: Property Income ----------
   const propResult = processProperties(state?.properties ?? [], economy.inflationMultiplier, prestigeEffects.property_income ?? 0);
@@ -209,11 +229,46 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const bizResult = processAllBusinesses(state?.businesses ?? [], economy.inflationMultiplier, newWeek, newYear, {
     businessCostReduction: prestigeEffects.business_cost_reduction ?? 0,
     competitorRevenueMultipliers: compResult.competitorRevenueMultipliers,
-  });
-  triggeredEvent = bizResult.decisionEvent;
+    businessCrisisReduction: prestigeEffects.business_crisis_reduction ?? 0,
+  }, state?.holdingCompanies ?? []);
   const adjustedBizProfit = bizResult.totalProfit;
   const adjustedBusinesses = bizResult.updatedBusinesses;
   newCash += bizResult.totalDividend;
+
+  const childDividendMap = new Map<string, number>();
+  const currentChildIds = new Set((relationshipTick.state.children ?? []).map((child) => child.id));
+  let familyTrustDistribution = 0;
+  let familyTreeAfterBusiness = state.familyTree;
+  for (const distribution of bizResult.ownershipDistributions ?? []) {
+    if (distribution.ownerType === 'child') {
+      if (currentChildIds.has(distribution.ownerId)) {
+        childDividendMap.set(
+          distribution.ownerId,
+          (childDividendMap.get(distribution.ownerId) ?? 0) + (distribution.amount ?? 0),
+        );
+      } else {
+        const treePersonId = `person:${distribution.ownerId}`;
+        familyTreeAfterBusiness = {
+          ...(familyTreeAfterBusiness ?? { currentPlayerId: null, people: [] }),
+          people: (familyTreeAfterBusiness?.people ?? []).map((person) =>
+            person.id === treePersonId
+              ? { ...person, liquidWealth: (person.liquidWealth ?? 0) + (distribution.amount ?? 0) }
+              : person
+          ),
+        };
+      }
+    } else if (distribution.ownerType === 'family_trust') {
+      familyTrustDistribution += distribution.amount ?? 0;
+    }
+  }
+  const relationshipStateAfterBusiness = {
+    ...relationshipTick.state,
+    children: (relationshipTick.state.children ?? []).map((child) => ({
+      ...child,
+      savings: (child.savings ?? 0) + (childDividendMap.get(child.id) ?? 0),
+    })),
+    familyTrustCash: (relationshipTick.state.familyTrustCash ?? 0) + familyTrustDistribution,
+  };
 
   // ---------- Step 12.7: Tick Temp Happiness Effects ----------
   const updatedTempEffects: TempHappinessEffect[] = [];
@@ -221,6 +276,13 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     if ((eff.weeksRemaining ?? 0) > 1) {
       updatedTempEffects.push({ ...eff, weeksRemaining: (eff.weeksRemaining ?? 1) - 1 });
     }
+  }
+  if (relationshipTick.partnerDiedName) {
+    updatedTempEffects.push({
+      amount: -20,
+      weeksRemaining: 6,
+      source: 'Bereavement',
+    });
   }
   // Life events removed — no event happiness delta
 
@@ -264,10 +326,26 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
       return next.length > 40 ? next.slice(next.length - 40) : next;
     })(),
     partTimeJob: partTimeActive,
+    relationshipState: relationshipStateAfterBusiness,
+    familyTree: familyTreeAfterBusiness,
+    lifecycle: state?.lifecycle,
+    lastMacroCrashWeek: economy.crashEvent ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
   };
 
   const happiness = calculateHappiness(tempState);
   tempState.happiness = happiness;
+
+  // ---------- Step 13.5: Lifecycle ----------
+  // Mortality is checked only when the player ages, never on every weekly advance.
+  const lifecycleResult = processLifecycle(tempState, state?.age ?? 20);
+  tempState.lifecycle = lifecycleResult.lifecycle;
+  if (lifecycleResult.estateSettlement) {
+    tempState.relationshipState = {
+      ...tempState.relationshipState,
+      estateSettlement: lifecycleResult.estateSettlement,
+    };
+  }
+  tempState.familyTree = syncFamilyTree(tempState);
 
   // ---------- Step 14: Net Worth ----------
   const nw = getNetWorth(tempState);
@@ -278,7 +356,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
 
   // ---------- Step 15: Statistics ----------
   const prevStats: LifetimeStatistics = state?.statistics ?? { ...INITIAL_STATISTICS };
-  const livingCosts = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost;
+  const livingCosts = expenses.rent + expenses.utilityCost + expenses.carCost + expenses.foodCost + relationshipTick.householdExtraCost + relationshipTick.familyCost;
   const isEmployed = hasCareerV2 || !!state?.currentJobId;
   const stats: LifetimeStatistics = {
     ...INITIAL_STATISTICS,
@@ -369,6 +447,21 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     realizedProfitLoss: 0,
     dividendIncome,
     partTimeIncome,
+    partnerContribution: relationshipTick.partnerContribution,
+    relationshipHouseholdCost: relationshipTick.householdExtraCost,
+    familyCost: relationshipTick.familyCost,
+    relationshipObligationCost: relationshipTick.obligationCost,
+    relationshipEventTitle: relationshipTick.eventTitle,
+    childBornName: relationshipTick.childBornName,
+    relationshipGoalCompleted: relationshipTick.relationshipGoalCompleted,
+    partnerCareerEvent: relationshipTick.partnerCareerEvent,
+    partnerDiedName: relationshipTick.partnerDiedName,
+    partnerInheritance: relationshipTick.partnerInheritance,
+    familyMilestones: relationshipTick.familyMilestones,
+    relationshipChange: relationshipTick.relationshipChange,
+    relationshipHeadline: relationshipTick.headline,
+    crashEvent: economy.crashEvent,
+    diedThisWeek: lifecycleResult.diedThisWeek,
     educationCareerReminder: edu.completedCourseData ? {
       courseLevel: edu.completedCourseData.level,
       courseName: edu.completedCourseData.name,

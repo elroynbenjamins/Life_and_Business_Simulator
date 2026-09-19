@@ -124,7 +124,7 @@ function getCombinedMarketEffects(
   }
 
   for (const event of events) {
-    if ((event.assetTypes?.length ?? 0) > 0 && !event.assetTypes?.includes(assetType as 'stock' | 'commodity' | 'etf')) continue;
+    if ((event.assetTypes?.length ?? 0) > 0 && !event.assetTypes?.includes(assetType as 'stock' | 'commodity' | 'etf' | 'crypto')) continue;
     for (const [sector, val] of Object.entries(event.effects)) {
       sectorEffects[sector] = (sectorEffects[sector] ?? 0) + (val as number) * 0.05;
     }
@@ -134,8 +134,8 @@ function getCombinedMarketEffects(
 }
 
 /**
- * Process bank dividends (yearly, every 20 weeks).
- * Banking stocks pay ~2% annual dividend.
+ * Process annual investment distributions (every 20 weeks).
+ * Stocks/ETFs can pay dividends; selected crypto can pay staking rewards.
  */
 export function processDividends(
   state: GameState,
@@ -149,8 +149,9 @@ export function processDividends(
     if (!sd) continue;
     const stock = (state?.stocks ?? []).find((s) => s?.ticker === holding?.ticker);
     const price = stock?.currentPrice ?? sd.startPrice;
-    // Use each asset's configured annual yield, with fallbacks for old saves/data.
-    let rate = Number(sd.dividendYield ?? 0);
+    // Use each asset's configured annual dividend/staking yield, with fallbacks.
+    const metadata = sd as any;
+    let rate = Number(metadata.stakingYield ?? metadata.dividendYield ?? 0);
     if (rate <= 0 && sd.sector === 'Banking') rate = 0.025;
     else if (rate <= 0 && sd.sector === 'Finance') rate = 0.015;
     else if (rate <= 0 && sd.type === 'etf') rate = 0.01;
@@ -167,7 +168,9 @@ export function processDividends(
  */
 export function processStocks(
   state: GameState,
-  news: NewsEvent
+  news: NewsEvent,
+  macroShock = 0,
+  cryptoDownsideReduction = 0,
 ): { stocks: StockState[]; stockChanges: { ticker: string; change: number }[] } {
   const newsEffects = news?.effects ?? {};
   const inflationDrift = ((state?.inflationMultiplier ?? 1) - 1) * 0.0005;
@@ -175,10 +178,14 @@ export function processStocks(
 
   const newStocks = (state?.stocks ?? []).map((stock) => {
     const data = (stocksData ?? []).find((s) => s?.ticker === stock?.ticker);
+    const metadata = (data ?? {}) as any;
     const sector = data?.sector ?? '';
     const assetType = data?.type ?? 'stock';
     const isCommodity = data?.type === 'commodity';
     const isEtf = data?.type === 'etf';
+    const isCrypto = data?.type === 'crypto';
+    const cryptoStyle = metadata.cryptoStyle as 'reserve' | 'utility' | 'speculative' | undefined;
+
     const { sectorEffects: marketEffects, volatilityMult } = getCombinedMarketEffects(
       state?.activeMarketSentiment ?? null,
       state?.activeMarketEvents ?? [],
@@ -187,31 +194,90 @@ export function processStocks(
     const newsEffect = newsEffects?.[sector] ?? 0;
     const marketEffect = (marketEffects?.[sector] ?? 0) + (marketEffects?.[assetType] ?? 0) + (marketEffects?.All ?? 0);
 
-    // Volatility is deliberately below the old 4/14/10% levels so news remains
-    // important without random noise dominating a decade-long playthrough.
-    const baseVolatility = isEtf ? 0.025 : isCommodity ? 0.08 : 0.06;
-    const volatility = baseVolatility * volatilityMult;
+    // Crypto gets its own volatility profile. AurumX is deliberately the
+    // defensive coin; MojoCoin is allowed much wider weekly swings.
+    const configuredVolatility = Number(metadata.baseVolatility ?? 0);
+    const baseVolatility = isCrypto && configuredVolatility > 0
+      ? configuredVolatility
+      : isEtf ? 0.025 : isCommodity ? 0.08 : 0.06;
+    const cryptoVolatilityAdjustment = cryptoStyle === 'reserve' ? 0.85
+      : cryptoStyle === 'speculative' ? 1.15 : 1;
+    const volatility = baseVolatility * volatilityMult * cryptoVolatilityAdjustment;
     const baseChange = (Math.random() - 0.5) * volatility;
 
-    // Modest long-term growth plus a soft pull toward a 1.5% yearly trend line.
-    // This targets roughly 25-40% median growth over a 13-year playthrough.
-    const weeklyGrowthDrift = isEtf ? 0.0009 : isCommodity ? 0.0003 : 0.0007;
-    const trendPrice = (data?.startPrice ?? stock.currentPrice ?? 100) * Math.pow(1.015, elapsedWeeks / 20);
-    const trendGap = trendPrice / Math.max(1, stock.currentPrice ?? 1) - 1;
-    const meanReversion = Math.max(-0.004, Math.min(0.004, trendGap * 0.02));
+    // Per-asset trend lines keep the three crypto assets structurally distinct
+    // without guaranteeing returns.
+    const annualTrend = Number(metadata.annualTrend ?? (isEtf ? 0.018 : isCommodity ? 0.006 : 0.015));
+    const weeklyGrowthDrift = Math.pow(1 + annualTrend, 1 / 20) - 1;
+    const trendPrice = (data?.startPrice ?? stock.currentPrice ?? 100) * Math.pow(1 + annualTrend, elapsedWeeks / 20);
+    const trendGap = trendPrice / Math.max(isCrypto ? 0.01 : 1, stock.currentPrice ?? 1) - 1;
+    const reversionCap = cryptoStyle === 'speculative' ? 0.012 : isCrypto ? 0.007 : 0.004;
+    const meanReversion = Math.max(-reversionCap, Math.min(reversionCap, trendGap * 0.02));
 
-    // Slightly asymmetric circuit breakers reduce long-run collapse from volatility drag
-    // and prevent lifetime gain/loss records from always converging on the same magnitude.
-    let totalChange = Math.max(-0.08, Math.min(0.10, baseChange + newsEffect + marketEffect + inflationDrift + weeklyGrowthDrift + meanReversion));
+    // Crypto-specific mechanics.
+    const history = stock?.priceHistory ?? [];
+    let momentumEffect = 0;
+    if (isCrypto && history.length >= 2) {
+      const last = history[history.length - 1] ?? stock.currentPrice ?? 0;
+      const previous = history[history.length - 2] ?? last;
+      if (previous > 0) {
+        const previousMove = (last - previous) / previous;
+        const factor = Number(metadata.momentumFactor ?? 0);
+        const cap = cryptoStyle === 'speculative' ? 0.07 : cryptoStyle === 'utility' ? 0.025 : 0.012;
+        momentumEffect = Math.max(-cap, Math.min(cap, previousMove * factor));
+      }
+    }
+
+    const techSensitivity = cryptoStyle === 'utility' ? Number(metadata.techSensitivity ?? 0) : 0;
+    const techEffect = techSensitivity * ((newsEffects?.Tech ?? 0) + (marketEffects?.Tech ?? 0));
+
+    const inflationSensitivity = cryptoStyle === 'reserve' ? Number(metadata.inflationSensitivity ?? 0) : 0;
+    const reserveInflationEffect = Math.max(0, (state?.inflationMultiplier ?? 1) - 1) * inflationSensitivity;
+    const scarcityDrift = cryptoStyle === 'reserve'
+      ? Math.min(0.0006, Math.floor(elapsedWeeks / 80) * 0.00015)
+      : 0;
+
+    let maniaEffect = 0;
+    if (cryptoStyle === 'speculative' && Math.random() < Number(metadata.maniaChance ?? 0)) {
+      const direction = Math.random() < 0.55 ? 1 : -1;
+      maniaEffect = direction * (0.08 + Math.random() * 0.12);
+    }
+
+    const effectiveMacroShock = macroShock * Number(metadata.macroShockMultiplier ?? 1);
+    const rawChange = baseChange
+      + newsEffect
+      + marketEffect
+      + inflationDrift
+      + weeklyGrowthDrift
+      + meanReversion
+      + momentumEffect
+      + techEffect
+      + reserveInflationEffect
+      + scarcityDrift
+      + maniaEffect
+      + effectiveMacroShock;
+
+    const protectedRawChange = isCrypto && rawChange < 0
+      ? rawChange * (1 - Math.max(0, Math.min(0.5, cryptoDownsideReduction)))
+      : rawChange;
+
+    const minChange = cryptoStyle === 'reserve' ? -0.18
+      : cryptoStyle === 'utility' ? -0.25
+        : cryptoStyle === 'speculative' ? -0.35
+          : effectiveMacroShock < 0 ? -0.30 : -0.08;
+    const maxChange = cryptoStyle === 'reserve' ? 0.18
+      : cryptoStyle === 'utility' ? 0.28
+        : cryptoStyle === 'speculative' ? 0.40
+          : 0.10;
+    const totalChange = Math.max(minChange, Math.min(maxChange, protectedRawChange));
 
     let newPrice = (stock?.currentPrice ?? 100) * (1 + totalChange);
-    newPrice = Math.max(1, Math.round(newPrice * 100) / 100);
+    newPrice = Math.max(isCrypto ? 0.01 : 1, Math.round(newPrice * 100) / 100);
 
-    const history = [...(stock?.priceHistory ?? [])];
-    history.push(newPrice);
-    if (history.length > 20) history.shift();
+    const nextHistory = [...history, newPrice];
+    if (nextHistory.length > 20) nextHistory.shift();
 
-    return { ...stock, currentPrice: newPrice, priceHistory: history };
+    return { ...stock, currentPrice: newPrice, priceHistory: nextHistory };
   });
 
   const stockChanges = newStocks.map((ns) => {

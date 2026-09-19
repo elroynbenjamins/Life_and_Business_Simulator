@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
 import { getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyCarCost, getWeeklyFoodCost, getWeeklyCourseCost, getWeeklyLoanPayments } from '../../src/engine/financeEngine';
 import { getCareerSalary } from '../../src/engine/careerEngine';
+import { calculatePartnerContribution } from '../../src/engine/relationshipEngine';
 import coursesData from '../../src/data/courses.json';
 
 export default function DashboardScreen() {
@@ -41,18 +42,25 @@ export default function DashboardScreen() {
     year: s.year,
     week: s.week,
   }))) as ReturnType<typeof useGameStore.getState>;
+  const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
+  const relationshipState = useGameStore((s) => s?.relationshipState);
+  const lifecycle = useGameStore((s) => s?.lifecycle);
+  const partner = (relationshipState?.activeConnections ?? []).find((item) => item.id === relationshipState?.partnerId) ?? null;
 
   const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
   const course = (coursesData ?? []).find((c) => c?.id === currentCourseId);
   const portfolioValue = getPortfolioValueTotal?.() ?? 0;
   const hasHoldings = (holdings?.length ?? 0) > 0;
   const totalLoanDebt = (loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
+  const businessAttentionCount = businesses.filter((business) => !!business.pendingDecision).length;
+  const businessCrisisCount = businesses.filter((business) => business.pendingDecision?.kind === 'crisis').length;
 
   // Use career v2 salary if available, otherwise legacy
   const hasCareerV2 = !!career?.companyId;
   const weeklyIncome = hasCareerV2 ? getCareerSalary(career!, state.inflationMultiplier ?? 1) : getWeeklySalary(state);
   const loanPayments = getWeeklyLoanPayments(state);
-  const weeklyExpenses = getWeeklyRent(state) + getWeeklyUtilityCost(state) + getWeeklyCarCost(state) + getWeeklyFoodCost(state) + getWeeklyCourseCost(state) + loanPayments;
+  const household = relationshipModeEnabled ? calculatePartnerContribution(partner, state) : { contribution: 0, householdExtraCost: 0, familyCost: 0, obligationCost: 0 };
+  const weeklyExpenses = getWeeklyRent(state) + getWeeklyUtilityCost(state) + getWeeklyCarCost(state) + getWeeklyFoodCost(state) + getWeeklyCourseCost(state) + loanPayments + household.householdExtraCost + household.familyCost + household.obligationCost;
 
   const isEmployed = hasCareerV2 || !!currentJobId;
   const hasIncome = isEmployed || partTimeJob;
@@ -79,7 +87,11 @@ export default function DashboardScreen() {
     }
   };
 
-  const handleNextWeek = () => { tryHaptic(); advanceWeek?.(); };
+  const handleNextWeek = () => {
+    if (lifecycle?.isDead) return;
+    tryHaptic();
+    advanceWeek?.();
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -150,12 +162,34 @@ export default function DashboardScreen() {
         {/* Primary action sits immediately above the Portfolio section. */}
         <View style={styles.primaryActionWrap}>
           <Pressable
-            style={({ pressed }) => [styles.nextWeekButton, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+            disabled={lifecycle?.isDead}
+            style={({ pressed }) => [
+              styles.nextWeekButton,
+              lifecycle?.isDead && { opacity: 0.45 },
+              { transform: [{ scale: pressed ? 0.98 : 1 }] },
+            ]}
             onPress={handleNextWeek}
           >
-            <Text style={styles.nextWeekText}>Advance to Next Week →</Text>
+            <Text style={styles.nextWeekText}>{lifecycle?.isDead ? 'Life Complete' : 'Advance to Next Week →'}</Text>
           </Pressable>
         </View>
+
+        {/* Personal Life */}
+        {relationshipModeEnabled && (
+          <GameCard title="Personal Life" onPress={() => router.push('/relationships')}>
+            {partner ? (
+              <>
+                <Text style={[styles.statValue, { color: Colors.happiness }]}>{partner.name} • {partner.stage === 'married' ? 'Married' : partner.stage === 'engaged' ? 'Engaged' : (partner.isCohabiting || partner.stage === 'living_together') ? 'Living Together' : 'Partner'}</Text>
+                <Text style={styles.statCaption}>Relationship: {Math.round(partner.relationship ?? 0)}%{household.contribution > 0 ? ` • +${formatCurrency(household.contribution)}/wk shared costs` : ''}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.statValue, { color: Colors.happiness }]}>Single</Text>
+                <Text style={styles.statCaption}>Meet someone and build a life together</Text>
+              </>
+            )}
+          </GameCard>
+        )}
 
         {/* Portfolio */}
         {hasHoldings ? (
@@ -182,6 +216,12 @@ export default function DashboardScreen() {
             <Text style={styles.statCaption}>
               Weekly P&L: {(() => { const p = businesses.reduce((t, b) => t + (b?.lastWeekProfit ?? 0), 0); return `${p >= 0 ? '+' : ''}${formatCurrency(p)}`; })()}
             </Text>
+            {businessAttentionCount > 0 && (
+              <Text style={[styles.statCaption, { color: businessCrisisCount > 0 ? Colors.negative : Colors.warning, fontWeight: '700' }]}>
+                {businessAttentionCount} compan{businessAttentionCount === 1 ? 'y needs' : 'ies need'} attention
+                {businessCrisisCount > 0 ? ` • ${businessCrisisCount} crisis${businessCrisisCount === 1 ? '' : 'es'}` : ''}
+              </Text>
+            )}
           </GameCard>
         ) : null}
 
@@ -200,10 +240,11 @@ export default function DashboardScreen() {
         {/* Quick Links */}
         <View style={styles.linksRow}>
           <QuickLink icon="home" label="Lifestyle" onPress={() => router.push('/housing')} />
+          {relationshipModeEnabled && <QuickLink icon="heart" label="Personal Life" onPress={() => router.push('/relationships')} color={Colors.happiness} notification={!!relationshipState?.pendingEvent} />}
           <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} />
           <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} />
           <QuickLink icon="pie-chart" label="Portfolio" onPress={() => router.push('/portfolio')} />
-          <QuickLink icon="business" label="Business" onPress={() => router.push('/business')} color="#06B6D4" />
+          <QuickLink icon="business" label="Business" onPress={() => router.push('/business')} color="#06B6D4" notification={businessAttentionCount > 0} />
           <QuickLink icon="home-outline" label="Properties" onPress={() => router.push('/properties')} color="#06B6D4" />
           <QuickLink icon="ribbon" label="Prestige" onPress={() => router.push('/prestige')} color="#EC4899" />
           <QuickLink icon="diamond" label="Support" onPress={() => router.push('/support')} color="#8B5CF6" notification={loginRewardAvailable} />
