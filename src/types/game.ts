@@ -409,7 +409,7 @@ export interface ActiveMarketEvent {
   id: string;
   title: string;
   effects: Record<string, number>;
-  assetTypes?: Array<'stock' | 'commodity' | 'etf'>;
+  assetTypes?: Array<'stock' | 'commodity' | 'etf' | 'crypto'>;
   weeksRemaining: number;
 }
 
@@ -553,6 +553,17 @@ export interface StockData {
   sector: string;
   startPrice: number;
   type: string;
+  cryptoStyle?: 'reserve' | 'utility' | 'speculative';
+  annualTrend?: number;
+  baseVolatility?: number;
+  momentumFactor?: number;
+  inflationSensitivity?: number;
+  techSensitivity?: number;
+  stakingYield?: number;
+  macroShockMultiplier?: number;
+  maniaChance?: number;
+  description?: string;
+  mechanic?: string;
 }
 
 export interface HousingData {
