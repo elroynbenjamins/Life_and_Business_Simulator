@@ -125,8 +125,10 @@ describe('achievement and Prestige expansion', () => {
 
     const base = getSuccessionPreview(state, child.id, 'liquidate', 0);
     const reduced = getSuccessionPreview(state, child.id, 'liquidate', 0.10);
+    const attemptedOverCap = getSuccessionPreview(state, child.id, 'liquidate', 0.50);
     expect(reduced?.inheritanceTax).toBeLessThan(base?.inheritanceTax ?? 0);
-    expect(reduced?.inheritanceTax).toBe(Math.round((base?.inheritanceTax ?? 0) * 0.88));
+    expect(reduced?.inheritanceTax).toBe(Math.round((base?.inheritanceTax ?? 0) * 0.90));
+    expect(attemptedOverCap?.inheritanceTax).toBe(reduced?.inheritanceTax);
   });
 
   test('Crypto Risk Control softens negative crypto weeks without boosting positive weeks', () => {
