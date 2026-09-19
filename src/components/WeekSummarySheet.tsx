@@ -179,7 +179,7 @@ export default function WeekSummarySheet() {
             {/* Dividends */}
             {(summary?.dividendIncome ?? 0) > 0 && (
               <View style={styles.row}>
-                <Text style={styles.rowLabel}>Dividends</Text>
+                <Text style={styles.rowLabel}>Dividends / Staking</Text>
                 <Text style={[styles.rowValue, { color: Colors.primary }]}>+{formatCurrency(summary?.dividendIncome ?? 0)}</Text>
               </View>
             )}
