@@ -68,7 +68,12 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const news = processNews();
 
   // ---------- Step 4: Stocks ----------
-  const stockResult = processStocks(stateWithInflation, news, economy.crashEvent?.stockShock ?? 0);
+  const stockResult = processStocks(
+    stateWithInflation,
+    news,
+    economy.crashEvent?.stockShock ?? 0,
+    prestigeEffects.crypto_downside_reduction ?? 0,
+  );
 
   // ---------- Step 4.5: Dividends ----------
   const baseDividendIncome = processDividends({ ...stateWithInflation, stocks: stockResult.stocks }, globalWeek);
@@ -223,6 +228,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   // ---------- Step 12.65: Business Processing ----------
   const bizResult = processAllBusinesses(state?.businesses ?? [], economy.inflationMultiplier, newWeek, newYear, {
     businessCostReduction: prestigeEffects.business_cost_reduction ?? 0,
+    businessCrisisReduction: prestigeEffects.business_crisis_reduction ?? 0,
   });
   let adjustedBizProfit = bizResult.totalProfit;
   const adjustedBusinesses = bizResult.updatedBusinesses.map((b) => {
