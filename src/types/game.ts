@@ -944,6 +944,50 @@ export type BusinessDecisionKind = 'strategy' | 'crisis';
 export type BusinessGovernanceRole = 'manager' | 'executive' | 'board' | 'successor';
 export type BusinessOwnerType = 'player' | 'child' | 'family_trust' | 'investor';
 
+export type AcquisitionRisk = 'low' | 'medium' | 'high';
+export type AcquisitionTier = 'regional' | 'national' | 'enterprise';
+
+export interface BusinessAcquisitionTarget {
+  id: string;
+  name: string;
+  typeId: string;
+  industry: string;
+  tier: AcquisitionTier;
+  askingPrice: number;
+  estimatedValue: number;
+  weeklyRevenue: number;
+  weeklyProfit: number;
+  reputation: number;
+  diligenceScore: number;
+  risk: AcquisitionRisk;
+  diligenceNotes: string[];
+  integrationWeeks: number;
+  integrationPenalty: number;
+  sellerName: string;
+  generatedGlobalWeek: number;
+}
+
+export interface BusinessAcquisitionState {
+  purchasePrice: number;
+  sellerName: string;
+  acquiredGlobalWeek: number;
+  estimatedValueAtPurchase: number;
+  integrationWeeksRemaining: number;
+  integrationPenalty: number;
+  initialRisk: AcquisitionRisk;
+  diligenceScore: number;
+}
+
+export interface HoldingCompany {
+  id: string;
+  name: string;
+  createdGlobalWeek: number;
+  founderGeneration: number;
+  generationsOwned: number;
+  controllerName: string;
+  controllerPersonId: string | null;
+}
+
 export interface BusinessOwnershipStake {
   ownerType: BusinessOwnerType;
   ownerId: string;
@@ -1062,6 +1106,11 @@ export interface OwnedBusiness {
   nextCrisisCheckWeek?: number;
   ownership?: BusinessOwnershipStake[];
   familyRoles?: BusinessFamilyRole[];
+  /** Optional organizational parent for portfolio-level capital allocation. */
+  holdingCompanyId?: string | null;
+  /** Scales mature acquired companies beyond startup-size base economics. */
+  operatingScaleMultiplier?: number;
+  acquisition?: BusinessAcquisitionState | null;
 }
 
 export interface BusinessLocation {
@@ -1141,6 +1190,9 @@ export interface GameState {
   recentEventIds: string[]; // last 10 event IDs to avoid repeats
   // Business
   businesses: OwnedBusiness[];
+  holdingCompanies: HoldingCompany[];
+  acquisitionTargets: BusinessAcquisitionTarget[];
+  lastAcquisitionRefreshWeek: number;
   // Skills & Knowledge
   skills: Record<string, number>;
   knowledge: Record<string, number>;
@@ -1207,6 +1259,9 @@ export const INITIAL_GAME_STATE: GameState = {
   pendingInvestments: [],
   recentEventIds: [],
   businesses: [],
+  holdingCompanies: [],
+  acquisitionTargets: [],
+  lastAcquisitionRefreshWeek: 0,
   skills: {},
   knowledge: {},
   career: { ...INITIAL_CAREER_STATE },
