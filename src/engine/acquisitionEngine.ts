@@ -221,7 +221,7 @@ export function createAcquiredBusiness(
         year: state.year,
         title: `🤝 Acquired for €${Math.round(purchasePrice).toLocaleString('en-US')}`,
         icon: '🤝',
-        kind: 'event',
+        kind: 'event' as const,
       },
     ].slice(-50),
   };
