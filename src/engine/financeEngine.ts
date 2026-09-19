@@ -193,10 +193,12 @@ export function getNetWorth(state: GameState): number {
     const debt = (b?.businessLoans ?? []).reduce((lt, l) => lt + (l?.remainingAmount ?? 0), 0);
     return t + debt * (getPlayerOwnershipPct(b) / 100);
   }, 0);
+  // Cash parked inside holding companies remains part of the player's net worth.
+  const holdingCash = (state?.holdingCompanies ?? []).reduce((total, holding) => total + Math.max(0, holding?.cashReserve ?? 0), 0);
   // Property values
   const propertyValue = (state?.properties ?? []).reduce((t, p) => t + (p?.currentValue ?? 0), 0);
   // Relationship/legal obligations are real liabilities once incurred.
   const relationshipDebt = (state?.relationshipState?.financialObligations ?? [])
     .reduce((total, obligation) => total + (obligation?.remainingAmount ?? 0), 0);
-  return (state?.cash ?? 0) + lockedDeposits + portfolioValue + businessValue + propertyValue - loanDebt - businessLoanDebt - relationshipDebt;
+  return (state?.cash ?? 0) + holdingCash + lockedDeposits + portfolioValue + businessValue + propertyValue - loanDebt - businessLoanDebt - relationshipDebt;
 }
