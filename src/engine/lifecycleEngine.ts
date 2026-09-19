@@ -198,6 +198,7 @@ export function getSuccessionPreview(
   state: GameState,
   childId: string,
   assetStrategy: SuccessionAssetStrategy = 'liquidate',
+  inheritanceTaxReduction = 0,
 ) {
   const child = (state.relationshipState?.children ?? []).find((item) => item.id === childId);
   const estate = state.relationshipState?.estateSettlement;
@@ -233,7 +234,10 @@ export function getSuccessionPreview(
   const inheritedCash = remainingShare;
 
   const inheritanceTaxBase = distributableShare + inheritedBusinessValue;
-  const inheritanceTax = calculateChildInheritanceTax(inheritanceTaxBase);
+  const baseInheritanceTax = calculateChildInheritanceTax(inheritanceTaxBase);
+  const inheritanceTax = Math.max(0, Math.round(
+    baseInheritanceTax * (1 - Math.max(0, Math.min(0.5, inheritanceTaxReduction)))
+  ));
   const taxCashAvailable = inheritedCash + existingSavings;
   const loanNeeded = Math.max(0, inheritanceTax - taxCashAvailable);
   const parentRelationship = Math.max(0, Math.min(100, child.parentRelationship ?? 75));
