@@ -917,6 +917,7 @@ export interface BusinessLoan {
   weeklyPayment: number;
   weeksRemaining: number;
   interestRate: number;
+  purpose?: 'operating' | 'acquisition';
 }
 
 /** Active business event effect */
@@ -946,6 +947,11 @@ export type BusinessOwnerType = 'player' | 'child' | 'family_trust' | 'investor'
 
 export type AcquisitionRisk = 'low' | 'medium' | 'high';
 export type AcquisitionTier = 'regional' | 'national' | 'enterprise';
+export type AcquisitionFundingMode = 'cash' | 'balanced' | 'leveraged';
+export type AcquisitionIntegrationStrategy = 'pending' | 'independent' | 'integrate' | 'turnaround';
+export type AcquisitionIntegrationOutcome = 'pending' | 'success' | 'mixed' | 'failed';
+export type HoldingCapitalPurpose = 'capital' | 'debt';
+export type BusinessPortfolioIntent = 'active' | 'long_term_family';
 
 export interface BusinessAcquisitionTarget {
   id: string;
@@ -969,13 +975,24 @@ export interface BusinessAcquisitionTarget {
 
 export interface BusinessAcquisitionState {
   purchasePrice: number;
+  cashContribution: number;
+  debtFinanced: number;
+  fundingMode: AcquisitionFundingMode;
   sellerName: string;
   acquiredGlobalWeek: number;
   estimatedValueAtPurchase: number;
+  baseIntegrationWeeks: number;
+  baseIntegrationPenalty: number;
+  integrationStrategy: AcquisitionIntegrationStrategy;
+  integrationOutcome: AcquisitionIntegrationOutcome;
   integrationWeeksRemaining: number;
   integrationPenalty: number;
+  integrationSuccessChance: number;
+  postIntegrationRevenueBonus: number;
+  postIntegrationExpenseReduction: number;
   initialRisk: AcquisitionRisk;
   diligenceScore: number;
+  additionalCapitalInvested: number;
 }
 
 export interface HoldingCompany {
@@ -986,6 +1003,13 @@ export interface HoldingCompany {
   generationsOwned: number;
   controllerName: string;
   controllerPersonId: string | null;
+  cashReserve: number;
+  totalCapitalDeployed: number;
+  executiveChildId: string | null;
+  executiveChildName: string | null;
+  executivePerformance: number;
+  designatedSuccessorChildId: string | null;
+  designatedSuccessorChildName: string | null;
 }
 
 export interface BusinessOwnershipStake {
@@ -1111,6 +1135,7 @@ export interface OwnedBusiness {
   /** Scales mature acquired companies beyond startup-size base economics. */
   operatingScaleMultiplier?: number;
   acquisition?: BusinessAcquisitionState | null;
+  portfolioIntent?: BusinessPortfolioIntent;
 }
 
 export interface BusinessLocation {
