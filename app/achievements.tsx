@@ -16,6 +16,7 @@ export default function AchievementsScreen() {
   const unlocked = (achievementsData ?? []).filter((a) => unlockedAchievements.includes(a?.id));
   const locked = (achievementsData ?? []).filter((a) => !unlockedAchievements.includes(a?.id));
   const totalXp = unlocked.reduce((t, a) => t + (a?.xpReward ?? 0), 0);
+  const totalGemRewards = unlocked.reduce((t, a) => t + (a?.gemReward ?? 0), 0);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -31,6 +32,7 @@ export default function AchievementsScreen() {
           <Text style={styles.statsLabel}>Progress</Text>
           <Text style={styles.statsValue}>{unlocked.length}/{achievementsData.length} Unlocked</Text>
           <Text style={styles.xpText}>Total XP Earned: {totalXp}</Text>
+          <Text style={styles.gemText}>Achievement Gems Earned: {totalGemRewards}</Text>
         </GameCard>
 
         {unlocked.length > 0 && <Text style={styles.sectionHeader}>Unlocked</Text>}
@@ -44,7 +46,10 @@ export default function AchievementsScreen() {
                 <Text style={styles.achName}>{a?.name}</Text>
                 <Text style={styles.achDesc}>{a?.description}</Text>
               </View>
-              <Text style={styles.achXp}>+{a?.xpReward} XP</Text>
+              <View style={styles.rewardCol}>
+                <Text style={styles.achXp}>+{a?.xpReward} XP</Text>
+                {(a?.gemReward ?? 0) > 0 && <Text style={styles.achGems}>+{a?.gemReward} 💎</Text>}
+              </View>
             </View>
           </GameCard>
         ))}
@@ -60,7 +65,10 @@ export default function AchievementsScreen() {
                 <Text style={styles.achName}>{a?.name}</Text>
                 <Text style={styles.achDesc}>{a?.description}</Text>
               </View>
-              <Text style={styles.achXpLocked}>+{a?.xpReward} XP</Text>
+              <View style={styles.rewardCol}>
+                <Text style={styles.achXpLocked}>+{a?.xpReward} XP</Text>
+                {(a?.gemReward ?? 0) > 0 && <Text style={styles.achGemsLocked}>+{a?.gemReward} 💎</Text>}
+              </View>
             </View>
           </GameCard>
         ))}
@@ -78,6 +86,7 @@ const styles = StyleSheet.create({
   statsLabel: { color: Colors.textSecondary, fontSize: 13 },
   statsValue: { color: Colors.textPrimary, fontSize: 22, fontWeight: '700', marginTop: 4 },
   xpText: { color: Colors.warning, fontSize: 14, fontWeight: '600', marginTop: 4 },
+  gemText: { color: '#A78BFA', fontSize: 13, fontWeight: '600', marginTop: 3 },
   sectionHeader: { color: Colors.textSecondary, fontSize: 16, fontWeight: '600', marginTop: 12, marginBottom: 8 },
   achRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: `${Colors.warning}22`, justifyContent: 'center', alignItems: 'center' },
@@ -85,6 +94,9 @@ const styles = StyleSheet.create({
   achInfo: { flex: 1 },
   achName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   achDesc: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
+  rewardCol: { alignItems: 'flex-end', minWidth: 58 },
   achXp: { color: Colors.warning, fontSize: 13, fontWeight: '700' },
+  achGems: { color: '#A78BFA', fontSize: 11, fontWeight: '700', marginTop: 2 },
   achXpLocked: { color: Colors.textMuted, fontSize: 13 },
+  achGemsLocked: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
 });
