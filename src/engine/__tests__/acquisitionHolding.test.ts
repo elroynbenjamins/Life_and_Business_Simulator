@@ -56,7 +56,7 @@ describe('business acquisitions and holding companies', () => {
   });
 
   test('leveraged acquisitions attach debt and wait for an integration decision', () => {
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const target = generateAcquisitionTargets(120, 1, 1)[0];
     const state = {
       ...INITIAL_GAME_STATE,
@@ -75,7 +75,7 @@ describe('business acquisitions and holding companies', () => {
     expect(acquired?.acquisition?.integrationStrategy).toBe('pending');
 
     const before = acquired!.acquisition!.integrationWeeksRemaining;
-    jest.spyOn(Math, 'random').mockReturnValue(0.99);
+    randomSpy.mockReturnValue(0.99);
     const waitingTick = processBusinessWeek(acquired!, 1, 9, 7);
     expect(waitingTick.updatedBusiness.acquisition?.integrationWeeksRemaining).toBe(before);
   });
