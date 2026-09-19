@@ -17,8 +17,9 @@ import {
 import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
-import { BusinessGovernanceRole, BusinessStrategicFocus } from '../../src/types/game';
+import { AcquisitionIntegrationStrategy, BusinessGovernanceRole, BusinessStrategicFocus } from '../../src/types/game';
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
+import { getAcquisitionReturn, getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 
 const SCREEN_W = Dimensions.get('window').width;
 
@@ -59,6 +60,7 @@ const GOVERNANCE_ROLES: Array<{ key: BusinessGovernanceRole; label: string }> = 
 ];
 
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
+const INTEGRATION_STRATEGIES: Array<Exclude<AcquisitionIntegrationStrategy, 'pending'>> = ['independent', 'integrate', 'turnaround'];
 
 export default function BusinessDetailScreen() {
   const router = useRouter();
@@ -74,7 +76,8 @@ export default function BusinessDetailScreen() {
   const gameYear = useGameStore((s) => s.year ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
-    sellBusiness, designateFamilyBusiness, setBusinessStrategicFocus, resolveBusinessDecision,
+    sellBusiness, designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, resolveBusinessDecision,
+    setAcquisitionIntegrationStrategy,
     appointChildToBusiness, transferBusinessShares, buyBackInvestorShares, investFamilyTrustCashInBusiness,
     openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
     setBusinessPricing, setBusinessAdvertising,
@@ -152,6 +155,9 @@ export default function BusinessDetailScreen() {
   const fivePctStakeValue = Math.round((biz.valuation ?? 0) * 0.05);
   const childShareGiftTax = calculateChildInheritanceTax(fivePctStakeValue);
   const trustShareTransferTax = Math.round(fivePctStakeValue * 0.075);
+  const acquisitionReturn = getAcquisitionReturn(biz);
+  const totalBusinessDebt = (biz.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
+  const netSaleProceeds = Math.max(0, (biz.valuation ?? 0) - totalBusinessDebt);
 
 
   // Market share pie chart data
@@ -185,13 +191,24 @@ export default function BusinessDetailScreen() {
   const retentionEmployee = retention ? (biz.employees ?? []).find((e) => e.id === retention.employeeId) : null;
 
   const handleSell = () => {
-    const salePrice = biz.valuation ?? 0;
+    if (biz.portfolioIntent === 'long_term_family') {
+      confirmAction(
+        'Protected Family Asset',
+        'This company is marked as a long-term family asset. Remove that protection before selling it.',
+        () => {}
+      );
+      return;
+    }
     const doSell = () => {
       sellBusiness(biz.id);
-      // Navigate away immediately to avoid rendering with deleted business
       router.replace('/tabs');
     };
-    confirmAction('Sell Business', `Sell ${biz.name} for ${formatCurrency(salePrice)}?`, doSell);
+    const destination = biz.holdingCompanyId ? 'the holding company reserve' : 'personal cash';
+    confirmAction(
+      'Sell Business',
+      `Sell ${biz.name}? Gross value ${formatCurrency(biz.valuation ?? 0)}, debt settlement ${formatCurrency(totalBusinessDebt)}, net proceeds ${formatCurrency(netSaleProceeds)} to ${destination}.`,
+      doSell
+    );
   };
 
   const handleTransfer = () => {
@@ -288,6 +305,15 @@ export default function BusinessDetailScreen() {
               <Text style={styles.sectionHint}>
                 If this business is inherited by your named child successor, its history, employees, competitors and family-business generation continue.
               </Text>
+              <Pressable
+                style={[styles.familyBusinessButton, biz.portfolioIntent === 'long_term_family' && styles.longTermButton]}
+                onPress={() => toggleLongTermFamilyAsset(biz.id)}
+              >
+                <Ionicons name={biz.portfolioIntent === 'long_term_family' ? 'shield-checkmark' : 'shield-outline'} size={18} color={Colors.warning} />
+                <Text style={styles.familyBusinessButtonText}>
+                  {biz.portfolioIntent === 'long_term_family' ? 'Long-term Family Asset — Protected' : 'Mark as Long-term Family Asset'}
+                </Text>
+              </Pressable>
             </>
           ) : (
             <>
@@ -308,6 +334,77 @@ export default function BusinessDetailScreen() {
             </>
           )}
         </GameCard>
+
+        {biz.acquisition && (
+          <GameCard title="Acquisition & Integration">
+            <View style={styles.acquisitionHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.acquisitionTitle}>
+                  {biz.acquisition.fundingMode === 'cash' ? 'Cash Acquisition' : biz.acquisition.fundingMode === 'balanced' ? 'Balanced Financing' : 'Leveraged Acquisition'}
+                </Text>
+                <Text style={styles.sectionHint}>
+                  Purchased for {formatCurrency(biz.acquisition.purchasePrice)} • Cash contribution {formatCurrency(biz.acquisition.cashContribution ?? 0)} • Initial debt {formatCurrency(biz.acquisition.debtFinanced ?? 0)}
+                </Text>
+              </View>
+              {acquisitionReturn && (
+                <Text style={[styles.acquisitionReturn, { color: acquisitionReturn.returnPct >= 0 ? Colors.primary : Colors.negative }]}>
+                  {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
+                </Text>
+              )}
+            </View>
+
+            {biz.acquisition.integrationStrategy === 'pending' ? (
+              <>
+                <Text style={styles.integrationPrompt}>Choose how to integrate this company. The integration clock begins only after you choose.</Text>
+                {INTEGRATION_STRATEGIES.map((strategy) => {
+                  const profile = getIntegrationStrategyProfile(
+                    biz.acquisition!.baseIntegrationWeeks,
+                    biz.acquisition!.baseIntegrationPenalty,
+                    biz.acquisition!.diligenceScore,
+                    strategy,
+                  );
+                  return (
+                    <Pressable
+                      key={strategy}
+                      style={styles.integrationChoice}
+                      onPress={() => setAcquisitionIntegrationStrategy(biz.id, strategy)}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.integrationChoiceTitle}>{profile.label}</Text>
+                        <Text style={styles.integrationChoiceDesc}>{profile.description}</Text>
+                        <Text style={styles.integrationChoiceMeta}>
+                          {profile.weeks} weeks • {Math.round(profile.penalty * 100)}% initial disruption • {Math.round(profile.successChance * 100)}% target success chance
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+                    </Pressable>
+                  );
+                })}
+              </>
+            ) : biz.acquisition.integrationOutcome === 'pending' ? (
+              <View style={styles.integrationActive}>
+                <Ionicons name="git-merge-outline" size={20} color={Colors.warning} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.integrationActiveTitle}>
+                    {biz.acquisition.integrationStrategy === 'independent' ? 'Keep Independent' : biz.acquisition.integrationStrategy === 'integrate' ? 'Integrating Operations' : 'Aggressive Turnaround'}
+                  </Text>
+                  <Text style={styles.integrationActiveText}>
+                    {biz.acquisition.integrationWeeksRemaining} weeks remaining • {Math.round((biz.acquisition.integrationPenalty ?? 0) * 100)}% temporary disruption
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.integrationResult}>
+                <Text style={styles.integrationResultTitle}>
+                  Integration {biz.acquisition.integrationOutcome.toUpperCase()}
+                </Text>
+                <Text style={styles.integrationResultText}>
+                  Permanent revenue effect {(biz.acquisition.postIntegrationRevenueBonus ?? 0) >= 0 ? '+' : ''}{((biz.acquisition.postIntegrationRevenueBonus ?? 0) * 100).toFixed(1)}% • expense reduction {((biz.acquisition.postIntegrationExpenseReduction ?? 0) * 100).toFixed(1)}%
+                </Text>
+              </View>
+            )}
+          </GameCard>
+        )}
 
         {pendingDecision && (
           <GameCard>
@@ -954,7 +1051,7 @@ export default function BusinessDetailScreen() {
           {(biz.businessLoans ?? []).map((loan) => (
             <View key={loan.id} style={styles.loanRow}>
               <Text style={styles.loanAmount}>{formatCurrency(loan.remainingAmount)} remaining</Text>
-              <Text style={styles.loanPayment}>{formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk left</Text>
+              <Text style={styles.loanPayment}>{loan.purpose === 'acquisition' ? 'Acquisition debt • ' : ''}{formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk left</Text>
             </View>
           ))}
           {(biz.businessLoans?.length ?? 0) < 3 && (
@@ -1306,6 +1403,21 @@ const styles = StyleSheet.create({
   bizStatValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700', marginTop: 2 },
   familyBusinessButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: `${Colors.warning}66`, borderRadius: 10, paddingVertical: 11, marginTop: 10 },
   familyBusinessButtonText: { color: Colors.warning, fontSize: 12, fontWeight: '800' },
+  longTermButton: { backgroundColor: '#33270F' },
+  acquisitionHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  acquisitionTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800' },
+  acquisitionReturn: { fontSize: 16, fontWeight: '900' },
+  integrationPrompt: { color: Colors.warning, fontSize: 11, lineHeight: 16, fontWeight: '700', marginTop: 8, marginBottom: 4 },
+  integrationChoice: { flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, paddingVertical: 10 },
+  integrationChoiceTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
+  integrationChoiceDesc: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 2 },
+  integrationChoiceMeta: { color: Colors.info, fontSize: 9, marginTop: 4 },
+  integrationActive: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#33270F', borderRadius: 9, padding: 10, marginTop: 8 },
+  integrationActiveTitle: { color: Colors.warning, fontSize: 12, fontWeight: '800' },
+  integrationActiveText: { color: Colors.textSecondary, fontSize: 9, marginTop: 2 },
+  integrationResult: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 8 },
+  integrationResultTitle: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
+  integrationResultText: { color: Colors.textSecondary, fontSize: 9, marginTop: 3 },
   decisionBanner: { flexDirection: 'row', gap: 10, padding: 10, borderRadius: 10, backgroundColor: `${Colors.warning}10`, borderWidth: 1, borderColor: `${Colors.warning}35`, marginBottom: 9 },
   crisisBanner: { backgroundColor: `${Colors.negative}10`, borderColor: `${Colors.negative}35` },
   decisionIcon: { fontSize: 24 },
