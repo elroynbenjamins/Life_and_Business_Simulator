@@ -1,4 +1,4 @@
-import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessStrategicFocus } from '../types/game';
+import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessStrategicFocus, HoldingCompany } from '../types/game';
 
 // -----------------------------------------------------------------------------
 // D&D-style tier system for employees
@@ -115,6 +115,82 @@ export function getFamilyOwnershipPct(biz: OwnedBusiness): number {
   return Math.max(0, Math.min(100, ownership
     .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
     .reduce((sum, stake) => sum + (stake.percent ?? 0), 0)));
+}
+
+export interface HoldingSynergyProfile {
+  revenueBonus: number;
+  expenseReduction: number;
+  crisisReduction: number;
+  sameIndustrySiblings: number;
+  relatedIndustrySiblings: number;
+  uniqueIndustries: number;
+}
+
+const HOLDING_INDUSTRY_CLUSTERS: Record<string, string> = {
+  Retail: 'consumer',
+  'Food & Beverage': 'consumer',
+  Hospitality: 'consumer',
+  Entertainment: 'consumer',
+  Fitness: 'consumer',
+  Beauty: 'consumer',
+  Technology: 'services',
+  Services: 'services',
+  'Real Estate': 'services',
+  Real_Estate: 'services',
+  Automotive: 'industrial',
+  Construction: 'industrial',
+  Manufacturing: 'industrial',
+  Healthcare: 'health',
+};
+
+export function getHoldingSynergyProfile(
+  biz: OwnedBusiness,
+  businesses: OwnedBusiness[],
+  holdingCompanies: HoldingCompany[] = [],
+): HoldingSynergyProfile {
+  if (!biz.holdingCompanyId) {
+    return { revenueBonus: 0, expenseReduction: 0, crisisReduction: 0, sameIndustrySiblings: 0, relatedIndustrySiblings: 0, uniqueIndustries: 0 };
+  }
+
+  const group = (businesses ?? []).filter((item) => item.holdingCompanyId === biz.holdingCompanyId);
+  if (group.length < 2) {
+    return { revenueBonus: 0, expenseReduction: 0, crisisReduction: 0, sameIndustrySiblings: 0, relatedIndustrySiblings: 0, uniqueIndustries: group.length ? 1 : 0 };
+  }
+
+  const type = getBusinessType(biz.typeId);
+  const industry = type?.industry ?? '';
+  const cluster = HOLDING_INDUSTRY_CLUSTERS[industry] ?? industry;
+  const siblings = group.filter((item) => item.id !== biz.id);
+  const sameIndustrySiblings = siblings.filter((item) => (getBusinessType(item.typeId)?.industry ?? '') === industry).length;
+  const relatedIndustrySiblings = siblings.filter((item) => {
+    const siblingIndustry = getBusinessType(item.typeId)?.industry ?? '';
+    return siblingIndustry !== industry && (HOLDING_INDUSTRY_CLUSTERS[siblingIndustry] ?? siblingIndustry) === cluster;
+  }).length;
+  const uniqueIndustries = new Set(group.map((item) => getBusinessType(item.typeId)?.industry ?? item.typeId)).size;
+  const holding = holdingCompanies.find((item) => item.id === biz.holdingCompanyId);
+  const executivePerformance = Math.max(0, Math.min(100, holding?.executivePerformance ?? 50));
+  const executiveMultiplier = 0.90 + executivePerformance / 500;
+
+  let integrationSynergyFactor = 1;
+  if (biz.acquisition) {
+    if (biz.acquisition.integrationStrategy === 'pending') integrationSynergyFactor = 0.25;
+    else if (biz.acquisition.integrationStrategy === 'independent') integrationSynergyFactor = 0.50;
+    else if (biz.acquisition.integrationOutcome === 'pending') integrationSynergyFactor = 0.60;
+    else if (biz.acquisition.integrationStrategy === 'turnaround' && biz.acquisition.integrationOutcome === 'success') integrationSynergyFactor = 1.10;
+  }
+
+  const expenseReduction = Math.min(0.05, sameIndustrySiblings * 0.02) * executiveMultiplier * integrationSynergyFactor;
+  const revenueBonus = Math.min(0.04, sameIndustrySiblings * 0.005 + relatedIndustrySiblings * 0.0125) * executiveMultiplier * integrationSynergyFactor;
+  const crisisReduction = (uniqueIndustries >= 3 ? Math.min(0.15, (uniqueIndustries - 2) * 0.05) : 0) * executiveMultiplier;
+
+  return {
+    revenueBonus: Math.max(0, Math.min(0.05, revenueBonus)),
+    expenseReduction: Math.max(0, Math.min(0.06, expenseReduction)),
+    crisisReduction: Math.max(0, Math.min(0.18, crisisReduction)),
+    sameIndustrySiblings,
+    relatedIndustrySiblings,
+    uniqueIndustries,
+  };
 }
 
 function strategicFocusModifiers(focus: BusinessStrategicFocus | undefined): {
@@ -586,6 +662,10 @@ export interface BusinessSimulationModifiers {
   businessCostReduction?: number;
   /** Decimal reduction applied to the chance of new business crises. */
   businessCrisisReduction?: number;
+  /** Capped portfolio synergy from a parent holding company. */
+  holdingRevenueBonus?: number;
+  holdingExpenseReduction?: number;
+  holdingCrisisReduction?: number;
 }
 
 /**
@@ -672,11 +752,22 @@ export function processBusinessWeek(
   const strategyTotals = getStrategyModifierTotals(biz);
   let eventRevenueMultiplier = strategyTotals.revenue;
   let eventExpenseMultiplier = strategyTotals.expense;
-  if ((biz.acquisition?.integrationWeeksRemaining ?? 0) > 0) {
-    const integrationPenalty = Math.max(0, Math.min(0.25, biz.acquisition?.integrationPenalty ?? 0));
+  const acquisition = biz.acquisition ?? null;
+  if (acquisition?.integrationStrategy === 'pending') {
+    // A newly acquired company waits for an integration decision. It suffers a
+    // small coordination drag, but the actual integration clock does not start.
+    const holdingPatternPenalty = Math.max(0.01, Math.min(0.05, (acquisition.baseIntegrationPenalty ?? acquisition.integrationPenalty ?? 0.08) * 0.35));
+    eventRevenueMultiplier *= (1 - holdingPatternPenalty);
+    eventExpenseMultiplier *= (1 + holdingPatternPenalty * 0.50);
+  } else if ((acquisition?.integrationWeeksRemaining ?? 0) > 0) {
+    const integrationPenalty = Math.max(0, Math.min(0.25, acquisition?.integrationPenalty ?? 0));
     eventRevenueMultiplier *= (1 - integrationPenalty);
     eventExpenseMultiplier *= (1 + integrationPenalty * 0.75);
+  } else if (acquisition && acquisition.integrationOutcome !== 'pending') {
+    eventRevenueMultiplier *= 1 + Math.max(-0.05, Math.min(0.08, acquisition.postIntegrationRevenueBonus ?? 0));
+    eventExpenseMultiplier *= 1 - Math.max(-0.05, Math.min(0.08, acquisition.postIntegrationExpenseReduction ?? 0));
   }
+  eventRevenueMultiplier *= 1 + Math.max(0, Math.min(0.05, modifiers.holdingRevenueBonus ?? 0));
   for (const ae of biz.activeEvents ?? []) {
     eventRevenueMultiplier *= ae.revenueMultiplier ?? 1;
     eventExpenseMultiplier *= ae.expenseMultiplier ?? 1;
@@ -699,7 +790,8 @@ export function processBusinessWeek(
     (1 + upgradeRevenueBoost + locationRevenueBoost) * levelBonus * eventRevenueMultiplier * buffAgg.revenueMult
   );
   // Expenses (detailed breakdown) — variable costs SCALE with actual revenue.
-  const prestigeCostMultiplier = 1 - Math.max(0, Math.min(0.5, modifiers.businessCostReduction ?? 0));
+  const combinedCostReduction = 1 - (1 - Math.max(0, Math.min(0.5, modifiers.businessCostReduction ?? 0))) * (1 - Math.max(0, Math.min(0.10, modifiers.holdingExpenseReduction ?? 0)));
+  const prestigeCostMultiplier = 1 - Math.max(0, Math.min(0.55, combinedCostReduction));
   const baseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier * operatingScale;
   // Revenue scaling factor: if revenue is 5x the expected base, variable costs go up ~4x
   let revScale = baseRev > 0 ? revenue / baseRev : 1;
@@ -764,14 +856,43 @@ export function processBusinessWeek(
   // Bad seasonal event injection: fires on the first week of a season
   const seasonStart = (globalWeek - 1) % 5 === 0;
   const timelineAdds: BusinessTimelineEntry[] = [];
-  if ((biz.acquisition?.integrationWeeksRemaining ?? 0) === 1) {
-    timelineAdds.push({
-      week: currentWeek,
-      year: currentYear,
-      title: 'Acquisition integration completed',
-      icon: '🤝',
-      kind: 'event',
-    });
+  let updatedAcquisition = biz.acquisition ? { ...biz.acquisition } : null;
+  let integrationRepDelta = 0;
+  if (updatedAcquisition && updatedAcquisition.integrationStrategy !== 'pending') {
+    const remaining = Math.max(0, updatedAcquisition.integrationWeeksRemaining ?? 0);
+    if (remaining === 1) {
+      const strategy = updatedAcquisition.integrationStrategy;
+      const roll = Math.random();
+      const successChance = Math.max(0, Math.min(1, updatedAcquisition.integrationSuccessChance ?? 0.8));
+      const outcome = roll < successChance ? 'success' : roll < Math.min(1, successChance + 0.18) ? 'mixed' : 'failed';
+      let revenueBonus = 0;
+      let expenseReduction = 0;
+      if (strategy === 'integrate') {
+        if (outcome === 'success') { revenueBonus = 0.015; expenseReduction = 0.02; integrationRepDelta = 2; }
+        else if (outcome === 'mixed') { revenueBonus = 0.005; expenseReduction = 0.01; }
+        else { expenseReduction = -0.005; integrationRepDelta = -2; }
+      } else if (strategy === 'turnaround') {
+        if (outcome === 'success') { revenueBonus = 0.04; expenseReduction = 0.04; integrationRepDelta = 4; }
+        else if (outcome === 'mixed') { revenueBonus = 0.015; expenseReduction = 0.015; integrationRepDelta = -1; }
+        else { revenueBonus = -0.02; expenseReduction = -0.02; integrationRepDelta = -5; }
+      }
+      updatedAcquisition = {
+        ...updatedAcquisition,
+        integrationOutcome: outcome,
+        integrationWeeksRemaining: 0,
+        postIntegrationRevenueBonus: revenueBonus,
+        postIntegrationExpenseReduction: expenseReduction,
+      };
+      timelineAdds.push({
+        week: currentWeek,
+        year: currentYear,
+        title: `Acquisition integration ${outcome}: ${strategy.replace('_', ' ')}`,
+        icon: outcome === 'success' ? '✅' : outcome === 'mixed' ? '⚖️' : '⚠️',
+        kind: 'event',
+      });
+    } else if (remaining > 1) {
+      updatedAcquisition = { ...updatedAcquisition, integrationWeeksRemaining: remaining - 1 };
+    }
   }
   if (seasonStart) {
     const bad = getBadSeasonForIndustry(type.industry ?? '', seasonIdx);
@@ -873,7 +994,7 @@ export function processBusinessWeek(
   const projectRepBoost = updatedProjects
     .filter((project) => project.resolved && project.succeeded && !biz.activeProjects?.find((old) => old.id === project.id)?.resolved)
     .reduce((total, project) => total + project.reputationBonus, 0);
-  let newReputation = (biz.reputation ?? 25) + repGrowth + adRepBoost + pricingRepEffect + eventRepChange + projectRepBoost + buffAgg.weeklyRepBoost + strategyTotals.reputation;
+  let newReputation = (biz.reputation ?? 25) + repGrowth + adRepBoost + pricingRepEffect + eventRepChange + projectRepBoost + buffAgg.weeklyRepBoost + strategyTotals.reputation + integrationRepDelta;
   newReputation = Math.max(0, Math.min(100, newReputation));
 
   // Employee morale & skill growth
@@ -1114,7 +1235,8 @@ export function processBusinessWeek(
     nextStrategicDecisionWeek = globalWeek + 6 + Math.floor(Math.random() * 7);
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextCrisisCheckWeek) {
     const baseCrisisChance = Math.max(0.10, 0.24 - (biz.reputation ?? 0) * 0.001);
-    const crisisChance = Math.max(0.04, baseCrisisChance * (1 - Math.max(0, Math.min(0.8, modifiers.businessCrisisReduction ?? 0))));
+    const combinedCrisisReduction = 1 - (1 - Math.max(0, Math.min(0.8, modifiers.businessCrisisReduction ?? 0))) * (1 - Math.max(0, Math.min(0.25, modifiers.holdingCrisisReduction ?? 0)));
+    const crisisChance = Math.max(0.04, baseCrisisChance * (1 - combinedCrisisReduction));
     if (Math.random() < crisisChance) {
       pendingDecision = makeBusinessCrisis(biz, globalWeek);
     }
@@ -1170,12 +1292,7 @@ export function processBusinessWeek(
     nextStrategicDecisionWeek,
     nextCrisisCheckWeek,
     operatingScaleMultiplier: operatingScale,
-    acquisition: biz.acquisition
-      ? {
-          ...biz.acquisition,
-          integrationWeeksRemaining: Math.max(0, (biz.acquisition.integrationWeeksRemaining ?? 0) - 1),
-        }
-      : null,
+    acquisition: updatedAcquisition,
   };
 
   return {
@@ -1393,6 +1510,7 @@ export function processAllBusinesses(
   currentWeek: number,
   currentYear: number,
   modifiers: BusinessSimulationModifiers = {},
+  holdingCompanies: HoldingCompany[] = [],
 ): {
   updatedBusinesses: OwnedBusiness[];
   totalProfit: number;
@@ -1413,7 +1531,13 @@ export function processAllBusinesses(
   let createdDecisionThisWeek = false;
 
   for (const biz of businesses ?? []) {
-    const result = processBusinessWeek(biz, inflationMultiplier, currentWeek, currentYear, modifiers);
+    const holdingSynergy = getHoldingSynergyProfile(biz, businesses, holdingCompanies);
+    const result = processBusinessWeek(biz, inflationMultiplier, currentWeek, currentYear, {
+      ...modifiers,
+      holdingRevenueBonus: holdingSynergy.revenueBonus,
+      holdingExpenseReduction: holdingSynergy.expenseReduction,
+      holdingCrisisReduction: holdingSynergy.crisisReduction,
+    });
     let updatedBusiness = result.updatedBusiness;
 
     const createdNewDecision = !biz.pendingDecision && !!updatedBusiness.pendingDecision;
