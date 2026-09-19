@@ -1,4 +1,13 @@
-import { BusinessAcquisitionTarget, HoldingCompany, OwnedBusiness, GameState, AcquisitionRisk, AcquisitionTier } from '../types/game';
+import {
+  AcquisitionFundingMode,
+  AcquisitionIntegrationStrategy,
+  AcquisitionRisk,
+  AcquisitionTier,
+  BusinessAcquisitionTarget,
+  GameState,
+  HoldingCompany,
+  OwnedBusiness,
+} from '../types/game';
 import businessTypesData from '../data/business_types.json';
 import { candidateToEmployee, createBusiness, generateCandidates, getBusinessType } from './businessEngine';
 
@@ -6,6 +15,18 @@ export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
 export const HOLDING_COMPANY_SETUP_COST = 500_000;
 export const ACQUISITION_TARGET_COUNT = 6;
+
+export interface AcquisitionFinancingQuote {
+  mode: AcquisitionFundingMode;
+  purchasePrice: number;
+  cashContribution: number;
+  debtPrincipal: number;
+  interestRate: number;
+  durationWeeks: number;
+  totalRepayment: number;
+  weeklyPayment: number;
+  leveragePct: number;
+}
 
 const COMPANY_PREFIXES = [
   'Northstar', 'Atlas', 'Summit', 'Crown', 'Meridian', 'Sterling',
@@ -72,6 +93,95 @@ function uniqueTypeIds(): string[] {
 export function getAcquisitionPrice(target: BusinessAcquisitionTarget, negotiationBonus = 0): number {
   const reduction = clamp(negotiationBonus, 0, 0.15);
   return Math.round(Math.max(0, target.askingPrice) * (1 - reduction));
+}
+
+export function getAcquisitionFinancingQuote(
+  purchasePrice: number,
+  mode: AcquisitionFundingMode,
+  loanRateReduction = 0,
+): AcquisitionFinancingQuote {
+  const price = Math.max(0, Math.round(purchasePrice));
+  const cashRatio = mode === 'cash' ? 1 : mode === 'balanced' ? 0.60 : 0.30;
+  const baseRate = mode === 'cash' ? 0 : mode === 'balanced' ? 0.08 : 0.105;
+  const durationWeeks = mode === 'cash' ? 0 : mode === 'balanced' ? 160 : 200;
+  const interestRate = Math.max(0.035, baseRate - clamp(loanRateReduction, 0, 0.05));
+  const cashContribution = Math.round(price * cashRatio);
+  const debtPrincipal = Math.max(0, price - cashContribution);
+  const totalRepayment = debtPrincipal > 0
+    ? Math.round(debtPrincipal * (1 + interestRate))
+    : 0;
+  const weeklyPayment = durationWeeks > 0 ? Math.ceil(totalRepayment / durationWeeks) : 0;
+
+  return {
+    mode,
+    purchasePrice: price,
+    cashContribution,
+    debtPrincipal,
+    interestRate: debtPrincipal > 0 ? interestRate : 0,
+    durationWeeks,
+    totalRepayment,
+    weeklyPayment,
+    leveragePct: price > 0 ? debtPrincipal / price : 0,
+  };
+}
+
+export function getIntegrationStrategyProfile(
+  baseWeeks: number,
+  basePenalty: number,
+  diligenceScore: number,
+  strategy: Exclude<AcquisitionIntegrationStrategy, 'pending'>,
+) {
+  const diligence = clamp(diligenceScore, 0, 100);
+  if (strategy === 'independent') {
+    return {
+      weeks: Math.max(3, Math.ceil(baseWeeks * 0.70)),
+      penalty: clamp(basePenalty * 0.45, 0.01, 0.10),
+      successChance: 1,
+      label: 'Keep Independent',
+      description: 'Safest route. Shorter disruption, but no permanent operating synergies.',
+    };
+  }
+  if (strategy === 'integrate') {
+    return {
+      weeks: Math.max(5, baseWeeks),
+      penalty: clamp(basePenalty, 0.03, 0.20),
+      successChance: clamp(0.75 + diligence * 0.002, 0.82, 0.95),
+      label: 'Integrate Operations',
+      description: 'Moderate disruption. Successful integration can reduce costs and improve cross-selling.',
+    };
+  }
+  return {
+    weeks: Math.max(6, Math.ceil(baseWeeks * 1.15)),
+    penalty: clamp(basePenalty * 1.35, 0.06, 0.24),
+    successChance: clamp(0.48 + diligence * 0.0022, 0.58, 0.72),
+    label: 'Aggressive Turnaround',
+    description: 'Highest disruption and risk, with the strongest upside if execution succeeds.',
+  };
+}
+
+export function applyIntegrationStrategy(
+  business: OwnedBusiness,
+  strategy: Exclude<AcquisitionIntegrationStrategy, 'pending'>,
+): OwnedBusiness {
+  const acquisition = business.acquisition;
+  if (!acquisition || acquisition.integrationStrategy !== 'pending') return business;
+  const profile = getIntegrationStrategyProfile(
+    acquisition.baseIntegrationWeeks ?? acquisition.integrationWeeksRemaining ?? 8,
+    acquisition.baseIntegrationPenalty ?? acquisition.integrationPenalty ?? 0.08,
+    acquisition.diligenceScore ?? 65,
+    strategy,
+  );
+  return {
+    ...business,
+    acquisition: {
+      ...acquisition,
+      integrationStrategy: strategy,
+      integrationOutcome: 'pending',
+      integrationWeeksRemaining: profile.weeks,
+      integrationPenalty: profile.penalty,
+      integrationSuccessChance: profile.successChance,
+    },
+  };
 }
 
 export function generateAcquisitionTargets(
@@ -159,11 +269,14 @@ export function createAcquiredBusiness(
   state: Pick<GameState, 'week' | 'year' | 'inflationMultiplier' | 'playerName' | 'familyTree'>,
   holdingCompanyId: string | null = null,
   purchasePrice = target.askingPrice,
+  fundingMode: AcquisitionFundingMode = 'cash',
+  loanRateReduction = 0,
 ): OwnedBusiness | null {
   const type = getBusinessType(target.typeId);
   const base = createBusiness(target.typeId, target.name, state.week, state.year, state.inflationMultiplier);
   if (!base || !type) return null;
 
+  const financing = getAcquisitionFinancingQuote(purchasePrice, fundingMode, loanRateReduction);
   const employees = createAcquisitionEmployees(target, state.inflationMultiplier);
   const upgradeCount = target.tier === 'enterprise' ? 4 : target.tier === 'national' ? 3 : 2;
   const purchasedUpgrades = (type.upgrades ?? []).slice(0, upgradeCount);
@@ -177,6 +290,17 @@ export function createAcquiredBusiness(
   const operatingScaleMultiplier = clamp(target.weeklyRevenue / (baseWeeklyRevenue * 2.25), 1, 1000);
   const businessBalance = Math.round(Math.min(7_500_000, target.estimatedValue * 0.025));
   const currentGlobalWeek = ((state.year - 1) * 20) + state.week;
+  const acquisitionLoan = financing.debtPrincipal > 0
+    ? [{
+        id: `acquisition_${currentGlobalWeek}_${Math.random().toString(36).slice(2, 7)}`,
+        amount: financing.debtPrincipal,
+        remainingAmount: financing.totalRepayment,
+        weeklyPayment: financing.weeklyPayment,
+        weeksRemaining: financing.durationWeeks,
+        interestRate: financing.interestRate,
+        purpose: 'acquisition' as const,
+      }]
+    : [];
 
   return {
     ...base,
@@ -191,21 +315,34 @@ export function createAcquiredBusiness(
     valuation: target.estimatedValue,
     employees,
     purchasedUpgrades,
+    businessLoans: acquisitionLoan,
     weeklyProfitHistory: profitHistory,
     weeklyRevenueHistory: revenueHistory,
     annualProfit: target.weeklyProfit * Math.max(1, state.week),
     annualProfitYear: state.year,
     operatingScaleMultiplier,
     holdingCompanyId,
+    portfolioIntent: 'active',
     acquisition: {
-      purchasePrice,
+      purchasePrice: financing.purchasePrice,
+      cashContribution: financing.cashContribution,
+      debtFinanced: financing.debtPrincipal,
+      fundingMode,
       sellerName: target.sellerName,
       acquiredGlobalWeek: currentGlobalWeek,
       estimatedValueAtPurchase: target.estimatedValue,
+      baseIntegrationWeeks: target.integrationWeeks,
+      baseIntegrationPenalty: target.integrationPenalty,
+      integrationStrategy: 'pending',
+      integrationOutcome: 'pending',
       integrationWeeksRemaining: target.integrationWeeks,
       integrationPenalty: target.integrationPenalty,
+      integrationSuccessChance: 0,
+      postIntegrationRevenueBonus: 0,
+      postIntegrationExpenseReduction: 0,
       initialRisk: target.risk,
       diligenceScore: target.diligenceScore,
+      additionalCapitalInvested: 0,
     },
     ownership: [{
       ownerType: 'player',
@@ -219,7 +356,9 @@ export function createAcquiredBusiness(
       {
         week: state.week,
         year: state.year,
-        title: `🤝 Acquired for €${Math.round(purchasePrice).toLocaleString('en-US')}`,
+        title: fundingMode === 'cash'
+          ? `🤝 Acquired for €${Math.round(financing.purchasePrice).toLocaleString('en-US')} cash`
+          : `🤝 Acquired with ${Math.round(financing.leveragePct * 100)}% acquisition financing`,
         icon: '🤝',
         kind: 'event' as const,
       },
@@ -235,17 +374,47 @@ export function createHoldingCompany(
   return {
     id: `holding_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     name: cleanName,
-    createdGlobalWeek: ((state.year - 1) * 20) + state.week,
+    createdGlobalWeek: ((state.year - 1) * 20 + state.week),
     founderGeneration: state.generation ?? 1,
     generationsOwned: 1,
     controllerName: state.playerName,
     controllerPersonId: state.familyTree?.currentPlayerId ?? null,
+    cashReserve: 0,
+    totalCapitalDeployed: 0,
+    executiveChildId: null,
+    executiveChildName: null,
+    executivePerformance: 50,
+    designatedSuccessorChildId: null,
+    designatedSuccessorChildName: null,
+  };
+}
+
+export function getAcquisitionReturn(business: OwnedBusiness) {
+  if (!business.acquisition) return null;
+  const investedCapital = Math.max(
+    1,
+    (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
+      + (business.acquisition.additionalCapitalInvested ?? 0),
+  );
+  const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
+  const equityValue = Math.max(0, (business.valuation ?? 0) - debt);
+  const gain = equityValue - investedCapital;
+  return {
+    investedCapital,
+    debt,
+    equityValue,
+    gain,
+    returnPct: investedCapital > 0 ? gain / investedCapital * 100 : 0,
   };
 }
 
 export function getHoldingCompanySummary(holding: HoldingCompany, businesses: OwnedBusiness[]) {
   const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
   const totalValue = subsidiaries.reduce((sum, business) => sum + Math.max(0, business.valuation ?? 0), 0);
+  const totalDebt = subsidiaries.reduce(
+    (sum, business) => sum + (business.businessLoans ?? []).reduce((loanSum, loan) => loanSum + Math.max(0, loan.remainingAmount ?? 0), 0),
+    0,
+  );
   const weeklyProfit = subsidiaries.reduce((sum, business) => sum + (business.lastWeekProfit ?? 0), 0);
   const familyControlledValue = subsidiaries.reduce((sum, business) => {
     const familyPct = business.ownership?.length
@@ -255,12 +424,18 @@ export function getHoldingCompanySummary(holding: HoldingCompany, businesses: Ow
       : 100;
     return sum + Math.max(0, business.valuation ?? 0) * clamp(familyPct, 0, 100) / 100;
   }, 0);
+  const protectedAssets = subsidiaries.filter((business) => business.portfolioIntent === 'long_term_family').length;
 
   return {
     subsidiaryCount: subsidiaries.length,
     totalValue,
+    totalDebt,
+    netGroupEquity: Math.max(0, totalValue - totalDebt),
     weeklyProfit,
+    cashReserve: holding.cashReserve ?? 0,
+    totalCapitalDeployed: holding.totalCapitalDeployed ?? 0,
     familyControlledValue,
     familyControlledPct: totalValue > 0 ? familyControlledValue / totalValue * 100 : 0,
+    protectedAssets,
   };
 }
