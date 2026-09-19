@@ -605,14 +605,14 @@
   {
     "id": "legacy_planning_4",
     "name": "Legacy Planning IV",
-    "description": "Reduce child inheritance tax by 12%",
+    "description": "Reduce child inheritance tax by 10%",
     "icon": "📜",
     "cost": 170,
     "gemCost": 25,
     "tier": 4,
     "effect": {
       "type": "inheritance_tax_reduction",
-      "value": 0.12,
+      "value": 0.1,
       "stacking": "highest"
     },
     "requires": "legacy_planning_3"
