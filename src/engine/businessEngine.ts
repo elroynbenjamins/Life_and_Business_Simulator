@@ -622,6 +622,7 @@ export function processBusinessWeek(
   const adMod = ADVERTISING_COSTS[biz.advertisingLevel ?? 'none'] ?? ADVERTISING_COSTS.none;
   const reputationFactor = 0.6 + (biz.reputation / 100) * 0.8; // 0.6 at 0 rep, 1.4 at 100 rep
   const competitionPenalty = 1 - (type.competitionLevel ?? 0.5) * 0.15;
+  const operatingScale = Math.max(1, Math.min(1000, biz.operatingScaleMultiplier ?? 1));
 
   // ---- Seasons: every 5 weeks = new season; industry-specific multipliers ----
   const globalWeek = ((currentYear - 1) * 20) + currentWeek;
@@ -671,6 +672,11 @@ export function processBusinessWeek(
   const strategyTotals = getStrategyModifierTotals(biz);
   let eventRevenueMultiplier = strategyTotals.revenue;
   let eventExpenseMultiplier = strategyTotals.expense;
+  if ((biz.acquisition?.integrationWeeksRemaining ?? 0) > 0) {
+    const integrationPenalty = Math.max(0, Math.min(0.25, biz.acquisition?.integrationPenalty ?? 0));
+    eventRevenueMultiplier *= (1 - integrationPenalty);
+    eventExpenseMultiplier *= (1 + integrationPenalty * 0.75);
+  }
   for (const ae of biz.activeEvents ?? []) {
     eventRevenueMultiplier *= ae.revenueMultiplier ?? 1;
     eventExpenseMultiplier *= ae.expenseMultiplier ?? 1;
@@ -686,7 +692,7 @@ export function processBusinessWeek(
   // Very small businesses cannot add more than three employees, so they receive
   // a compact-operation boost that substitutes for unavailable staff scaling.
   const compactBusinessRevenueBoost = (type.maxEmployees ?? 4) <= 3 ? 1.18 : (type.maxEmployees ?? 6) <= 5 ? 1.45 : 1;
-  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121 * compactBusinessRevenueBoost;
+  const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121 * compactBusinessRevenueBoost * operatingScale;
   const levelBonus = 1 + biz.level * 0.1;
   let revenue = Math.round(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
@@ -694,13 +700,13 @@ export function processBusinessWeek(
   );
   // Expenses (detailed breakdown) — variable costs SCALE with actual revenue.
   const prestigeCostMultiplier = 1 - Math.max(0, Math.min(0.5, modifiers.businessCostReduction ?? 0));
-  const baseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier;
+  const baseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier * operatingScale;
   // Revenue scaling factor: if revenue is 5x the expected base, variable costs go up ~4x
   let revScale = baseRev > 0 ? revenue / baseRev : 1;
   // Variable-cost scaling: 60% fixed baseline + 40% × revScale (dampened)
   let variableScale = 0.6 + 0.4 * Math.min(6, revScale);
   // Rent scales with revenue: base rent + 2% of revenue above baseline
-  const baseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier * prestigeCostMultiplier;
+  const baseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier * prestigeCostMultiplier * Math.sqrt(operatingScale);
   let rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
   let rent = Math.round(rentScale);
   const employeeSalaries = (biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0);
@@ -758,6 +764,15 @@ export function processBusinessWeek(
   // Bad seasonal event injection: fires on the first week of a season
   const seasonStart = (globalWeek - 1) % 5 === 0;
   const timelineAdds: BusinessTimelineEntry[] = [];
+  if ((biz.acquisition?.integrationWeeksRemaining ?? 0) === 1) {
+    timelineAdds.push({
+      week: currentWeek,
+      year: currentYear,
+      title: 'Acquisition integration completed',
+      icon: '🤝',
+      kind: 'event',
+    });
+  }
   if (seasonStart) {
     const bad = getBadSeasonForIndustry(type.industry ?? '', seasonIdx);
     const badId = bad ? `bad_season_${type.industry}_${seasonIdx}` : null;
@@ -1154,6 +1169,13 @@ export function processBusinessWeek(
     pendingDecision,
     nextStrategicDecisionWeek,
     nextCrisisCheckWeek,
+    operatingScaleMultiplier: operatingScale,
+    acquisition: biz.acquisition
+      ? {
+          ...biz.acquisition,
+          integrationWeeksRemaining: Math.max(0, (biz.acquisition.integrationWeeksRemaining ?? 0) - 1),
+        }
+      : null,
   };
 
   return {
