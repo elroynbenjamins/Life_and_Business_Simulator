@@ -30,7 +30,7 @@ describe('business acquisitions and holding companies', () => {
   });
 
   test('applies negotiation prestige to an acquisition price with a safety cap', () => {
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const target = generateAcquisitionTargets(120, 1, 1)[0];
 
     expect(getAcquisitionPrice(target, 0.05)).toBe(Math.round(target.askingPrice * 0.95));
@@ -61,7 +61,7 @@ describe('business acquisitions and holding companies', () => {
     expect(acquired?.operatingScaleMultiplier ?? 0).toBeGreaterThan(1);
     expect(acquired?.valuation).toBe(target.estimatedValue);
 
-    jest.spyOn(Math, 'random').mockReturnValue(0.99);
+    randomSpy.mockReturnValue(0.99);
     const tick = processBusinessWeek(acquired!, 1, 9, 7);
     expect(tick.updatedBusiness.acquisition?.integrationWeeksRemaining).toBe(target.integrationWeeks - 1);
     expect(tick.updatedBusiness.lastWeekRevenue).toBeGreaterThan(0);
