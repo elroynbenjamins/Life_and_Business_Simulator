@@ -10,7 +10,7 @@ import useGameStore from '../../src/store/gameStore';
 import { formatCurrency, formatPercent } from '../../src/utils/format';
 import stocksData from '../../src/data/stocks.json';
 
-type FilterType = 'all' | 'stock' | 'commodity' | 'etf';
+type FilterType = 'all' | 'stock' | 'commodity' | 'etf' | 'crypto';
 
 export default function MarketScreen() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function MarketScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.headerTitle}>Stock Market</Text>
+          <Text style={styles.headerTitle}>Markets</Text>
           <Text style={styles.headerSub}>Prices update weekly</Text>
         </View>
         <Pressable style={styles.portfolioBtn} onPress={() => router.push('/portfolio')}>
@@ -36,10 +36,10 @@ export default function MarketScreen() {
 
       {/* Filter Tabs */}
       <View style={styles.filterRow}>
-        {(['all', 'stock', 'etf', 'commodity'] as FilterType[]).map((f) => (
+        {(['all', 'stock', 'etf', 'commodity', 'crypto'] as FilterType[]).map((f) => (
           <Pressable key={f} style={[styles.filterTab, filter === f && styles.filterActive]} onPress={() => setFilter(f)}>
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f === 'all' ? 'All' : f === 'stock' ? 'Stocks' : f === 'etf' ? 'ETFs' : 'Commodities'}
+              {f === 'all' ? 'All' : f === 'stock' ? 'Stocks' : f === 'etf' ? 'ETFs' : f === 'crypto' ? 'Crypto' : 'Commodities'}
             </Text>
           </Pressable>
         ))}
@@ -72,7 +72,7 @@ export default function MarketScreen() {
                   {isPositive ? '▲' : '▼'} {formatPercent(changePercent)}
                 </Text>
                 {(holding?.shares ?? 0) > 0 ? (
-                  <Text style={styles.sharesBadge}>{holding?.shares} shares</Text>
+                  <Text style={styles.sharesBadge}>{holding?.shares} {sd?.type === 'crypto' ? 'coins' : 'shares'}</Text>
                 ) : null}
               </View>
             </Pressable>
