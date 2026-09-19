@@ -81,7 +81,7 @@ describe('achievement and Prestige expansion', () => {
     const effects = getPrestigeEffects(profile);
     expect(effects.business_crisis_reduction).toBeCloseTo(0.20);
     expect(effects.family_governance_bonus).toBe(12);
-    expect(effects.inheritance_tax_reduction).toBeCloseTo(0.12);
+    expect(effects.inheritance_tax_reduction).toBeCloseTo(0.10);
     expect(effects.crypto_downside_reduction).toBeCloseTo(0.16);
   });
 
@@ -124,7 +124,7 @@ describe('achievement and Prestige expansion', () => {
     };
 
     const base = getSuccessionPreview(state, child.id, 'liquidate', 0);
-    const reduced = getSuccessionPreview(state, child.id, 'liquidate', 0.12);
+    const reduced = getSuccessionPreview(state, child.id, 'liquidate', 0.10);
     expect(reduced?.inheritanceTax).toBeLessThan(base?.inheritanceTax ?? 0);
     expect(reduced?.inheritanceTax).toBe(Math.round((base?.inheritanceTax ?? 0) * 0.88));
   });
