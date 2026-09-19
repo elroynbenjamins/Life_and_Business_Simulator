@@ -236,7 +236,7 @@ export function getSuccessionPreview(
   const inheritanceTaxBase = distributableShare + inheritedBusinessValue;
   const baseInheritanceTax = calculateChildInheritanceTax(inheritanceTaxBase);
   const inheritanceTax = Math.max(0, Math.round(
-    baseInheritanceTax * (1 - Math.max(0, Math.min(0.5, inheritanceTaxReduction)))
+    baseInheritanceTax * (1 - Math.max(0, Math.min(0.10, inheritanceTaxReduction)))
   ));
   const taxCashAvailable = inheritedCash + existingSavings;
   const loanNeeded = Math.max(0, inheritanceTax - taxCashAvailable);
