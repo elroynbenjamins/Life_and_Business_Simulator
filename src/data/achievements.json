@@ -10,7 +10,7 @@
   {
     "id": "first_stock",
     "name": "Investor",
-    "description": "Buy your first stock",
+    "description": "Buy your first market asset",
     "xpReward": 10,
     "gemReward": 0,
     "icon": "trending-up"
@@ -33,8 +33,8 @@
   },
   {
     "id": "own_1000_shares",
-    "name": "Stock Mogul",
-    "description": "Own 1,000 total shares",
+    "name": "Market Collector",
+    "description": "Own 1,000 total market units",
     "xpReward": 60,
     "gemReward": 0,
     "icon": "stats-chart"
@@ -42,7 +42,7 @@
   {
     "id": "first_100k",
     "name": "Wealthy Start",
-    "description": "Reach \u20ac100,000 net worth",
+    "description": "Reach €100,000 net worth",
     "xpReward": 30,
     "gemReward": 0,
     "icon": "cash"
@@ -50,7 +50,7 @@
   {
     "id": "net_worth_250k",
     "name": "Quarter Millionaire",
-    "description": "Reach \u20ac250,000 net worth",
+    "description": "Reach €250,000 net worth",
     "xpReward": 50,
     "gemReward": 0,
     "icon": "cash"
@@ -58,7 +58,7 @@
   {
     "id": "net_worth_500k",
     "name": "Half Millionaire",
-    "description": "Reach \u20ac500,000 net worth",
+    "description": "Reach €500,000 net worth",
     "xpReward": 75,
     "gemReward": 0,
     "icon": "diamond"
@@ -66,7 +66,7 @@
   {
     "id": "first_million",
     "name": "Millionaire",
-    "description": "Reach \u20ac1,000,000 net worth",
+    "description": "Reach €1,000,000 net worth",
     "xpReward": 120,
     "gemReward": 5,
     "icon": "star"
@@ -90,7 +90,7 @@
   {
     "id": "earn_10k_week",
     "name": "High Roller",
-    "description": "Earn \u20ac10,000 in a single week",
+    "description": "Earn €10,000 in a single week",
     "xpReward": 50,
     "gemReward": 0,
     "icon": "rocket"
@@ -138,7 +138,7 @@
   {
     "id": "net_worth_5m",
     "name": "Multi-Millionaire",
-    "description": "Reach \u20ac5,000,000 net worth",
+    "description": "Reach €5,000,000 net worth",
     "xpReward": 200,
     "gemReward": 10,
     "icon": "medal"
@@ -146,7 +146,7 @@
   {
     "id": "diversified",
     "name": "Diversified",
-    "description": "Hold 10 or more different stocks",
+    "description": "Hold 10 or more different market assets",
     "xpReward": 30,
     "gemReward": 0,
     "icon": "grid"
@@ -154,7 +154,7 @@
   {
     "id": "tax_payer",
     "name": "Tax Contributor",
-    "description": "Pay over \u20ac50,000 in total taxes",
+    "description": "Pay over €50,000 in total taxes",
     "xpReward": 30,
     "gemReward": 0,
     "icon": "receipt"
@@ -170,7 +170,7 @@
   {
     "id": "cash_100k",
     "name": "Cash Hoarder",
-    "description": "Hold \u20ac100,000 cash at once",
+    "description": "Hold €100,000 cash at once",
     "xpReward": 30,
     "gemReward": 0,
     "icon": "wallet"
@@ -194,7 +194,7 @@
   {
     "id": "stock_profit_25",
     "name": "Market Genius",
-    "description": "Achieve 25% profit on a stock position",
+    "description": "Achieve 25% profit on a market position",
     "xpReward": 60,
     "gemReward": 25,
     "icon": "trending-up"
@@ -202,7 +202,7 @@
   {
     "id": "net_worth_10m",
     "name": "Tycoon",
-    "description": "Reach \u20ac10,000,000 net worth",
+    "description": "Reach €10,000,000 net worth",
     "xpReward": 300,
     "gemReward": 30,
     "icon": "planet"
@@ -226,7 +226,7 @@
   {
     "id": "portfolio_100k",
     "name": "Portfolio Bronze",
-    "description": "Portfolio value reaches \u20ac100,000",
+    "description": "Portfolio value reaches €100,000",
     "xpReward": 30,
     "gemReward": 0,
     "icon": "pie-chart"
@@ -234,7 +234,7 @@
   {
     "id": "portfolio_250k",
     "name": "Portfolio Silver",
-    "description": "Portfolio value reaches \u20ac250,000",
+    "description": "Portfolio value reaches €250,000",
     "xpReward": 50,
     "gemReward": 0,
     "icon": "pie-chart"
@@ -242,7 +242,7 @@
   {
     "id": "portfolio_500k",
     "name": "Portfolio Gold",
-    "description": "Portfolio value reaches \u20ac500,000",
+    "description": "Portfolio value reaches €500,000",
     "xpReward": 80,
     "gemReward": 5,
     "icon": "pie-chart"
@@ -250,7 +250,7 @@
   {
     "id": "portfolio_1m",
     "name": "Portfolio Platinum",
-    "description": "Portfolio value reaches \u20ac1,000,000",
+    "description": "Portfolio value reaches €1,000,000",
     "xpReward": 150,
     "gemReward": 15,
     "icon": "pie-chart"
@@ -306,7 +306,7 @@
   {
     "id": "realized_profit_1m",
     "name": "Market Millionaire",
-    "description": "Realize €1,000,000 in stock profits",
+    "description": "Realize €1,000,000 in market profits",
     "xpReward": 225,
     "gemReward": 10,
     "icon": "trending-up"
@@ -314,7 +314,7 @@
   {
     "id": "realized_profit_2_5m",
     "name": "Trading Tycoon",
-    "description": "Realize €2,500,000 in stock profits",
+    "description": "Realize €2,500,000 in market profits",
     "xpReward": 350,
     "gemReward": 20,
     "icon": "trending-up"
@@ -322,7 +322,7 @@
   {
     "id": "realized_profit_5m",
     "name": "Market Legend",
-    "description": "Realize €5,000,000 in stock profits",
+    "description": "Realize €5,000,000 in market profits",
     "xpReward": 500,
     "gemReward": 30,
     "icon": "trending-up"
@@ -338,7 +338,7 @@
   {
     "id": "realized_profit_100k",
     "name": "Profit Taker",
-    "description": "Realize \u20ac100,000 in stock profits",
+    "description": "Realize €100,000 in market profits",
     "xpReward": 60,
     "gemReward": 0,
     "icon": "cash"
@@ -374,5 +374,181 @@
     "xpReward": 120,
     "gemReward": 6,
     "icon": "school"
+  },
+  {
+    "id": "relationship_official",
+    "name": "Better Together",
+    "description": "Enter an official relationship",
+    "xpReward": 25,
+    "gemReward": 0,
+    "icon": "heart"
+  },
+  {
+    "id": "relationship_married",
+    "name": "Life Partners",
+    "description": "Get married",
+    "xpReward": 50,
+    "gemReward": 1,
+    "icon": "heart-circle"
+  },
+  {
+    "id": "first_child",
+    "name": "Next Generation",
+    "description": "Have your first child",
+    "xpReward": 40,
+    "gemReward": 1,
+    "icon": "people"
+  },
+  {
+    "id": "parent_bond_90",
+    "name": "Close-Knit",
+    "description": "Reach a 90% parent relationship with a child",
+    "xpReward": 60,
+    "gemReward": 2,
+    "icon": "heart-half"
+  },
+  {
+    "id": "grandparent",
+    "name": "Grand Legacy",
+    "description": "Become a grandparent",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "people-circle"
+  },
+  {
+    "id": "family_tree_10",
+    "name": "Growing Dynasty",
+    "description": "Have 10 people recorded in your Family Tree",
+    "xpReward": 120,
+    "gemReward": 4,
+    "icon": "git-network"
+  },
+  {
+    "id": "generation_2",
+    "name": "Second Generation",
+    "description": "Continue the dynasty as Generation 2",
+    "xpReward": 150,
+    "gemReward": 5,
+    "icon": "return-up-forward"
+  },
+  {
+    "id": "generation_3",
+    "name": "Third Generation",
+    "description": "Reach Generation 3",
+    "xpReward": 250,
+    "gemReward": 10,
+    "icon": "ribbon"
+  },
+  {
+    "id": "estate_planner",
+    "name": "Prepared for Tomorrow",
+    "description": "Create a Will or Family Trust",
+    "xpReward": 50,
+    "gemReward": 1,
+    "icon": "document-text"
+  },
+  {
+    "id": "family_trust_established",
+    "name": "Dynasty Trust",
+    "description": "Establish a Family Trust",
+    "xpReward": 120,
+    "gemReward": 5,
+    "icon": "business"
+  },
+  {
+    "id": "family_business_first",
+    "name": "Family Enterprise",
+    "description": "Designate your first Family Business",
+    "xpReward": 70,
+    "gemReward": 2,
+    "icon": "people"
+  },
+  {
+    "id": "family_business_gen2",
+    "name": "Passing the Torch",
+    "description": "Carry a Family Business into a second generation",
+    "xpReward": 150,
+    "gemReward": 5,
+    "icon": "flame"
+  },
+  {
+    "id": "family_business_gen3",
+    "name": "Three-Generation Company",
+    "description": "Keep a Family Business through three generations",
+    "xpReward": 300,
+    "gemReward": 10,
+    "icon": "trophy"
+  },
+  {
+    "id": "family_governance_first",
+    "name": "Family in the Boardroom",
+    "description": "Appoint an adult child to a business governance role",
+    "xpReward": 70,
+    "gemReward": 2,
+    "icon": "people-circle"
+  },
+  {
+    "id": "business_strategy_decision",
+    "name": "Boardroom Call",
+    "description": "Resolve a strategic business decision",
+    "xpReward": 50,
+    "gemReward": 1,
+    "icon": "compass"
+  },
+  {
+    "id": "business_crisis_resolved",
+    "name": "Crisis Manager",
+    "description": "Resolve a business crisis before its deadline",
+    "xpReward": 90,
+    "gemReward": 3,
+    "icon": "shield-checkmark"
+  },
+  {
+    "id": "outside_investors",
+    "name": "Outside Capital",
+    "description": "Bring outside investors into one of your companies",
+    "xpReward": 80,
+    "gemReward": 2,
+    "icon": "trending-up"
+  },
+  {
+    "id": "child_shareholder",
+    "name": "Skin in the Game",
+    "description": "Give an adult child ownership in a family company",
+    "xpReward": 80,
+    "gemReward": 2,
+    "icon": "pie-chart"
+  },
+  {
+    "id": "crypto_first",
+    "name": "On-Chain",
+    "description": "Own your first cryptocurrency",
+    "xpReward": 20,
+    "gemReward": 0,
+    "icon": "logo-bitcoin"
+  },
+  {
+    "id": "crypto_trinity",
+    "name": "Three Coins",
+    "description": "Own AURX, NEXA and MOJO at the same time",
+    "xpReward": 60,
+    "gemReward": 2,
+    "icon": "layers"
+  },
+  {
+    "id": "crypto_100k",
+    "name": "Digital Fortune",
+    "description": "Hold €100,000 of cryptocurrency",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "wallet"
+  },
+  {
+    "id": "mojo_double",
+    "name": "Diamond Hands?",
+    "description": "Reach a 100% unrealized gain on a MOJO position",
+    "xpReward": 100,
+    "gemReward": 5,
+    "icon": "diamond"
   }
 ]
