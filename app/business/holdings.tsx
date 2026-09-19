@@ -11,8 +11,12 @@ import { formatCurrency } from '../../src/utils/format';
 import {
   ACQUISITION_UNLOCK_NET_WORTH,
   HOLDING_COMPANY_SETUP_COST,
+  getAcquisitionReturn,
   getHoldingCompanySummary,
 } from '../../src/engine/acquisitionEngine';
+import { getHoldingSynergyProfile } from '../../src/engine/businessEngine';
+
+const CAPITAL_AMOUNTS = [1_000_000, 5_000_000, 10_000_000];
 
 export default function HoldingCompaniesScreen() {
   const router = useRouter();
@@ -20,27 +24,44 @@ export default function HoldingCompaniesScreen() {
   const holdings = useGameStore((s) => s.holdingCompanies ?? []);
   const cash = useGameStore((s) => s.cash ?? 0);
   const inflationMultiplier = useGameStore((s) => s.inflationMultiplier ?? 1);
+  const relationshipState = useGameStore((s) => s.relationshipState);
   const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
   const createHoldingCompany = useGameStore((s) => s.createHoldingCompany);
+  const fundHoldingCompany = useGameStore((s) => s.fundHoldingCompany);
+  const allocateHoldingCapital = useGameStore((s) => s.allocateHoldingCapital);
+  const appointChildToHolding = useGameStore((s) => s.appointChildToHolding);
   const assignBusinessToHolding = useGameStore((s) => s.assignBusinessToHolding);
+  const toggleLongTermFamilyAsset = useGameStore((s) => s.toggleLongTermFamilyAsset);
   const [name, setName] = useState('');
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
   const setupCost = Math.round(HOLDING_COMPANY_SETUP_COST * Math.max(0.5, inflationMultiplier));
   const unassigned = businesses.filter((business) => !business.holdingCompanyId);
+  const adultChildren = (relationshipState?.children ?? []).filter((child) => (child.age ?? 0) >= 18);
 
-  const summaries = useMemo(() => holdings.map((holding) => ({
-    holding,
-    ...getHoldingCompanySummary(holding, businesses),
-  })), [holdings, businesses]);
+  const summaries = useMemo(() => holdings.map((holding) => {
+    const summary = getHoldingCompanySummary(holding, businesses);
+    const subsidiaries = businesses.filter((business) => business.holdingCompanyId === holding.id);
+    const synergyProfiles = subsidiaries.map((business) => getHoldingSynergyProfile(business, businesses, holdings));
+    const avgRevenueSynergy = synergyProfiles.length
+      ? synergyProfiles.reduce((sum, profile) => sum + profile.revenueBonus, 0) / synergyProfiles.length
+      : 0;
+    const avgExpenseSynergy = synergyProfiles.length
+      ? synergyProfiles.reduce((sum, profile) => sum + profile.expenseReduction, 0) / synergyProfiles.length
+      : 0;
+    const diversification = synergyProfiles.length
+      ? Math.max(...synergyProfiles.map((profile) => profile.crisisReduction))
+      : 0;
+    return { holding, subsidiaries, ...summary, avgRevenueSynergy, avgExpenseSynergy, diversification };
+  }), [holdings, businesses]);
 
   const createHolding = () => {
     const cleanName = name.trim();
     if (!cleanName) return;
     showGameDialog({
       title: 'Create holding company?',
-      message: `Establish ${cleanName} for ${formatCurrency(setupCost)}. The holding organizes subsidiaries and follows the dynasty controller across succession when family businesses are inherited.`,
+      message: `Establish ${cleanName} for ${formatCurrency(setupCost)}. Holdings can own subsidiaries, hold cash, fund acquisitions, repay subsidiary debt and continue through the dynasty.`,
       confirmText: 'Create',
       onConfirm: () => {
         createHoldingCompany(cleanName);
@@ -68,8 +89,8 @@ export default function HoldingCompaniesScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.introTitle}>Build a business group</Text>
               <Text style={styles.introText}>
-                Group operating companies under one portfolio view while each subsidiary keeps its own staff,
-                ownership, strategy, valuation and Family Business status.
+                Holdings now act as real capital-allocation vehicles: fund a group reserve, finance acquisitions,
+                inject growth capital, repay debt and appoint the next generation.
               </Text>
             </View>
           </View>
@@ -87,7 +108,7 @@ export default function HoldingCompaniesScreen() {
           <>
             <GameCard>
               <Text style={styles.sectionTitle}>Create Holding</Text>
-              <Text style={styles.sectionSub}>One-time setup cost: {formatCurrency(setupCost)} • Cash: {formatCurrency(cash)}</Text>
+              <Text style={styles.sectionSub}>One-time setup: {formatCurrency(setupCost)} • Personal cash: {formatCurrency(cash)}</Text>
               <View style={styles.createRow}>
                 <TextInput
                   value={name}
@@ -111,10 +132,13 @@ export default function HoldingCompaniesScreen() {
               <GameCard>
                 <Text style={styles.emptyTitle}>No holding companies yet</Text>
                 <Text style={styles.emptyText}>
-                  Create one when you want to manage several operating companies as a single dynasty portfolio.
+                  Create one when you want acquisitions and family businesses managed as a single dynasty portfolio.
                 </Text>
               </GameCard>
-            ) : summaries.map(({ holding, subsidiaryCount, totalValue, weeklyProfit, familyControlledPct }) => (
+            ) : summaries.map(({
+              holding, subsidiaries, subsidiaryCount, totalValue, totalDebt, netGroupEquity, weeklyProfit,
+              cashReserve, familyControlledPct, protectedAssets, avgRevenueSynergy, avgExpenseSynergy, diversification,
+            }) => (
               <GameCard key={holding.id}>
                 <View style={styles.holdingHeader}>
                   <View style={styles.holdingIcon}>
@@ -130,12 +154,22 @@ export default function HoldingCompaniesScreen() {
 
                 <View style={styles.statsRow}>
                   <View style={styles.stat}>
-                    <Text style={styles.statLabel}>Subsidiaries</Text>
-                    <Text style={styles.statValue}>{subsidiaryCount}</Text>
+                    <Text style={styles.statLabel}>Group Value</Text>
+                    <Text style={styles.statValue}>{formatCurrency(totalValue)}</Text>
                   </View>
                   <View style={styles.stat}>
-                    <Text style={styles.statLabel}>Group value</Text>
-                    <Text style={styles.statValue}>{formatCurrency(totalValue)}</Text>
+                    <Text style={styles.statLabel}>Group Debt</Text>
+                    <Text style={[styles.statValue, { color: totalDebt > 0 ? Colors.warning : Colors.textPrimary }]}>{formatCurrency(totalDebt)}</Text>
+                  </View>
+                  <View style={styles.stat}>
+                    <Text style={styles.statLabel}>Net Equity</Text>
+                    <Text style={styles.statValue}>{formatCurrency(netGroupEquity)}</Text>
+                  </View>
+                </View>
+                <View style={styles.statsRow}>
+                  <View style={styles.stat}>
+                    <Text style={styles.statLabel}>Subsidiaries</Text>
+                    <Text style={styles.statValue}>{subsidiaryCount}</Text>
                   </View>
                   <View style={styles.stat}>
                     <Text style={styles.statLabel}>Weekly P&L</Text>
@@ -143,39 +177,145 @@ export default function HoldingCompaniesScreen() {
                       {weeklyProfit >= 0 ? '+' : ''}{formatCurrency(weeklyProfit)}
                     </Text>
                   </View>
+                  <View style={styles.stat}>
+                    <Text style={styles.statLabel}>Cash Reserve</Text>
+                    <Text style={[styles.statValue, { color: Colors.info }]}>{formatCurrency(cashReserve)}</Text>
+                  </View>
                 </View>
 
                 <View style={styles.familyControl}>
                   <Ionicons name="people" size={14} color={Colors.warning} />
                   <Text style={styles.familyControlText}>
-                    {Math.round(familyControlledPct)}% of group value is family-controlled
+                    {Math.round(familyControlledPct)}% family-controlled • {protectedAssets} protected long-term asset{protectedAssets === 1 ? '' : 's'}
                   </Text>
                 </View>
 
-                {businesses.filter((business) => business.holdingCompanyId === holding.id).map((business) => (
-                  <View key={business.id} style={styles.subsidiaryRow}>
-                    <Pressable style={{ flex: 1 }} onPress={() => router.push(`/business/${business.id}`)}>
-                      <Text style={styles.subsidiaryName}>{business.name}</Text>
-                      <Text style={styles.subsidiaryMeta}>
-                        {formatCurrency(business.valuation ?? 0)} • {(business.lastWeekProfit ?? 0) >= 0 ? '+' : ''}{formatCurrency(business.lastWeekProfit ?? 0)}/wk
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => assignBusinessToHolding(business.id, null)}
-                      hitSlop={10}
-                      style={styles.removeButton}
-                    >
-                      <Ionicons name="remove-circle-outline" size={19} color={Colors.textMuted} />
-                    </Pressable>
+                <View style={styles.synergyBox}>
+                  <Text style={styles.synergyTitle}>Group Synergies</Text>
+                  <Text style={styles.synergyText}>
+                    Avg. revenue +{(avgRevenueSynergy * 100).toFixed(1)}% • cost reduction {(avgExpenseSynergy * 100).toFixed(1)}% • crisis protection {(diversification * 100).toFixed(0)}%
+                  </Text>
+                  <Text style={styles.synergyHint}>
+                    Same-industry subsidiaries improve purchasing efficiency. Related industries improve cross-selling. Three or more industries add diversification protection. All bonuses are capped.
+                  </Text>
+                </View>
+
+                <View style={styles.capitalBox}>
+                  <View style={styles.capitalHeader}>
+                    <View>
+                      <Text style={styles.capitalTitle}>Holding Reserve</Text>
+                      <Text style={styles.capitalMeta}>Fund from personal cash, then deploy into subsidiaries or acquisitions.</Text>
+                    </View>
                   </View>
-                ))}
+                  <View style={styles.buttonRow}>
+                    {CAPITAL_AMOUNTS.map((amount) => (
+                      <Pressable
+                        key={amount}
+                        disabled={cash < amount}
+                        onPress={() => fundHoldingCompany(holding.id, amount)}
+                        style={[styles.smallAction, cash < amount && styles.disabledAction]}
+                      >
+                        <Text style={styles.smallActionText}>+{formatCurrency(amount)}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                {adultChildren.length > 0 && (
+                  <View style={styles.governanceBox}>
+                    <Text style={styles.synergyTitle}>Dynasty Management</Text>
+                    <Text style={styles.governanceCurrent}>
+                      Executive: {holding.executiveChildName ?? 'None'}{holding.executiveChildName ? ` • Performance ${Math.round(holding.executivePerformance ?? 50)}` : ''}
+                    </Text>
+                    <Text style={styles.governanceCurrent}>Planned successor: {holding.designatedSuccessorChildName ?? 'None'}</Text>
+                    {adultChildren.map((child) => (
+                      <View key={child.id} style={styles.childRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.childName}>{child.name}</Text>
+                          <Text style={styles.childMeta}>{child.occupationTitle ?? 'Independent'} • Relationship {Math.round(child.parentRelationship ?? 75)}</Text>
+                        </View>
+                        <Pressable
+                          disabled={(child.parentRelationship ?? 75) < 30}
+                          style={[styles.roleButton, holding.executiveChildId === child.id && styles.roleButtonActive]}
+                          onPress={() => appointChildToHolding(holding.id, child.id, 'executive')}
+                        >
+                          <Text style={styles.roleText}>Executive</Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={(child.parentRelationship ?? 75) < 30}
+                          style={[styles.roleButton, holding.designatedSuccessorChildId === child.id && styles.roleButtonActive]}
+                          onPress={() => appointChildToHolding(holding.id, child.id, 'successor')}
+                        >
+                          <Text style={styles.roleText}>Successor</Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {subsidiaries.map((business) => {
+                  const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
+                  const acquisitionReturn = getAcquisitionReturn(business);
+                  const canAllocateMillion = cashReserve >= 1_000_000;
+                  return (
+                    <View key={business.id} style={styles.subsidiaryBlock}>
+                      <View style={styles.subsidiaryRow}>
+                        <Pressable style={{ flex: 1 }} onPress={() => router.push(`/business/${business.id}`)}>
+                          <Text style={styles.subsidiaryName}>{business.name}</Text>
+                          <Text style={styles.subsidiaryMeta}>
+                            {formatCurrency(business.valuation ?? 0)} • {(business.lastWeekProfit ?? 0) >= 0 ? '+' : ''}{formatCurrency(business.lastWeekProfit ?? 0)}/wk
+                          </Text>
+                          {acquisitionReturn && (
+                            <Text style={[styles.returnText, { color: acquisitionReturn.returnPct >= 0 ? Colors.primary : Colors.negative }]}>
+                              Equity return since acquisition: {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
+                            </Text>
+                          )}
+                          {business.acquisition?.integrationStrategy === 'pending' && (
+                            <Text style={styles.integrationWarning}>Integration decision required</Text>
+                          )}
+                          {business.portfolioIntent === 'long_term_family' && (
+                            <Text style={styles.longTermText}>◆ Protected long-term family asset</Text>
+                          )}
+                        </Pressable>
+                        <Pressable onPress={() => assignBusinessToHolding(business.id, null)} hitSlop={10} style={styles.removeButton}>
+                          <Ionicons name="remove-circle-outline" size={19} color={Colors.textMuted} />
+                        </Pressable>
+                      </View>
+
+                      <View style={styles.buttonRow}>
+                        <Pressable
+                          disabled={!canAllocateMillion}
+                          onPress={() => allocateHoldingCapital(holding.id, business.id, 1_000_000, 'capital')}
+                          style={[styles.smallAction, !canAllocateMillion && styles.disabledAction]}
+                        >
+                          <Text style={styles.smallActionText}>+€1M Growth</Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={!canAllocateMillion || debt <= 0}
+                          onPress={() => allocateHoldingCapital(holding.id, business.id, 1_000_000, 'debt')}
+                          style={[styles.smallAction, (!canAllocateMillion || debt <= 0) && styles.disabledAction]}
+                        >
+                          <Text style={styles.smallActionText}>€1M Debt</Text>
+                        </Pressable>
+                        {business.familyBusiness?.isFamilyBusiness && (
+                          <Pressable
+                            onPress={() => toggleLongTermFamilyAsset(business.id)}
+                            style={[styles.smallAction, business.portfolioIntent === 'long_term_family' && styles.protectedAction]}
+                          >
+                            <Text style={styles.smallActionText}>{business.portfolioIntent === 'long_term_family' ? 'Unprotect' : 'Long-term'}</Text>
+                          </Pressable>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
               </GameCard>
             ))}
 
             {holdings.length > 0 && unassigned.length > 0 && (
               <GameCard>
                 <Text style={styles.sectionTitle}>Unassigned Companies</Text>
-                <Text style={styles.sectionSub}>Tap a holding to move the company into that group.</Text>
+                <Text style={styles.sectionSub}>Move existing businesses into a group to activate portfolio synergies.</Text>
                 {unassigned.map((business) => (
                   <View key={business.id} style={styles.assignmentBlock}>
                     <Text style={styles.assignmentName}>{business.name}</Text>
@@ -237,10 +377,35 @@ const styles = StyleSheet.create({
   statLabel: { color: Colors.textMuted, fontSize: 9 },
   statValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', marginTop: 3 },
   familyControl: { flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 11, backgroundColor: '#33270F', paddingHorizontal: 9, paddingVertical: 7, borderRadius: 8 },
-  familyControlText: { color: Colors.warning, fontSize: 10, fontWeight: '700' },
-  subsidiaryRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.cardBorder, paddingTop: 10, marginTop: 10 },
+  familyControlText: { color: Colors.warning, fontSize: 10, fontWeight: '700', flex: 1 },
+  synergyBox: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 10 },
+  synergyTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  synergyText: { color: Colors.primary, fontSize: 10, fontWeight: '700', marginTop: 5 },
+  synergyHint: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 5 },
+  capitalBox: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, marginTop: 11, paddingTop: 10 },
+  capitalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  capitalTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
+  capitalMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
+  buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  smallAction: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 7, backgroundColor: Colors.elevated },
+  disabledAction: { opacity: 0.35 },
+  protectedAction: { borderColor: Colors.warning, backgroundColor: '#33270F' },
+  smallActionText: { color: Colors.textSecondary, fontSize: 9, fontWeight: '800' },
+  governanceBox: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, marginTop: 11, paddingTop: 10 },
+  governanceCurrent: { color: Colors.textSecondary, fontSize: 9, marginTop: 4 },
+  childRow: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 8 },
+  childName: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  childMeta: { color: Colors.textMuted, fontSize: 8, marginTop: 2 },
+  roleButton: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 6 },
+  roleButtonActive: { borderColor: Colors.primary, backgroundColor: '#10382D' },
+  roleText: { color: Colors.textSecondary, fontSize: 8, fontWeight: '800' },
+  subsidiaryBlock: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, paddingTop: 10, marginTop: 10 },
+  subsidiaryRow: { flexDirection: 'row', alignItems: 'center' },
   subsidiaryName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   subsidiaryMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
+  returnText: { fontSize: 9, fontWeight: '700', marginTop: 3 },
+  integrationWarning: { color: Colors.warning, fontSize: 9, fontWeight: '800', marginTop: 3 },
+  longTermText: { color: Colors.warning, fontSize: 9, marginTop: 3 },
   removeButton: { paddingLeft: 12, paddingVertical: 4 },
   assignmentBlock: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, paddingTop: 10, marginTop: 10 },
   assignmentName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
