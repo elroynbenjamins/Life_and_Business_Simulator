@@ -12,8 +12,10 @@ import { formatCurrency } from '../../src/utils/format';
 import {
   getChildAge,
   getChildWeeklyCost,
+  getChildCostBreakdown,
   getChildFuturePotential,
   getDateCost,
+  getFamilyPlanningPreview,
   getFamilyFormationProfile,
   getNormalizedDatingAgeBounds,
   getProposalCost,
@@ -44,6 +46,7 @@ export default function RelationshipsScreen() {
   const propose = useGameStore((s) => s.proposeToPartner);
   const marry = useGameStore((s) => s.marryPartner);
   const setFamilyPlan = useGameStore((s) => s.setFamilyPlan);
+  const reduceFamilySpending = useGameStore((s) => s.reduceFamilySpending);
   const fundChildEducation = useGameStore((s) => s.fundChildEducation);
   const spendTimeWithChild = useGameStore((s) => s.spendTimeWithChild);
   const endDatingConnection = useGameStore((s) => s.endDatingConnection);
@@ -94,6 +97,17 @@ export default function RelationshipsScreen() {
     && Math.max(state.age ?? 20, partner.age ?? 20) === 42
     && (state.week ?? 1) + familyProfile.durationWeeks > 20;
   const familyAgeBlocked = !!partner && (!familyProfile?.allowedByAge || familyWouldCrossAgeLimit);
+  const familyPreview = useMemo(() => getFamilyPlanningPreview(state), [
+    state.relationshipState,
+    state.currentHousingId,
+    state.inflationMultiplier,
+    state.cash,
+    state.currentJobId,
+    state.partTimeJob,
+    state.career,
+  ]);
+  const familySpendingActive = (relationship?.familySpendingWeeksRemaining ?? 0) > 0;
+  const dependentChildrenCount = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) < 18).length;
   const canGrowFamily = !!familyProfile
     && !familyLimitReached
     && !familySpacingBlocked
@@ -344,6 +358,16 @@ export default function RelationshipsScreen() {
                   ) : (
                     <>
                       <Text style={styles.meta}>Discussing children can strengthen or strain the relationship depending on your partner's goals.</Text>
+                      <View style={styles.familyWarningBox}>
+                        <Text style={styles.compactTitle}>Before growing the family</Text>
+                        <Text style={styles.meta}>
+                          Expected first child cost: {formatCurrency(familyPreview.netChildCost)}/wk
+                          {familyPreview.familySupport > 0 ? ` after ${formatCurrency(familyPreview.familySupport)}/wk support` : ''}.
+                          {familyPreview.recommendedHousing
+                            ? ` Your current home fits ${familyPreview.housingCapacity}; move to ${familyPreview.recommendedHousing} for enough space.`
+                            : ` Your current home has enough space for ${familyPreview.householdSizeAfter}.`}
+                        </Text>
+                      </View>
                       {!canGrowFamily && (
                         <Text style={[styles.meta, { color: Colors.warning, marginTop: 5 }]}>
                           {familyLimitReached
@@ -380,6 +404,24 @@ export default function RelationshipsScreen() {
                       </View>
                     </>
                   )}
+                </View>
+              )}
+
+              {dependentChildrenCount > 0 && (
+                <View style={styles.majorBox}>
+                  <Text style={styles.majorTitle}>Family Budget</Text>
+                  <Text style={styles.meta}>
+                    {familySpendingActive
+                      ? `Reduced family spending is active for ${relationship.familySpendingWeeksRemaining} more week${relationship.familySpendingWeeksRemaining === 1 ? '' : 's'}.`
+                      : 'Temporarily reduce child recurring costs by cutting extras. This helps cash flow, but lowers happiness and family relationships.'}
+                  </Text>
+                  <Pressable
+                    disabled={familySpendingActive}
+                    style={[styles.secondaryButton, familySpendingActive && styles.disabled]}
+                    onPress={reduceFamilySpending}
+                  >
+                    <Text style={styles.secondaryText}>{familySpendingActive ? 'Budget Already Reduced' : 'Reduce Spending for 12 Weeks'}</Text>
+                  </Pressable>
                 </View>
               )}
 
@@ -585,6 +627,7 @@ export default function RelationshipsScreen() {
             {(relationship.children ?? []).map((child) => {
               const age = getChildAge(child, gw);
               const weeklyCost = getChildWeeklyCost(child, state);
+              const costs = getChildCostBreakdown(child, state);
               const personality = child.personality;
               const potential = age >= 18 ? getChildFuturePotential(child) : null;
               const parentRelationship = Math.round(child.parentRelationship ?? 75);
@@ -599,6 +642,7 @@ export default function RelationshipsScreen() {
                     {weeklyCost > 0 && <Text style={styles.costText}>-{formatCurrency(weeklyCost)}/wk</Text>}
                   </View>
 
+                  {weeklyCost > 0 && <Text style={styles.meta}>Weekly: food {formatCurrency(costs.food)} · care/school {formatCurrency(costs.careSchool)} · clothes/health {formatCurrency(costs.clothingHealth)} · transport/activities {formatCurrency(costs.transportActivities)} · utilities {formatCurrency(costs.utilities)}. Scales with inflation; regular support ends at 18. Education funds are separate.{familySpendingActive ? ' Reduced spending is active.' : ''}</Text>}
                   <Text style={styles.progressLabel}>Parent Relationship {parentRelationship}%</Text>
                   <View style={styles.progressTrack}>
                     <View
@@ -1012,6 +1056,7 @@ const styles = StyleSheet.create({
   compactTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', textAlign: 'center' },
   weddingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 10, marginTop: 7 },
   familyProgress: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 8 },
+  familyWarningBox: { backgroundColor: `${Colors.warning}10`, borderWidth: 1, borderColor: `${Colors.warning}30`, borderRadius: 9, padding: 9, marginTop: 9 },
   obligationRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   smallAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
   divorceBox: { marginTop: 14, padding: 11, borderRadius: 10, borderWidth: 1, borderColor: `${Colors.negative}44`, backgroundColor: `${Colors.negative}0B` },

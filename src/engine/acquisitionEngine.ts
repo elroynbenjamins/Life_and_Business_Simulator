@@ -9,7 +9,7 @@ import {
   OwnedBusiness,
 } from '../types/game';
 import businessTypesData from '../data/business_types.json';
-import { candidateToEmployee, createBusiness, generateCandidates, getBusinessType } from './businessEngine';
+import { aggregateEmployeeBuffs, candidateToEmployee, createBusiness, generateCandidates, getBusinessType, getBusinessRevenueCapacity } from './businessEngine';
 
 export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
@@ -302,7 +302,7 @@ export function createAcquiredBusiness(
       }]
     : [];
 
-  return {
+  const acquired: OwnedBusiness = {
     ...base,
     balance: businessBalance,
     totalRevenue: revenueHistory.reduce((sum, value) => sum + value, 0),
@@ -343,6 +343,11 @@ export function createAcquiredBusiness(
       initialRisk: target.risk,
       diligenceScore: target.diligenceScore,
       additionalCapitalInvested: 0,
+      quotedWeeklyRevenue: target.weeklyRevenue,
+      quotedWeeklyProfit: target.weeklyProfit,
+      quoteInflation: state.inflationMultiplier,
+      referenceStaffCost: employees.reduce((sum, employee) => sum + employee.weeklySalary, 0),
+      referenceExpenseMultiplier: aggregateEmployeeBuffs(employees).expenseMult,
     },
     ownership: [{
       ownerType: 'player',
@@ -364,6 +369,8 @@ export function createAcquiredBusiness(
       },
     ].slice(-50),
   };
+  acquired.acquisition!.referenceRevenueCapacity = getBusinessRevenueCapacity(acquired);
+  return acquired;
 }
 
 export function createHoldingCompany(

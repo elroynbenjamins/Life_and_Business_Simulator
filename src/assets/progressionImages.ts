@@ -32,6 +32,10 @@ export const prestigeImages: Record<string, ImageSourcePropType> = {
   deposit_interest: require('../../assets/pixel-art/prestige/deposit-investor.png'), property_income: require('../../assets/pixel-art/prestige/landlord-pro.png'),
   tax_reduction: require('../../assets/pixel-art/prestige/tax-planning.png'), dividend_boost: require('../../assets/pixel-art/prestige/dividend-hunter.png'),
   negotiation: require('../../assets/pixel-art/prestige/master-negotiator.png'),
+  business_resilience: require('../../assets/pixel-art/prestige/cost-cutter.png'),
+  family_leadership: require('../../assets/pixel-art/prestige/master-negotiator.png'),
+  legacy_planning: require('../../assets/pixel-art/prestige/trust-fund.png'),
+  crypto_risk_control: require('../../assets/pixel-art/prestige/deposit-investor.png'),
 };
 
 export const prestigeImageKey = (id: string) => id.replace(/_[2345]$/, '');

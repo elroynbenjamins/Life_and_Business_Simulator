@@ -31,7 +31,8 @@ export default function SuccessionScreen() {
 
   const eligible = useMemo(() => children
     .map((child) => ({ child, preview: getSuccessionPreview(state, child.id, 'liquidate', inheritanceTaxReduction) }))
-    .filter((item) => !!item.preview), [children, estate, state.year, state.week]);
+    .filter((item) => !!item.preview), [state, inheritanceTaxReduction]);
+  const hasWillingHeir = eligible.some(({ preview }) => preview?.willingToSucceed);
 
   const selectedChild = children.find((child) => child.id === selectedChildId) ?? null;
   const preview = selectedChildId
@@ -190,7 +191,7 @@ export default function SuccessionScreen() {
 
             <View style={styles.navRow}>
               <Pressable style={styles.secondary} onPress={() => setStep(0)}><Text style={styles.secondaryText}>← Estate</Text></Pressable>
-              {eligible.length === 0 ? (
+              {!hasWillingHeir ? (
                 <Pressable style={styles.primaryFlex} onPress={beginNewGame}><Text style={styles.primaryText}>Start New Life</Text></Pressable>
               ) : (
                 <Pressable disabled={!selectedChildId} style={[styles.primaryFlex, !selectedChildId && styles.disabled]} onPress={() => selectedChildId && setStep(2)}>
@@ -230,6 +231,9 @@ export default function SuccessionScreen() {
               {preview.inheritedBusinessValue > 0 && <MoneyRow label="Family-business equity" value={preview.inheritedBusinessValue} />}
               <View style={styles.divider} />
               <MoneyRow label="Inheritance tax" value={-preview.inheritanceTax} negative strong />
+              {preview.businessSettlementDebt > 0 && (
+                <Text style={styles.meta}>Unpaid estate costs of {formatCurrency(preview.businessSettlementDebt)} are already deducted from your inherited business equity. They will be repaid over 80 weeks without interest.</Text>
+              )}
               {preview.loanNeeded > 0 && <MoneyRow label="Minimum financing need" value={preview.loanNeeded} />}
 
               <View style={styles.taxNote}>

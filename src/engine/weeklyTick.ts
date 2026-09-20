@@ -13,7 +13,7 @@ import { checkAchievements } from './achievementEngine';
 // Life events removed
 import { calculateValuation, processAllBusinesses } from './businessEngine';
 import { processSkillGrowth, applyEducationRewards } from './skillEngine';
-import { processCareerTick, getCareerSalary } from './careerEngine';
+import { processCareerTick, getCareerSalary, recordCareerLevel } from './careerEngine';
 import { processProperties } from './propertyEngine';
 import { auctionToProperty, ensureAuctions } from './auctionEngine';
 import { processCompetitors } from './competitorEngine';
@@ -46,7 +46,8 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     week: newWeek,
     year: newYear,
     age: newAge,
-    lastMacroCrashWeek: economy.crashEvent ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
+    lastMacroCrashWeek: economy.crashStarted ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
+    activeMacroCrash: economy.activeMacroCrash,
   };
 
   // Purchased vehicles arrive after this week's progression has completed.
@@ -314,6 +315,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     skills: updatedSkills,
     knowledge: updatedKnowledge,
     career: careerTick.updatedCareer,
+    careerHistory: recordCareerLevel(state.careerHistory ?? [], careerTick.updatedCareer, newWeek),
     properties: auctionProperties,
     activeAuctions,
     competitors: compResult.updatedCompetitors,
@@ -329,7 +331,8 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     relationshipState: relationshipStateAfterBusiness,
     familyTree: familyTreeAfterBusiness,
     lifecycle: state?.lifecycle,
-    lastMacroCrashWeek: economy.crashEvent ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
+    lastMacroCrashWeek: economy.crashStarted ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
+    activeMacroCrash: economy.activeMacroCrash,
   };
 
   const happiness = calculateHappiness(tempState);

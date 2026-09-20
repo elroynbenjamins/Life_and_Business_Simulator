@@ -185,7 +185,9 @@ describe('business strategy, crises and ownership', () => {
     };
 
     const estate = calculateEstateSettlement(state);
-    expect(estate.businessValue).toBe(600_000);
+    expect(estate.businessValue + (estate.businessSettlementDebt ?? 0)).toBe(600_000);
+    expect(estate.businessSettlementDebt).toBe(24_000);
+    expect(estate.businessValue).toBe(estate.netEstate);
     expect(estate.successorName).toBe('Mila');
   });
 

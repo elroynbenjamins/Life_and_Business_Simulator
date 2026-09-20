@@ -1,4 +1,16 @@
 import { GameState, CareerState, INITIAL_CAREER_STATE } from '../types/game';
+
+/** Retain the highest level reached during the active employment, including old saves. */
+export function recordCareerLevel(history: GameState['careerHistory'], career: CareerState, week: number): GameState['careerHistory'] {
+  if (!career.companyId || !career.careerPathId) return history;
+  const prefix = `${career.companyId}_${career.careerPathId}_`;
+  const position = getCareerPath(career.careerPathId)?.positions.find((p: any) => p.level === career.positionLevel);
+  if (!position) return history;
+  const index = history.findIndex(entry => entry.endWeek === null && entry.jobId.startsWith(prefix));
+  if (index < 0) return [...history, { jobId: prefix + career.positionLevel, title: position.title, startWeek: week, endWeek: null }];
+  if (Number(history[index].jobId.slice(prefix.length)) >= career.positionLevel) return history;
+  return history.map((entry, i) => i === index ? { ...entry, jobId: prefix + career.positionLevel, title: position.title } : entry);
+}
 import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
 import coursesData from '../data/courses.json';

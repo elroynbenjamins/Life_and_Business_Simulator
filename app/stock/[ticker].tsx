@@ -55,6 +55,8 @@ export default function StockDetailScreen() {
   const assetMeta = sd as any;
   const isCrypto = sd?.type === 'crypto';
   const unitLabel = isCrypto ? 'coins' : 'shares';
+  const singularUnit = isCrypto ? 'coin' : 'share';
+  const unitsFor = (count: number) => count === 1 ? singularUnit : unitLabel;
   const history = stock?.priceHistory ?? [price];
   const prevPrice = (history?.length ?? 0) >= 2 ? history[(history?.length ?? 1) - 2] : price;
   const changePercent = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0;
@@ -81,20 +83,20 @@ export default function StockDetailScreen() {
 
   const handleBuy = () => {
     if (qty <= 0 || totalCost > cash) return;
-    const message = `Buy ${qty} ${unitLabel} of ${sd?.ticker} for ${formatCurrency(totalCost, 2)}?`;
+    const message = `Buy ${qty} ${unitsFor(qty)} of ${sd?.ticker} for ${formatCurrency(totalCost, 2)}?`;
     showGameDialog({ title: 'Confirm Purchase', message, confirmText: 'Buy', onConfirm: () => { buyStock?.(ticker, qty); setQty(0); } });
   };
 
   const handleSell = () => {
     if (qty <= 0 || qty > maxSell) return;
-    const message = `Sell ${qty} ${unitLabel} of ${sd?.ticker} for ${formatCurrency(qty * price, 2)}?`;
+    const message = `Sell ${qty} ${unitsFor(qty)} of ${sd?.ticker} for ${formatCurrency(qty * price, 2)}?`;
     showGameDialog({ title: 'Confirm Sale', message, confirmText: 'Sell', onConfirm: () => { sellStock?.(ticker, qty); setQty(0); } });
   };
 
   const handleSellAll = () => {
     if (maxSell <= 0) return;
     const totalSaleValue = maxSell * price;
-    const message = `Sell all ${maxSell} ${unitLabel} of ${sd?.ticker} for ${formatCurrency(totalSaleValue, 2)}?`;
+    const message = `Sell all ${maxSell} ${unitsFor(maxSell)} of ${sd?.ticker} for ${formatCurrency(totalSaleValue, 2)}?`;
     showGameDialog({ title: 'Sell All', message, confirmText: 'Sell All', destructive: true, onConfirm: () => { sellStock?.(ticker, maxSell); setQty(0); } });
   };
 
@@ -229,7 +231,7 @@ export default function StockDetailScreen() {
           <View style={styles.qtyRow}>
             <RepeatStepperButton
               style={styles.stepperBtn}
-              accessibilityLabel="Decrease shares"
+              accessibilityLabel={`Decrease ${unitLabel}`}
               disabled={qty <= 0}
               onStep={(amount) => setQty(current => Math.max(0, current - amount))}
             >
@@ -237,7 +239,7 @@ export default function StockDetailScreen() {
             </RepeatStepperButton>
             <TextInput
               ref={quantityRef}
-              accessibilityLabel="Number of shares"
+              accessibilityLabel={`Number of ${unitLabel}`}
               style={styles.qtyInput}
               value={qty > 0 ? String(qty) : ''}
               placeholder="0"
@@ -259,7 +261,7 @@ export default function StockDetailScreen() {
             />
             <RepeatStepperButton
               style={styles.stepperBtn}
-              accessibilityLabel="Increase shares"
+              accessibilityLabel={`Increase ${unitLabel}`}
               disabled={qty >= Math.max(maxBuy, maxSell)}
               onStep={(amount) => setQty(current => Math.min(Math.max(maxBuy, maxSell), current + amount))}
             >
@@ -274,7 +276,7 @@ export default function StockDetailScreen() {
           </View>
 
           {editingQuantity && <Pressable style={styles.doneButton} onPress={finishQuantity} accessibilityRole="button"><Text style={styles.doneText}>Done entering quantity</Text></Pressable>}
-          {!editingQuantity && <Text style={styles.cashText}>Tap + / − for 1 share. Hold to change faster.</Text>}
+          {!editingQuantity && <Text style={styles.cashText}>Tap + / − for 1 {singularUnit}. Hold to change faster.</Text>}
           <Text style={styles.totalText}>Total: {formatCurrency(totalCost, 2)}</Text>
           <Text style={styles.cashText}>Cash: {formatCurrency(cash)}</Text>
 
@@ -296,7 +298,7 @@ export default function StockDetailScreen() {
           </View>
           {maxSell > 0 && (
             <Pressable style={styles.sellAllBtn} onPress={handleSellAll}>
-              <Text style={styles.sellAllText}>Sell All ({maxSell} {unitLabel})</Text>
+              <Text style={styles.sellAllText}>Sell All ({maxSell} {unitsFor(maxSell)})</Text>
             </Pressable>
           )}
         </GameCard>

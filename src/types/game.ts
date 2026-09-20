@@ -126,6 +126,8 @@ export interface EstateSettlement {
   netEstate: number;
   beneficiaries: EstateBeneficiaryShare[];
   successorName: string | null;
+  successorId?: string | null;
+  businessSettlementDebt?: number;
   businessValue: number;
 }
 
@@ -227,6 +229,7 @@ export interface RelationshipFinancialSnapshot {
 export interface RelationshipEventChoice {
   text: string;
   cost?: number;
+  cash?: number;
   relationship?: number;
   happiness?: number;
   happinessDuration?: number;
@@ -261,6 +264,8 @@ export interface RelationshipState {
   financialObligations: RelationshipFinancialObligation[];
   familyPlan: FamilyPlan;
   familyExpansionWeeksRemaining: number;
+  familySpendingMode: 'normal' | 'reduced';
+  familySpendingWeeksRemaining: number;
   lastFamilyAttemptWeek: number;
   lastRelationshipEventWeek: number;
   recentRelationshipEventIds: string[];
@@ -291,6 +296,8 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   financialObligations: [],
   familyPlan: 'not_discussed',
   familyExpansionWeeksRemaining: 0,
+  familySpendingMode: 'normal',
+  familySpendingWeeksRemaining: 0,
   lastFamilyAttemptWeek: 0,
   lastRelationshipEventWeek: 0,
   recentRelationshipEventIds: [],
@@ -323,6 +330,13 @@ export const INITIAL_LIFECYCLE_STATE: LifecycleState = {
   deathYear: null,
   causeOfDeath: null,
 };
+
+export interface ActiveMacroCrash {
+  title: string;
+  weeksRemaining: number;
+  totalWeeks: number;
+  weeklyStockShock: number;
+}
 
 // ── Skills & Knowledge ──
 export interface SkillCategoryData {
@@ -778,7 +792,7 @@ export interface WeekSummary {
   partnerInheritance: number;
   familyMilestones: string[];
   // Macro correction
-  crashEvent: { title: string; inflationReduction: number; stockShock: number } | null;
+  crashEvent: { title: string; inflationReduction: number; stockShock: number; isAftershock?: boolean; weeksRemaining?: number; totalWeeks?: number } | null;
   // Lifecycle
   diedThisWeek: boolean;
 }
@@ -994,6 +1008,12 @@ export interface BusinessAcquisitionState {
   initialRisk: AcquisitionRisk;
   diligenceScore: number;
   additionalCapitalInvested: number;
+  quotedWeeklyRevenue?: number;
+  quotedWeeklyProfit?: number;
+  quoteInflation?: number;
+  referenceRevenueCapacity?: number;
+  referenceStaffCost?: number;
+  referenceExpenseMultiplier?: number;
 }
 
 export interface HoldingCompany {
@@ -1244,9 +1264,12 @@ export interface GameState {
   relationshipState: RelationshipState;
   lifecycle: LifecycleState;
   lastMacroCrashWeek: number;
+  activeMacroCrash: ActiveMacroCrash | null;
   generation: number;
   familyLegacy: FamilyLegacyEntry[];
   familyTree: FamilyTreeState;
+  contentUpdateSeenId: string;
+  reviewPromptedWeeks: number[];
 }
 
 export const INITIAL_GAME_STATE: GameState = {
@@ -1305,9 +1328,12 @@ export const INITIAL_GAME_STATE: GameState = {
   relationshipState: { ...INITIAL_RELATIONSHIP_STATE },
   lifecycle: { ...INITIAL_LIFECYCLE_STATE },
   lastMacroCrashWeek: 0,
+  activeMacroCrash: null,
   generation: 1,
   familyLegacy: [],
   familyTree: { ...INITIAL_FAMILY_TREE_STATE },
+  contentUpdateSeenId: '',
+  reviewPromptedWeeks: [],
 };
 
 /** Player profile — persists prestige points and gems across all games/save slots */

@@ -9,9 +9,9 @@ import { createBusiness, generateCandidates, candidateToEmployee, getBusinessTyp
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
 import { ensureAuctions, getInspectionCost, inspectAuction, leaveAuction, placeAuctionBid } from '../engine/auctionEngine';
 import { unlockPrestige, getPrestigeEffects } from '../engine/prestigeEngine';
-import { calculateChildInheritanceTax, getSuccessionPreview } from '../engine/lifecycleEngine';
+import { calculateChildInheritanceTax, getSuccessionPreview, getEstateSuccessorId } from '../engine/lifecycleEngine';
 import { createInitialFamilyTree, syncFamilyTree, transitionFamilyTreeToChild } from '../engine/familyTreeEngine';
-import { getCareerSalary } from '../engine/careerEngine';
+import { getCareerSalary, recordCareerLevel } from '../engine/careerEngine';
 import { applyEducationRewards } from '../engine/skillEngine';
 import { createInitialCompetitors, migrateBusinessCompetitors } from '../engine/competitorEngine';
 import {
@@ -25,7 +25,7 @@ import {
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
 } from '../engine/acquisitionEngine';
-import { generateRelationshipCandidates, getChildFuturePotential, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
+import { generateRelationshipCandidates, getChildFuturePotential, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getFamilyPlanningPreview, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
 import coursesData from '../data/courses.json';
 import jobsData from '../data/jobs.json';
@@ -41,6 +41,8 @@ import { AD_CONFIG } from '../services/adConfig';
 import { showGameDialog } from '../components/GameDialog';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
+export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
+
 interface GameStore extends GameState {
   isLoading: boolean;
   lastSummary: WeekSummary | null;
@@ -50,6 +52,8 @@ interface GameStore extends GameState {
   showMainMenu: boolean;
   showTutorial: boolean;
   showEducationOnboarding: boolean;
+  showContentUpdateModal: boolean;
+  showReviewPrompt: boolean;
   slotPickerMode: 'load' | 'new';
   showNegativeCashModal: boolean;
   showPeriodReport: boolean;
@@ -98,6 +102,9 @@ interface GameStore extends GameState {
   openTutorial: () => void;
   dismissTutorial: () => void;
   dismissEducationOnboarding: () => void;
+  dismissContentUpdateModal: () => void;
+  openRelationshipsFromContentUpdate: () => void;
+  dismissReviewPrompt: () => void;
   selectNewGameSlot: (slot: number) => Promise<void>;
 
   enrollCourse: (courseId: string) => void;
@@ -135,6 +142,7 @@ interface GameStore extends GameState {
   proposeToPartner: (ring: 'simple' | 'classic' | 'luxury') => void;
   marryPartner: (wedding: 'courthouse' | 'standard' | 'luxury', agreement: MarriageAgreement) => void;
   setFamilyPlan: (plan: Exclude<FamilyPlan, 'not_discussed'>) => void;
+  reduceFamilySpending: () => void;
   fundChildEducation: (childId: string, amount: number) => void;
   spendTimeWithChild: (childId: string) => void;
   endDatingConnection: (connectionId: string) => void;
@@ -226,6 +234,8 @@ const useGameStore = create<GameStore>((set, get) => ({
   showMainMenu: false,
   showTutorial: false,
   showEducationOnboarding: false,
+  showContentUpdateModal: false,
+  showReviewPrompt: false,
   slotPickerMode: 'load',
   showNegativeCashModal: false,
   showPeriodReport: false,
@@ -379,9 +389,12 @@ const useGameStore = create<GameStore>((set, get) => ({
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
+        activeMacroCrash: saved.activeMacroCrash ?? null,
         generation: saved.generation ?? 1,
         familyLegacy: saved.familyLegacy ?? [],
         familyTree: saved.familyTree ?? createInitialFamilyTree(saved.playerName ?? 'Player', saved.age ?? 20, saved.year ?? 1, saved.generation ?? 1),
+        contentUpdateSeenId: saved.contentUpdateSeenId ?? '',
+        reviewPromptedWeeks: saved.reviewPromptedWeeks ?? [],
       };
       // Migrate career state: remove old freelancing fields, add new fields
       if (merged.career) {
@@ -401,7 +414,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         (profile as any).prestigePoints = profile.totalXp ?? 0;
         (profile as any).unlockedPrestige = (profile as any).unlockedPrestige ?? [];
       }
-      set({ ...merged, isLoading: false, showNameModal: false, showMainMenu: true, showRelationshipEventModal: false, relationshipFeedback: null, profile, slotMeta, activeSlot });
+      set({ ...merged, isLoading: false, showNameModal: false, showMainMenu: true, showRelationshipEventModal: false, showContentUpdateModal: false, relationshipFeedback: null, profile, slotMeta, activeSlot });
     } else {
       set({ isLoading: false, showMainMenu: true, showSlotPicker: false, profile, slotMeta, activeSlot });
     }
@@ -529,9 +542,12 @@ const useGameStore = create<GameStore>((set, get) => ({
         },
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
+        activeMacroCrash: saved.activeMacroCrash ?? null,
         generation: saved.generation ?? 1,
         familyLegacy: saved.familyLegacy ?? [],
         familyTree: saved.familyTree ?? createInitialFamilyTree(saved.playerName ?? 'Player', saved.age ?? 20, saved.year ?? 1, saved.generation ?? 1),
+        contentUpdateSeenId: saved.contentUpdateSeenId ?? '',
+        reviewPromptedWeeks: saved.reviewPromptedWeeks ?? [],
       };
       // Migrate career state
       if (merged.career) {
@@ -547,7 +563,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       merged.activeAuctions = ensureAuctions(merged.activeAuctions, ((merged.year - 1) * 20) + merged.week, merged.inflationMultiplier, getNetWorth(merged));
       merged.familyTree = syncFamilyTree(merged);
       const slotMeta = await loadAllSlotMeta();
-      set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, relationshipFeedback: null, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
+      set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, showContentUpdateModal: (saved.contentUpdateSeenId ?? '') !== CURRENT_CONTENT_UPDATE_ID, relationshipFeedback: null, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
     } else {
       // Empty slot — start new game here
       set({ activeSlot: slot, showSlotPicker: false, showMainMenu: false, showNameModal: true, slotPickerMode: 'load' });
@@ -568,12 +584,14 @@ const useGameStore = create<GameStore>((set, get) => ({
       cash: startingCash,
       netWorthHistory: [startingCash],
       relationshipModeEnabled,
+      contentUpdateSeenId: CURRENT_CONTENT_UPDATE_ID,
+      reviewPromptedWeeks: [],
       familyTree: createInitialFamilyTree(name?.trim?.() || 'Player', 20, 1, 1),
       activeAuctions: ensureAuctions([], 1, 1, startingCash),
     };
     await saveGame(newState, activeSlot);
     const slotMeta = await loadAllSlotMeta();
-    set({ ...newState, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, relationshipFeedback: null, showTutorial: true, showEducationOnboarding: true, slotPickerMode: 'load', lastSummary: null, showSummary: false, slotMeta });
+    set({ ...newState, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, showContentUpdateModal: false, relationshipFeedback: null, showTutorial: true, showEducationOnboarding: true, slotPickerMode: 'load', lastSummary: null, showSummary: false, slotMeta });
   },
 
   deleteSlot: async (slot: number) => {
@@ -651,6 +669,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     // Check if this is a 20-week boundary
     const currentGlobalWeek = ((newState.year - 1) * 20) + newState.week;
     const is20WeekMark = currentGlobalWeek % 20 === 0 && currentGlobalWeek > 0;
+    const reviewMilestone = currentGlobalWeek === 200 || currentGlobalWeek === 500 ? currentGlobalWeek : null;
+    const shouldShowReviewPrompt = reviewMilestone !== null && !(gameState.reviewPromptedWeeks ?? []).includes(reviewMilestone);
+    const reviewPromptedWeeks = shouldShowReviewPrompt
+      ? [...(gameState.reviewPromptedWeeks ?? []), reviewMilestone]
+      : (gameState.reviewPromptedWeeks ?? []);
+    const finalNewState = shouldShowReviewPrompt ? { ...newState, reviewPromptedWeeks } : newState;
 
     let periodReportUpdate: Record<string, any> = {};
     if (is20WeekMark) {
@@ -696,15 +720,16 @@ const useGameStore = create<GameStore>((set, get) => ({
     }
 
     set({
-      ...newState,
+      ...finalNewState,
       lastSummary: summary,
       showSummary: true,
+      showReviewPrompt: shouldShowReviewPrompt,
       educationCareerReminder: summary.educationCareerReminder,
       showEducationCareerReminder: false,
       ...(profileUpdated ? { profile: newProfile } : {}),
       ...(is20WeekMark ? periodReportUpdate : periodAccum),
     });
-    saveGame(newState, state.activeSlot);
+    saveGame(finalNewState, state.activeSlot);
     if (profileUpdated) saveProfile(newProfile);
   },
 
@@ -829,6 +854,32 @@ const useGameStore = create<GameStore>((set, get) => ({
   openTutorial: () => set({ showTutorial: true }),
   dismissTutorial: () => set({ showTutorial: false }),
   dismissEducationOnboarding: () => set({ showEducationOnboarding: false }),
+  dismissContentUpdateModal: () => {
+    const state = get();
+    const updates = { showContentUpdateModal: false, contentUpdateSeenId: CURRENT_CONTENT_UPDATE_ID };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+  openRelationshipsFromContentUpdate: () => {
+    const state = get();
+    const nextRelationshipState = {
+      ...INITIAL_RELATIONSHIP_STATE,
+      ...(state.relationshipState ?? {}),
+    };
+    const updates = {
+      showContentUpdateModal: false,
+      contentUpdateSeenId: CURRENT_CONTENT_UPDATE_ID,
+      relationshipModeEnabled: true,
+      relationshipState: nextRelationshipState,
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+  dismissReviewPrompt: () => {
+    const state = get();
+    set({ showReviewPrompt: false });
+    saveGame(extractGameState({ ...state, showReviewPrompt: false }), state.activeSlot);
+  },
   beginNewGame: () => set({ showSlotPicker: true, slotPickerMode: 'new' }),
   selectNewGameSlot: async (slot: number) => {
     await setActiveSlot(slot);
@@ -1530,12 +1581,65 @@ const useGameStore = create<GameStore>((set, get) => ({
       timeline,
     };
     const updates = { cash, relationshipState };
+    const preview = plan === 'trying' ? getFamilyPlanningPreview(state) : null;
+    const planningNote = preview
+      ? ` Expected first child costs about ${formatCurrencySafe(preview.childCost)}/wk${preview.familySupport > 0 ? ` before ${formatCurrencySafe(preview.familySupport)}/wk support` : ''}.${preview.recommendedHousing ? ` You should move to ${preview.recommendedHousing} for enough space.` : ''}`
+      : '';
     const familyFeedback = plan === 'trying'
       ? (acceptedPlan === 'trying' && familyExpansionWeeksRemaining > 0
-        ? { title: 'Family Plans', message: `${partner.name} agrees. Your family will grow in the coming weeks.`, positive: true }
-        : { title: 'Family Plans', message: partner.familyGoal === 'no_children' ? `${partner.name} does not want children.` : `It did not work out this time. You can try again later.`, positive: false })
+        ? { title: 'Family Plans', message: `${partner.name} agrees. Your family will grow in the coming weeks.${planningNote}`, positive: true }
+        : { title: 'Family Plans', message: partner.familyGoal === 'no_children' ? `${partner.name} does not want children.` : `It did not work out this time. You can try again later.${planningNote}`, positive: false })
       : { title: 'Family Plans', message: 'You discussed what you both want for the future.', positive: relationshipDelta >= 0 };
     set({ ...updates, relationshipFeedback: familyFeedback });
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  reduceFamilySpending: () => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const children = state.relationshipState?.children ?? [];
+    const dependentChildren = children.filter((child) => (child.age ?? 0) < 18);
+    if (dependentChildren.length <= 0) return;
+
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if ((state.relationshipState?.familySpendingWeeksRemaining ?? 0) > 0) return;
+
+    const partnerId = state.relationshipState.partnerId;
+    const activeConnections = (state.relationshipState.activeConnections ?? []).map((item) =>
+      item.id === partnerId
+        ? { ...item, relationship: Math.max(0, Math.min(100, (item.relationship ?? 70) - 2)) }
+        : item
+    );
+    const adjustedChildren = children.map((child) =>
+      (child.age ?? 0) < 18
+        ? {
+            ...child,
+            parentRelationship: Math.max(0, Math.min(100, (child.parentRelationship ?? 75) - 2)),
+            lastParentInteractionWeek: gw,
+          }
+        : child
+    );
+    const relationshipState = {
+      ...state.relationshipState,
+      activeConnections,
+      children: adjustedChildren,
+      familySpendingMode: 'reduced' as const,
+      familySpendingWeeksRemaining: 12,
+      timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: 'Reduced family spending temporarily' }],
+    };
+    const tempHappinessEffects = [
+      ...(state.tempHappinessEffects ?? []),
+      { amount: -2, weeksRemaining: 8, source: 'Reduced family spending' },
+    ];
+    const updates = { relationshipState, tempHappinessEffects };
+    set({
+      ...updates,
+      relationshipFeedback: {
+        title: 'Family Budget Reduced',
+        message: 'Family recurring costs are lower for 12 weeks, but happiness and family relationships take a small hit.',
+        positive: true,
+      },
+    });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -1852,10 +1956,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!child || !preview || !preview.willingToSucceed) return;
     if (!financeTaxWithLoan && preview.taxCashAvailable < preview.inheritanceTax) return;
 
-    const inheritedBusinesses = preview.inheritedBusinessValue > 0
-      ? (state.businesses ?? [])
-          .filter((business) => business.familyBusiness?.isFamilyBusiness)
+    const estateSuccessorId = getEstateSuccessorId(state);
+    const inheritedBusinesses = (state.businesses ?? [])
+          .filter((business) => (preview.inheritsFamilyBusinesses && business.familyBusiness?.isFamilyBusiness)
+            || business.ownership?.some(stake => stake.ownerType === 'child' && stake.ownerId === child.id && stake.percent > 0))
           .map((business) => {
+            const inheritsParentStake = preview.inheritsFamilyBusinesses && !!business.familyBusiness?.isFamilyBusiness;
             const baseOwnership = business.ownership?.length
               ? business.ownership
               : [{
@@ -1868,21 +1974,26 @@ const useGameStore = create<GameStore>((set, get) => ({
 
             const newPlayerPercent = baseOwnership
               .filter((stake) =>
-                stake.ownerType === 'player'
+                (inheritsParentStake && stake.ownerType === 'player')
                 || (stake.ownerType === 'child' && stake.ownerId === child.id)
               )
               .reduce((sum, stake) => sum + (stake.percent ?? 0), 0);
             const newPlayerVotes = baseOwnership
               .filter((stake) =>
-                stake.ownerType === 'player'
+                (inheritsParentStake && stake.ownerType === 'player')
                 || (stake.ownerType === 'child' && stake.ownerId === child.id)
               )
               .reduce((sum, stake) => sum + (stake.votingPercent ?? 0), 0);
 
             const preservedOwnership = baseOwnership.filter((stake) =>
-              stake.ownerType !== 'player'
+              !(inheritsParentStake && stake.ownerType === 'player')
               && !(stake.ownerType === 'child' && stake.ownerId === child.id)
-            );
+            ).map(stake => stake.ownerType === 'player' ? {
+              ...stake,
+              ownerType: 'investor' as const,
+              ownerId: estateSuccessorId ?? 'settled_estate',
+              ownerName: state.relationshipState.estateSettlement?.successorName ?? 'Estate beneficiaries',
+            } : stake);
             const ownership = [
               {
                 ownerType: 'player' as const,
@@ -1920,10 +2031,17 @@ const useGameStore = create<GameStore>((set, get) => ({
                 },
               ].slice(-50),
             };
-          })
-      : [];
+          });
 
     const inheritanceLoanPrincipal = financeTaxWithLoan ? preview.inheritanceTax : 0;
+    const estateSettlementLoan: ActiveLoan | null = preview.businessSettlementDebt > 0 ? {
+      loanId: `estate_costs_g${(state.generation ?? 1) + 1}`,
+      name: 'Unpaid Estate Settlement Costs',
+      originalAmount: preview.businessSettlementDebt,
+      remainingAmount: preview.businessSettlementDebt,
+      weeklyPayment: Math.ceil(preview.businessSettlementDebt / 80),
+      weeksRemaining: 80,
+    } : null;
     const inheritanceLoan: ActiveLoan | null = inheritanceLoanPrincipal > 0
       ? (() => {
           const totalRepayment = Math.ceil(inheritanceLoanPrincipal * 1.06);
@@ -1991,6 +2109,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       .filter((holding) => inheritedHoldingIds.has(holding.id))
       .map((holding) => ({
         ...holding,
+        cashReserve: preview.inheritsFamilyBusinesses ? holding.cashReserve : 0,
         generationsOwned: Math.max(1, holding.generationsOwned ?? 1) + 1,
         controllerName: child.name,
         controllerPersonId: `person:${child.id}`,
@@ -2134,7 +2253,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       totalWeeksWorked: 0,
       stocks: state.stocks ?? [],
       holdings: inheritedHoldings,
-      loans: inheritanceLoan ? [inheritanceLoan] : [],
+      loans: [inheritanceLoan, estateSettlementLoan].filter((loan): loan is ActiveLoan => loan !== null),
       bankDeposits: [],
       happiness: 45,
       netWorthHistory: [],
@@ -2177,6 +2296,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       relationshipState,
       lifecycle: { ...INITIAL_LIFECYCLE_STATE },
       lastMacroCrashWeek: state.lastMacroCrashWeek ?? 0,
+      activeMacroCrash: state.activeMacroCrash ?? null,
       generation: nextGeneration,
       familyLegacy: [...(state.familyLegacy ?? []), legacyEntry],
       familyTree: transitionedFamilyTree,
@@ -2203,7 +2323,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       periodJobChanges: 0,
       periodCoursesCompleted: 0,
       periodStocksPurchased: 0,
-      periodLoansTaken: inheritanceLoan ? 1 : 0,
+      periodLoansTaken: Number(!!inheritanceLoan) + Number(!!estateSettlementLoan),
       periodLoansRepaid: 0,
       periodAchievements: 0,
       periodStartWeek: ((state.year - 1) * 20) + state.week,
@@ -2264,8 +2384,9 @@ const useGameStore = create<GameStore>((set, get) => ({
         }]
       : state.tempHappinessEffects;
 
+    const cashReward = choice.cash ?? 0;
     const updates = {
-      cash: (state.cash ?? 0) - cost,
+      cash: (state.cash ?? 0) - cost + cashReward,
       relationshipState,
       tempHappinessEffects,
     };
@@ -2455,7 +2576,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const career = state.career;
     if (!career?.companyId) return;
 
-    const newHistory = [...(state?.careerHistory ?? [])];
+    const newHistory = recordCareerLevel(state.careerHistory ?? [], career, state.week).map(entry => ({ ...entry }));
     const lastEntry = newHistory[newHistory.length - 1];
     if (lastEntry && lastEntry?.endWeek === null) lastEntry.endWeek = state.week;
 
@@ -3671,9 +3792,12 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     relationshipState: state?.relationshipState ?? { ...INITIAL_RELATIONSHIP_STATE },
     lifecycle: state?.lifecycle ?? { ...INITIAL_LIFECYCLE_STATE },
     lastMacroCrashWeek: state?.lastMacroCrashWeek ?? 0,
+    activeMacroCrash: state?.activeMacroCrash ?? null,
     generation: state?.generation ?? 1,
     familyLegacy: state?.familyLegacy ?? [],
     familyTree: state?.familyTree ?? createInitialFamilyTree(state?.playerName ?? 'Player', state?.age ?? 20, state?.year ?? 1, state?.generation ?? 1),
+    contentUpdateSeenId: state?.contentUpdateSeenId ?? '',
+    reviewPromptedWeeks: state?.reviewPromptedWeeks ?? [],
   };
 }
 

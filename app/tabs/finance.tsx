@@ -10,6 +10,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
 import { getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyCarCost, getWeeklyFoodCost, getWeeklyCourseCost, getWeeklyLoanPayments } from '../../src/engine/financeEngine';
 import { calculatePartnerContribution } from '../../src/engine/relationshipEngine';
+import { getCareerSalary } from '../../src/engine/careerEngine';
 import { BarChart } from 'react-native-chart-kit';
 
 export default function FinanceScreen() {
@@ -17,12 +18,18 @@ export default function FinanceScreen() {
   const router = useRouter();
   const state = useGameStore(useShallow((s) => ({
     cash: s.cash,
+    week: s.week,
+    year: s.year,
+    partTimeJob: s.partTimeJob,
+    relationshipModeEnabled: s.relationshipModeEnabled,
+    relationshipState: s.relationshipState,
     currentJobId: s.currentJobId,
     currentCourseId: s.currentCourseId,
     currentHousingId: s.currentHousingId,
     currentCarId: s.currentCarId,
     inflationMultiplier: s.inflationMultiplier,
     career: s.career,
+    profile: s.profile,
     loans: s.loans,
     bankDeposits: s.bankDeposits,
     stocks: s.stocks,
@@ -34,7 +41,8 @@ export default function FinanceScreen() {
     getPortfolioValueTotal: s.getPortfolioValueTotal,
     getNetWorthValue: s.getNetWorthValue,
   }))) as ReturnType<typeof useGameStore.getState>;
-  const salary = getWeeklySalary(state);
+  const salary = state.career?.companyId ? getCareerSalary(state.career, state.inflationMultiplier ?? 1, state.profile)
+    : state.currentJobId ? getWeeklySalary(state) : state.partTimeJob ? 350 : 0;
   const rent = getWeeklyRent(state);
   const utilityCost = getWeeklyUtilityCost(state);
   const carCost = getWeeklyCarCost(state);
@@ -85,6 +93,7 @@ export default function FinanceScreen() {
           {loanPayments > 0 && <FRow label="Loan Payments" value={loanPayments} color={Colors.negative} prefix="-" />}
           {household.householdExtraCost > 0 && <FRow label="Additional Household Costs" value={household.householdExtraCost} color={Colors.negative} prefix="-" />}
           {household.familyCost > 0 && <FRow label="Children & Family Costs" value={household.familyCost} color={Colors.negative} prefix="-" />}
+          {household.familySupport > 0 && <FRow label="Childcare Support Applied" value={household.familySupport} color={Colors.primary} prefix="+" />}
           {household.obligationCost > 0 && <FRow label="Relationship Legal / Settlement" value={household.obligationCost} color={Colors.negative} prefix="-" />}
           <View style={styles.divider} />
           <View style={styles.row}>

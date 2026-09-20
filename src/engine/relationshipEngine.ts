@@ -11,7 +11,7 @@ import {
 import namesData from '../data/relationship_names.json';
 import occupationsData from '../data/relationship_occupations.json';
 import housingData from '../data/housing.json';
-import { getNetWorth, getWeeklySalary } from './financeEngine';
+import { getNetWorth, getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyFoodCost } from './financeEngine';
 import { getCareerSalary } from './careerEngine';
 import { annualDeathChance } from './lifecycleEngine';
 
@@ -275,9 +275,30 @@ export function getChildAge(child: RelationshipChild, currentGlobalWeek: number)
 }
 
 export function getChildWeeklyCost(child: RelationshipChild, state: GameState): number {
+  return getChildCostBreakdown(child, state).total;
+}
+
+function getFamilySpendingMultiplier(state: GameState): number {
+  const relationship = state.relationshipState;
+  if (relationship?.familySpendingMode === 'reduced' && (relationship.familySpendingWeeksRemaining ?? 0) > 0) {
+    return 0.82;
+  }
+  return 1;
+}
+
+/** Recurring costs only; education funds and one-off family events remain separate. */
+export function getChildCostBreakdown(child: RelationshipChild, state: GameState) {
   const age = getChildAge(child, globalWeek(state));
-  const base = age < 3 ? 130 : age < 12 ? 95 : age < 18 ? 140 : 0;
-  return Math.round(base * (state.inflationMultiplier ?? 1));
+  // Food, care/school, clothes/health, transport/activities, extra utilities.
+  const base = age < 3 ? [45, 75, 30, 10, 15]
+    : age < 6 ? [45, 55, 25, 15, 15]
+    : age < 12 ? [50, 25, 20, 20, 15]
+    : age < 16 ? [65, 30, 25, 25, 20]
+    : age < 18 ? [75, 35, 30, 30, 20] : [0, 0, 0, 0, 0];
+  const multiplier = (state.inflationMultiplier ?? 1) * getFamilySpendingMultiplier(state);
+  const [food, careSchool, clothingHealth, transportActivities, utilities] = base.map(value => Math.round(value * multiplier));
+  return { food, careSchool, clothingHealth, transportActivities, utilities,
+    total: food + careSchool + clothingHealth + transportActivities + utilities };
 }
 
 export function getHouseholdSize(state: GameState): number {
@@ -300,39 +321,111 @@ export function getRelationshipObligationWeeklyCost(state: GameState): number {
   }, 0);
 }
 
+function getPlayerEmploymentIncome(state: GameState): number {
+  if (state.career?.companyId) return getCareerSalary(state.career, state.inflationMultiplier ?? 1);
+  if (state.currentJobId) return getWeeklySalary(state);
+  if (state.partTimeJob) return 350;
+  return 0;
+}
+
+export function getFamilySupportAmount(state: GameState, grossFamilyCost?: number, partnerIncome = 0): number {
+  if (!state.relationshipModeEnabled) return 0;
+  const dependentChildren = (state.relationshipState?.children ?? []).filter((child) => getChildAge(child, globalWeek(state)) < 18).length;
+  if (dependentChildren <= 0) return 0;
+
+  const familyCost = grossFamilyCost ?? (state.relationshipState?.children ?? []).reduce((total, child) => total + getChildWeeklyCost(child, state), 0);
+  if (familyCost <= 0) return 0;
+
+  const inflation = state.inflationMultiplier ?? 1;
+  const householdIncome = getPlayerEmploymentIncome(state) + Math.max(0, partnerIncome);
+  const threshold = Math.round((1100 + dependentChildren * 250) * inflation);
+  if (householdIncome >= threshold) return 0;
+
+  const gapRatio = Math.min(1, (threshold - householdIncome) / Math.max(1, threshold * 0.5));
+  const supportCap = Math.min(familyCost * 0.35, 220 * inflation + dependentChildren * 35 * inflation);
+  return Math.max(0, Math.round(supportCap * gapRatio));
+}
+
+export function getFamilyPlanningPreview(state: GameState) {
+  const previewChild: RelationshipChild = {
+    id: 'preview_child',
+    name: 'Child',
+    gender: 'boy',
+    birthGlobalWeek: globalWeek(state),
+    age: 0,
+    educationFund: 0,
+    status: 'dependent',
+    occupationTitle: null,
+    weeklyIncome: 0,
+    parentRelationship: 75,
+    lastParentInteractionWeek: globalWeek(state),
+    personality: getChildPersonality('preview_child'),
+    adultStatus: 'employed',
+    debt: 0,
+    failureCount: 0,
+    businessValue: 0,
+    lastAdultEventYear: 0,
+    descendants: [],
+    childrenCount: 0,
+    otherParentId: state.relationshipState?.partnerId ?? null,
+  };
+  const nextState: GameState = {
+    ...state,
+    relationshipState: {
+      ...state.relationshipState,
+      children: [...(state.relationshipState?.children ?? []), previewChild],
+    },
+  };
+  const childCost = getChildWeeklyCost(previewChild, nextState);
+  const partner = state.relationshipState?.partnerId
+    ? (state.relationshipState?.activeConnections ?? []).find((item) => item.id === state.relationshipState?.partnerId)
+    : null;
+  const familySupport = getFamilySupportAmount(nextState, childCost, partner?.weeklyIncome ?? 0);
+  const householdSizeAfter = getHouseholdSize(nextState);
+  const housingCapacity = getHousingCapacity(state.currentHousingId);
+  const housing = housingData as Array<{ id: string; name: string }>;
+  const recommendedHousing = householdSizeAfter > housingCapacity
+    ? housing.find((item) => getHousingCapacity(item.id) >= householdSizeAfter)?.name ?? 'a larger home'
+    : null;
+
+  return {
+    childCost,
+    familySupport,
+    netChildCost: Math.max(0, childCost - familySupport),
+    householdSizeAfter,
+    housingCapacity,
+    recommendedHousing,
+  };
+}
+
 export function calculatePartnerContribution(
   connection: RelationshipConnection | null,
   state: GameState
-): { contribution: number; householdExtraCost: number; familyCost: number; obligationCost: number } {
+): { contribution: number; householdExtraCost: number; familyCost: number; obligationCost: number; familySupport: number; grossFamilyCost: number } {
   if (!state.relationshipModeEnabled) {
-    return { contribution: 0, householdExtraCost: 0, familyCost: 0, obligationCost: 0 };
+    return { contribution: 0, householdExtraCost: 0, familyCost: 0, obligationCost: 0, familySupport: 0, grossFamilyCost: 0 };
   }
 
   const obligationCost = getRelationshipObligationWeeklyCost(state);
   const children = state.relationshipState?.children ?? [];
-  const familyCost = children.reduce((total, child) => total + getChildWeeklyCost(child, state), 0);
+  const grossFamilyCost = children.reduce((total, child) => total + getChildWeeklyCost(child, state), 0);
+  const partnerIncome = Math.max(0, connection?.weeklyIncome ?? 0);
+  const familySupport = getFamilySupportAmount(state, grossFamilyCost, partnerIncome);
+  const familyCost = Math.max(0, grossFamilyCost - familySupport);
 
   if (!connection || !(connection.isCohabiting || connection.stage === 'living_together' || connection.stage === 'married')) {
-    return { contribution: 0, householdExtraCost: 0, familyCost, obligationCost };
+    return { contribution: 0, householdExtraCost: 0, familyCost, obligationCost, familySupport, grossFamilyCost };
   }
 
-  const housing = (housingData as any[]).find((item) => item.id === state.currentHousingId);
-  const rent = Math.round((housing?.weeklyRent ?? 300) * (state.inflationMultiplier ?? 1));
+  const rent = getWeeklyRent(state);
   const extraFood = Math.round(60 * (state.inflationMultiplier ?? 1));
   const extraUtilities = Math.round(rent * 0.05);
   const householdExtraCost = extraFood + extraUtilities;
 
-  const existingSharedCosts = Math.round(rent * 1.15 + 50 * (state.inflationMultiplier ?? 1));
+  const existingSharedCosts = rent + getWeeklyUtilityCost(state) + getWeeklyFoodCost(state);
   const sharedTotal = existingSharedCosts + householdExtraCost + familyCost;
-  const playerEmploymentIncome = state.career?.companyId
-    ? getCareerSalary(state.career, state.inflationMultiplier ?? 1)
-    : state.currentJobId
-      ? getWeeklySalary(state)
-      : state.partTimeJob
-        ? 350
-        : 0;
+  const playerEmploymentIncome = getPlayerEmploymentIncome(state);
   const playerIncomeEstimate = Math.max(350, playerEmploymentIncome);
-  const partnerIncome = Math.max(0, connection.weeklyIncome ?? 0);
 
   let contribution: number;
   if (connection.householdSplit === 'player_pays_most') {
@@ -349,6 +442,8 @@ export function calculatePartnerContribution(
     householdExtraCost,
     familyCost,
     obligationCost,
+    familySupport,
+    grossFamilyCost,
   };
 }
 
@@ -506,6 +601,46 @@ function createRelationshipEvent(
     });
   }
 
+  const dependentChildren = (state.relationshipState?.children ?? []).filter((child) => getChildAge(child, globalWeek(state)) < 18);
+  if (dependentChildren.length > 0) {
+    const child = randomOf(dependentChildren);
+    const age = getChildAge(child, globalWeek(state));
+    eligible.push({
+      id: 'family_childcare_help',
+      icon: '🤝',
+      title: 'Family Offers Childcare Help',
+      description: `${partner.name}'s family can help with ${child.name} for a while, giving the household some breathing room.`,
+      choices: [
+        { text: `Accept the help (+€${Math.round(250 * inflation)})`, cash: Math.round(250 * inflation), relationship: 2, childId: child.id, childRelationship: 2 },
+        { text: 'Thank them but keep your routine', relationship: 1 },
+      ],
+    });
+    eligible.push({
+      id: 'child_activity_choice',
+      icon: '🎒',
+      title: age < 6 ? 'Early Learning Activity' : 'After-School Opportunity',
+      description: `${child.name} has an opportunity that could be good for confidence, but it adds pressure to the weekly budget.`,
+      choices: [
+        { text: `Pay for it (€${Math.round(320 * inflation)})`, cost: Math.round(320 * inflation), childId: child.id, childRelationship: 6, happiness: 1, happinessDuration: 3 },
+        { text: 'Choose a cheaper option', cost: Math.round(80 * inflation), childId: child.id, childRelationship: 2 },
+        { text: 'Skip it for now', childId: child.id, childRelationship: -2 },
+      ],
+    });
+    if (state.cash < Math.max(1000 * inflation, getPlayerEmploymentIncome(state) * 1.5)) {
+      eligible.push({
+        id: 'tight_family_budget',
+        icon: '🧾',
+        title: 'A Tight Family Budget',
+        description: `${partner.name} notices the family budget is getting thin and suggests cutting extras temporarily.`,
+        choices: [
+          { text: 'Agree to keep things lean', relationship: 2, happiness: -1, happinessDuration: 4 },
+          { text: 'Protect family time first', relationship: 4, cost: Math.round(180 * inflation), happiness: 2, happinessDuration: 2 },
+          { text: 'Avoid the discussion', relationship: -4 },
+        ],
+      });
+    }
+  }
+
   if (eligible.length === 0 && Math.random() < 0.10) {
     eligible.push({
       id: 'future_plans',
@@ -577,6 +712,7 @@ function processPartnerCareer(
   gw: number,
 ): { connection: RelationshipConnection; event: string | null } {
   const lastEvent = connection.lastCareerEventWeek ?? 0;
+  let lastCareerCheckWeek = lastEvent;
   let employmentStatus = connection.employmentStatus ?? 'employed';
   let unemploymentWeeks = connection.unemploymentWeeks ?? 0;
   let weeklyIncome = connection.weeklyIncome ?? 0;
@@ -588,11 +724,14 @@ function processPartnerCareer(
     const rehireChance = connection.ambition === 'driven' ? 0.22 : connection.ambition === 'career_minded' ? 0.16 : 0.11;
     if (Math.random() < rehireChance) {
       employmentStatus = 'employed';
+      lastCareerCheckWeek = gw;
       unemploymentWeeks = 0;
       weeklyIncome = Math.max(450, Math.round(weeklyIncome * (0.95 + Math.random() * 0.20)));
       event = `${connection.name} found a new job earning about €${weeklyIncome}/week.`;
     }
   } else if (gw - lastEvent >= 20) {
+    // One career check per game year, even when no promotion or layoff occurs.
+    lastCareerCheckWeek = gw;
     const promotionChance = connection.ambition === 'driven' ? 0.30 : connection.ambition === 'career_minded' ? 0.20 : 0.10;
     const layoffChance = connection.ambition === 'driven' ? 0.035 : 0.05;
     const roll = Math.random();
@@ -615,7 +754,7 @@ function processPartnerCareer(
       unemploymentWeeks,
       weeklyIncome,
       careerLevel,
-      lastCareerEventWeek: event ? gw : lastEvent,
+      lastCareerEventWeek: lastCareerCheckWeek,
     },
     event,
   };
@@ -1040,6 +1179,9 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     }
   }
 
+  const familySpendingWeeksRemaining = Math.max(0, (current.familySpendingWeeksRemaining ?? 0) - 1);
+  const familySpendingMode = familySpendingWeeksRemaining > 0 ? (current.familySpendingMode ?? 'normal') : 'normal';
+
   let obligationCost = 0;
   const financialObligations = (current.financialObligations ?? []).flatMap((obligation) => {
     const payment = Math.min(obligation.weeklyPayment ?? 0, obligation.remainingAmount ?? 0);
@@ -1065,6 +1207,8 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       estatePlan,
       familyPlan: partnerDiedName ? 'not_discussed' : current.familyPlan,
       familyExpansionWeeksRemaining: partnerDiedName ? 0 : familyExpansionWeeksRemaining,
+      familySpendingMode: partnerDiedName ? 'normal' : familySpendingMode,
+      familySpendingWeeksRemaining: partnerDiedName ? 0 : familySpendingWeeksRemaining,
       pendingEvent: partnerDiedName ? null : current.pendingEvent,
       sharedGoal: partnerDiedName ? null : current.sharedGoal,
     },
@@ -1211,6 +1355,8 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       estatePlan,
       familyPlan: partnerDiedName ? 'not_discussed' : current.familyPlan,
       familyExpansionWeeksRemaining: partnerDiedName ? 0 : familyExpansionWeeksRemaining,
+      familySpendingMode: partnerDiedName ? 'normal' : familySpendingMode,
+      familySpendingWeeksRemaining: partnerDiedName ? 0 : familySpendingWeeksRemaining,
       pendingEvent: partnerDiedName ? null : pendingEvent,
     },
     partnerContribution: finances.contribution,

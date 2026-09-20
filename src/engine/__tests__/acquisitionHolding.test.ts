@@ -15,6 +15,38 @@ import { getNetWorth } from '../financeEngine';
 import { INITIAL_GAME_STATE } from '../../types/game';
 
 describe('business acquisitions and holding companies', () => {
+  test('legacy acquisitions persist their reconstructed operating baseline', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const target = generateAcquisitionTargets(401, 1)[0];
+    const business = createAcquiredBusiness(target, INITIAL_GAME_STATE)!;
+    for (const key of ['quotedWeeklyRevenue', 'quotedWeeklyProfit', 'quoteInflation', 'referenceStaffCost', 'referenceRevenueCapacity', 'referenceExpenseMultiplier'] as const) {
+      delete business.acquisition![key];
+    }
+    const migrated = processBusinessWeek(business, 2, 2, 21).updatedBusiness;
+    const restored = JSON.parse(JSON.stringify(migrated));
+    const next = processBusinessWeek(restored, 2.04, 3, 21).updatedBusiness;
+    expect(Number.isFinite(next.lastWeekProfit)).toBe(true);
+    expect(next.acquisition!.quoteInflation).toBe(2);
+    expect(next.acquisition!.quotedWeeklyProfit).toBe(migrated.acquisition!.quotedWeeklyProfit);
+    expect(next.acquisition!.referenceRevenueCapacity).toBe(migrated.acquisition!.referenceRevenueCapacity);
+  });
+  test('operating income matches seller scale and preserves the purchase baseline', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    for (const target of generateAcquisitionTargets(401, 1)) {
+      const business = createAcquiredBusiness(target, { ...INITIAL_GAME_STATE, year: 21 })!;
+      business.acquisition!.integrationWeeksRemaining = 0;
+      business.acquisition!.integrationStrategy = 'integrate';
+      business.acquisition!.integrationOutcome = 'success';
+      const result = processBusinessWeek(business, 1, 2, 21);
+      expect(result.weeklyRevenue / target.weeklyRevenue).toBeGreaterThan(0.7);
+      expect(result.weeklyRevenue / target.weeklyRevenue).toBeLessThan(1.3);
+      expect(result.weeklyProfit).toBeLessThan(target.weeklyProfit * 2);
+      expect(Object.values(result.updatedBusiness.lastExpenseBreakdown!).reduce((sum, amount) => sum + amount, 0)).toBe(result.weeklyExpenses);
+      const next = processBusinessWeek(result.updatedBusiness, 1.04, 3, 21);
+      expect(next.updatedBusiness.acquisition!.referenceRevenueCapacity).toBe(business.acquisition!.referenceRevenueCapacity);
+      expect(next.updatedBusiness.acquisition!.quoteInflation).toBe(1);
+    }
+  });
   afterEach(() => {
     jest.restoreAllMocks();
   });

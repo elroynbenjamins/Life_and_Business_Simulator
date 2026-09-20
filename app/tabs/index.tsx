@@ -41,6 +41,9 @@ export default function DashboardScreen() {
     loans: s.loans,
     year: s.year,
     week: s.week,
+    relationshipModeEnabled: s.relationshipModeEnabled,
+    relationshipState: s.relationshipState,
+    partTimeJob: s.partTimeJob,
   }))) as ReturnType<typeof useGameStore.getState>;
   const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
   const relationshipState = useGameStore((s) => s?.relationshipState);

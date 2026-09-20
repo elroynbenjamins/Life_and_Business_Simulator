@@ -174,7 +174,8 @@ export function processStocks(
 ): { stocks: StockState[]; stockChanges: { ticker: string; change: number }[] } {
   const newsEffects = news?.effects ?? {};
   const inflationDrift = ((state?.inflationMultiplier ?? 1) - 1) * 0.0005;
-  const elapsedWeeks = Math.max(0, state?.statistics?.weeksPlayed ?? 0);
+  // Market history belongs to the world, not the current player's lifetime.
+  const elapsedWeeks = Math.max(0, ((state.year ?? 1) - 1) * 20 + (state.week ?? 1) - 1);
 
   const newStocks = (state?.stocks ?? []).map((stock) => {
     const data = (stocksData ?? []).find((s) => s?.ticker === stock?.ticker);

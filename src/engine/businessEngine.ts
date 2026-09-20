@@ -708,6 +708,25 @@ export interface BusinessSimulationModifiers {
 /**
  * Process a single business for one week.
  */
+export function getBusinessRevenueCapacity(biz: OwnedBusiness): number {
+  const type = getBusinessType(biz.typeId);
+  if (!type) return 1;
+  const pricing = PRICING_MULTIPLIERS[biz.pricingStrategy ?? 'standard'] ?? PRICING_MULTIPLIERS.standard;
+  const advertising = ADVERTISING_COSTS[biz.advertisingLevel ?? 'none'] ?? ADVERTISING_COSTS.none;
+  const employees = biz.employees ?? [];
+  const buffs = aggregateEmployeeBuffs(employees);
+  const productivity = employees.reduce((sum, employee) => sum +
+    (getEmployeeRole(employee.roleId)?.productivityMultiplier ?? 1) *
+    (0.4 + (employee.skill ?? 50) / 100 * 0.8) * (0.5 + (employee.morale ?? 50) / 100 * 0.7), 0);
+  const upgrades = 1 - Math.exp(-[...new Set(biz.purchasedUpgrades ?? [])].reduce((sum, id) => sum + (getUpgrade(id)?.revenueBoost ?? 0), 0));
+  const locations = (biz.locations ?? []).reduce((sum, location) => sum + (location.revenueBoost ?? 0), 0);
+  const compact = (type.maxEmployees ?? 4) <= 3 ? 1.18 : (type.maxEmployees ?? 6) <= 5 ? 1.45 : 1;
+  return Math.max(1, type.baseWeeklyRevenue * 1.121 * compact * Math.max(1, Math.min(1000, biz.operatingScaleMultiplier ?? 1)) *
+    pricing.demand * (1 + advertising.demandBoost) * (0.6 + biz.reputation / 100 * 0.8) * (1 - (type.competitionLevel ?? 0.5) * 0.15) *
+    pricing.revenue * Math.max(0.4, 0.4 + productivity * 0.14) * (employees.length > 12 ? 0.92 : 1) * buffs.productivityMult *
+    (1 + upgrades + locations) * (1 + biz.level * 0.1) * buffs.revenueMult);
+}
+
 export function processBusinessWeek(
   biz: OwnedBusiness,
   inflationMultiplier: number,
@@ -791,7 +810,7 @@ export function processBusinessWeek(
   const strategyTotals = getStrategyModifierTotals(biz);
   let eventRevenueMultiplier = strategyTotals.revenue;
   let eventExpenseMultiplier = strategyTotals.expense;
-  const acquisition = biz.acquisition ?? null;
+  const acquisition = biz.acquisition ? { ...biz.acquisition } : null;
   if (acquisition?.integrationStrategy === 'pending') {
     // A newly acquired company waits for an integration decision. It suffers a
     // small coordination drag, but the actual integration clock does not start.
@@ -824,12 +843,24 @@ export function processBusinessWeek(
   const compactBusinessRevenueBoost = (type.maxEmployees ?? 4) <= 3 ? 1.18 : (type.maxEmployees ?? 6) <= 5 ? 1.45 : 1;
   const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121 * compactBusinessRevenueBoost * acquisitionOperatingScale;
   const businessAge = globalWeek - (((biz.foundedYear ?? currentYear) - 1) * 20 + (biz.foundedWeek ?? currentWeek));
-  const startupSupport = businessAge > 0 && businessAge <= 75;
+  const startupSupport = !acquisition && businessAge > 0 && businessAge <= 75;
   const levelBonus = 1 + biz.level * 0.1;
   let revenue = Math.round(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
     (1 + upgradeRevenueBoost + locationRevenueBoost) * levelBonus * eventRevenueMultiplier * buffAgg.revenueMult
   );
+  if (acquisition) {
+    // Persist the purchase baseline: improvements change output, but the large
+    // acquisition scale must not multiply the seller's quoted margin again.
+    acquisition.quoteInflation ??= inflationMultiplier;
+    acquisition.quotedWeeklyProfit ??= acquisition.estimatedValueAtPurchase / (20 * (2 + biz.reputation / 100 * 3));
+    acquisition.quotedWeeklyRevenue ??= acquisition.quotedWeeklyProfit / 0.15;
+    acquisition.referenceStaffCost ??= (biz.employees ?? []).reduce((sum, employee) => sum + employee.weeklySalary, 0);
+    acquisition.referenceExpenseMultiplier ??= buffAgg.expenseMult;
+    acquisition.referenceRevenueCapacity ??= getBusinessRevenueCapacity(biz);
+    revenue = Math.round(revenue * acquisition.quotedWeeklyRevenue /
+      Math.max(1, acquisition.quoteInflation * acquisition.referenceRevenueCapacity));
+  }
   // Expenses (detailed breakdown) — variable costs SCALE with actual revenue.
   const combinedCostReduction = 1 - (1 - Math.max(0, Math.min(0.5, modifiers.businessCostReduction ?? 0))) * (1 - Math.max(0, Math.min(0.10, modifiers.holdingExpenseReduction ?? 0)));
   const prestigeCostMultiplier = 1 - Math.max(0, Math.min(0.55, combinedCostReduction));
@@ -852,7 +883,7 @@ export function processBusinessWeek(
   // appointments remain contractual and must always be paid in full.
   const salaries = Math.round(employeeSalaries * (startupSupport ? 0.95 : 1) + familyGovernanceSalaries);
   const adCost = Math.round((adMod.weeklyCost ?? 0) * inflationMultiplier * prestigeCostMultiplier);
-  const starterDemandWeight = Math.max(0, Math.min(1, (70 - (biz.reputation ?? 25)) / 30));
+  const starterDemandWeight = acquisition ? 0 : Math.max(0, Math.min(1, (70 - (biz.reputation ?? 25)) / 30));
   if (starterDemandWeight > 0) {
     // Local contracts taper smoothly; a level-up never removes all starting customers.
     const compactStarterSupport = (type.maxEmployees ?? 6) <= 3 ? 1.12 : (type.maxEmployees ?? 6) <= 5 ? 1.04 : 1;
@@ -872,13 +903,30 @@ export function processBusinessWeek(
   rent = Math.round(revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent);
   // COGS and delivery costs rise with scale, preventing unrealistically large
   // margins once employee and upgrade multipliers compound.
-  const cogs = Math.round(Math.max(baseExp * 0.45, revenue * 0.17) * eventExpenseMultiplier * buffAgg.expenseMult);
+  let cogs = Math.round(Math.max(baseExp * 0.45, revenue * 0.17) * eventExpenseMultiplier * buffAgg.expenseMult);
   // Utilities/maintenance/misc scale moderately, insurance is mostly fixed
-  const utilities = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
-  const insurance = Math.round(baseExp * 0.10 * (0.8 + 0.2 * variableScale) * eventExpenseMultiplier * buffAgg.expenseMult);
-  const maintenance = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
+  let utilities = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
+  let insurance = Math.round(baseExp * 0.10 * (0.8 + 0.2 * variableScale) * eventExpenseMultiplier * buffAgg.expenseMult);
+  let maintenance = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
   const locationOperatingCosts = Math.round((biz.locations ?? []).reduce((total, location) => total + (location.weeklyOperatingCost ?? 0), 0) * inflationMultiplier * prestigeCostMultiplier);
-  const misc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult) + locationOperatingCosts;
+  let misc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult) + locationOperatingCosts;
+  if (acquisition) {
+    const quotedRevenue = Math.max(1, acquisition.quotedWeeklyRevenue!);
+    const inflationRatio = inflationMultiplier / Math.max(0.01, acquisition.quoteInflation!);
+    // Seller profit is after corporate tax, before buyer-specific debt service.
+    const operatingBudget = Math.max(0, quotedRevenue - acquisition.quotedWeeklyProfit! / 0.8 - acquisition.referenceStaffCost!);
+    const volume = Math.max(0, revenue / (quotedRevenue * inflationRatio));
+    const expenseBuffChange = buffAgg.expenseMult / Math.max(0.01, acquisition.referenceExpenseMultiplier!);
+    const overhead = Math.round(operatingBudget * inflationRatio * (0.6 + 0.4 * volume) * prestigeCostMultiplier * eventExpenseMultiplier * expenseBuffChange);
+    const originalOverhead = Math.max(1, rent + cogs + utilities + insurance + maintenance + misc - locationOperatingCosts);
+    const scale = overhead / originalOverhead;
+    rent = Math.round(rent * scale);
+    cogs = Math.round(cogs * scale);
+    utilities = Math.round(utilities * scale);
+    insurance = Math.round(insurance * scale);
+    maintenance = Math.round(maintenance * scale);
+    misc = Math.max(0, overhead - rent - cogs - utilities - insurance - maintenance) + locationOperatingCosts;
+  }
 
   let loanInterest = 0;
   const updatedLoans: BusinessLoan[] = [];
@@ -914,7 +962,7 @@ export function processBusinessWeek(
   // Bad seasonal event injection: fires on the first week of a season
   const seasonStart = (globalWeek - 1) % 5 === 0;
   const timelineAdds: BusinessTimelineEntry[] = [];
-  let updatedAcquisition = biz.acquisition ? { ...biz.acquisition } : null;
+  let updatedAcquisition = acquisition ? { ...acquisition } : null;
   let integrationRepDelta = 0;
   if (updatedAcquisition && updatedAcquisition.integrationStrategy !== 'pending') {
     const remaining = Math.max(0, updatedAcquisition.integrationWeeksRemaining ?? 0);

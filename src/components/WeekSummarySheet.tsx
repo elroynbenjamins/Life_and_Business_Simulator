@@ -37,7 +37,13 @@ export default function WeekSummarySheet() {
               <View style={[styles.eventBox, { backgroundColor: `${Colors.negative}18`, borderColor: `${Colors.negative}44` }]}>
                 <Text style={styles.eventTitle}>📉 {summary.crashEvent.title}</Text>
                 <Text style={styles.eventDesc}>
-                  Price pressure eased by {((summary.crashEvent.inflationReduction ?? 0) * 100).toFixed(1)}%. Markets sold off sharply this week.
+                  {(summary.crashEvent.inflationReduction ?? 0) > 0
+                    ? `Price pressure eased by ${((summary.crashEvent.inflationReduction ?? 0) * 100).toFixed(1)}%. `
+                    : ''}
+                  Recession pressure: −{Math.abs((summary.crashEvent.stockShock ?? 0) * 100).toFixed(1)}% this week. Individual returns also reflect other events and asset sensitivity.
+                  {(summary.crashEvent.weeksRemaining ?? 0) > 0
+                    ? ` Analysts expect ${summary.crashEvent.weeksRemaining} more market wave${summary.crashEvent.weeksRemaining === 1 ? '' : 's'}.`
+                    : ''}
                 </Text>
               </View>
             )}

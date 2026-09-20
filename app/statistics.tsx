@@ -9,6 +9,7 @@ import GameCard from '../src/components/GameCard';
 import { formatCurrency } from '../src/utils/format';
 import { getWeeklySalary, processExpenses } from '../src/engine/financeEngine';
 import { getCareerSalary } from '../src/engine/careerEngine';
+import { calculatePartnerContribution } from '../src/engine/relationshipEngine';
 
 export default function StatisticsScreen({ showBack = true }: { showBack?: boolean } = {}) {
   const { width: screenWidth } = useWindowDimensions();
@@ -28,6 +29,10 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
     loans: st.loans,
     partTimeJob: st.partTimeJob,
     holdings: st.holdings,
+    week: st.week,
+    year: st.year,
+    relationshipModeEnabled: st.relationshipModeEnabled,
+    relationshipState: st.relationshipState,
   }))) as ReturnType<typeof useGameStore.getState>;
   const expenses = processExpenses(gameState);
   const careerIncome = gameState.career?.companyId
@@ -35,7 +40,10 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
     : getWeeklySalary(gameState);
   const partTimeIncome = !gameState.career?.companyId && !gameState.currentJobId && gameState.partTimeJob ? 350 : 0;
   const totalStocksOwned = (gameState.holdings ?? []).reduce((total, holding) => total + (holding.shares ?? 0), 0);
-  const weeklyIncome = careerIncome + partTimeIncome;
+  const partner = gameState.relationshipState?.activeConnections?.find(item => item.id === gameState.relationshipState.partnerId) ?? null;
+  const household = calculatePartnerContribution(partner, gameState);
+  const weeklyIncome = careerIncome + partTimeIncome + household.contribution;
+  const weeklyExpenses = expenses.totalExpenses + household.householdExtraCost + household.familyCost + household.obligationCost;
   const nw = (netWorthHistory ?? []).slice(-1)[0] ?? 0;
   const chartWidth = Math.min(screenWidth - 64, 500);
   const history: number[] = netWorthHistory ?? [];
@@ -57,6 +65,7 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
         <GameCard title="Weekly Income & Expenses">
           <Row label="Job income" value={formatCurrency(careerIncome)} tone={careerIncome > 0 ? 'positive' : undefined} />
           {partTimeIncome > 0 && <Row label="Part-time income" value={formatCurrency(partTimeIncome)} tone="positive" />}
+          {household.contribution > 0 && <Row label="Partner contribution" value={formatCurrency(household.contribution)} tone="positive" />}
           <View style={styles.sectionDivider} />
           <Row label="Housing rent" value={formatCurrency(expenses.rent)} tone="negative" />
           <Row label="Utilities" value={formatCurrency(expenses.utilityCost)} tone="negative" />
@@ -64,10 +73,14 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
           <Row label="Vehicle" value={formatCurrency(expenses.carCost)} tone="negative" />
           {expenses.courseCost > 0 && <Row label="Education" value={formatCurrency(expenses.courseCost)} tone="negative" />}
           {expenses.loanPayments > 0 && <Row label="Loan payments" value={formatCurrency(expenses.loanPayments)} tone="negative" />}
+          {household.householdExtraCost > 0 && <Row label="Partner household costs" value={formatCurrency(household.householdExtraCost)} tone="negative" />}
+          {household.familyCost > 0 && <Row label="Children's recurring costs" value={formatCurrency(household.familyCost)} tone="negative" />}
+          {household.familySupport > 0 && <Row label="Childcare support applied" value={formatCurrency(household.familySupport)} tone="positive" />}
+          {household.obligationCost > 0 && <Row label="Family settlement payments" value={formatCurrency(household.obligationCost)} tone="negative" />}
           <View style={styles.sectionDivider} />
           <Row label="Total weekly income" value={formatCurrency(weeklyIncome)} tone="positive" />
-          <Row label="Total weekly expenses" value={formatCurrency(expenses.totalExpenses)} tone="negative" />
-          <Row label="Weekly cash flow" value={formatCurrency(weeklyIncome - expenses.totalExpenses)} amount={weeklyIncome - expenses.totalExpenses} />
+          <Row label="Total weekly expenses" value={formatCurrency(weeklyExpenses)} tone="negative" />
+          <Row label="Weekly cash flow" value={formatCurrency(weeklyIncome - weeklyExpenses)} amount={weeklyIncome - weeklyExpenses} />
         </GameCard>
 
         <GameCard title="Current Life">

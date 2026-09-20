@@ -72,6 +72,18 @@ function allocateEstateShares(
   return shares;
 }
 
+/** Old saves may only have a name. Never resolve an ambiguous name to an heir. */
+export function getEstateSuccessorId(state: GameState): string | null {
+  const estate = state.relationshipState?.estateSettlement;
+  if (!estate) return null;
+  if (estate.successorId !== undefined) return estate.successorId;
+  const candidates = [...(state.relationshipState.children ?? []), ...(state.relationshipState.activeConnections ?? [])];
+  const planned = candidates.find(p => p.id === state.relationshipState.estatePlan?.successorId && p.name === estate.successorName);
+  if (planned) return planned.id;
+  const matches = candidates.filter(p => p.name === estate.successorName);
+  return matches.length === 1 ? matches[0].id : null;
+}
+
 export function calculateEstateSettlement(state: GameState): EstateSettlement {
   const obligations = (state.relationshipState?.financialObligations ?? [])
     .reduce((sum, item) => sum + (item.remainingAmount ?? 0), 0);
@@ -111,7 +123,10 @@ export function calculateEstateSettlement(state: GameState): EstateSettlement {
   const inheritableHoldingCash = (state.holdingCompanies ?? [])
     .filter((holding) => inheritableHoldingIds.has(holding.id))
     .reduce((sum, holding) => sum + Math.max(0, holding.cashReserve ?? 0), 0);
-  const businessValue = Math.max(0, familyBusinessEquity + inheritableHoldingCash);
+  const grossBusinessValue = Math.max(0, familyBusinessEquity + inheritableHoldingCash);
+  // Costs unpaid by liquid assets become a liability of the business successor.
+  const businessSettlementDebt = successorName ? Math.max(0, grossBusinessValue - netEstate) : 0;
+  const businessValue = grossBusinessValue - businessSettlementDebt;
 
   // If a business successor was explicitly named, businesses pass outside the
   // residual family split. This makes succession strategically meaningful and
@@ -126,6 +141,8 @@ export function calculateEstateSettlement(state: GameState): EstateSettlement {
     netEstate,
     beneficiaries,
     successorName,
+    successorId: successorName ? successorId : null,
+    businessSettlementDebt,
     businessValue,
   };
 }
@@ -218,9 +235,14 @@ export function getSuccessionPreview(
     const childPct = (business.ownership ?? [])
       .filter((stake) => stake.ownerType === 'child' && stake.ownerId === child.id)
       .reduce((stakeSum, stake) => stakeSum + (stake.percent ?? 0), 0);
-    return sum + Math.max(0, business.valuation ?? 0) * childPct / 100;
+    const debt = (business.businessLoans ?? []).reduce((total, loan) => total + loan.remainingAmount, 0);
+    return sum + ((business.valuation ?? 0) - debt) * childPct / 100;
   }, 0);
-  const inheritedBusinessValue = estate.successorName === child.name ? estate.businessValue : 0;
+  const inheritsFamilyBusinesses = getEstateSuccessorId(state) === child.id;
+  const inheritedBusinessValue = inheritsFamilyBusinesses ? Math.min(estate.businessValue, estate.netEstate) : 0;
+  const businessSettlementDebt = inheritsFamilyBusinesses
+    ? (estate.businessSettlementDebt ?? Math.max(0, estate.businessValue - estate.netEstate))
+    : 0;
 
   const portfolioValue = Math.max(0, getPortfolioValue(state.stocks ?? [], state.holdings ?? []));
   const wantsStocks = assetStrategy === 'keep_stocks' || assetStrategy === 'keep_both';
@@ -262,6 +284,8 @@ export function getSuccessionPreview(
     inheritedPropertyValue,
     inheritedPropertyIds,
     inheritedBusinessValue,
+    inheritsFamilyBusinesses,
+    businessSettlementDebt,
     inheritanceTaxBase,
     inheritanceTax,
     taxCashAvailable,

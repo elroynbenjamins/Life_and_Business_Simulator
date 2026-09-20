@@ -35,6 +35,37 @@ describe('lifecycle and macro systems', () => {
     expect(result.inflationMultiplier).toBeGreaterThanOrEqual(1);
     expect(result.crashEvent?.stockShock).toBeLessThan(0);
   });
+
+  it('can spread a bounded market crash over several weekly waves', () => {
+    const random = jest.spyOn(Math, 'random');
+    random
+      .mockReturnValueOnce(0) // trigger crash
+      .mockReturnValueOnce(0) // 4% inflation correction
+      .mockReturnValueOnce(0) // 10% total market decline
+      .mockReturnValueOnce(0) // choose a spread crash
+      .mockReturnValueOnce(0); // three waves
+
+    const state = {
+      ...INITIAL_GAME_STATE,
+      year: 10,
+      week: 19,
+      inflationMultiplier: 1.4,
+      lastMacroCrashWeek: 0,
+    };
+
+    const first = processEconomy(state, 20);
+    expect(first.activeMacroCrash?.weeksRemaining).toBe(2);
+    expect(first.crashEvent?.totalWeeks).toBe(3);
+    expect(first.crashEvent?.stockShock).toBeGreaterThan(-0.10);
+
+    const second = processEconomy({ ...state, activeMacroCrash: first.activeMacroCrash }, 1);
+    const third = processEconomy({ ...state, activeMacroCrash: second.activeMacroCrash }, 2);
+    expect(second.crashEvent?.isAftershock).toBe(true);
+    expect(third.activeMacroCrash).toBeNull();
+
+    const compoundedMove = Math.pow(1 + (first.crashEvent?.stockShock ?? 0), 3) - 1;
+    expect(compoundedMove).toBeCloseTo(-0.10, 6);
+  });
 });
 
 describe('optional relationship mode', () => {

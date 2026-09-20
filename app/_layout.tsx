@@ -18,11 +18,13 @@ import GameDialog from '../src/components/GameDialog';
 import BusinessBalanceWarning from '../src/components/BusinessBalanceWarning';
 import TutorialModal from '../src/components/TutorialModal';
 import EducationOnboardingModal from '../src/components/EducationOnboardingModal';
+import ContentUpdateModal from '../src/components/ContentUpdateModal';
 import { initializeAdConsent } from '../src/services/adPrivacyManager';
 import EducationCareerReminderModal from '../src/components/EducationCareerReminderModal';
 import { ThemeProvider, useThemePreference } from '../src/theme/ThemeProvider';
 import DeathModal from '../src/components/DeathModal';
 import RelationshipEventModal from '../src/components/RelationshipEventModal';
+import ReviewPromptModal from '../src/components/ReviewPromptModal';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -86,6 +88,7 @@ function RootContent() {
       <NameEntryModal />
       <TutorialModal />
       <EducationOnboardingModal />
+      <ContentUpdateModal />
       <WeekSummarySheet />
       <NegativeCashModal />
       <EventModal />
@@ -93,6 +96,7 @@ function RootContent() {
       <ScheduledAdModal />
       <EducationCareerReminderModal />
       <RelationshipEventModal />
+      <ReviewPromptModal />
       <DeathModal />
       <GameDialog />
       <BusinessBalanceWarning />
