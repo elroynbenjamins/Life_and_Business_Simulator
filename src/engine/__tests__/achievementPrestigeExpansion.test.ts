@@ -79,10 +79,10 @@ describe('achievement and Prestige expansion', () => {
     };
 
     const effects = getPrestigeEffects(profile);
-    expect(effects.business_crisis_reduction).toBeCloseTo(0.20);
-    expect(effects.family_governance_bonus).toBe(12);
-    expect(effects.inheritance_tax_reduction).toBeCloseTo(0.10);
-    expect(effects.crypto_downside_reduction).toBeCloseTo(0.16);
+    expect(effects.business_crisis_reduction).toBeCloseTo(0.12);
+    expect(effects.family_governance_bonus).toBe(8);
+    expect(effects.inheritance_tax_reduction).toBeCloseTo(0.07);
+    expect(effects.crypto_downside_reduction).toBeCloseTo(0.08);
   });
 
   test('Legacy Planning reduces the heir inheritance-tax preview', () => {
@@ -124,10 +124,10 @@ describe('achievement and Prestige expansion', () => {
     };
 
     const base = getSuccessionPreview(state, child.id, 'liquidate', 0);
-    const reduced = getSuccessionPreview(state, child.id, 'liquidate', 0.10);
+    const reduced = getSuccessionPreview(state, child.id, 'liquidate', 0.07);
     const attemptedOverCap = getSuccessionPreview(state, child.id, 'liquidate', 0.50);
     expect(reduced?.inheritanceTax).toBeLessThan(base?.inheritanceTax ?? 0);
-    expect(reduced?.inheritanceTax).toBe(Math.round((base?.inheritanceTax ?? 0) * 0.90));
+    expect(reduced?.inheritanceTax).toBe(Math.round((base?.inheritanceTax ?? 0) * 0.93));
     expect(attemptedOverCap?.inheritanceTax).toBe(reduced?.inheritanceTax);
   });
 
@@ -142,7 +142,7 @@ describe('achievement and Prestige expansion', () => {
     jest.restoreAllMocks();
 
     jest.spyOn(Math, 'random').mockReturnValue(0);
-    const protectedResult = processStocks(state, { headline: 'Quiet week', effects: {} }, 0, 0.16);
+    const protectedResult = processStocks(state, { headline: 'Quiet week', effects: {} }, 0, 0.08);
 
     expect(protectedResult.stocks[0].currentPrice).toBeGreaterThan(unprotected.stocks[0].currentPrice);
   });

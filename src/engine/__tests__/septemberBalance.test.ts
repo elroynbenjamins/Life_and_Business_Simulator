@@ -38,10 +38,10 @@ describe('September gameplay regressions', () => {
     expect(unlocked.gems).toBe(0);
     expect(unlocked.prestigePoints).toBe(365);
     const effects = getPrestigeEffects(unlocked);
-    expect(effects.property_income).toBe(0.1);
+    expect(effects.property_income).toBe(0.05);
     expect(effects.skill_growth).toBeUndefined();
     const property = { ...createProperty('studio', 1, 1, 1)!, weeklyIncome: 100, weeklyMaintenance: 0, isRentedOut: true };
-    expect(processProperties([property], 2, effects.property_income).totalIncome).toBe(220);
+    expect(processProperties([property], 2, effects.property_income).totalIncome).toBe(210);
   });
   test('expanded prestige tiers use the current gem costs', () => {
     const bonuses = getPrestigeBonuses();

@@ -11,8 +11,8 @@ describe('expanded prestige and late-game achievements', () => {
     };
     const effects = getPrestigeEffects(profile);
     expect(effects.dividend_boost).toBe(0.20);
-    expect(effects.loan_rate_reduction).toBe(0.03);
-    expect(effects.bank_deposit_interest_bonus).toBe(0.03);
+    expect(effects.loan_rate_reduction).toBe(0.015);
+    expect(effects.bank_deposit_interest_bonus).toBe(0.015);
   });
 
   test('removes Career Climber and raises existing tree costs by 50 PP', () => {
