@@ -416,6 +416,213 @@ function aggregatePeriod(points: CorporateKpiHistoryPoint[]) {
   };
 }
 
+type AggregatedCorporatePeriod = ReturnType<typeof aggregatePeriod>;
+
+function signedPct(value: number): string {
+  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
+}
+
+function signedPoints(value: number): string {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)} pts`;
+}
+
+function varianceDriver(
+  id: string,
+  area: CorporateVarianceArea,
+  direction: CorporateVarianceDirection,
+  title: string,
+  detail: string,
+  impactScore: number,
+): CorporateVarianceDriver {
+  return { id, area, direction, title, detail, impactScore };
+}
+
+function buildVarianceDrivers(
+  current: AggregatedCorporatePeriod,
+  previous: AggregatedCorporatePeriod,
+  revenueChangePct: number | null,
+  expensesChangePct: number | null,
+  revenuePerEmployeeChangePct: number | null,
+): CorporateVarianceDriver[] {
+  if (previous.weeks <= 0) return [];
+
+  const drivers: CorporateVarianceDriver[] = [];
+  const headcountChangePct = pctChange(current.averageHeadcount, previous.averageHeadcount);
+  if (headcountChangePct != null && Math.abs(headcountChangePct) >= 0.05) {
+    const efficiencyChange = revenuePerEmployeeChangePct ?? 0;
+    const improved = headcountChangePct > 0
+      ? efficiencyChange >= -0.03
+      : efficiencyChange > 0.03;
+    drivers.push(varianceDriver(
+      'headcount-change',
+      'headcount',
+      improved ? 'positive' : 'negative',
+      `Headcount ${headcountChangePct >= 0 ? 'expanded' : 'contracted'} ${Math.abs(headcountChangePct * 100).toFixed(1)}%`,
+      headcountChangePct > 0 && efficiencyChange < -0.03
+        ? `Staffing grew faster than output; revenue per employee changed ${signedPct(efficiencyChange)}.`
+        : headcountChangePct < 0 && efficiencyChange > 0.03
+          ? `A smaller workforce coincided with ${signedPct(efficiencyChange)} revenue per employee.`
+          : `Average corporate headcount moved from ${previous.averageHeadcount.toFixed(0)} to ${current.averageHeadcount.toFixed(0)}.`,
+      Math.abs(headcountChangePct) * 100,
+    ));
+  }
+
+  const productivityDelta = current.productivityIndex - previous.productivityIndex;
+  if (Math.abs(productivityDelta) >= 3) {
+    drivers.push(varianceDriver(
+      'productivity-change',
+      'productivity',
+      productivityDelta > 0 ? 'positive' : 'negative',
+      `Department productivity ${productivityDelta > 0 ? 'improved' : 'weakened'} ${Math.abs(productivityDelta).toFixed(1)} pts`,
+      `The corporate productivity index moved from ${previous.productivityIndex.toFixed(1)}% to ${current.productivityIndex.toFixed(1)}%.`,
+      Math.abs(productivityDelta) * 1.8,
+    ));
+  }
+
+  if (current.averageDepartmentSkill != null && previous.averageDepartmentSkill != null) {
+    const delta = current.averageDepartmentSkill - previous.averageDepartmentSkill;
+    if (Math.abs(delta) >= 2) {
+      drivers.push(varianceDriver(
+        'skill-change',
+        'skill',
+        delta > 0 ? 'positive' : 'negative',
+        `Average department skill ${delta > 0 ? 'rose' : 'fell'} ${Math.abs(delta).toFixed(1)} pts`,
+        `Average corporate skill moved from ${previous.averageDepartmentSkill.toFixed(1)} to ${current.averageDepartmentSkill.toFixed(1)}.`,
+        Math.abs(delta) * 1.2,
+      ));
+    }
+  }
+
+  if (current.averageDepartmentMorale != null && previous.averageDepartmentMorale != null) {
+    const delta = current.averageDepartmentMorale - previous.averageDepartmentMorale;
+    if (Math.abs(delta) >= 3) {
+      drivers.push(varianceDriver(
+        'morale-change',
+        'morale',
+        delta > 0 ? 'positive' : 'negative',
+        `Department morale ${delta > 0 ? 'improved' : 'declined'} ${Math.abs(delta).toFixed(1)} pts`,
+        `Average department morale moved from ${previous.averageDepartmentMorale.toFixed(1)} to ${current.averageDepartmentMorale.toFixed(1)}.`,
+        Math.abs(delta),
+      ));
+    }
+  }
+
+  const payrollCurrent = current.weeks > 0 ? current.payroll / current.weeks : 0;
+  const payrollPrevious = previous.weeks > 0 ? previous.payroll / previous.weeks : 0;
+  const payrollChange = pctChange(payrollCurrent, payrollPrevious);
+  if (payrollChange != null && Math.abs(payrollChange) >= 0.08) {
+    const negative = payrollChange > 0 && ((expensesChangePct ?? 0) > 0.03 || (revenuePerEmployeeChangePct ?? 0) < -0.03);
+    drivers.push(varianceDriver(
+      'payroll-change',
+      'payroll',
+      payrollChange < 0 || !negative ? 'positive' : 'negative',
+      `Weekly payroll ${payrollChange >= 0 ? 'increased' : 'decreased'} ${Math.abs(payrollChange * 100).toFixed(1)}%`,
+      `Average department payroll moved from ${Math.round(payrollPrevious).toLocaleString()} to ${Math.round(payrollCurrent).toLocaleString()} per week.`,
+      Math.abs(payrollChange) * 70,
+    ));
+  }
+
+  if (current.averageMaintenanceCondition != null && previous.averageMaintenanceCondition != null) {
+    const conditionDelta = current.averageMaintenanceCondition - previous.averageMaintenanceCondition;
+    const penaltyDelta = current.maintenanceRevenuePenalty != null && previous.maintenanceRevenuePenalty != null
+      ? current.maintenanceRevenuePenalty - previous.maintenanceRevenuePenalty
+      : null;
+    if (Math.abs(conditionDelta) >= 4 || (penaltyDelta != null && Math.abs(penaltyDelta) >= 0.008)) {
+      const worsened = conditionDelta < 0 || (penaltyDelta ?? 0) > 0;
+      drivers.push(varianceDriver(
+        'maintenance-change',
+        'maintenance',
+        worsened ? 'negative' : 'positive',
+        `Maintenance condition ${worsened ? 'deteriorated' : 'improved'}`,
+        penaltyDelta != null
+          ? `Average condition moved ${signedPoints(conditionDelta)}; estimated revenue drag changed ${signedPct(penaltyDelta)}.`
+          : `Average condition moved from ${previous.averageMaintenanceCondition.toFixed(0)}% to ${current.averageMaintenanceCondition.toFixed(0)}%.`,
+        Math.abs(conditionDelta) + Math.abs(penaltyDelta ?? 0) * 150,
+      ));
+    }
+  }
+
+  const debtCurrent = current.weeks > 0 ? current.debtService / current.weeks : 0;
+  const debtPrevious = previous.weeks > 0 ? previous.debtService / previous.weeks : 0;
+  if (debtCurrent > 0 || debtPrevious > 0) {
+    const debtChange = debtPrevious > 0 ? (debtCurrent - debtPrevious) / debtPrevious : 1;
+    if (Math.abs(debtChange) >= 0.10 && Math.abs(debtCurrent - debtPrevious) >= 1) {
+      drivers.push(varianceDriver(
+        'debt-service-change',
+        'debt',
+        debtCurrent < debtPrevious ? 'positive' : 'negative',
+        `Debt service ${debtCurrent < debtPrevious ? 'eased' : 'increased'}`,
+        `Average scheduled debt service moved from ${Math.round(debtPrevious).toLocaleString()} to ${Math.round(debtCurrent).toLocaleString()} per week.`,
+        Math.min(30, Math.abs(debtChange) * 18),
+      ));
+    }
+  }
+
+  if (
+    current.acquisitionRevenueModifier != null
+    && previous.acquisitionRevenueModifier != null
+    && current.acquisitionExpenseModifier != null
+    && previous.acquisitionExpenseModifier != null
+  ) {
+    const revenueDelta = current.acquisitionRevenueModifier - previous.acquisitionRevenueModifier;
+    const expenseDelta = current.acquisitionExpenseModifier - previous.acquisitionExpenseModifier;
+    const netImprovement = revenueDelta - expenseDelta;
+    if (Math.abs(revenueDelta) >= 0.01 || Math.abs(expenseDelta) >= 0.01) {
+      drivers.push(varianceDriver(
+        'integration-change',
+        'integration',
+        netImprovement > 0 ? 'positive' : 'negative',
+        `Acquisition integration ${netImprovement > 0 ? 'drag eased' : 'became more costly'}`,
+        `Revenue modifier moved from ${signedPct(previous.acquisitionRevenueModifier)} to ${signedPct(current.acquisitionRevenueModifier)}; expense modifier moved from ${signedPct(previous.acquisitionExpenseModifier)} to ${signedPct(current.acquisitionExpenseModifier)}.`,
+        (Math.abs(revenueDelta) + Math.abs(expenseDelta)) * 180,
+      ));
+    }
+  }
+
+  if (current.reputation != null && previous.reputation != null) {
+    const delta = current.reputation - previous.reputation;
+    if (Math.abs(delta) >= 2) {
+      drivers.push(varianceDriver(
+        'reputation-change',
+        'reputation',
+        delta > 0 ? 'positive' : 'negative',
+        `Reputation ${delta > 0 ? 'improved' : 'weakened'} ${Math.abs(delta).toFixed(1)} pts`,
+        `Average reputation moved from ${previous.reputation.toFixed(1)} to ${current.reputation.toFixed(1)}, affecting demand strength.`,
+        Math.abs(delta) * 1.2,
+      ));
+    }
+  }
+
+  if (current.marketShareModifier != null && previous.marketShareModifier != null) {
+    const delta = current.marketShareModifier - previous.marketShareModifier;
+    if (Math.abs(delta) >= 1) {
+      drivers.push(varianceDriver(
+        'market-share-change',
+        'market_share',
+        delta > 0 ? 'positive' : 'negative',
+        `Market-share position ${delta > 0 ? 'improved' : 'weakened'}`,
+        `The persistent market-share modifier changed ${signedPoints(delta)}.`,
+        Math.abs(delta) * 1.5,
+      ));
+    }
+  }
+
+  drivers.sort((a, b) => b.impactScore - a.impactScore);
+
+  if ((revenueChangePct != null && Math.abs(revenueChangePct) >= 0.08) && drivers.length < 3) {
+    drivers.push(varianceDriver(
+      'untracked-market-variance',
+      'untracked',
+      'neutral',
+      'Other market and demand effects remain',
+      'The stored operating drivers do not fully explain the revenue move. Seasonality, pricing, competition, active events and weekly demand variation can also contribute.',
+      0.5,
+    ));
+  }
+
+  return drivers.slice(0, 4);
+}
+
 function productivityStatus(value: number): CorporateKpiStatus {
   if (value < 85) return 'critical';
   if (value < 95) return 'watch';
@@ -505,6 +712,17 @@ export function getCorporateManagementReport(
 
   const current = aggregatePeriod(currentPoints);
   const previous = aggregatePeriod(previousPoints);
+  const currentWeeklyRevenue = current.weeks > 0 ? current.revenue / current.weeks : 0;
+  const previousWeeklyRevenue = previous.weeks > 0 ? previous.revenue / previous.weeks : 0;
+  const currentWeeklyExpenses = current.weeks > 0 ? current.expenses / current.weeks : 0;
+  const previousWeeklyExpenses = previous.weeks > 0 ? previous.expenses / previous.weeks : 0;
+  const revenueChangePct = previous.weeks > 0 ? pctChange(currentWeeklyRevenue, previousWeeklyRevenue) : null;
+  const expensesChangePct = previous.weeks > 0 ? pctChange(currentWeeklyExpenses, previousWeeklyExpenses) : null;
+  const profitMargin = current.revenue > 0 ? current.profit / current.revenue : 0;
+  const previousProfitMargin = previous.revenue > 0 ? previous.profit / previous.revenue : 0;
+  const profitMarginChangePctPoints = previous.weeks > 0
+    ? (profitMargin - previousProfitMargin) * 100
+    : null;
   const payrollToRevenueRatio = current.revenue > 0
     ? current.payroll / current.revenue
     : current.payroll > 0 ? 1 : 0;
@@ -521,6 +739,20 @@ export function getCorporateManagementReport(
       : turnoverChangePctPoints < -0.03
         ? 'improving'
         : 'stable';
+
+  const varianceDrivers = buildVarianceDrivers(
+    current,
+    previous,
+    revenueChangePct,
+    expensesChangePct,
+    revenuePerEmployeeChangePct,
+  );
+  const varianceHistoryCoverage: CorporateManagementReport['varianceHistoryCoverage'] = previous.weeks <= 0
+    ? 'baseline'
+    : current.richDriverSamples >= Math.max(1, Math.ceil(current.weeks * 0.8))
+      && previous.richDriverSamples >= Math.max(1, Math.ceil(previous.weeks * 0.8))
+      ? 'full'
+      : 'partial';
 
   const debtCoverage = current.debtService > 0
     ? (current.profit + current.debtService) / current.debtService
@@ -650,6 +882,12 @@ export function getCorporateManagementReport(
     endGlobalWeek: bounds.endGlobalWeek,
     expectedWeeks: bounds.expectedWeeks,
     weeksTracked: current.weeks,
+    revenueChangePct,
+    expensesChangePct,
+    profitMargin,
+    profitMarginChangePctPoints,
+    varianceDrivers,
+    varianceHistoryCoverage,
     overallStatus: overallStatus(warnings),
     departmentProductivity: current.departmentProductivity,
     productivityIndex: current.productivityIndex,
