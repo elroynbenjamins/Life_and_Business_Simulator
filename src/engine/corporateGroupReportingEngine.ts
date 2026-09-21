@@ -1,5 +1,6 @@
 import { CorporateDepartmentId, OwnedBusiness } from '../types/game';
 import { CORPORATE_DEPARTMENT_DEFINITIONS } from './businessWorkforceEngine';
+import { getBusinessManagementTargetProgress } from './businessManagementTargetsEngine';
 import {
   CorporateKpiStatus,
   CorporateKpiWarning,
@@ -19,6 +20,17 @@ export interface CorporateGroupPriorityCompany {
   warningCount: number;
   criticalWarningCount: number;
   topWarning: string | null;
+}
+
+export interface CorporateGroupTargetCompany {
+  businessId: string;
+  businessName: string;
+  profile: string;
+  metCount: number;
+  nearCount: number;
+  missedCount: number;
+  totalCount: number;
+  missedLabels: string[];
 }
 
 export interface CorporateGroupManagementReport {
@@ -75,6 +87,12 @@ export interface CorporateGroupManagementReport {
   revenueConcentration: number;
   lossMakingCompanies: number;
   priorityCompanies: CorporateGroupPriorityCompany[];
+  targetCompanyCount: number;
+  targetCompaniesFullyMet: number;
+  targetCompaniesAtRisk: number;
+  targetMetricsMet: number;
+  targetMetricsTotal: number;
+  targetPriorityCompanies: CorporateGroupTargetCompany[];
 
   warnings: CorporateKpiWarning[];
 }
@@ -237,6 +255,14 @@ export function getCorporateGroupManagementReport(
   if (reportPairs.length === 0) return null;
 
   const reports = reportPairs.map((pair) => pair.report);
+  const targetPairs = period === 'quarter'
+    ? reportPairs
+        .map(({ business, report }) => ({
+          business,
+          progress: getBusinessManagementTargetProgress(business, report, globalWeek),
+        }))
+        .filter((item) => !!item.progress)
+    : [];
   const periodRevenue = reports.reduce((sum, report) => sum + report.periodRevenue, 0);
   const periodExpenses = reports.reduce((sum, report) => sum + report.periodExpenses, 0);
   const periodPayroll = reports.reduce((sum, report) => sum + report.periodPayroll, 0);
@@ -440,6 +466,41 @@ export function getCorporateGroupManagementReport(
   const criticalCompanyCount = reports.filter((report) => report.overallStatus === 'critical').length;
   const watchCompanyCount = reports.filter((report) => report.overallStatus === 'watch').length;
 
+  const targetCompanyCount = targetPairs.length;
+  const targetCompaniesFullyMet = targetPairs.filter(
+    ({ progress }) => progress!.metCount === progress!.totalCount,
+  ).length;
+  const targetCompaniesAtRisk = targetPairs.filter(
+    ({ progress }) => progress!.missedCount > 0,
+  ).length;
+  const targetMetricsMet = targetPairs.reduce(
+    (sum, { progress }) => sum + (progress?.metCount ?? 0),
+    0,
+  );
+  const targetMetricsTotal = targetPairs.reduce(
+    (sum, { progress }) => sum + (progress?.totalCount ?? 0),
+    0,
+  );
+  const targetPriorityCompanies: CorporateGroupTargetCompany[] = targetPairs
+    .map(({ business, progress }) => ({
+      businessId: business.id,
+      businessName: business.name,
+      profile: progress!.plan.profile,
+      metCount: progress!.metCount,
+      nearCount: progress!.nearCount,
+      missedCount: progress!.missedCount,
+      totalCount: progress!.totalCount,
+      missedLabels: progress!.results
+        .filter((result) => result.status === 'missed')
+        .map((result) => result.label),
+    }))
+    .filter((company) => company.missedCount > 0 || company.nearCount > 0)
+    .sort((a, b) =>
+      b.missedCount - a.missedCount
+      || b.nearCount - a.nearCount
+      || a.businessName.localeCompare(b.businessName)
+    );
+
   const priorityCompanies = reportPairs
     .map(({ business, report }) => ({
       businessId: business.id,
@@ -631,6 +692,12 @@ export function getCorporateGroupManagementReport(
     revenueConcentration,
     lossMakingCompanies,
     priorityCompanies,
+    targetCompanyCount,
+    targetCompaniesFullyMet,
+    targetCompaniesAtRisk,
+    targetMetricsMet,
+    targetMetricsTotal,
+    targetPriorityCompanies,
     warnings,
   };
 }
