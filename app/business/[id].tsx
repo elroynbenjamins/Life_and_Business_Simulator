@@ -1152,6 +1152,7 @@ export default function BusinessDetailScreen() {
           </GameCard>
         )}
 
+        <View collapsable={false} onLayout={(event) => recordManagementSection('workforce', event)} />
         {((biz.valuation ?? 0) >= 20_000_000 || !!corporateWorkforce) && (
           <GameCard title="Corporate Workforce">
             {!corporateWorkforce ? (
@@ -1390,6 +1391,7 @@ export default function BusinessDetailScreen() {
           <StatRow label="Profit" value={biz.lastWeekProfit} positive={(biz.lastWeekProfit ?? 0) >= 0} bold />
         </GameCard>
 
+        <View collapsable={false} onLayout={(event) => recordManagementSection('budget', event)} />
         <GameCard title="Annual Cash Plan">
           <View style={styles.budgetHeader}>
             <View style={{ flex: 1 }}>
@@ -1788,6 +1790,7 @@ export default function BusinessDetailScreen() {
           )}
         </GameCard>
 
+        <View collapsable={false} onLayout={(event) => recordManagementSection('maintenance', event)} />
         <GameCard title="Business Reinvestment">
           <Text style={styles.sectionHint}>
             Technology, premises and equipment wear down over time. Reinvest before they become outdated; neglected infrastructure gradually lowers revenue, raises costs and increases business risk.
@@ -1949,6 +1952,7 @@ export default function BusinessDetailScreen() {
           })()}
         </GameCard>
 
+        <View collapsable={false} onLayout={(event) => recordManagementSection('investments', event)} />
         {(biz.valuation ?? 0) >= 10_000_000 || !!biz.activeCorporateCapex || (biz.completedCorporateCapex?.length ?? 0) > 0 ? (
           <GameCard title="Corporate Investments">
             <View style={styles.corporateHeader}>
@@ -2183,6 +2187,7 @@ export default function BusinessDetailScreen() {
           })}
         </GameCard>
 
+        <View collapsable={false} onLayout={(event) => recordManagementSection('finance', event)} />
         {corporateScaleTier !== 'local' && (
           <GameCard title="Corporate Financing">
             <View style={styles.creditHeader}>
@@ -2655,15 +2660,22 @@ function CorporateKpiCell({
 function CorporateManagementReportPanel({
   quarterlyReport,
   annualReport,
+  quarterlyActions,
+  annualActions,
   period,
   onPeriodChange,
+  onActionPress,
 }: {
   quarterlyReport: CorporateManagementReport;
   annualReport: CorporateManagementReport;
+  quarterlyActions: CorporateManagementAction[];
+  annualActions: CorporateManagementAction[];
   period: CorporateReportPeriod;
   onPeriodChange: (period: CorporateReportPeriod) => void;
+  onActionPress: (target: CorporateManagementActionTarget) => void;
 }) {
   const report = period === 'quarter' ? quarterlyReport : annualReport;
+  const actions = period === 'quarter' ? quarterlyActions : annualActions;
   const statusColor = corporateKpiColor(report.overallStatus);
   const revenueTrend = report.revenuePerEmployeeChangePct == null
     ? 'Baseline forming'
@@ -2774,6 +2786,34 @@ function CorporateManagementReportPanel({
         })}
       </View>
 
+      {actions.length > 0 && (
+        <View style={styles.managementActions}>
+          <View style={styles.managementActionsHeader}>
+            <Text style={styles.managementActionsTitle}>Suggested next actions</Text>
+            <Text style={styles.managementActionsHint}>Advisory only</Text>
+          </View>
+          {actions.map((item) => {
+            const actionColor = corporateKpiColor(item.severity);
+            return (
+              <View key={item.id} style={styles.managementActionRow}>
+                <View style={[styles.managementActionBar, { backgroundColor: actionColor }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.managementActionTitle}>{item.title}</Text>
+                  <Text style={styles.managementActionDetail}>{item.detail}</Text>
+                </View>
+                <Pressable
+                  style={[styles.managementActionButton, { borderColor: `${actionColor}66` }]}
+                  onPress={() => onActionPress(item.target)}
+                >
+                  <Text style={[styles.managementActionButtonText, { color: actionColor }]}>{item.cta}</Text>
+                  <Ionicons name="arrow-down-outline" size={11} color={actionColor} />
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
       <View style={styles.managementWarnings}>
         <View style={styles.managementWarningsHeader}>
           <Text style={styles.managementWarningsTitle}>Management flags</Text>
@@ -2876,6 +2916,16 @@ const styles = StyleSheet.create({
   managementDepartmentIcon: { fontSize: 11 },
   managementDepartmentName: { color: Colors.textSecondary, fontSize: 7, flex: 1 },
   managementDepartmentValue: { fontSize: 8, fontWeight: '900' },
+  managementActions: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, paddingTop: 8 },
+  managementActionsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  managementActionsTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
+  managementActionsHint: { color: Colors.textMuted, fontSize: 7, fontWeight: '700' },
+  managementActionRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 7 },
+  managementActionBar: { width: 3, alignSelf: 'stretch', borderRadius: 2 },
+  managementActionTitle: { color: Colors.textPrimary, fontSize: 8, fontWeight: '800' },
+  managementActionDetail: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 2 },
+  managementActionButton: { maxWidth: 86, borderWidth: 1, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
+  managementActionButtonText: { fontSize: 7, fontWeight: '900', textAlign: 'center' },
   managementWarnings: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, paddingTop: 8 },
   managementWarningsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   managementWarningsTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
