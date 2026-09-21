@@ -23,6 +23,9 @@ import {
   normalizeHoldingSharedServices,
 } from '../../src/engine/holdingCompanyEngine';
 import { BusinessDelegationPolicy, HoldingSharedServiceId } from '../../src/types/game';
+import CorporateGroupReportPanel from '../../src/components/CorporateGroupReportPanel';
+import { getCorporateGroupManagementReport } from '../../src/engine/corporateGroupReportingEngine';
+import { CorporateReportPeriod } from '../../src/engine/corporateReportingEngine';
 
 const CAPITAL_AMOUNTS = [1_000_000, 5_000_000, 10_000_000];
 
@@ -32,6 +35,8 @@ export default function HoldingCompaniesScreen() {
   const holdings = useGameStore((s) => s.holdingCompanies ?? []);
   const cash = useGameStore((s) => s.cash ?? 0);
   const inflationMultiplier = useGameStore((s) => s.inflationMultiplier ?? 1);
+  const currentWeek = useGameStore((s) => s.week ?? 1);
+  const currentYear = useGameStore((s) => s.year ?? 1);
   const relationshipState = useGameStore((s) => s.relationshipState);
   const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
   const createHoldingCompany = useGameStore((s) => s.createHoldingCompany);
@@ -44,12 +49,14 @@ export default function HoldingCompaniesScreen() {
   const toggleLongTermFamilyAsset = useGameStore((s) => s.toggleLongTermFamilyAsset);
   const [name, setName] = useState('');
   const [managerSelections, setManagerSelections] = useState<Record<string, string>>({});
+  const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
   const setupCost = Math.round(HOLDING_COMPANY_SETUP_COST * Math.max(0.5, inflationMultiplier));
   const unassigned = businesses.filter((business) => !business.holdingCompanyId);
   const adultChildren = (relationshipState?.children ?? []).filter((child) => (child.age ?? 0) >= 18);
+  const globalGameWeek = ((currentYear - 1) * 20) + currentWeek;
 
   const summaries = useMemo(() => holdings.map((holding) => {
     const summary = getHoldingCompanySummary(holding, businesses);
@@ -65,8 +72,30 @@ export default function HoldingCompaniesScreen() {
       ? Math.max(...synergyProfiles.map((profile) => profile.crisisReduction))
       : 0;
     const sharedServiceEffects = getHoldingSharedServiceEffects(holding);
-    return { holding, subsidiaries, ...summary, avgRevenueSynergy, avgExpenseSynergy, diversification, sharedServiceEffects };
-  }), [holdings, businesses]);
+    const quarterlyManagementReport = getCorporateGroupManagementReport(
+      subsidiaries,
+      globalGameWeek,
+      'quarter',
+      inflationMultiplier,
+    );
+    const annualManagementReport = getCorporateGroupManagementReport(
+      subsidiaries,
+      globalGameWeek,
+      'annual',
+      inflationMultiplier,
+    );
+    return {
+      holding,
+      subsidiaries,
+      ...summary,
+      avgRevenueSynergy,
+      avgExpenseSynergy,
+      diversification,
+      sharedServiceEffects,
+      quarterlyManagementReport,
+      annualManagementReport,
+    };
+  }), [holdings, businesses, globalGameWeek, inflationMultiplier]);
 
   const createHolding = () => {
     const cleanName = name.trim();
@@ -150,7 +179,7 @@ export default function HoldingCompaniesScreen() {
             ) : summaries.map(({
               holding, subsidiaries, subsidiaryCount, totalValue, totalDebt, netGroupEquity, weeklyProfit,
               cashReserve, familyControlledPct, protectedAssets, avgRevenueSynergy, avgExpenseSynergy, diversification,
-              sharedServiceEffects,
+              sharedServiceEffects, quarterlyManagementReport, annualManagementReport,
             }) => (
               <GameCard key={holding.id}>
                 <View style={styles.holdingHeader}>
@@ -212,6 +241,21 @@ export default function HoldingCompaniesScreen() {
                     Same-industry subsidiaries improve purchasing efficiency. Related industries improve cross-selling. Three or more industries add diversification protection. All bonuses are capped.
                   </Text>
                 </View>
+
+                {quarterlyManagementReport && annualManagementReport && (
+                  <View style={styles.managementReportBox}>
+                    <Text style={styles.synergyTitle}>Group Management Report</Text>
+                    <Text style={styles.managementReportHint}>
+                      Consolidated operating KPIs for corporate-scale subsidiaries in this holding.
+                    </Text>
+                    <CorporateGroupReportPanel
+                      quarterlyReport={quarterlyManagementReport}
+                      annualReport={annualManagementReport}
+                      period={managementReportPeriod}
+                      onPeriodChange={setManagementReportPeriod}
+                    />
+                  </View>
+                )}
 
                 <View style={styles.servicesBox}>
                   <View style={styles.servicesHeader}>
@@ -513,6 +557,8 @@ const styles = StyleSheet.create({
   synergyTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
   synergyText: { color: Colors.primary, fontSize: 10, fontWeight: '700', marginTop: 5 },
   synergyHint: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 5 },
+  managementReportBox: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, marginTop: 11, paddingTop: 10 },
+  managementReportHint: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, marginTop: 3, marginBottom: 8 },
   servicesBox: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, marginTop: 11, paddingTop: 10 },
   servicesHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   servicesMeta: { color: Colors.info, fontSize: 8, lineHeight: 12, marginTop: 3 },
