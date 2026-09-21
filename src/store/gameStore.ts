@@ -319,7 +319,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             purpose: loan.purpose ?? 'operating',
           })),
           portfolioIntent: business.portfolioIntent ?? 'active',
-          capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? null) : null),
+          capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           acquisition: business.acquisition
             ? {
@@ -484,7 +484,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             purpose: loan.purpose ?? 'operating',
           })),
           portfolioIntent: business.portfolioIntent ?? 'active',
-          capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? null) : null),
+          capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           acquisition: business.acquisition
             ? {
