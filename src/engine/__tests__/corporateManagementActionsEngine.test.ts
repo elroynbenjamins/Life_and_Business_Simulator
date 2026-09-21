@@ -192,6 +192,56 @@ describe('corporate management action guidance', () => {
     expect(payroll?.target).toBe('workforce');
   });
 
+  test('critical action slots prefer distinct management levers', () => {
+    const business = corporateBusiness();
+    business.corporateWorkforce!.departments.operations.headcount = 1;
+    business.corporateWorkforce!.departments.operations.targetHeadcount = 1;
+    business.businessLoans = [{
+      id: 'expensive',
+      amount: 5_000_000,
+      remainingAmount: 4_000_000,
+      weeklyPayment: 300_000,
+      weeksRemaining: 20,
+      interestRate: 0.12,
+      purpose: 'corporate_revolver',
+    }];
+    business.reinvestment = {
+      technology: { condition: 45, lastRenewedGlobalWeek: 1 },
+      premises: { condition: 40, lastRenewedGlobalWeek: 1 },
+      equipment: { condition: 35, lastRenewedGlobalWeek: 1 },
+    };
+    business.budgetPlan = {
+      profile: 'standard',
+      targetReserveWeeks: 6,
+      dividendPct: 0.70,
+      debtPaydownPct: 0,
+      reinvestmentPct: 0.15,
+      growthPct: 0.15,
+      reviewYear: 2,
+    };
+
+    const report = reportWith(business, {
+      productivityIndex: 80,
+      departmentProductivity: {
+        operations: 75,
+        sales: 100,
+        finance: 100,
+        technology: 100,
+        support: 100,
+      },
+      profit: -100_000,
+      expenses: 1_100_000,
+      debtService: 300_000,
+    });
+    const actions = getCorporateManagementActions(business, report, 1);
+
+    expect(actions).toHaveLength(3);
+    expect(new Set(actions.map((item) => item.target))).toEqual(
+      new Set(['workforce', 'finance', 'maintenance']),
+    );
+    expect(actions.some((item) => item.id === 'increase-debt-paydown-budget')).toBe(false);
+  });
+
   test('healthy reports do not manufacture management actions', () => {
     const business = corporateBusiness();
     const report = reportWith(business, {});
