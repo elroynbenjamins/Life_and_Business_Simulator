@@ -12,6 +12,7 @@ import { getCorporateWeeklyDebtService } from './corporateFinanceEngine';
 import {
   BUSINESS_REINVESTMENT_AREAS,
   getBusinessReinvestmentCost,
+  getBusinessReinvestmentEffects,
   normalizeBusinessReinvestmentState,
 } from './businessReinvestmentEngine';
 import { getCorporateCapexProject } from './corporateScaleEngine';
@@ -26,6 +27,29 @@ export interface CorporateKpiWarning {
   detail: string;
 }
 
+export type CorporateVarianceDirection = 'positive' | 'negative' | 'neutral';
+export type CorporateVarianceArea =
+  | 'headcount'
+  | 'productivity'
+  | 'skill'
+  | 'morale'
+  | 'payroll'
+  | 'maintenance'
+  | 'debt'
+  | 'integration'
+  | 'reputation'
+  | 'market_share'
+  | 'untracked';
+
+export interface CorporateVarianceDriver {
+  id: string;
+  area: CorporateVarianceArea;
+  direction: CorporateVarianceDirection;
+  title: string;
+  detail: string;
+  impactScore: number;
+}
+
 export interface CorporateManagementReport {
   period: CorporateReportPeriod;
   label: string;
@@ -33,6 +57,12 @@ export interface CorporateManagementReport {
   endGlobalWeek: number;
   expectedWeeks: number;
   weeksTracked: number;
+  revenueChangePct: number | null;
+  expensesChangePct: number | null;
+  profitMargin: number;
+  profitMarginChangePctPoints: number | null;
+  varianceDrivers: CorporateVarianceDriver[];
+  varianceHistoryCoverage: 'baseline' | 'partial' | 'full';
   overallStatus: CorporateKpiStatus;
   departmentProductivity: Record<CorporateDepartmentId, number>;
   productivityIndex: number;
