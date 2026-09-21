@@ -448,7 +448,7 @@ export function getCorporateManagementReport(
     });
   }
 
-  if (statuses.maintenance !== 'healthy') {
+  if (statuses.maintenance === 'critical' || statuses.maintenance === 'watch') {
     warnings.push({
       id: 'maintenance',
       severity: statuses.maintenance,
