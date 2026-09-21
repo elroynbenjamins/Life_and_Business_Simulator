@@ -21,7 +21,7 @@ import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { businessTypeImages, employeeRoleImages } from '../../src/assets/progressionImages';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
-import { AcquisitionIntegrationStrategy, BusinessGovernanceRole, BusinessStrategicFocus } from '../../src/types/game';
+import { AcquisitionIntegrationStrategy, BusinessGovernanceRole, BusinessReinvestmentArea, BusinessStrategicFocus } from '../../src/types/game';
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
@@ -40,6 +40,14 @@ import {
   getProjectFinanceQuote,
   getRevolverDrawQuote,
 } from '../../src/engine/corporateFinanceEngine';
+import {
+  BUSINESS_REINVESTMENT_AREAS,
+  canStartBusinessReinvestment,
+  getBusinessConditionLabel,
+  getBusinessReinvestmentCost,
+  getBusinessReinvestmentEffects,
+  normalizeBusinessReinvestmentState,
+} from '../../src/engine/businessReinvestmentEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -106,7 +114,7 @@ export default function BusinessDetailScreen() {
     buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
     drawCorporateRevolver, issueCorporateBond, repayBusinessLoan,
     injectCashIntoBusiness, withdrawFromBusiness,
-    applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, startCorporateCapex, resolveBusinessRetention,
+    applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, startBusinessReinvestment, startCorporateCapex, resolveBusinessRetention,
   } = useGameStore(useShallow((s) => ({
     designateFamilyBusiness: s.designateFamilyBusiness,
     toggleLongTermFamilyAsset: s.toggleLongTermFamilyAsset,
@@ -134,6 +142,7 @@ export default function BusinessDetailScreen() {
     applyMoraleActionToBusiness: s.applyMoraleActionToBusiness,
     startEmployeeTraining: s.startEmployeeTraining,
     startBusinessProject: s.startBusinessProject,
+    startBusinessReinvestment: s.startBusinessReinvestment,
     startCorporateCapex: s.startCorporateCapex,
     resolveBusinessRetention: s.resolveBusinessRetention,
   })));
@@ -202,6 +211,8 @@ export default function BusinessDetailScreen() {
   const familyTrustCash = relationshipState?.familyTrustCash ?? 0;
   const pendingDecision = biz.pendingDecision ?? null;
   const globalGameWeek = ((gameYear - 1) * 20) + gameWeek;
+  const reinvestmentState = normalizeBusinessReinvestmentState(biz.reinvestment, globalGameWeek);
+  const reinvestmentEffects = getBusinessReinvestmentEffects(biz);
   const decisionWeeksLeft = pendingDecision
     ? Math.max(0, (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4) - globalGameWeek)
     : 0;
@@ -1026,6 +1037,92 @@ export default function BusinessDetailScreen() {
           })}
         </GameCard>
 
+        <GameCard title="Business Reinvestment">
+          <Text style={styles.sectionHint}>
+            Technology, premises and equipment wear down over time. Reinvest before they become outdated; neglected infrastructure gradually lowers revenue, raises costs and increases business risk.
+          </Text>
+
+          {(reinvestmentEffects.revenuePenalty > 0 || reinvestmentEffects.expenseIncrease > 0) && (
+            <View style={styles.reinvestmentWarning}>
+              <Ionicons name="warning-outline" size={15} color={Colors.warning} />
+              <Text style={styles.reinvestmentWarningText}>
+                Current drag: -{(reinvestmentEffects.revenuePenalty * 100).toFixed(1)}% revenue • +{(reinvestmentEffects.expenseIncrease * 100).toFixed(1)}% expenses • +{(reinvestmentEffects.crisisIncrease * 100).toFixed(1)}% crisis pressure
+              </Text>
+            </View>
+          )}
+
+          {biz.activeReinvestment && (
+            <View style={styles.reinvestmentActive}>
+              <Text style={styles.reinvestmentActiveTitle}>
+                {BUSINESS_REINVESTMENT_AREAS[biz.activeReinvestment.area].icon} {biz.activeReinvestment.projectName}
+              </Text>
+              <Text style={styles.reinvestmentActiveMeta}>
+                {biz.activeReinvestment.weeksRemaining} weeks remaining • {formatCurrency(biz.activeReinvestment.costPaid)} invested
+              </Text>
+            </View>
+          )}
+
+          {(Object.keys(BUSINESS_REINVESTMENT_AREAS) as BusinessReinvestmentArea[]).map((area) => {
+            const definition = BUSINESS_REINVESTMENT_AREAS[area];
+            const track = reinvestmentState[area];
+            const condition = Math.round(track.condition);
+            const label = getBusinessConditionLabel(condition);
+            const cost = getBusinessReinvestmentCost(biz, area, inflationMultiplier);
+            const eligibility = canStartBusinessReinvestment(biz, area);
+            const affordable = (biz.balance ?? 0) >= cost;
+            const disabled = !eligibility.allowed || !affordable || !!biz.activeReinvestment;
+            const statusColor = label.severity === 'good'
+              ? Colors.primary
+              : label.severity === 'bad'
+                ? Colors.negative
+                : Colors.warning;
+
+            return (
+              <View key={area} style={styles.reinvestmentRow}>
+                <View style={styles.reinvestmentIcon}>
+                  <Text style={styles.reinvestmentIconText}>{definition.icon}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.reinvestmentTitleRow}>
+                    <Text style={styles.reinvestmentName}>{definition.name}</Text>
+                    <Text style={[styles.reinvestmentCondition, { color: statusColor }]}>
+                      {condition}% • {label.label}
+                    </Text>
+                  </View>
+                  <Text style={styles.reinvestmentDesc}>{definition.description}</Text>
+                  <View style={styles.reinvestmentTrack}>
+                    <View style={[styles.reinvestmentFill, { width: `${Math.max(0, Math.min(100, condition))}%`, backgroundColor: statusColor }]} />
+                  </View>
+                  <Text style={styles.reinvestmentMeta}>
+                    {definition.weeks} weeks • Current renewal cost {formatCurrency(cost)}
+                  </Text>
+                  {!eligibility.allowed && !biz.activeReinvestment && (
+                    <Text style={styles.reinvestmentLocked}>{eligibility.reason}</Text>
+                  )}
+                  {eligibility.allowed && !affordable && (
+                    <Text style={styles.reinvestmentLocked}>
+                      Need {formatCurrency(cost - (biz.balance ?? 0))} more business cash
+                    </Text>
+                  )}
+                </View>
+                <Pressable
+                  disabled={disabled}
+                  onPress={() => confirmAction(
+                    definition.name,
+                    `Invest ${formatCurrency(cost)} from the business account? Work takes ${definition.weeks} weeks and restores ${definition.name.toLowerCase()} condition to 100% when complete.`,
+                    () => startBusinessReinvestment(biz.id, area),
+                  )}
+                  style={[styles.reinvestmentButton, !disabled && styles.reinvestmentButtonActive, disabled && styles.disabledAction]}
+                >
+                  <Text style={[styles.reinvestmentButtonText, !disabled && { color: Colors.primary }]}>
+                    {biz.activeReinvestment?.area === area ? 'WORKING' : 'RENEW'}
+                  </Text>
+                </Pressable>
+              </View>
+            );
+          })}
+        </GameCard>
+
         {/* Active Business Projects */}
         <GameCard title="Business Projects">
           {/* Active projects */}
@@ -1809,6 +1906,25 @@ const styles = StyleSheet.create({
   actionCost: { color: Colors.warning, fontSize: 13, fontWeight: '600', marginLeft: 8 },
   disabledRow: { opacity: 0.45 },
   projectRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  reinvestmentWarning: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, backgroundColor: `${Colors.warning}10`, borderRadius: 8, padding: 8, marginBottom: 8 },
+  reinvestmentWarningText: { flex: 1, color: Colors.warning, fontSize: 9, lineHeight: 13, fontWeight: '700' },
+  reinvestmentActive: { backgroundColor: '#17263A', borderRadius: 8, padding: 9, marginBottom: 8 },
+  reinvestmentActiveTitle: { color: Colors.info, fontSize: 11, fontWeight: '800' },
+  reinvestmentActiveMeta: { color: Colors.textSecondary, fontSize: 8, marginTop: 2 },
+  reinvestmentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  reinvestmentIcon: { width: 30, height: 30, borderRadius: 8, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  reinvestmentIconText: { fontSize: 16 },
+  reinvestmentTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 },
+  reinvestmentName: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800', flex: 1 },
+  reinvestmentCondition: { fontSize: 8, fontWeight: '900' },
+  reinvestmentDesc: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  reinvestmentTrack: { height: 4, borderRadius: 2, backgroundColor: Colors.elevated, marginTop: 6, overflow: 'hidden' },
+  reinvestmentFill: { height: 4, borderRadius: 2 },
+  reinvestmentMeta: { color: Colors.textSecondary, fontSize: 8, marginTop: 4 },
+  reinvestmentLocked: { color: Colors.warning, fontSize: 8, lineHeight: 11, marginTop: 3 },
+  reinvestmentButton: { minWidth: 56, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 7, paddingHorizontal: 6, paddingVertical: 7, alignItems: 'center' },
+  reinvestmentButtonActive: { borderColor: `${Colors.primary}66`, backgroundColor: `${Colors.primary}0D` },
+  reinvestmentButtonText: { color: Colors.textMuted, fontSize: 7, fontWeight: '900' },
   corporateHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
   corporateScaleBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#17263A', borderRadius: 9, paddingHorizontal: 8, paddingVertical: 5 },
   corporateScaleText: { color: Colors.info, fontSize: 9, fontWeight: '900' },
