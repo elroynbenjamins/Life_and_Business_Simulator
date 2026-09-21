@@ -1391,6 +1391,7 @@ export interface OwnedBusiness {
   familyRoles?: BusinessFamilyRole[];
   executives?: BusinessExecutive[];
   pendingExecutiveSearch?: BusinessExecutiveSearch | null;
+  executiveSearchCooldowns?: Partial<Record<BusinessExecutiveRole, number>>;
   boardGovernance?: BusinessBoardGovernance | null;
   /** Optional organizational parent for portfolio-level capital allocation. */
   holdingCompanyId?: string | null;
