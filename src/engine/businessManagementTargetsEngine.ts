@@ -501,14 +501,22 @@ export function closeCompletedBusinessManagementQuarter(
       target: result.target,
       status: result.status,
     })),
-    partial: points.length < 5 || endingPoint.debtBalance == null,
+    partial: points.length < 5
+      || endingPoint.debtBalance == null
+      || plan.createdGlobalWeek > plan.periodStartGlobalWeek,
   };
 
-  const managementReviewHistory = [...existingHistory, review]
+  const sortedHistory = [...existingHistory, review]
     .sort((a, b) =>
       a.year - b.year
       || a.quarter - b.quarter
-    )
+    );
+  const latestYear = sortedHistory.reduce(
+    (max, item) => Math.max(max, item.year),
+    review.year,
+  );
+  const managementReviewHistory = sortedHistory
+    .filter((item) => item.year >= latestYear - 4)
     .slice(-MAX_MANAGEMENT_REVIEW_QUARTERS);
 
   return {
