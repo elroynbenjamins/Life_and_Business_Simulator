@@ -27,6 +27,9 @@ import {
   getBusinessGovernanceEffects,
   tickBusinessGovernance,
 } from './businessGovernanceEngine';
+import {
+  tickCorporateWorkforce,
+} from './businessWorkforceEngine';
 
 // -----------------------------------------------------------------------------
 // D&D-style tier system for employees
@@ -860,6 +863,7 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     pendingExecutiveSearch: null,
     executiveSearchCooldowns: {},
     boardGovernance: null,
+    corporateWorkforce: null,
     capitalInvested: null,
     totalPlayerDistributions: 0,
     delegationPolicy: 'manual',
@@ -928,13 +932,18 @@ export function processBusinessWeek(
     return { updatedBusiness: biz, weeklyRevenue: 0, weeklyExpenses: 0, weeklyProfit: 0, playerDividend: 0, ownershipDistributions: [], taxRefund: 0, newEvent: null, newRetention: null };
   }
   const globalWeek = ((currentYear - 1) * 20) + currentWeek;
-  const reinvestmentTick = tickBusinessReinvestment(biz, globalWeek);
+  const workforceTick = tickCorporateWorkforce(biz, globalWeek, inflationMultiplier);
+  const workforceBiz = workforceTick.workforce
+    ? { ...biz, corporateWorkforce: workforceTick.workforce }
+    : biz;
+  const reinvestmentTick = tickBusinessReinvestment(workforceBiz, globalWeek);
 
   // Minimum staffing check - business earns NOTHING if under staffed
   if (!meetsMinStaffing(biz)) {
     return {
       updatedBusiness: {
         ...biz,
+        corporateWorkforce: workforceTick.workforce,
         reinvestment: reinvestmentTick.reinvestment,
         activeReinvestment: reinvestmentTick.activeReinvestment,
         lastWeekRevenue: 0,
@@ -1030,11 +1039,14 @@ export function processBusinessWeek(
     eventExpenseMultiplier *= 1 + Math.max(-0.05, Math.min(0.05, acquisition.persistentExpenseModifier ?? 0));
   }
   const corporateCapexEffects = getCorporateCapexOperatingEffects(biz);
-  const reinvestmentEffects = getBusinessReinvestmentEffects(biz);
+  const reinvestmentEffects = getBusinessReinvestmentEffects(workforceBiz);
   const governanceEffects = getBusinessGovernanceEffects(biz);
+  const workforceEffects = workforceTick.effects;
   eventRevenueMultiplier *= 1 + corporateCapexEffects.revenueBonus;
   eventRevenueMultiplier *= 1 + governanceEffects.revenueBonus;
+  eventRevenueMultiplier *= 1 + workforceEffects.revenueBonus;
   eventExpenseMultiplier *= 1 - governanceEffects.expenseReduction;
+  eventExpenseMultiplier *= 1 - workforceEffects.expenseReduction;
   eventExpenseMultiplier *= 1 - corporateCapexEffects.expenseReduction;
   eventRevenueMultiplier *= 1 - corporateCapexEffects.constructionRevenuePenalty;
   eventExpenseMultiplier *= 1 + corporateCapexEffects.constructionExpensePenalty;
@@ -1070,7 +1082,11 @@ export function processBusinessWeek(
     acquisition.quoteInflation ??= inflationMultiplier;
     acquisition.quotedWeeklyProfit ??= acquisition.estimatedValueAtPurchase / (20 * (2 + biz.reputation / 100 * 3));
     acquisition.quotedWeeklyRevenue ??= acquisition.quotedWeeklyProfit / 0.15;
-    acquisition.referenceStaffCost ??= (biz.employees ?? []).reduce((sum, employee) => sum + employee.weeklySalary, 0);
+    acquisition.referenceStaffCost ??=
+      (biz.employees ?? []).reduce((sum, employee) => sum + employee.weeklySalary, 0)
+      + (biz.familyRoles ?? []).reduce((sum, role) => sum + (role.weeklySalary ?? 0), 0)
+      + governanceEffects.executiveWeeklySalary
+      + workforceTick.weeklyPayroll;
     acquisition.referenceExpenseMultiplier ??= buffAgg.expenseMult;
     acquisition.referenceRevenueCapacity ??= getBusinessRevenueCapacity(biz);
     revenue = Math.round(revenue * acquisition.quotedWeeklyRevenue /
@@ -1094,13 +1110,15 @@ export function processBusinessWeek(
   const employeeSalaries = (biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0);
   const familyGovernanceSalaries = (biz.familyRoles ?? []).reduce((t, role) => t + (role.weeklySalary ?? 0), 0);
   const executiveSalaries = governanceEffects.executiveWeeklySalary;
-  const normalSalaries = employeeSalaries + familyGovernanceSalaries + executiveSalaries;
+  const corporateDepartmentPayroll = workforceTick.weeklyPayroll;
+  const normalSalaries = employeeSalaries + familyGovernanceSalaries + executiveSalaries + corporateDepartmentPayroll;
   // Startup wage support applies only to ordinary employees. Family governance
   // and professional executive appointments remain contractual.
   const salaries = Math.round(
     employeeSalaries * (startupSupport ? 0.95 : 1)
     + familyGovernanceSalaries
     + executiveSalaries
+    + corporateDepartmentPayroll
   );
   const adCost = Math.round((adMod.weeklyCost ?? 0) * inflationMultiplier * prestigeCostMultiplier);
   const starterDemandWeight = acquisition ? 0 : Math.max(0, Math.min(1, (70 - (biz.reputation ?? 25)) / 30));
@@ -1133,7 +1151,7 @@ export function processBusinessWeek(
   const locationOperatingCosts = Math.round((biz.locations ?? []).reduce((total, location) => total + (location.weeklyOperatingCost ?? 0), 0) * inflationMultiplier * prestigeCostMultiplier);
   let baseMisc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult)
     + locationOperatingCosts;
-  let misc = baseMisc + governanceEffects.boardWeeklyCost;
+  let misc = baseMisc + governanceEffects.boardWeeklyCost + workforceTick.transitionCost;
   if (acquisition) {
     const quotedRevenue = Math.max(1, acquisition.quotedWeeklyRevenue!);
     const inflationRatio = inflationMultiplier / Math.max(0.01, acquisition.quoteInflation!);
@@ -1151,7 +1169,7 @@ export function processBusinessWeek(
     insurance = baseInsurance + explicitInsurancePremium;
     maintenance = Math.round(maintenance * scale);
     baseMisc = Math.max(0, overhead - rent - cogs - utilities - baseInsurance - maintenance) + locationOperatingCosts;
-    misc = baseMisc + governanceEffects.boardWeeklyCost;
+    misc = baseMisc + governanceEffects.boardWeeklyCost + workforceTick.transitionCost;
   }
 
   let loanInterest = 0;
@@ -1331,6 +1349,7 @@ export function processBusinessWeek(
     + repGrowth + adRepBoost + pricingRepEffect + eventRepChange + projectRepBoost
     + buffAgg.weeklyRepBoost + strategyTotals.reputation + integrationRepDelta
     + governanceEffects.reputationPerWeek
+    + workforceEffects.reputationPerWeek
     - reinvestmentEffects.reputationDrag;
   newReputation = Math.max(0, Math.min(100, newReputation));
 
@@ -1646,7 +1665,8 @@ export function processBusinessWeek(
       - (1 - Math.max(0, Math.min(0.8, modifiers.businessCrisisReduction ?? 0)))
       * (1 - Math.max(0, Math.min(0.25, modifiers.holdingCrisisReduction ?? 0)))
       * (1 - Math.max(0, Math.min(0.12, capexCrisisReduction)))
-      * (1 - Math.max(-0.05, Math.min(0.12, governanceEffects.crisisReduction)));
+      * (1 - Math.max(-0.05, Math.min(0.12, governanceEffects.crisisReduction)))
+      * (1 - Math.max(-0.08, Math.min(0.08, workforceEffects.crisisReduction)));
     const crisisChance = Math.max(0.04, baseCrisisChance * (1 + reinvestmentEffects.crisisIncrease) * (1 - combinedCrisisReduction));
     if (Math.random() < crisisChance) {
       pendingDecision = corporateTier === 'local'
@@ -1704,6 +1724,7 @@ export function processBusinessWeek(
     executives: governanceTick.executives,
     pendingExecutiveSearch: biz.pendingExecutiveSearch ?? null,
     boardGovernance: governanceTick.boardGovernance,
+    corporateWorkforce: workforceTick.workforce,
     ownership: biz.ownership?.length ? biz.ownership : [{
       ownerType: 'player',
       ownerId: 'player',
