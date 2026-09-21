@@ -70,6 +70,7 @@ import {
   BUSINESS_EXECUTIVE_ROLES,
   getBusinessGovernanceEffects,
   getExecutiveRoleEligibility,
+  getExecutiveSearchCooldownWeeks,
 } from '../../src/engine/businessGovernanceEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
@@ -909,8 +910,7 @@ export default function BusinessDetailScreen() {
               const executive = (biz.executives ?? []).find((item) => item.role === role);
               const eligibility = getExecutiveRoleEligibility(biz, role);
               const searchActive = biz.pendingExecutiveSearch?.role === role;
-              const lastSearchWeek = biz.executiveSearchCooldowns?.[role] ?? -100;
-              const searchCooldown = Math.max(0, 10 - (globalGameWeek - lastSearchWeek));
+              const searchCooldown = getExecutiveSearchCooldownWeeks(biz, role, globalGameWeek);
               const searchBlockedByOtherRole = !!biz.pendingExecutiveSearch && !searchActive;
               const severance = executive ? Math.round((executive.weeklySalary ?? 0) * 6) : 0;
 
