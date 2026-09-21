@@ -38,7 +38,7 @@ export function getBusinessInvestmentBasis(business: OwnedBusiness): number | nu
         + (business.acquisition.additionalCapitalInvested ?? 0),
     );
   }
-  const initial = business.initialCapitalInvested;
+  const initial = business.capitalInvested;
   return typeof initial === 'number' && Number.isFinite(initial) && initial >= 0 ? initial : null;
 }
 
