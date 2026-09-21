@@ -1,6 +1,7 @@
 import { HoldingCompany, OwnedBusiness, SoldBusinessRecord } from '../types/game';
 import { getBusinessReinvestmentUrgency } from './businessReinvestmentEngine';
 import { getBusinessCoverageGaps } from './businessInsuranceEngine';
+import { isBusinessBudgetReviewDue } from './businessBudgetEngine';
 
 export interface BusinessSaleQuote {
   grossSalePrice: number;
