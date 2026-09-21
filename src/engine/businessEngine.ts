@@ -28,6 +28,7 @@ import {
   tickBusinessGovernance,
 } from './businessGovernanceEngine';
 import {
+  createCorporateWorkforce,
   tickCorporateWorkforce,
 } from './businessWorkforceEngine';
 
@@ -1082,11 +1083,20 @@ export function processBusinessWeek(
     acquisition.quoteInflation ??= inflationMultiplier;
     acquisition.quotedWeeklyProfit ??= acquisition.estimatedValueAtPurchase / (20 * (2 + biz.reputation / 100 * 3));
     acquisition.quotedWeeklyRevenue ??= acquisition.quotedWeeklyProfit / 0.15;
+    if (
+      acquisition.workforceBaselineVersion !== 1
+      && acquisition.referenceStaffCost != null
+      && workforceTick.weeklyPayroll > 0
+    ) {
+      acquisition.referenceStaffCost += workforceTick.weeklyPayroll;
+      acquisition.workforceBaselineVersion = 1;
+    }
     acquisition.referenceStaffCost ??=
       (biz.employees ?? []).reduce((sum, employee) => sum + employee.weeklySalary, 0)
       + (biz.familyRoles ?? []).reduce((sum, role) => sum + (role.weeklySalary ?? 0), 0)
       + governanceEffects.executiveWeeklySalary
       + workforceTick.weeklyPayroll;
+    acquisition.workforceBaselineVersion ??= 1;
     acquisition.referenceExpenseMultiplier ??= buffAgg.expenseMult;
     acquisition.referenceRevenueCapacity ??= getBusinessRevenueCapacity(biz);
     revenue = Math.round(revenue * acquisition.quotedWeeklyRevenue /
@@ -1740,6 +1750,13 @@ export function processBusinessWeek(
     totalPlayerDistributions: (biz.totalPlayerDistributions ?? 0) + playerDividend,
   };
   updatedBusiness.valuation = calculateValuation(updatedBusiness);
+  if (!updatedBusiness.corporateWorkforce && updatedBusiness.valuation >= 25_000_000) {
+    updatedBusiness.corporateWorkforce = createCorporateWorkforce(
+      updatedBusiness,
+      globalWeek,
+      inflationMultiplier,
+    );
+  }
   updatedBusiness.level = getBusinessLevelForMetrics(thresholds, updatedBusiness.valuation, updatedBusiness.reputation);
 
   return {
