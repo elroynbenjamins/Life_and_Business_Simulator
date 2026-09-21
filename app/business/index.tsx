@@ -353,7 +353,10 @@ export default function BusinessPortfolioScreen() {
                 <Text style={styles.sectionTitle}>Deal History</Text>
                 <Text style={styles.sectionSub}>Recent exits stay visible after the company leaves your portfolio.</Text>
               </View>
-              <Text style={styles.sectionCount}>{soldBusinesses.length}</Text>
+              <Pressable style={styles.historyLink} onPress={() => router.push('/business/history')}>
+                <Text style={styles.historyLinkText}>View all {soldBusinesses.length}</Text>
+                <Ionicons name="chevron-forward" size={13} color={Colors.info} />
+              </Pressable>
             </View>
 
             <GameCard>
@@ -423,6 +426,8 @@ const styles = StyleSheet.create({
   sectionTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
   sectionSub: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
   sectionCount: { color: Colors.textSecondary, fontSize: 11, fontWeight: '800', backgroundColor: Colors.elevated, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 10 },
+  historyLink: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 5 },
+  historyLinkText: { color: Colors.info, fontSize: 10, fontWeight: '800' },
   sortRow: { gap: 7, paddingVertical: 1 },
   sortChip: { minHeight: 32, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, paddingHorizontal: 10, flexDirection: 'row', gap: 5, alignItems: 'center' },
   sortChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
