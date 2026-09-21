@@ -34,6 +34,12 @@ import {
   getCorporateScaleLabel,
   getCorporateScaleTier,
 } from '../../src/engine/corporateScaleEngine';
+import {
+  getBondQuote,
+  getCorporateCreditProfile,
+  getProjectFinanceQuote,
+  getRevolverDrawQuote,
+} from '../../src/engine/corporateFinanceEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -54,6 +60,9 @@ const LOAN_OPTIONS = [
   { amount: 25000, rate: 0.12, weeks: 40, label: '€25K • 12% • 40wk' },
   { amount: 50000, rate: 0.10, weeks: 52, label: '€50K • 10% • 52wk' },
 ];
+
+const REVOLVER_DRAWS = [2_500_000, 5_000_000, 10_000_000];
+const BOND_ISSUES = [10_000_000, 25_000_000, 50_000_000];
 
 const STRATEGIC_FOCUS_OPTIONS: Array<{ key: BusinessStrategicFocus; label: string; desc: string }> = [
   { key: 'balanced', label: 'Balanced', desc: 'No structural bias. Preserve flexibility.' },
@@ -95,6 +104,7 @@ export default function BusinessDetailScreen() {
     openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
     setBusinessPricing, setBusinessAdvertising,
     buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
+    drawCorporateRevolver, issueCorporateBond, repayBusinessLoan,
     injectCashIntoBusiness, withdrawFromBusiness,
     applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, startCorporateCapex, resolveBusinessRetention,
   } = useGameStore(useShallow((s) => ({
@@ -116,6 +126,9 @@ export default function BusinessDetailScreen() {
     buyBusinessUpgrade: s.buyBusinessUpgrade,
     startBusinessExpansion: s.startBusinessExpansion,
     takeBusinessLoan: s.takeBusinessLoan,
+    drawCorporateRevolver: s.drawCorporateRevolver,
+    issueCorporateBond: s.issueCorporateBond,
+    repayBusinessLoan: s.repayBusinessLoan,
     injectCashIntoBusiness: s.injectCashIntoBusiness,
     withdrawFromBusiness: s.withdrawFromBusiness,
     applyMoraleActionToBusiness: s.applyMoraleActionToBusiness,
@@ -169,6 +182,7 @@ export default function BusinessDetailScreen() {
   const corporateScaleLabel = getCorporateScaleLabel(corporateScaleTier);
   const corporateCapexEffects = getCorporateCapexOperatingEffects(biz);
   const corporateCapexBookValue = getCorporateCapexBookValue(biz);
+  const corporateCredit = getCorporateCreditProfile(biz);
   const locationTemplates = getAllBusinessLocationTemplates();
   const adultChildren = (relationshipState?.children ?? []).filter((child) => (child.age ?? 0) >= 18);
   const ownership = biz.ownership?.length ? biz.ownership : [{
