@@ -562,9 +562,19 @@ export function calculateValuation(biz: OwnedBusiness): number {
   const profitMultiple = 2 + (reputation / 100) * 3;
   const twentyWeekProfit = (biz.weeklyProfitHistory ?? []).slice(-20).reduce((total, profit) => total + (profit ?? 0), 0);
   const availableBalance = Math.max(0, biz.balance ?? 0);
+  const outstandingBusinessDebt = (biz.businessLoans ?? []).reduce(
+    (sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0),
+    0,
+  );
+  // Debt-funded cash must not create valuation out of thin air. Cash up to the
+  // outstanding debt balance is valued 1:1; genuinely accumulated equity cash
+  // keeps the existing 1.5x liquidity premium.
+  const debtBackedCash = Math.min(availableBalance, outstandingBusinessDebt);
+  const equityCash = Math.max(0, availableBalance - debtBackedCash);
+  const cashValue = debtBackedCash + equityCash * 1.5;
   const corporateAssetValue = getCorporateCapexBookValue(biz);
-  if (twentyWeekProfit <= 0) return Math.round(availableBalance + corporateAssetValue);
-  return Math.round(availableBalance * 1.5 + twentyWeekProfit * profitMultiple + corporateAssetValue);
+  if (twentyWeekProfit <= 0) return Math.round(cashValue + corporateAssetValue);
+  return Math.round(cashValue + twentyWeekProfit * profitMultiple + corporateAssetValue);
 }
 
 export function getBusinessMarketStrength(biz: OwnedBusiness): number {
