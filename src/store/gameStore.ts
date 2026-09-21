@@ -3396,6 +3396,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (state.lifecycle?.isDead) return;
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business || !getExecutiveRoleEligibility(business, role).allowed) return;
+    if (business.pendingExecutiveSearch && business.pendingExecutiveSearch.role !== role) return;
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     const lastSearchWeek = business.executiveSearchCooldowns?.[role] ?? -100;
     if (globalWeek - lastSearchWeek < 10) return;
