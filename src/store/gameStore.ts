@@ -3170,6 +3170,12 @@ const useGameStore = create<GameStore>((set, get) => ({
         ? {
             ...item,
             holdingCompanyId,
+            delegationPolicy: holdingCompanyId ? (item.delegationPolicy ?? 'manual') : 'manual',
+            delegatedManagerEmployeeId: holdingCompanyId ? (item.delegatedManagerEmployeeId ?? null) : null,
+            delegatedManagerName: holdingCompanyId ? (item.delegatedManagerName ?? null) : null,
+            lastDelegationSummary: holdingCompanyId
+              ? item.lastDelegationSummary
+              : 'Delegation ended when the company left its holding group.',
             timeline: [
               ...(item.timeline ?? []),
               {
