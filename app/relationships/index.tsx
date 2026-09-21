@@ -7,9 +7,10 @@ import { Colors } from '../../src/theme/colors';
 import GameStatusBar from '../../src/components/StatusBar';
 import GameCard from '../../src/components/GameCard';
 import useGameStore from '../../src/store/gameStore';
-import { DatingPreference, EstatePlanType, EstateStructureType, MarriageAgreement, RelationshipConnection } from '../../src/types/game';
+import { DatingPreference, EstatePlanType, EstateStructureType, FamilyWorkArrangement, MarriageAgreement, RelationshipConnection } from '../../src/types/game';
 import { formatCurrency } from '../../src/utils/format';
 import {
+  FAMILY_WORK_ARRANGEMENTS,
   getChildAge,
   getChildWeeklyCost,
   getChildCostBreakdown,
@@ -17,6 +18,7 @@ import {
   getDateCost,
   getFamilyPlanningPreview,
   getFamilyFormationProfile,
+  getFamilyWorkIncomePreview,
   getNormalizedDatingAgeBounds,
   getProposalCost,
   getWeddingCost,
@@ -46,6 +48,7 @@ export default function RelationshipsScreen() {
   const propose = useGameStore((s) => s.proposeToPartner);
   const marry = useGameStore((s) => s.marryPartner);
   const setFamilyPlan = useGameStore((s) => s.setFamilyPlan);
+  const setFamilyWorkArrangement = useGameStore((s) => s.setFamilyWorkArrangement);
   const reduceFamilySpending = useGameStore((s) => s.reduceFamilySpending);
   const fundChildEducation = useGameStore((s) => s.fundChildEducation);
   const spendTimeWithChild = useGameStore((s) => s.spendTimeWithChild);
@@ -108,6 +111,11 @@ export default function RelationshipsScreen() {
   ]);
   const familySpendingActive = (relationship?.familySpendingWeeksRemaining ?? 0) > 0;
   const dependentChildrenCount = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) < 18).length;
+  const familyWorkPreview = getFamilyWorkIncomePreview(state, partner);
+  const familyWorkAvailable = !!partner
+    && cohabiting
+    && familyWorkPreview.youngestChildAge != null
+    && familyWorkPreview.youngestChildAge < 6;
   const canGrowFamily = !!familyProfile
     && !familyLimitReached
     && !familySpacingBlocked
@@ -404,6 +412,72 @@ export default function RelationshipsScreen() {
                       </View>
                     </>
                   )}
+                </View>
+              )}
+
+              {familyWorkAvailable && (
+                <View style={styles.majorBox}>
+                  <Text style={styles.majorTitle}>Family Work Schedule</Text>
+                  <Text style={styles.meta}>
+                    Youngest child age {familyWorkPreview.youngestChildAge}. Reduced schedules stay active until the youngest child reaches 6, then both incomes automatically return to 100%.
+                  </Text>
+
+                  <View style={styles.familyWorkIncomeRow}>
+                    <View style={styles.familyWorkIncomeItem}>
+                      <Text style={styles.familyWorkIncomeLabel}>You</Text>
+                      <Text style={styles.familyWorkIncomeValue}>
+                        {Math.round(familyWorkPreview.playerWorkFraction * 100)}% • {formatCurrency(familyWorkPreview.playerEffectiveIncome)}/wk
+                      </Text>
+                      {familyWorkPreview.playerEffectiveIncome !== familyWorkPreview.playerFullTimeIncome && (
+                        <Text style={styles.familyWorkIncomeBase}>
+                          Full-time {formatCurrency(familyWorkPreview.playerFullTimeIncome)}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.familyWorkIncomeItem}>
+                      <Text style={styles.familyWorkIncomeLabel}>{partner?.name ?? 'Partner'}</Text>
+                      <Text style={styles.familyWorkIncomeValue}>
+                        {Math.round(familyWorkPreview.partnerWorkFraction * 100)}% • {formatCurrency(familyWorkPreview.partnerEffectiveIncome)}/wk
+                      </Text>
+                      {familyWorkPreview.partnerEffectiveIncome !== familyWorkPreview.partnerFullTimeIncome && (
+                        <Text style={styles.familyWorkIncomeBase}>
+                          Career salary {formatCurrency(familyWorkPreview.partnerFullTimeIncome)}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <Text style={styles.familyWorkCareNote}>
+                    Care/school costs are currently {Math.round((1 - familyWorkPreview.childcareMultiplier) * 100)}% lower because one or both adults are working less.
+                  </Text>
+
+                  <View style={styles.familyWorkGrid}>
+                    {(Object.keys(FAMILY_WORK_ARRANGEMENTS) as FamilyWorkArrangement[]).map((arrangement) => {
+                      const definition = FAMILY_WORK_ARRANGEMENTS[arrangement];
+                      const active = familyWorkPreview.arrangement === arrangement;
+                      const youngAge = familyWorkPreview.youngestChildAge ?? 6;
+                      const workload = arrangement === 'full_time'
+                        ? '100% / 100%'
+                        : arrangement === 'both_80'
+                          ? '80% / 80%'
+                          : arrangement === 'partner_80'
+                            ? '100% / 80%'
+                            : youngAge < 3 ? '100% / 60%' : '100% / 80%';
+                      return (
+                        <Pressable
+                          key={arrangement}
+                          style={[styles.familyWorkOption, active && styles.familyWorkOptionActive]}
+                          onPress={() => !active && setFamilyWorkArrangement(arrangement)}
+                        >
+                          <Text style={[styles.familyWorkOptionTitle, active && { color: Colors.primary }]}>
+                            {definition.label}
+                          </Text>
+                          <Text style={styles.familyWorkOptionWorkload}>You / partner • {workload}</Text>
+                          <Text style={styles.familyWorkOptionDesc}>{definition.description}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
               )}
 
@@ -1051,6 +1125,18 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.35 },
   majorBox: { marginTop: 14, padding: 11, borderRadius: 10, backgroundColor: `${Colors.happiness}0C`, borderWidth: 1, borderColor: `${Colors.happiness}22` },
   majorTitle: { color: Colors.textPrimary, fontWeight: '800', fontSize: 14 },
+  familyWorkIncomeRow: { flexDirection: 'row', gap: 7, marginTop: 8 },
+  familyWorkIncomeItem: { flex: 1, backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7 },
+  familyWorkIncomeLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '700' },
+  familyWorkIncomeValue: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', marginTop: 2 },
+  familyWorkIncomeBase: { color: Colors.textMuted, fontSize: 8, marginTop: 2 },
+  familyWorkCareNote: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 7 },
+  familyWorkGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  familyWorkOption: { width: '48.8%', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 7, backgroundColor: Colors.elevated },
+  familyWorkOptionActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
+  familyWorkOptionTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '800' },
+  familyWorkOptionWorkload: { color: Colors.textSecondary, fontSize: 8, fontWeight: '700', marginTop: 2 },
+  familyWorkOptionDesc: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 3 },
   threeRow: { flexDirection: 'row', gap: 7, marginTop: 8 },
   compactButton: { flex: 1, minHeight: 50, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 7, alignItems: 'center', justifyContent: 'center' },
   compactTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', textAlign: 'center' },
