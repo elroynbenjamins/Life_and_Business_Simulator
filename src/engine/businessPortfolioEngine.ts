@@ -31,6 +31,8 @@ export function getBusinessDebt(business: OwnedBusiness): number {
 }
 
 export function getBusinessInvestmentBasis(business: OwnedBusiness): number | null {
+  const tracked = business.capitalInvested;
+  if (typeof tracked === 'number' && Number.isFinite(tracked) && tracked >= 0) return tracked;
   if (business.acquisition) {
     return Math.max(
       0,
@@ -38,8 +40,7 @@ export function getBusinessInvestmentBasis(business: OwnedBusiness): number | nu
         + (business.acquisition.additionalCapitalInvested ?? 0),
     );
   }
-  const initial = business.capitalInvested;
-  return typeof initial === 'number' && Number.isFinite(initial) && initial >= 0 ? initial : null;
+  return null;
 }
 
 export function getBusinessEquityReturn(business: OwnedBusiness) {
