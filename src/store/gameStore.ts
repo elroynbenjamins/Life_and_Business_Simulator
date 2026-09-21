@@ -3838,11 +3838,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     // Deduct only from the business account.
     let updatedBiz = result.updatedBusiness;
     if ((updatedBiz.balance ?? 0) < result.cost) return;
-    updatedBiz = {
-      ...updatedBiz,
-      balance: updatedBiz.balance - result.cost,
-      budgetReserves: consumeBusinessBudgetReserve(updatedBiz.budgetReserves, 'growth', result.cost),
-    };
+    updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
     businesses[idx] = updatedBiz;
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
@@ -3874,7 +3870,11 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!result.updatedBusiness) return;
     let updatedBiz = result.updatedBusiness;
     if ((updatedBiz.balance ?? 0) < result.cost) return;
-    updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
+    updatedBiz = {
+      ...updatedBiz,
+      balance: updatedBiz.balance - result.cost,
+      budgetReserves: consumeBusinessBudgetReserve(updatedBiz.budgetReserves, 'growth', result.cost),
+    };
     businesses[idx] = updatedBiz;
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
