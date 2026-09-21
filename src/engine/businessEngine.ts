@@ -1,4 +1,5 @@
-import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessStrategicFocus, HoldingCompany } from '../types/game';
+import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany } from '../types/game';
+import { getHoldingSharedServiceEffects } from './holdingCompanyEngine';
 
 // -----------------------------------------------------------------------------
 // D&D-style tier system for employees
@@ -121,6 +122,9 @@ export interface HoldingSynergyProfile {
   revenueBonus: number;
   expenseReduction: number;
   crisisReduction: number;
+  serviceRevenueBonus: number;
+  serviceExpenseReduction: number;
+  serviceCrisisReduction: number;
   sameIndustrySiblings: number;
   relatedIndustrySiblings: number;
   uniqueIndustries: number;
@@ -148,15 +152,22 @@ export function getHoldingSynergyProfile(
   businesses: OwnedBusiness[],
   holdingCompanies: HoldingCompany[] = [],
 ): HoldingSynergyProfile {
-  if (!biz.holdingCompanyId) {
-    return { revenueBonus: 0, expenseReduction: 0, crisisReduction: 0, sameIndustrySiblings: 0, relatedIndustrySiblings: 0, uniqueIndustries: 0 };
-  }
+  const zero = {
+    revenueBonus: 0,
+    expenseReduction: 0,
+    crisisReduction: 0,
+    serviceRevenueBonus: 0,
+    serviceExpenseReduction: 0,
+    serviceCrisisReduction: 0,
+    sameIndustrySiblings: 0,
+    relatedIndustrySiblings: 0,
+    uniqueIndustries: 0,
+  };
+  if (!biz.holdingCompanyId) return zero;
 
   const group = (businesses ?? []).filter((item) => item.holdingCompanyId === biz.holdingCompanyId);
-  if (group.length < 2) {
-    return { revenueBonus: 0, expenseReduction: 0, crisisReduction: 0, sameIndustrySiblings: 0, relatedIndustrySiblings: 0, uniqueIndustries: group.length ? 1 : 0 };
-  }
-
+  const holding = holdingCompanies.find((item) => item.id === biz.holdingCompanyId);
+  const serviceEffects = getHoldingSharedServiceEffects(holding);
   const type = getBusinessType(biz.typeId);
   const industry = type?.industry ?? '';
   const cluster = HOLDING_INDUSTRY_CLUSTERS[industry] ?? industry;
@@ -167,7 +178,6 @@ export function getHoldingSynergyProfile(
     return siblingIndustry !== industry && (HOLDING_INDUSTRY_CLUSTERS[siblingIndustry] ?? siblingIndustry) === cluster;
   }).length;
   const uniqueIndustries = new Set(group.map((item) => getBusinessType(item.typeId)?.industry ?? item.typeId)).size;
-  const holding = holdingCompanies.find((item) => item.id === biz.holdingCompanyId);
   const executivePerformance = Math.max(0, Math.min(100, holding?.executivePerformance ?? 50));
   const executiveMultiplier = 0.90 + executivePerformance / 500;
 
@@ -179,14 +189,23 @@ export function getHoldingSynergyProfile(
     else if (biz.acquisition.integrationStrategy === 'turnaround' && biz.acquisition.integrationOutcome === 'success') integrationSynergyFactor = 1.10;
   }
 
-  const expenseReduction = Math.min(0.05, sameIndustrySiblings * 0.02) * executiveMultiplier * integrationSynergyFactor;
-  const revenueBonus = Math.min(0.04, sameIndustrySiblings * 0.005 + relatedIndustrySiblings * 0.0125) * executiveMultiplier * integrationSynergyFactor;
-  const crisisReduction = (uniqueIndustries >= 3 ? Math.min(0.15, (uniqueIndustries - 2) * 0.05) : 0) * executiveMultiplier;
+  const organicExpense = group.length >= 2
+    ? Math.min(0.05, sameIndustrySiblings * 0.02) * executiveMultiplier * integrationSynergyFactor
+    : 0;
+  const organicRevenue = group.length >= 2
+    ? Math.min(0.04, sameIndustrySiblings * 0.005 + relatedIndustrySiblings * 0.0125) * executiveMultiplier * integrationSynergyFactor
+    : 0;
+  const organicCrisis = group.length >= 2 && uniqueIndustries >= 3
+    ? Math.min(0.15, (uniqueIndustries - 2) * 0.05) * executiveMultiplier
+    : 0;
 
   return {
-    revenueBonus: Math.max(0, Math.min(0.05, revenueBonus)),
-    expenseReduction: Math.max(0, Math.min(0.06, expenseReduction)),
-    crisisReduction: Math.max(0, Math.min(0.18, crisisReduction)),
+    revenueBonus: Math.max(0, Math.min(0.07, organicRevenue + serviceEffects.revenueBonus)),
+    expenseReduction: Math.max(0, Math.min(0.08, organicExpense + serviceEffects.expenseReduction)),
+    crisisReduction: Math.max(0, Math.min(0.20, organicCrisis + serviceEffects.crisisReduction)),
+    serviceRevenueBonus: serviceEffects.revenueBonus,
+    serviceExpenseReduction: serviceEffects.expenseReduction,
+    serviceCrisisReduction: serviceEffects.crisisReduction,
     sameIndustrySiblings,
     relatedIndustrySiblings,
     uniqueIndustries,
@@ -1623,6 +1642,161 @@ export function computeMarketShare(biz: OwnedBusiness, competitorStrengths: numb
   };
 }
 
+export const BUSINESS_DELEGATION_POLICIES: Record<BusinessDelegationPolicy, {
+  label: string;
+  description: string;
+  pricing: OwnedBusiness['pricingStrategy'];
+  advertising: OwnedBusiness['advertisingLevel'];
+  targetStaffRatio: number;
+  reserveWeeks: number;
+}> = {
+  manual: {
+    label: 'Manual',
+    description: 'You control routine company settings and hiring.',
+    pricing: 'standard',
+    advertising: 'none',
+    targetStaffRatio: 0,
+    reserveWeeks: 0,
+  },
+  balanced: {
+    label: 'Balanced',
+    description: 'Maintain sensible staffing, standard pricing and moderate marketing.',
+    pricing: 'standard',
+    advertising: 'moderate',
+    targetStaffRatio: 0.75,
+    reserveWeeks: 8,
+  },
+  growth: {
+    label: 'Growth',
+    description: 'Prioritize staffing and demand generation while protecting a smaller reserve.',
+    pricing: 'standard',
+    advertising: 'aggressive',
+    targetStaffRatio: 1,
+    reserveWeeks: 6,
+  },
+  profit: {
+    label: 'Profit',
+    description: 'Favor margin, premium pricing and leaner staffing.',
+    pricing: 'premium',
+    advertising: 'basic',
+    targetStaffRatio: 0.70,
+    reserveWeeks: 10,
+  },
+  conservative: {
+    label: 'Conservative',
+    description: 'Protect cash with standard pricing, light marketing and modest staffing.',
+    pricing: 'standard',
+    advertising: 'none',
+    targetStaffRatio: 0.60,
+    reserveWeeks: 12,
+  },
+};
+
+export function getDelegationManagers(biz: OwnedBusiness): BusinessEmployee[] {
+  return (biz.employees ?? []).filter((employee) =>
+    employee.roleId === 'manager' || employee.roleId === 'supervisor'
+  );
+}
+
+export function applyDelegatedBusinessRoutine(
+  biz: OwnedBusiness,
+  inflationMultiplier: number,
+  currentWeek: number,
+  currentYear: number,
+): OwnedBusiness {
+  const policy = biz.delegationPolicy ?? 'manual';
+  if (policy === 'manual') return biz;
+
+  const manager = getDelegationManagers(biz).find((employee) => employee.id === biz.delegatedManagerEmployeeId);
+  if (!manager) {
+    return {
+      ...biz,
+      lastDelegationSummary: 'Delegation paused — appointed manager is unavailable.',
+    };
+  }
+
+  if (biz.pendingDecision?.kind === 'crisis') {
+    return {
+      ...biz,
+      lastDelegationSummary: 'Delegation paused while a crisis requires your decision.',
+    };
+  }
+
+  const globalWeek = ((currentYear - 1) * 20) + currentWeek;
+  const lastReview = biz.lastDelegationReviewWeek ?? 0;
+  if (lastReview > 0 && globalWeek - lastReview < 4) return biz;
+
+  const type = getBusinessType(biz.typeId);
+  if (!type) return biz;
+  const config = BUSINESS_DELEGATION_POLICIES[policy];
+  const estimatedWeeklyCosts = Math.max(1, biz.lastWeekExpenses ?? type.baseWeeklyExpenses ?? 1);
+  const protectedReserve = estimatedWeeklyCosts * config.reserveWeeks;
+  let pricingStrategy = config.pricing;
+  let advertisingLevel = config.advertising;
+  const notes: string[] = [];
+
+  if ((biz.balance ?? 0) < protectedReserve) {
+    advertisingLevel = policy === 'growth' ? 'basic' : 'none';
+    notes.push('protected cash reserves');
+  } else {
+    notes.push('reviewed pricing and marketing');
+  }
+
+  let employees = [...(biz.employees ?? [])];
+  let freeRecruits = biz.freeRecruits ?? 3;
+  let recruitCharges = biz.recruitCharges ?? 0;
+  let balance = biz.balance ?? 0;
+  const maxEmployees = type.maxEmployees ?? employees.length;
+  const targetEmployees = Math.max(
+    MIN_EMPLOYEES_REQUIRED,
+    Math.min(maxEmployees, Math.ceil(maxEmployees * config.targetStaffRatio)),
+  );
+
+  if (employees.length < targetEmployees && employees.length < maxEmployees) {
+    const canUseRecruit = freeRecruits > 0 || (recruitCharges > 0 && balance >= 10_000);
+    if (canUseRecruit) {
+      const roleId = employees.length < MIN_EMPLOYEES_REQUIRED ? 'worker' : 'skilled_worker';
+      const candidates = generateCandidates(roleId, employees.map((employee) => employee.name), inflationMultiplier);
+      const candidate = policy === 'growth'
+        ? [...candidates].sort((a, b) => (b.skill ?? 0) - (a.skill ?? 0))[0]
+        : policy === 'conservative'
+          ? [...candidates].sort((a, b) => (a.weeklySalary ?? 0) - (b.weeklySalary ?? 0))[0]
+          : candidates[1] ?? candidates[0];
+      if (candidate) {
+        if (freeRecruits > 0) freeRecruits -= 1;
+        else {
+          recruitCharges -= 1;
+          balance -= 10_000;
+        }
+        employees.push(candidateToEmployee(candidate));
+        notes.push(`hired ${candidate.name}`);
+      }
+    }
+  }
+
+  return {
+    ...biz,
+    pricingStrategy,
+    advertisingLevel,
+    employees,
+    freeRecruits,
+    recruitCharges,
+    balance,
+    lastDelegationReviewWeek: globalWeek,
+    lastDelegationSummary: notes.join(' • ') || 'Routine management review completed.',
+    timeline: [
+      ...(biz.timeline ?? []),
+      {
+        week: currentWeek,
+        year: currentYear,
+        title: `Management review: ${BUSINESS_DELEGATION_POLICIES[policy].label}`,
+        icon: '🧑‍💼',
+        kind: 'event' as const,
+      },
+    ].slice(-50),
+  };
+}
+
 /** Process all businesses for one week. */
 export function processAllBusinesses(
   businesses: OwnedBusiness[],
@@ -1651,8 +1825,9 @@ export function processAllBusinesses(
   let createdDecisionThisWeek = false;
 
   for (const biz of businesses ?? []) {
-    const holdingSynergy = getHoldingSynergyProfile(biz, businesses, holdingCompanies);
-    const result = processBusinessWeek(biz, inflationMultiplier, currentWeek, currentYear, {
+    const managedBiz = applyDelegatedBusinessRoutine(biz, inflationMultiplier, currentWeek, currentYear);
+    const holdingSynergy = getHoldingSynergyProfile(managedBiz, businesses, holdingCompanies);
+    const result = processBusinessWeek(managedBiz, inflationMultiplier, currentWeek, currentYear, {
       ...modifiers,
       holdingRevenueBonus: holdingSynergy.revenueBonus,
       holdingExpenseReduction: holdingSynergy.expenseReduction,
@@ -1660,7 +1835,7 @@ export function processAllBusinesses(
     });
     let updatedBusiness = result.updatedBusiness;
 
-    const createdNewDecision = !biz.pendingDecision && !!updatedBusiness.pendingDecision;
+    const createdNewDecision = !managedBiz.pendingDecision && !!updatedBusiness.pendingDecision;
     if (createdNewDecision) {
       if (createdDecisionThisWeek) {
         const deferred = updatedBusiness.pendingDecision!;
