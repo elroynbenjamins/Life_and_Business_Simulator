@@ -1,6 +1,11 @@
 import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany } from '../types/game';
 import { getHoldingSharedServiceEffects } from './holdingCompanyEngine';
 import {
+  createDefaultBusinessReinvestmentState,
+  getBusinessReinvestmentEffects,
+  tickBusinessReinvestment,
+} from './businessReinvestmentEngine';
+import {
   appendCompletedCorporateCapex,
   getCorporateCapexBookValue,
   getCorporateCapexOperatingEffects,
@@ -700,6 +705,8 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     activeExpansion: null,
     activeCorporateCapex: null,
     completedCorporateCapex: [],
+    reinvestment: createDefaultBusinessReinvestmentState(((year - 1) * 20) + week),
+    activeReinvestment: null,
     businessLoans: [],
     activeEvents: [],
     weeklyProfitHistory: [],
@@ -795,11 +802,21 @@ export function processBusinessWeek(
   if (!type) {
     return { updatedBusiness: biz, weeklyRevenue: 0, weeklyExpenses: 0, weeklyProfit: 0, playerDividend: 0, ownershipDistributions: [], taxRefund: 0, newEvent: null, newRetention: null };
   }
+  const globalWeek = ((currentYear - 1) * 20) + currentWeek;
+  const reinvestmentTick = tickBusinessReinvestment(biz, globalWeek);
 
   // Minimum staffing check - business earns NOTHING if under staffed
   if (!meetsMinStaffing(biz)) {
     return {
-      updatedBusiness: { ...biz, lastWeekRevenue: 0, lastWeekExpenses: 0, lastWeekProfit: 0, lastExpenseBreakdown: null },
+      updatedBusiness: {
+        ...biz,
+        reinvestment: reinvestmentTick.reinvestment,
+        activeReinvestment: reinvestmentTick.activeReinvestment,
+        lastWeekRevenue: 0,
+        lastWeekExpenses: 0,
+        lastWeekProfit: 0,
+        lastExpenseBreakdown: null,
+      },
       weeklyRevenue: 0,
       weeklyExpenses: 0,
       weeklyProfit: 0,
@@ -818,7 +835,6 @@ export function processBusinessWeek(
   const acquisitionOperatingScale = Math.max(1, Math.min(1000, biz.operatingScaleMultiplier ?? 1));
 
   // ---- Seasons: every 5 weeks = new season; industry-specific multipliers ----
-  const globalWeek = ((currentYear - 1) * 20) + currentWeek;
   const seasonIdx = Math.floor((globalWeek - 1) / 5) % 4; // 0=winter,1=spring,2=summer,3=fall
   const SEASON_MULT: Record<string, number[]> = {
     Retail: [1.1, 0.9, 0.95, 1.10],
@@ -889,10 +905,13 @@ export function processBusinessWeek(
     eventExpenseMultiplier *= 1 + Math.max(-0.05, Math.min(0.05, acquisition.persistentExpenseModifier ?? 0));
   }
   const corporateCapexEffects = getCorporateCapexOperatingEffects(biz);
+  const reinvestmentEffects = getBusinessReinvestmentEffects(biz);
   eventRevenueMultiplier *= 1 + corporateCapexEffects.revenueBonus;
   eventExpenseMultiplier *= 1 - corporateCapexEffects.expenseReduction;
   eventRevenueMultiplier *= 1 - corporateCapexEffects.constructionRevenuePenalty;
   eventExpenseMultiplier *= 1 + corporateCapexEffects.constructionExpensePenalty;
+  eventRevenueMultiplier *= 1 - reinvestmentEffects.revenuePenalty;
+  eventExpenseMultiplier *= 1 + reinvestmentEffects.expenseIncrease;
   eventRevenueMultiplier *= 1 + Math.max(0, Math.min(0.05, modifiers.holdingRevenueBonus ?? 0));
   for (const ae of biz.activeEvents ?? []) {
     eventRevenueMultiplier *= ae.revenueMultiplier ?? 1;
@@ -1169,7 +1188,7 @@ export function processBusinessWeek(
   const projectRepBoost = updatedProjects
     .filter((project) => project.resolved && project.succeeded && !biz.activeProjects?.find((old) => old.id === project.id)?.resolved)
     .reduce((total, project) => total + project.reputationBonus, 0);
-  let newReputation = (biz.reputation ?? 25) + repGrowth + adRepBoost + pricingRepEffect + eventRepChange + projectRepBoost + buffAgg.weeklyRepBoost + strategyTotals.reputation + integrationRepDelta;
+  let newReputation = (biz.reputation ?? 25) + repGrowth + adRepBoost + pricingRepEffect + eventRepChange + projectRepBoost + buffAgg.weeklyRepBoost + strategyTotals.reputation + integrationRepDelta - reinvestmentEffects.reputationDrag;
   newReputation = Math.max(0, Math.min(100, newReputation));
 
   // Employee morale & skill growth
@@ -1362,6 +1381,21 @@ export function processBusinessWeek(
     }
   }
 
+  if (reinvestmentTick.completedArea) {
+    const completedName = reinvestmentTick.completedArea === 'technology'
+      ? 'Technology Refresh'
+      : reinvestmentTick.completedArea === 'premises'
+        ? 'Premises Renovation'
+        : 'Equipment Renewal';
+    timelineAdds.push({
+      week: currentWeek,
+      year: currentYear,
+      title: `Reinvestment completed: ${completedName}`,
+      icon: reinvestmentTick.completedArea === 'technology' ? '💻' : reinvestmentTick.completedArea === 'premises' ? '🏗️' : '🛠️',
+      kind: 'event',
+    });
+  }
+
   // Level-up timeline entry
   if (newLevel > (biz.level ?? 0)) {
     timelineAdds.push({ week: currentWeek, year: currentYear, title: `Reached level ${newLevel + 1}`, icon: '⭐', kind: 'level' });
@@ -1451,7 +1485,7 @@ export function processBusinessWeek(
       - (1 - Math.max(0, Math.min(0.8, modifiers.businessCrisisReduction ?? 0)))
       * (1 - Math.max(0, Math.min(0.25, modifiers.holdingCrisisReduction ?? 0)))
       * (1 - Math.max(0, Math.min(0.12, capexCrisisReduction)));
-    const crisisChance = Math.max(0.04, baseCrisisChance * (1 - combinedCrisisReduction));
+    const crisisChance = Math.max(0.04, baseCrisisChance * (1 + reinvestmentEffects.crisisIncrease) * (1 - combinedCrisisReduction));
     if (Math.random() < crisisChance) {
       pendingDecision = corporateTier === 'local'
         ? makeBusinessCrisis(biz, globalWeek)
@@ -1490,6 +1524,8 @@ export function processBusinessWeek(
     activeExpansion,
     activeCorporateCapex,
     completedCorporateCapex,
+    reinvestment: reinvestmentTick.reinvestment,
+    activeReinvestment: reinvestmentTick.activeReinvestment,
     locations,
     purchasedUpgrades: [...new Set([
       ...(biz.purchasedUpgrades ?? []),
