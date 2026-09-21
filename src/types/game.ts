@@ -18,6 +18,8 @@ export interface RelationshipCandidate {
   occupationId: string;
   occupationTitle: string;
   weeklyIncome: number;
+  /** Career seniority generated before dating so established adults do not all begin at level 1. */
+  careerLevel?: number;
   savings: number;
   financialStyle: FinancialStyle;
   riskTolerance: RiskTolerance;
@@ -45,7 +47,13 @@ export interface RelationshipConnection extends RelationshipCandidate {
   employmentStatus?: 'employed' | 'unemployed';
   unemploymentWeeks?: number;
   careerLevel?: number;
+  /** Employed weeks accumulated since the last promotion. */
+  careerProgressWeeks?: number;
+  /** Last salary before unemployment, used as the re-employment baseline. */
+  lastEmployedWeeklyIncome?: number;
   lastCareerEventWeek?: number;
+  /** One-time migration marker for the age-aware partner career model. */
+  careerSystemVersion?: number;
   familyTreePersonId?: string;
 }
 
