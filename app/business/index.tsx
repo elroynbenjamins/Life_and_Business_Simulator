@@ -16,6 +16,7 @@ import {
 import { businessTypeImages } from '../../src/assets/progressionImages';
 import { ACQUISITION_UNLOCK_NET_WORTH } from '../../src/engine/acquisitionEngine';
 import { getBusinessReinvestmentUrgency } from '../../src/engine/businessReinvestmentEngine';
+import { BUSINESS_INSURANCE_AREAS, getBusinessCoverageGaps } from '../../src/engine/businessInsuranceEngine';
 
 type SortMode = 'attention' | 'value' | 'profit' | 'roi';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -33,6 +34,7 @@ function needsAttention(business: any): boolean {
     || business.pendingRetention
     || business.acquisition?.integrationStrategy === 'pending'
     || getBusinessReinvestmentUrgency(business)
+    || getBusinessCoverageGaps(business).length > 0
   );
 }
 
@@ -328,6 +330,13 @@ export default function BusinessPortfolioScreen() {
                     <View style={styles.pendingStrip}>
                       <Text style={styles.pendingStripText}>
                         Reinvestment due: {getBusinessReinvestmentUrgency(biz) === 'technology' ? 'technology' : getBusinessReinvestmentUrgency(biz) === 'premises' ? 'premises' : 'equipment'} is aging.
+                      </Text>
+                    </View>
+                  )}
+                  {!biz.pendingDecision && !getBusinessReinvestmentUrgency(biz) && getBusinessCoverageGaps(biz).length > 0 && (
+                    <View style={styles.pendingStrip}>
+                      <Text style={styles.pendingStripText}>
+                        Coverage gap: {getBusinessCoverageGaps(biz).map((area) => BUSINESS_INSURANCE_AREAS[area].name).join(', ')}.
                       </Text>
                     </View>
                   )}
