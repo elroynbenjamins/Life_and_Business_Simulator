@@ -265,10 +265,7 @@ export default function BusinessAcquisitionsScreen() {
                       <Text style={styles.metricLabel}>Financed</Text>
                       <Text style={styles.metricValue}>{formatCurrency(quote.debtPrincipal)}</Text>
                     </View>
-                    <View style={styles.metric}>
-                      <Text style={styles.metricLabel}>Closing costs</Text>
-                      <Text style={styles.metricValue}>{formatCurrency(transactionCost)}</Text>
-                    </View>
+
                     <View style={styles.metric}>
                       <Text style={styles.metricLabel}>Debt service</Text>
                       <Text style={[styles.metricValue, { color: debtServiceSafe ? Colors.textPrimary : Colors.negative }]}>
@@ -297,6 +294,7 @@ export default function BusinessAcquisitionsScreen() {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.diligenceTitle}>Company profile</Text>
                         <Text style={styles.profileReason}>{target.sellerReason ?? target.sellerName}</Text>
+                        <Text style={styles.profileCost}>Closing costs {formatCurrency(transactionCost)}</Text>
                       </View>
                       <Text style={styles.profileAge}>{target.companyAgeYears ?? 8} years</Text>
                     </View>
@@ -442,6 +440,7 @@ const styles = StyleSheet.create({
   profileBox: { backgroundColor: '#14202F', borderRadius: 10, padding: 10, marginTop: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   profileHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   profileReason: { color: Colors.textSecondary, fontSize: 10, marginTop: 2 },
+  profileCost: { color: Colors.warning, fontSize: 9, fontWeight: '700', marginTop: 3 },
   profileAge: { color: Colors.info, fontSize: 10, fontWeight: '800' },
   traitRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
   traitChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 12, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 5 },
