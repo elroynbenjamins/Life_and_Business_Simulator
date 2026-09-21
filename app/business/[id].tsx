@@ -2854,7 +2854,7 @@ function CorporateManagementReportPanel({
         )}
       </View>
 
-      {targetProgress && (
+      {period === 'quarter' && targetProgress && (
         <View style={styles.managementTargetBox}>
           <View style={styles.managementTargetHeader}>
             <View style={{ flex: 1 }}>
@@ -2936,7 +2936,7 @@ function CorporateManagementReportPanel({
                         : result.status === 'near'
                           ? 'NEAR'
                           : result.status === 'missed'
-                            ? 'BELOW'
+                            ? 'MISSED'
                             : '—'}
                     </Text>
                   </View>
