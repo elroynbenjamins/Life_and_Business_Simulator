@@ -83,6 +83,12 @@ import {
   getRecommendedDepartmentHeadcounts,
   normalizeCorporateWorkforce,
 } from '../../src/engine/businessWorkforceEngine';
+import {
+  CorporateKpiStatus,
+  CorporateManagementReport,
+  CorporateReportPeriod,
+  getCorporateManagementReport,
+} from '../../src/engine/corporateReportingEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -206,6 +212,7 @@ export default function BusinessDetailScreen() {
   const [showMoraleDropdown, setShowMoraleDropdown] = useState(false);
   const [showProjectsModal, setShowProjectsModal] = useState(false);
   const [showFundingNotice, setShowFundingNotice] = useState(newBusiness === '1');
+  const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
 
   const biz = businesses.find((b) => b?.id === id);
   useEffect(() => {
@@ -301,6 +308,19 @@ export default function BusinessDetailScreen() {
     : 0;
   const workforceRecommendedTotal = (Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[])
     .reduce((sum, departmentId) => sum + (workforceRecommended[departmentId] ?? 0), 0);
+  const reportingBusiness = corporateWorkforce ? { ...biz, corporateWorkforce } : biz;
+  const quarterlyManagementReport = getCorporateManagementReport(
+    reportingBusiness,
+    globalGameWeek,
+    'quarter',
+    inflationMultiplier,
+  );
+  const annualManagementReport = getCorporateManagementReport(
+    reportingBusiness,
+    globalGameWeek,
+    'annual',
+    inflationMultiplier,
+  );
   const boardMandateCooldown = biz.boardGovernance
     ? Math.max(0, 10 - (globalGameWeek - (biz.boardGovernance.lastMandateChangeGlobalWeek ?? 0)))
     : 0;
@@ -1322,6 +1342,17 @@ export default function BusinessDetailScreen() {
                 )}
               </>
             )}
+          </GameCard>
+        )}
+
+        {corporateWorkforce && quarterlyManagementReport && annualManagementReport && (
+          <GameCard title="Management Report">
+            <CorporateManagementReportPanel
+              quarterlyReport={quarterlyManagementReport}
+              annualReport={annualManagementReport}
+              period={managementReportPeriod}
+              onPeriodChange={setManagementReportPeriod}
+            />
           </GameCard>
         )}
 
@@ -2562,6 +2593,195 @@ function ExpRow({ label, value }: { label: string; value: number }) {
       <Text style={styles.statRowLabel}>{label}</Text>
       <Text style={[styles.statRowValue, { color: Colors.negative }]}>-{formatCurrency(value)}</Text>
     </View>
+  );
+}
+
+function corporateKpiColor(status: CorporateKpiStatus): string {
+  if (status === 'critical') return Colors.negative;
+  if (status === 'watch') return Colors.warning;
+  if (status === 'healthy') return Colors.primary;
+  return Colors.textMuted;
+}
+
+function CorporateKpiCell({
+  label,
+  value,
+  detail,
+  status,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  status: CorporateKpiStatus;
+}) {
+  const color = corporateKpiColor(status);
+  return (
+    <View style={styles.managementKpiCell}>
+      <View style={styles.managementKpiLabelRow}>
+        <View style={[styles.managementKpiDot, { backgroundColor: color }]} />
+        <Text style={styles.managementKpiLabel}>{label}</Text>
+      </View>
+      <Text style={[styles.managementKpiValue, { color }]}>{value}</Text>
+      {!!detail && <Text style={styles.managementKpiDetail}>{detail}</Text>}
+    </View>
+  );
+}
+
+function CorporateManagementReportPanel({
+  quarterlyReport,
+  annualReport,
+  period,
+  onPeriodChange,
+}: {
+  quarterlyReport: CorporateManagementReport;
+  annualReport: CorporateManagementReport;
+  period: CorporateReportPeriod;
+  onPeriodChange: (period: CorporateReportPeriod) => void;
+}) {
+  const report = period === 'quarter' ? quarterlyReport : annualReport;
+  const statusColor = corporateKpiColor(report.overallStatus);
+  const revenueTrend = report.revenuePerEmployeeChangePct == null
+    ? 'Baseline forming'
+    : `${report.revenuePerEmployeeChangePct >= 0 ? '+' : ''}${(report.revenuePerEmployeeChangePct * 100).toFixed(1)}% vs prior`;
+  const turnoverDetail = report.turnoverTrend === 'baseline'
+    ? 'Baseline forming'
+    : `${report.turnoverTrend} vs prior`;
+  const debtCoverValue = report.debtCoverage == null ? 'No debt' : `${report.debtCoverage.toFixed(2)}×`;
+  const projectRoiValue = report.projectOperatingRoi == null
+    ? 'No projects'
+    : `${(report.projectOperatingRoi * 100).toFixed(1)}%`;
+  const projectRoiDetail = report.projectOperatingRoi == null
+    ? 'Complete corporate investments to track ROI'
+    : `${formatCurrency(report.projectAnnualOperatingBenefit)}/yr direct benefit`;
+
+  return (
+    <>
+      <View style={styles.managementReportHeader}>
+        <View style={styles.managementPeriodTabs}>
+          <Pressable
+            style={[styles.managementPeriodTab, period === 'quarter' && styles.managementPeriodTabActive]}
+            onPress={() => onPeriodChange('quarter')}
+          >
+            <Text style={[styles.managementPeriodTabText, period === 'quarter' && { color: Colors.info }]}>Quarter</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.managementPeriodTab, period === 'annual' && styles.managementPeriodTabActive]}
+            onPress={() => onPeriodChange('annual')}
+          >
+            <Text style={[styles.managementPeriodTabText, period === 'annual' && { color: Colors.info }]}>Annual</Text>
+          </Pressable>
+        </View>
+        <View style={styles.managementReportStatus}>
+          <View style={[styles.managementStatusDot, { backgroundColor: statusColor }]} />
+          <Text style={[styles.managementReportStatusText, { color: statusColor }]}>
+            {report.overallStatus === 'critical' ? 'Action needed' : report.overallStatus === 'watch' ? 'Watch' : 'Healthy'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.managementReportMetaRow}>
+        <Text style={styles.managementReportPeriod}>{report.label}</Text>
+        <Text style={styles.managementReportCoverage}>
+          {report.weeksTracked}/{report.expectedWeeks} weeks tracked
+        </Text>
+      </View>
+
+      <View style={styles.managementKpiGrid}>
+        <CorporateKpiCell
+          label="Productivity"
+          value={`${report.productivityIndex.toFixed(0)}%`}
+          detail="Department capacity index"
+          status={report.productivityStatus}
+        />
+        <CorporateKpiCell
+          label="Revenue / employee"
+          value={`${formatCurrency(report.revenuePerEmployee)}/wk`}
+          detail={revenueTrend}
+          status={report.revenuePerEmployeeStatus}
+        />
+        <CorporateKpiCell
+          label="Payroll / revenue"
+          value={`${(report.payrollToRevenueRatio * 100).toFixed(1)}%`}
+          detail="Watch >32% • Critical >45%"
+          status={report.payrollStatus}
+        />
+        <CorporateKpiCell
+          label="Turnover"
+          value={`${(report.annualizedTurnoverRate * 100).toFixed(1)}%`}
+          detail={turnoverDetail}
+          status={report.turnoverStatus}
+        />
+        <CorporateKpiCell
+          label="Debt coverage"
+          value={debtCoverValue}
+          detail={report.debtCoverage == null ? 'No scheduled debt service' : 'Watch <1.5× • Critical <1.0×'}
+          status={report.debtCoverageStatus}
+        />
+        <CorporateKpiCell
+          label="Maintenance"
+          value={`${report.averageMaintenanceCondition.toFixed(0)}%`}
+          detail={`${formatCurrency(report.maintenanceBacklog)} estimated backlog`}
+          status={report.maintenanceStatus}
+        />
+        <CorporateKpiCell
+          label="Project ROI"
+          value={projectRoiValue}
+          detail={projectRoiDetail}
+          status={report.projectRoiStatus}
+        />
+      </View>
+
+      <Text style={styles.managementSubheading}>Department productivity</Text>
+      <View style={styles.managementDepartmentRow}>
+        {(Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[]).map((departmentId) => {
+          const definition = CORPORATE_DEPARTMENT_DEFINITIONS[departmentId];
+          const value = report.departmentProductivity[departmentId] ?? 100;
+          const status: CorporateKpiStatus = value < 85 ? 'critical' : value < 95 ? 'watch' : 'healthy';
+          return (
+            <View key={departmentId} style={styles.managementDepartmentChip}>
+              <Text style={styles.managementDepartmentIcon}>{definition.icon}</Text>
+              <Text style={styles.managementDepartmentName}>{definition.name}</Text>
+              <Text style={[styles.managementDepartmentValue, { color: corporateKpiColor(status) }]}>
+                {value.toFixed(0)}%
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      <View style={styles.managementWarnings}>
+        <View style={styles.managementWarningsHeader}>
+          <Text style={styles.managementWarningsTitle}>Management flags</Text>
+          <Text style={[styles.managementWarningsCount, { color: statusColor }]}>
+            {report.warnings.length === 0 ? 'None' : report.warnings.length}
+          </Text>
+        </View>
+        {report.warnings.length === 0 ? (
+          <Text style={styles.managementAllClear}>
+            No KPI has crossed a management warning threshold in this reporting period.
+          </Text>
+        ) : (
+          <>
+            {report.warnings.slice(0, 3).map((warning) => (
+              <View key={warning.id} style={styles.managementWarningRow}>
+                <View style={[styles.managementWarningBar, { backgroundColor: corporateKpiColor(warning.severity) }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.managementWarningTitle}>{warning.title}</Text>
+                  <Text style={styles.managementWarningDetail}>{warning.detail}</Text>
+                </View>
+              </View>
+            ))}
+            {report.warnings.length > 3 && (
+              <Text style={styles.managementMoreWarnings}>+{report.warnings.length - 3} more flags in this report</Text>
+            )}
+          </>
+        )}
+      </View>
+
+      <Text style={styles.managementFootnote}>
+        Project ROI estimates direct revenue and operating-cost effects only; retained asset value, reputation and crisis protection stay separate.
+      </Text>
+    </>
   );
 }
 
