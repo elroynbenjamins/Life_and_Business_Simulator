@@ -947,6 +947,21 @@ export type CorporateFinancingType = 'revolver' | 'project_finance' | 'bond';
 
 export type BusinessReinvestmentArea = 'technology' | 'premises' | 'equipment';
 
+export type BusinessInsuranceArea = 'property' | 'equipment' | 'cyber' | 'liability';
+export type BusinessInsuranceTier = 'none' | 'basic' | 'standard' | 'comprehensive';
+
+export interface BusinessInsuranceClaim {
+  id: string;
+  area: BusinessInsuranceArea;
+  policyTier: BusinessInsuranceTier;
+  incidentTitle: string;
+  globalWeek: number;
+  grossLoss: number;
+  deductible: number;
+  payout: number;
+  netLoss: number;
+}
+
 export interface BusinessReinvestmentTrack {
   condition: number;
   lastRenewedGlobalWeek: number;
@@ -1204,6 +1219,9 @@ export interface BusinessPendingDecision {
   title: string;
   description: string;
   icon: string;
+  /** Optional insurable operational-loss category, snapshotted when the incident appears. */
+  insuranceArea?: BusinessInsuranceArea;
+  insuranceTierAtCreation?: BusinessInsuranceTier;
   createdGlobalWeek: number;
   deadlineGlobalWeek: number;
   defaultChoiceId: string;
@@ -1245,6 +1263,8 @@ export interface OwnedBusiness {
   // Recurring upkeep / modernization required to keep operations competitive
   reinvestment?: BusinessReinvestmentState;
   activeReinvestment?: ActiveBusinessReinvestment | null;
+  insurancePolicies?: Record<BusinessInsuranceArea, BusinessInsuranceTier>;
+  insuranceClaims?: BusinessInsuranceClaim[];
   // Loans
   businessLoans: BusinessLoan[];
   // Active events
