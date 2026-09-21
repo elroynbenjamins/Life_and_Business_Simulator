@@ -112,14 +112,12 @@ function getMaintenanceBacklog(business: OwnedBusiness, inflationMultiplier = 1)
     + state.equipment.condition
   ) / 3;
 
-  const backlog = DEPARTMENT_IDS.length >= 0
-    ? (Object.keys(BUSINESS_REINVESTMENT_AREAS) as Array<keyof typeof BUSINESS_REINVESTMENT_AREAS>)
-      .reduce((sum, area) => {
-        const condition = clamp(state[area].condition, 0, 100);
-        const replacementCost = getBusinessReinvestmentCost(business, area, inflationMultiplier);
-        return sum + replacementCost * ((100 - condition) / 100);
-      }, 0)
-    : 0;
+  const backlog = (Object.keys(BUSINESS_REINVESTMENT_AREAS) as Array<keyof typeof BUSINESS_REINVESTMENT_AREAS>)
+    .reduce((sum, area) => {
+      const condition = clamp(state[area].condition, 0, 100);
+      const replacementCost = getBusinessReinvestmentCost(business, area, inflationMultiplier);
+      return sum + replacementCost * ((100 - condition) / 100);
+    }, 0);
 
   return {
     averageCondition,
@@ -346,7 +344,9 @@ export function getCorporateManagementReport(
 
   const current = aggregatePeriod(currentPoints);
   const previous = aggregatePeriod(previousPoints);
-  const payrollToRevenueRatio = current.revenue > 0 ? current.payroll / current.revenue : 0;
+  const payrollToRevenueRatio = current.revenue > 0
+    ? current.payroll / current.revenue
+    : current.payroll > 0 ? 1 : 0;
   const revenuePerEmployeeChangePct = previous.weeks > 0 && previous.revenuePerEmployee > 0
     ? (current.revenuePerEmployee - previous.revenuePerEmployee) / previous.revenuePerEmployee
     : null;
@@ -415,7 +415,7 @@ export function getCorporateManagementReport(
     });
   }
 
-  if (statuses.payroll !== 'healthy') {
+  if (statuses.payroll === 'critical' || statuses.payroll === 'watch') {
     warnings.push({
       id: 'payroll-ratio',
       severity: statuses.payroll,
@@ -426,7 +426,7 @@ export function getCorporateManagementReport(
     });
   }
 
-  if (statuses.turnover !== 'healthy') {
+  if (statuses.turnover === 'critical' || statuses.turnover === 'watch') {
     warnings.push({
       id: 'turnover',
       severity: statuses.turnover,
