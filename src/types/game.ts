@@ -985,6 +985,17 @@ export interface AcquisitionDiligenceFinding {
 }
 
 export type HoldingCapitalPurpose = 'capital' | 'debt';
+export type HoldingSharedServiceId = 'finance' | 'hr' | 'procurement' | 'marketing' | 'it';
+export type BusinessDelegationPolicy = 'manual' | 'balanced' | 'growth' | 'profit' | 'conservative';
+
+export interface HoldingSharedServices {
+  finance: number;
+  hr: number;
+  procurement: number;
+  marketing: number;
+  it: number;
+}
+
 export type BusinessPortfolioIntent = 'active' | 'long_term_family';
 
 export interface SoldBusinessRecord {
@@ -1095,6 +1106,7 @@ export interface HoldingCompany {
   executivePerformance: number;
   designatedSuccessorChildId: string | null;
   designatedSuccessorChildName: string | null;
+  sharedServices?: HoldingSharedServices;
 }
 
 export interface BusinessOwnershipStake {
@@ -1225,6 +1237,12 @@ export interface OwnedBusiness {
   capitalInvested?: number | null;
   /** Lifetime distributions paid specifically to the player from this business. */
   totalPlayerDistributions?: number;
+  /** Routine management automation. Strategic decisions/crises always remain manual. */
+  delegationPolicy?: BusinessDelegationPolicy;
+  delegatedManagerEmployeeId?: string | null;
+  delegatedManagerName?: string | null;
+  lastDelegationReviewWeek?: number;
+  lastDelegationSummary?: string | null;
 }
 
 export interface BusinessLocation {
