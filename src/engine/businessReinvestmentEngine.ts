@@ -3,7 +3,11 @@ import {
   BusinessReinvestmentState,
   OwnedBusiness,
 } from '../types/game';
-import { getBusinessType } from './businessEngine';
+import businessTypesData from '../data/business_types.json';
+
+function getBusinessType(typeId: string) {
+  return (businessTypesData as any[]).find((type) => type?.id === typeId);
+}
 
 export const BUSINESS_REINVESTMENT_AREAS: Record<BusinessReinvestmentArea, {
   area: BusinessReinvestmentArea;
