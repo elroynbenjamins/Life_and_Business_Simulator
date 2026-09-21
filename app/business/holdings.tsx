@@ -280,6 +280,7 @@ export default function HoldingCompaniesScreen() {
                       period={managementReportPeriod}
                       onPeriodChange={setManagementReportPeriod}
                       showPeriodToggle={false}
+                      onCompanyPress={(businessId) => router.push(`/business/${businessId}`)}
                     />
                   </View>
                 )}
