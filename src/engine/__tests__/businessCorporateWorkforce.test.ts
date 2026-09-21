@@ -82,8 +82,8 @@ describe('corporate department workforce', () => {
   });
 
   test('department mix varies by industry', () => {
-    const technology = makeCorporateBusiness({ typeId: 'software_company' });
-    const manufacturing = makeCorporateBusiness({ typeId: 'manufacturing_business' });
+    const technology = makeCorporateBusiness({ typeId: 'tech_startup' });
+    const manufacturing = makeCorporateBusiness({ typeId: 'construction_co' });
 
     const techMix = getRecommendedDepartmentHeadcounts(technology);
     const manufacturingMix = getRecommendedDepartmentHeadcounts(manufacturing);
