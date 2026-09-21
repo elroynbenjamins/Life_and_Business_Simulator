@@ -939,6 +939,9 @@ export interface BusinessExpenseBreakdown {
   maintenance: number;
   taxes: number;
   loanInterest: number;
+  boardFees?: number;
+  workforceTraining?: number;
+  workforceTransition?: number;
   misc: number;
 }
 
