@@ -25,6 +25,15 @@ import { AcquisitionIntegrationStrategy, BusinessGovernanceRole, BusinessStrateg
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
+import {
+  CORPORATE_CAPEX_PROJECTS,
+  canStartCorporateCapex,
+  getCorporateCapexBookValue,
+  getCorporateCapexCost,
+  getCorporateCapexOperatingEffects,
+  getCorporateScaleLabel,
+  getCorporateScaleTier,
+} from '../../src/engine/corporateScaleEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -87,7 +96,7 @@ export default function BusinessDetailScreen() {
     setBusinessPricing, setBusinessAdvertising,
     buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
     injectCashIntoBusiness, withdrawFromBusiness,
-    applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, resolveBusinessRetention,
+    applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, startCorporateCapex, resolveBusinessRetention,
   } = useGameStore(useShallow((s) => ({
     designateFamilyBusiness: s.designateFamilyBusiness,
     toggleLongTermFamilyAsset: s.toggleLongTermFamilyAsset,
@@ -112,6 +121,7 @@ export default function BusinessDetailScreen() {
     applyMoraleActionToBusiness: s.applyMoraleActionToBusiness,
     startEmployeeTraining: s.startEmployeeTraining,
     startBusinessProject: s.startBusinessProject,
+    startCorporateCapex: s.startCorporateCapex,
     resolveBusinessRetention: s.resolveBusinessRetention,
   })));
 
@@ -155,6 +165,10 @@ export default function BusinessDetailScreen() {
   const allMoraleActions = getAllMoraleActions();
   const allTraining = getAllTraining();
   const allProjects = getAllProjects();
+  const corporateScaleTier = getCorporateScaleTier(biz);
+  const corporateScaleLabel = getCorporateScaleLabel(corporateScaleTier);
+  const corporateCapexEffects = getCorporateCapexOperatingEffects(biz);
+  const corporateCapexBookValue = getCorporateCapexBookValue(biz);
   const locationTemplates = getAllBusinessLocationTemplates();
   const adultChildren = (relationshipState?.children ?? []).filter((child) => (child.age ?? 0) >= 18);
   const ownership = biz.ownership?.length ? biz.ownership : [{
@@ -519,7 +533,11 @@ export default function BusinessDetailScreen() {
               </View>
             </View>
             {(pendingDecision.choices ?? []).map((choice) => {
-              const scaledCost = Math.round((choice.businessCashCost ?? 0) * inflationMultiplier);
+              const scaledCost = Math.round(
+                choice.cashCostScale === 'absolute'
+                  ? (choice.businessCashCost ?? 0)
+                  : (choice.businessCashCost ?? 0) * inflationMultiplier
+              );
               const affordable = (biz.balance ?? 0) >= scaledCost;
               return (
                 <Pressable
@@ -1072,6 +1090,128 @@ export default function BusinessDetailScreen() {
             );
           })()}
         </GameCard>
+
+        {(biz.valuation ?? 0) >= 10_000_000 || !!biz.activeCorporateCapex || (biz.completedCorporateCapex?.length ?? 0) > 0 ? (
+          <GameCard title="Corporate Investments">
+            <View style={styles.corporateHeader}>
+              <View style={styles.corporateScaleBadge}>
+                <Ionicons name="business" size={15} color={corporateScaleTier === 'local' ? Colors.textMuted : Colors.info} />
+                <Text style={[styles.corporateScaleText, corporateScaleTier === 'local' && { color: Colors.textMuted }]}>
+                  {corporateScaleLabel}
+                </Text>
+              </View>
+              <Text style={styles.corporateBookValue}>Assets {formatCurrency(corporateCapexBookValue)}</Text>
+            </View>
+
+            {corporateScaleTier === 'local' && !biz.activeCorporateCapex && (biz.completedCorporateCapex?.length ?? 0) === 0 ? (
+              <View style={styles.corporateLocked}>
+                <Ionicons name="lock-closed-outline" size={20} color={Colors.warning} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.corporateLockedTitle}>Corporate scale unlocks at €25M valuation</Text>
+                  <Text style={styles.corporateLockedText}>
+                    Large capital projects become available once the company has enough scale and reputation to support them.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.corporateEffectSummary}>
+                  Permanent portfolio: +{(corporateCapexEffects.revenueBonus * 100).toFixed(1)}% revenue • {corporateCapexEffects.expenseReduction >= 0 ? '-' : '+'}{Math.abs(corporateCapexEffects.expenseReduction * 100).toFixed(1)}% expenses • {(corporateCapexEffects.crisisReduction * 100).toFixed(1)}% crisis protection
+                </Text>
+
+                {biz.activeCorporateCapex && (() => {
+                  const activeDefinition = CORPORATE_CAPEX_PROJECTS.find((project) => project.id === biz.activeCorporateCapex?.projectId);
+                  const progress = Math.max(0, Math.min(100, Math.round(
+                    (1 - (biz.activeCorporateCapex.weeksRemaining / Math.max(1, biz.activeCorporateCapex.totalWeeks))) * 100
+                  )));
+                  return (
+                    <View style={styles.corporateActive}>
+                      <View style={styles.corporateActiveHeader}>
+                        <Text style={styles.corporateActiveTitle}>{activeDefinition?.icon ?? '🏗️'} {biz.activeCorporateCapex.projectName}</Text>
+                        <Text style={styles.corporateActiveWeeks}>{biz.activeCorporateCapex.weeksRemaining}w</Text>
+                      </View>
+                      <View style={styles.corporateProgressTrack}>
+                        <View style={[styles.corporateProgressFill, { width: `${progress}%` }]} />
+                      </View>
+                      <Text style={styles.corporateConstructionText}>
+                        Construction disruption: -{((activeDefinition?.constructionRevenuePenalty ?? 0) * 100).toFixed(1)}% revenue • +{((activeDefinition?.constructionExpensePenalty ?? 0) * 100).toFixed(1)}% expenses
+                      </Text>
+                    </View>
+                  );
+                })()}
+
+                {(biz.completedCorporateCapex?.length ?? 0) > 0 && (
+                  <View style={styles.corporateCompletedWrap}>
+                    <Text style={styles.subHeading}>Completed Assets</Text>
+                    {(biz.completedCorporateCapex ?? []).map((completed) => {
+                      const definition = CORPORATE_CAPEX_PROJECTS.find((project) => project.id === completed.projectId);
+                      return (
+                        <View key={completed.projectId} style={styles.corporateCompletedRow}>
+                          <Text style={styles.corporateCompletedIcon}>{definition?.icon ?? '🏢'}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.corporateCompletedName}>{completed.projectName}</Text>
+                            <Text style={styles.corporateCompletedMeta}>{formatCurrency(completed.costPaid)} invested</Text>
+                          </View>
+                          <Ionicons name="checkmark-circle" size={17} color={Colors.primary} />
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
+                <Text style={styles.subHeading}>Long-term Capital Projects</Text>
+                {CORPORATE_CAPEX_PROJECTS.map((project) => {
+                  const eligibility = canStartCorporateCapex(biz, project);
+                  const cost = getCorporateCapexCost(project, inflationMultiplier);
+                  const completed = (biz.completedCorporateCapex ?? []).some((item) => item.projectId === project.id);
+                  const active = biz.activeCorporateCapex?.projectId === project.id;
+                  const affordable = (biz.balance ?? 0) >= cost;
+                  const disabled = completed || active || !!biz.activeCorporateCapex || !eligibility.allowed || !affordable;
+                  const expenseText = project.expenseReduction >= 0
+                    ? `-${(project.expenseReduction * 100).toFixed(1)}% expenses`
+                    : `+${Math.abs(project.expenseReduction * 100).toFixed(1)}% expenses`;
+                  return (
+                    <Pressable
+                      key={project.id}
+                      disabled={disabled}
+                      style={[styles.corporateProjectRow, disabled && styles.disabledRow]}
+                      onPress={() => confirmAction(
+                        'Start Corporate Investment',
+                        `Invest ${formatCurrency(cost)} in ${project.name}? Construction takes ${project.weeks} weeks and temporarily disrupts operations. Once complete, the asset permanently changes the company's operating profile and contributes to company value.`,
+                        () => startCorporateCapex(biz.id, project.id),
+                      )}
+                    >
+                      <View style={styles.corporateProjectIconWrap}>
+                        <Text style={styles.corporateProjectIcon}>{project.icon}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.corporateProjectName}>{project.name}</Text>
+                        <Text style={styles.corporateProjectDesc}>{project.description}</Text>
+                        <Text style={styles.corporateProjectReq}>
+                          Requires {formatCurrency(project.minValuation)} value • {project.minReputation} rep • {project.weeks}w
+                        </Text>
+                        <Text style={styles.corporateProjectEffect}>
+                          Permanent: +{(project.revenueBonus * 100).toFixed(1)}% revenue • {expenseText} • {(project.crisisReduction * 100).toFixed(1)}% crisis protection
+                        </Text>
+                        {!completed && !active && !eligibility.allowed && (
+                          <Text style={styles.corporateProjectLocked}>{eligibility.reason}</Text>
+                        )}
+                        {!completed && eligibility.allowed && !affordable && (
+                          <Text style={styles.corporateProjectLocked}>Need {formatCurrency(cost - (biz.balance ?? 0))} more business cash</Text>
+                        )}
+                      </View>
+                      <View style={styles.corporateCostWrap}>
+                        <Text style={[styles.corporateCost, disabled && { color: Colors.textMuted }]}>
+                          {completed ? 'DONE' : active ? 'BUILDING' : formatCurrency(cost)}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </>
+            )}
+          </GameCard>
+        ) : null}
 
         {/* Upgrades */}
         {(availableUpgrades.length > 0 || biz.activeUpgrade) && (
@@ -1628,6 +1768,36 @@ const styles = StyleSheet.create({
   actionCost: { color: Colors.warning, fontSize: 13, fontWeight: '600', marginLeft: 8 },
   disabledRow: { opacity: 0.45 },
   projectRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  corporateHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 },
+  corporateScaleBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#17263A', borderRadius: 9, paddingHorizontal: 8, paddingVertical: 5 },
+  corporateScaleText: { color: Colors.info, fontSize: 9, fontWeight: '900' },
+  corporateBookValue: { color: Colors.textSecondary, fontSize: 9, fontWeight: '700' },
+  corporateLocked: { flexDirection: 'row', gap: 9, alignItems: 'flex-start', backgroundColor: `${Colors.warning}10`, borderRadius: 9, padding: 10 },
+  corporateLockedTitle: { color: Colors.warning, fontSize: 11, fontWeight: '800' },
+  corporateLockedText: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 2 },
+  corporateEffectSummary: { color: Colors.info, fontSize: 9, lineHeight: 13, marginBottom: 8 },
+  corporateActive: { backgroundColor: `${Colors.warning}10`, borderWidth: 1, borderColor: `${Colors.warning}35`, borderRadius: 9, padding: 10, marginBottom: 10 },
+  corporateActiveHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, alignItems: 'center' },
+  corporateActiveTitle: { color: Colors.warning, fontSize: 11, fontWeight: '800', flex: 1 },
+  corporateActiveWeeks: { color: Colors.warning, fontSize: 10, fontWeight: '900' },
+  corporateProgressTrack: { height: 5, borderRadius: 3, backgroundColor: Colors.elevated, marginTop: 7, overflow: 'hidden' },
+  corporateProgressFill: { height: 5, borderRadius: 3, backgroundColor: Colors.warning },
+  corporateConstructionText: { color: Colors.textMuted, fontSize: 8, marginTop: 6 },
+  corporateCompletedWrap: { marginBottom: 8 },
+  corporateCompletedRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
+  corporateCompletedIcon: { fontSize: 16 },
+  corporateCompletedName: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  corporateCompletedMeta: { color: Colors.textMuted, fontSize: 8, marginTop: 1 },
+  corporateProjectRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
+  corporateProjectIconWrap: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#17263A', alignItems: 'center', justifyContent: 'center' },
+  corporateProjectIcon: { fontSize: 16 },
+  corporateProjectName: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  corporateProjectDesc: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 2 },
+  corporateProjectReq: { color: Colors.textMuted, fontSize: 8, marginTop: 4 },
+  corporateProjectEffect: { color: Colors.primary, fontSize: 8, lineHeight: 12, marginTop: 3 },
+  corporateProjectLocked: { color: Colors.warning, fontSize: 8, marginTop: 3 },
+  corporateCostWrap: { alignItems: 'flex-end', paddingLeft: 4 },
+  corporateCost: { color: Colors.warning, fontSize: 9, fontWeight: '900' },
   upgradeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   upgradeInfo: { flex: 1 },
   upgradeName: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
