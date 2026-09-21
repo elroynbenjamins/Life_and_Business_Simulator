@@ -101,7 +101,6 @@ describe('corporate management action guidance', () => {
 
     const report = reportWith(business, {
       turnover: 1,
-      headcount: 20,
     });
     const actions = getCorporateManagementActions(business, report, 1);
 
