@@ -1095,6 +1095,8 @@ export interface BusinessExecutiveSearch {
 }
 
 export type CorporateDepartmentId = 'operations' | 'sales' | 'finance' | 'technology' | 'support';
+export type CorporateCompensationPolicy = 'lean' | 'market' | 'competitive' | 'premium';
+export type CorporateTrainingPolicy = 'minimal' | 'standard' | 'development' | 'academy';
 
 export interface CorporateDepartmentState {
   id: CorporateDepartmentId;
@@ -1104,6 +1106,7 @@ export interface CorporateDepartmentState {
   morale: number;
   weeklyWage: number;
   lastHeadcountChangeWeek: number;
+  turnoverAccumulator?: number;
 }
 
 export interface CorporateWorkforceState {
@@ -1111,6 +1114,13 @@ export interface CorporateWorkforceState {
   departments: Record<CorporateDepartmentId, CorporateDepartmentState>;
   lastPlanWeek: number;
   lastChangeSummary: string | null;
+  compensationPolicy?: CorporateCompensationPolicy;
+  trainingPolicy?: CorporateTrainingPolicy;
+  employeeRelations?: number;
+  laborMarketPressure?: number;
+  nextHrEventWeek?: number;
+  lastHrEventWeek?: number;
+  recentTurnover?: number;
 }
 
 export type BusinessBoardMandate = 'founder_led' | 'balanced_oversight' | 'growth_mandate' | 'risk_committee';
@@ -1316,6 +1326,10 @@ export interface BusinessPendingDecisionChoice {
   moraleDelta?: number;
   marketShareDelta?: number;
   durationWeeks?: number;
+  workforceCompensationPolicy?: CorporateCompensationPolicy;
+  workforceTrainingPolicy?: CorporateTrainingPolicy;
+  workforceRelationsDelta?: number;
+  workforceTargetMultiplier?: number;
 }
 
 export interface BusinessPendingDecision {
