@@ -57,6 +57,13 @@ import {
   getBusinessInsuranceTotalWeeklyPremium,
   normalizeBusinessInsurancePolicies,
 } from '../../src/engine/businessInsuranceEngine';
+import {
+  BUSINESS_BUDGET_PRESETS,
+  getBusinessBudgetReserveTargets,
+  isBusinessBudgetReviewDue,
+  normalizeBusinessBudgetPlan,
+  normalizeBusinessBudgetReserves,
+} from '../../src/engine/businessBudgetEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -115,7 +122,7 @@ export default function BusinessDetailScreen() {
   const gameYear = useGameStore((s) => s.year ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
-    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, resolveBusinessDecision,
+    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessBudgetProfile, resolveBusinessDecision,
     setAcquisitionIntegrationStrategy,
     appointChildToBusiness, transferBusinessShares, buyBackInvestorShares, investFamilyTrustCashInBusiness,
     openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
@@ -128,6 +135,7 @@ export default function BusinessDetailScreen() {
     designateFamilyBusiness: s.designateFamilyBusiness,
     toggleLongTermFamilyAsset: s.toggleLongTermFamilyAsset,
     setBusinessStrategicFocus: s.setBusinessStrategicFocus,
+    setBusinessBudgetProfile: s.setBusinessBudgetProfile,
     resolveBusinessDecision: s.resolveBusinessDecision,
     setAcquisitionIntegrationStrategy: s.setAcquisitionIntegrationStrategy,
     appointChildToBusiness: s.appointChildToBusiness,
@@ -226,6 +234,10 @@ export default function BusinessDetailScreen() {
   const insurancePolicies = normalizeBusinessInsurancePolicies(biz.insurancePolicies);
   const insuranceRisk = getBusinessInsuranceRiskSummary(biz);
   const insuranceWeeklyPremium = getBusinessInsuranceTotalWeeklyPremium(biz, globalGameWeek);
+  const budgetPlan = normalizeBusinessBudgetPlan(biz.budgetPlan, gameYear);
+  const budgetReserves = normalizeBusinessBudgetReserves(biz.budgetReserves);
+  const budgetTargets = getBusinessBudgetReserveTargets(biz, biz.lastWeekExpenses ?? 0, inflationMultiplier);
+  const budgetReviewDue = isBusinessBudgetReviewDue(biz, gameYear);
   const decisionWeeksLeft = pendingDecision
     ? Math.max(0, (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4) - globalGameWeek)
     : 0;
@@ -847,6 +859,106 @@ export default function BusinessDetailScreen() {
           <StatRow label="Expenses" value={biz.lastWeekExpenses} />
           <View style={styles.divider} />
           <StatRow label="Profit" value={biz.lastWeekProfit} positive={(biz.lastWeekProfit ?? 0) >= 0} bold />
+        </GameCard>
+
+        <GameCard title="Annual Cash Plan">
+          <View style={styles.budgetHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.budgetProfileName}>{BUSINESS_BUDGET_PRESETS[budgetPlan.profile].label}</Text>
+              <Text style={styles.budgetProfileDesc}>{BUSINESS_BUDGET_PRESETS[budgetPlan.profile].description}</Text>
+            </View>
+            <View style={[styles.budgetReviewBadge, budgetReviewDue && styles.budgetReviewBadgeDue]}>
+              <Text style={[styles.budgetReviewText, budgetReviewDue && { color: Colors.warning }]}>
+                {budgetReviewDue ? `Year ${gameYear} review due` : `Reviewed Y${budgetPlan.reviewYear}`}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.budgetAllocationGrid}>
+            <View style={styles.budgetAllocationItem}>
+              <Text style={styles.budgetAllocationPct}>{Math.round(budgetPlan.dividendPct * 100)}%</Text>
+              <Text style={styles.budgetAllocationLabel}>Dividends</Text>
+            </View>
+            <View style={styles.budgetAllocationItem}>
+              <Text style={styles.budgetAllocationPct}>{Math.round(budgetPlan.debtPaydownPct * 100)}%</Text>
+              <Text style={styles.budgetAllocationLabel}>Debt</Text>
+            </View>
+            <View style={styles.budgetAllocationItem}>
+              <Text style={styles.budgetAllocationPct}>{Math.round(budgetPlan.reinvestmentPct * 100)}%</Text>
+              <Text style={styles.budgetAllocationLabel}>Upkeep</Text>
+            </View>
+            <View style={styles.budgetAllocationItem}>
+              <Text style={styles.budgetAllocationPct}>{Math.round(budgetPlan.growthPct * 100)}%</Text>
+              <Text style={styles.budgetAllocationLabel}>Growth</Text>
+            </View>
+          </View>
+
+          <View style={styles.budgetReserveBox}>
+            <View style={styles.budgetReserveHeader}>
+              <Text style={styles.budgetReserveTitle}>Operating buffer</Text>
+              <Text style={styles.budgetReserveValue}>
+                {budgetPlan.targetReserveWeeks}w • {formatCurrency(budgetTargets.operatingReserveTarget)}
+              </Text>
+            </View>
+            <View style={styles.budgetReserveTrack}>
+              <View
+                style={[
+                  styles.budgetReserveFill,
+                  {
+                    width: `${Math.min(100, budgetTargets.operatingReserveTarget > 0
+                      ? ((biz.balance ?? 0) / budgetTargets.operatingReserveTarget) * 100
+                      : 100)}%`,
+                  },
+                ]}
+              />
+            </View>
+
+            <View style={styles.budgetEarmarkRow}>
+              <View style={styles.budgetEarmark}>
+                <Text style={styles.budgetEarmarkLabel}>Reinvestment reserve</Text>
+                <Text style={styles.budgetEarmarkValue}>
+                  {formatCurrency(budgetReserves.reinvestment)} / {formatCurrency(budgetTargets.reinvestmentReserveTarget)}
+                </Text>
+              </View>
+              <View style={styles.budgetEarmark}>
+                <Text style={styles.budgetEarmarkLabel}>Growth reserve</Text>
+                <Text style={styles.budgetEarmarkValue}>
+                  {formatCurrency(budgetReserves.growth)} / {formatCurrency(budgetTargets.growthReserveTarget)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <Text style={styles.subHeading}>Budget Policy</Text>
+          <View style={styles.budgetProfileGrid}>
+            {(Object.keys(BUSINESS_BUDGET_PRESETS) as Array<keyof typeof BUSINESS_BUDGET_PRESETS>).map((profile) => {
+              const preset = BUSINESS_BUDGET_PRESETS[profile];
+              const active = budgetPlan.profile === profile;
+              return (
+                <Pressable
+                  key={profile}
+                  style={[styles.budgetProfileChip, active && styles.budgetProfileChipActive]}
+                  onPress={() => setBusinessBudgetProfile(biz.id, profile)}
+                >
+                  <Text style={[styles.budgetProfileChipTitle, active && { color: Colors.primary }]}>{preset.label}</Text>
+                  <Text style={styles.budgetProfileChipMeta}>{preset.targetReserveWeeks}w reserve</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {biz.lastBudgetAllocation && (
+            <View style={styles.budgetLastWeek}>
+              <Text style={styles.budgetLastWeekTitle}>Last weekly allocation</Text>
+              <Text style={styles.budgetLastWeekText}>
+                Profit basis {formatCurrency(biz.lastBudgetAllocation.profitBasis)}
+                {biz.lastBudgetAllocation.extraDebtPaid > 0 ? ` • Debt -${formatCurrency(biz.lastBudgetAllocation.extraDebtPaid)}` : ''}
+                {biz.lastBudgetAllocation.reinvestmentAllocated > 0 ? ` • Upkeep +${formatCurrency(biz.lastBudgetAllocation.reinvestmentAllocated)}` : ''}
+                {biz.lastBudgetAllocation.growthAllocated > 0 ? ` • Growth +${formatCurrency(biz.lastBudgetAllocation.growthAllocated)}` : ''}
+                {biz.lastBudgetAllocation.dividendPaid > 0 ? ` • Dividend ${formatCurrency(biz.lastBudgetAllocation.dividendPaid)}` : ''}
+              </Text>
+            </View>
+          )}
         </GameCard>
 
         {/* Expense Breakdown */}
@@ -2019,6 +2131,34 @@ const styles = StyleSheet.create({
   statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   statRowLabel: { color: Colors.textSecondary, fontSize: 14 },
   statRowValue: { fontSize: 14, fontWeight: '600' },
+  budgetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  budgetProfileName: { color: Colors.textPrimary, fontSize: 13, fontWeight: '800' },
+  budgetProfileDesc: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 2 },
+  budgetReviewBadge: { borderRadius: 9, backgroundColor: Colors.elevated, paddingHorizontal: 7, paddingVertical: 5 },
+  budgetReviewBadgeDue: { backgroundColor: `${Colors.warning}12`, borderWidth: 1, borderColor: `${Colors.warning}33` },
+  budgetReviewText: { color: Colors.textMuted, fontSize: 8, fontWeight: '800' },
+  budgetAllocationGrid: { flexDirection: 'row', gap: 6, marginTop: 10 },
+  budgetAllocationItem: { flex: 1, backgroundColor: Colors.elevated, borderRadius: 8, paddingVertical: 7, alignItems: 'center' },
+  budgetAllocationPct: { color: Colors.info, fontSize: 12, fontWeight: '900' },
+  budgetAllocationLabel: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
+  budgetReserveBox: { marginTop: 9, backgroundColor: Colors.elevated, borderRadius: 9, padding: 9 },
+  budgetReserveHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  budgetReserveTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '800' },
+  budgetReserveValue: { color: Colors.textSecondary, fontSize: 8, fontWeight: '700' },
+  budgetReserveTrack: { height: 5, borderRadius: 3, backgroundColor: Colors.cardBorder, overflow: 'hidden', marginTop: 6 },
+  budgetReserveFill: { height: 5, borderRadius: 3, backgroundColor: Colors.primary },
+  budgetEarmarkRow: { flexDirection: 'row', gap: 7, marginTop: 8 },
+  budgetEarmark: { flex: 1 },
+  budgetEarmarkLabel: { color: Colors.textMuted, fontSize: 7 },
+  budgetEarmarkValue: { color: Colors.textSecondary, fontSize: 8, fontWeight: '700', marginTop: 2 },
+  budgetProfileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  budgetProfileChip: { width: '31.5%', minHeight: 43, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, padding: 7 },
+  budgetProfileChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
+  budgetProfileChipTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '800' },
+  budgetProfileChipMeta: { color: Colors.textMuted, fontSize: 7, marginTop: 2 },
+  budgetLastWeek: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, marginTop: 9, paddingTop: 8 },
+  budgetLastWeekTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '800' },
+  budgetLastWeekText: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 2 },
   chartWrap: { alignItems: 'center', marginVertical: 4 },
   rivalRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   rivalHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
