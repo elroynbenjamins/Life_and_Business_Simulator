@@ -97,8 +97,11 @@ export interface CorporateManagementReport {
   periodTurnoverCount: number;
   averageHeadcount: number;
   previousPeriodRevenue: number;
+  previousPeriodExpenses: number;
+  previousPeriodProfit: number;
   previousPeriodEmployeeWeeks: number;
   previousPeriodTurnoverCount: number;
+  previousWeeksTracked: number;
 }
 
 const DEPARTMENT_IDS = Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[];
@@ -921,7 +924,10 @@ export function getCorporateManagementReport(
     periodTurnoverCount: current.turnover,
     averageHeadcount: current.averageHeadcount,
     previousPeriodRevenue: previous.revenue,
+    previousPeriodExpenses: previous.expenses,
+    previousPeriodProfit: previous.profit,
     previousPeriodEmployeeWeeks: previous.averageHeadcount * previous.weeks,
     previousPeriodTurnoverCount: previous.turnover,
+    previousWeeksTracked: previous.weeks,
   };
 }
