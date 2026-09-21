@@ -171,6 +171,31 @@ describe('business acquisitions and holding companies', () => {
     expect(waitingTick.updatedBusiness.acquisition?.integrationWeeksRemaining).toBe(before);
   });
 
+  test('baseline acquired company does not reach triple-digit return within one game year', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const target = generateAcquisitionTargets(121, 1, 1)[0];
+    let business = createAcquiredBusiness(
+      target,
+      { ...INITIAL_GAME_STATE, week: 1, year: 7, inflationMultiplier: 1 },
+      null,
+      target.askingPrice,
+      'cash',
+      0,
+    )!;
+    business = applyIntegrationStrategy(business, 'independent');
+
+    const startGlobalWeek = ((7 - 1) * 20) + 1;
+    for (let offset = 1; offset <= 20; offset += 1) {
+      const globalWeek = startGlobalWeek + offset;
+      const year = Math.floor((globalWeek - 1) / 20) + 1;
+      const week = ((globalWeek - 1) % 20) + 1;
+      business = processBusinessWeek(business, 1, week, year).updatedBusiness;
+    }
+
+    const returnInfo = getAcquisitionReturn(business)!;
+    expect(returnInfo.returnPct).toBeLessThan(100);
+  });
+
   test('integration strategy resolves into persistent operating effects', () => {
     const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const target = generateAcquisitionTargets(120, 1, 1)[0];
