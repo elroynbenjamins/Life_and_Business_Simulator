@@ -15,7 +15,7 @@ function makeBusiness(): OwnedBusiness {
     valuation: 300_000,
     balance: 25_000,
     lastWeekProfit: 8_000,
-    initialCapitalInvested: 100_000,
+    capitalInvested: 100_000,
     totalPlayerDistributions: 20_000,
     businessLoans: [{
       id: 'loan_test',
@@ -55,7 +55,7 @@ describe('business portfolio engine', () => {
   test('acquisition basis uses shareholder cash contribution plus later capital', () => {
     const business = {
       ...makeBusiness(),
-      initialCapitalInvested: 999_999,
+      capitalInvested: 999_999,
       acquisition: {
         purchasePrice: 400_000,
         cashContribution: 120_000,
