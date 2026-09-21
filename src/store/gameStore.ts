@@ -5,7 +5,7 @@ import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
 import { inflated } from '../engine/economyEngine';
 import { getBusinessUpgradeWeeks } from '../engine/businessEngine';
-import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts } from '../engine/businessEngine';
+import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts, getBusinessDecisionChoiceCost } from '../engine/businessEngine';
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
 import { ensureAuctions, getInspectionCost, inspectAuction, leaveAuction, placeAuctionBid } from '../engine/auctionEngine';
 import { unlockPrestige, getPrestigeEffects } from '../engine/prestigeEngine';
@@ -3274,11 +3274,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const decision = business?.pendingDecision;
     const choice = decision?.choices?.find((item) => item.id === choiceId);
     if (!business || !decision || !choice) return;
-    const cost = Math.max(0, Math.round(
-      choice.cashCostScale === 'absolute'
-        ? (choice.businessCashCost ?? 0)
-        : (choice.businessCashCost ?? 0) * (state.inflationMultiplier ?? 1)
-    ));
+    const cost = getBusinessDecisionChoiceCost(choice, state.inflationMultiplier ?? 1);
     if ((business.balance ?? 0) < cost) return;
 
     const modifier = (choice.durationWeeks ?? 0) > 1
