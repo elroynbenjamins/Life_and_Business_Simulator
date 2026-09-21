@@ -306,6 +306,7 @@ export function createCorporateWorkforce(
     nextHrEventWeek: Math.max(1, globalWeek) + 12,
     lastHrEventWeek: 0,
     recentTurnover: 0,
+    lastPolicyChangeWeek: 0,
   };
 }
 
@@ -351,6 +352,7 @@ export function normalizeCorporateWorkforce(
     nextHrEventWeek: Math.max(1, fallback.nextHrEventWeek ?? (globalWeek + 12)),
     lastHrEventWeek: Math.max(0, fallback.lastHrEventWeek ?? 0),
     recentTurnover: Math.max(0, fallback.recentTurnover ?? 0),
+    lastPolicyChangeWeek: Math.max(0, fallback.lastPolicyChangeWeek ?? 0),
   };
 }
 
@@ -407,8 +409,17 @@ export function getCorporateWorkforceEffects(
     0.06,
   );
   const expenseReduction = clamp(financeDelta * 0.04, -0.05, 0.025);
-  const crisisReduction = clamp(technologyDelta * 0.025 + supportDelta * 0.02, -0.06, 0.035);
-  const reputationPerWeek = clamp(supportDelta * 0.02 + salesDelta * 0.005, -0.03, 0.02);
+  const relationsDelta = ((workforce.employeeRelations ?? 70) - 70) / 30;
+  const crisisReduction = clamp(
+    technologyDelta * 0.025 + supportDelta * 0.02 + relationsDelta * 0.006,
+    -0.07,
+    0.04,
+  );
+  const reputationPerWeek = clamp(
+    supportDelta * 0.02 + salesDelta * 0.005 + relationsDelta * 0.004,
+    -0.035,
+    0.025,
+  );
   const staffingScore = Math.round(clamp(
     Object.values(departmentRatios).reduce((sum, ratio) => sum + Math.min(1, ratio), 0) / 5 * 100,
     0,
