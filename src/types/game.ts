@@ -950,6 +950,44 @@ export type BusinessReinvestmentArea = 'technology' | 'premises' | 'equipment';
 export type BusinessInsuranceArea = 'property' | 'equipment' | 'cyber' | 'liability';
 export type BusinessInsuranceTier = 'none' | 'basic' | 'standard' | 'comprehensive';
 
+export type BusinessBudgetProfile =
+  | 'standard'
+  | 'balanced'
+  | 'growth'
+  | 'deleveraging'
+  | 'resilient'
+  | 'shareholder_returns';
+
+export interface BusinessBudgetPlan {
+  profile: BusinessBudgetProfile;
+  targetReserveWeeks: number;
+  dividendPct: number;
+  debtPaydownPct: number;
+  reinvestmentPct: number;
+  growthPct: number;
+  reviewYear: number;
+}
+
+export interface BusinessBudgetReserves {
+  reinvestment: number;
+  growth: number;
+}
+
+export interface BusinessBudgetAllocationSnapshot {
+  year: number;
+  week: number;
+  profitBasis: number;
+  operatingReserveTarget: number;
+  reinvestmentReserveTarget: number;
+  growthReserveTarget: number;
+  reinvestmentAllocated: number;
+  growthAllocated: number;
+  extraDebtPaid: number;
+  dividendPaid: number;
+  closingReinvestmentReserve: number;
+  closingGrowthReserve: number;
+}
+
 export interface BusinessInsuranceClaim {
   id: string;
   area: BusinessInsuranceArea;
@@ -1265,6 +1303,10 @@ export interface OwnedBusiness {
   activeReinvestment?: ActiveBusinessReinvestment | null;
   insurancePolicies?: Record<BusinessInsuranceArea, BusinessInsuranceTier>;
   insuranceClaims?: BusinessInsuranceClaim[];
+  // Annual cash-flow policy and internally earmarked cash reserves
+  budgetPlan?: BusinessBudgetPlan;
+  budgetReserves?: BusinessBudgetReserves;
+  lastBudgetAllocation?: BusinessBudgetAllocationSnapshot | null;
   // Loans
   businessLoans: BusinessLoan[];
   // Active events
