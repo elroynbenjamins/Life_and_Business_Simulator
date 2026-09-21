@@ -18,7 +18,6 @@ import {
 } from '../corporateScaleEngine';
 
 function staffedCorporateBusiness() {
-  jest.spyOn(Math, 'random').mockReturnValue(0.5);
   const business = createBusiness('coffee_shop', 'Corporate Coffee Group', 1, 8, 1)!;
   const employees = [];
   const names: string[] = [];
