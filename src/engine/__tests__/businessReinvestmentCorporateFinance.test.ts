@@ -129,7 +129,7 @@ describe('business reinvestment and corporate financing', () => {
     const neglectedWeek = processBusinessWeek(neglected, 1, 5, 3);
 
     expect(neglectedWeek.weeklyRevenue).toBeLessThan(healthyWeek.weeklyRevenue);
-    expect(neglectedWeek.weeklyExpenses).toBeGreaterThan(healthyWeek.weeklyExpenses);
+    expect(neglectedWeek.updatedBusiness.reputation).toBeLessThan(healthyWeek.updatedBusiness.reputation);
   });
 
   test('reinvestment cannot be spammed at pristine condition and completes back at 100', () => {
