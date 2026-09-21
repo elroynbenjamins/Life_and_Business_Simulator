@@ -989,6 +989,8 @@ export interface BusinessAcquisitionTarget {
 }
 
 export interface BusinessAcquisitionState {
+  /** One-time save migration version for mature acquisition assets/baseline. */
+  assetBaselineVersion?: number;
   purchasePrice: number;
   cashContribution: number;
   debtFinanced: number;
