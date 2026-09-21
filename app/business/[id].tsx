@@ -14,7 +14,7 @@ import {
   getAllMoraleActions, getAllTraining, getAllProjects, computeMarketShare, meetsMinStaffing, MIN_EMPLOYEES_REQUIRED,
   TIER_CONFIG, getProjectDifficulty, getProjectOdds,
   BUSINESS_LEVEL_REPUTATION_REQUIREMENTS, getAllBusinessLocationTemplates, getScaledLocationCosts, canStartBusinessExpansion,
-  getBusinessHealthScore, BUSINESS_STRATEGIES,
+  getBusinessHealthScore, BUSINESS_STRATEGIES, BUSINESS_DELEGATION_POLICIES,
   getPlayerOwnershipPct,
 } from '../../src/engine/businessEngine';
 import { inflated } from '../../src/engine/economyEngine';
@@ -276,6 +276,22 @@ export default function BusinessDetailScreen() {
               <View style={[styles.automationFill, { width: `${automation}%` }]} />
             </View>
           </View>
+          {biz.delegationPolicy && biz.delegationPolicy !== 'manual' && (
+            <View style={styles.delegationStatus}>
+              <Ionicons name="briefcase" size={14} color={Colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.delegationStatusTitle}>
+                  Delegated • {BUSINESS_DELEGATION_POLICIES[biz.delegationPolicy].label}
+                </Text>
+                <Text style={styles.delegationStatusText}>
+                  {biz.delegatedManagerName ?? 'Manager'} reviews routine pricing, marketing and staffing every 4 weeks.
+                </Text>
+                {!!biz.lastDelegationSummary && (
+                  <Text style={styles.delegationStatusLast}>{biz.lastDelegationSummary}</Text>
+                )}
+              </View>
+            </View>
+          )}
           {biz.level < 7 && (
             <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 8 }}>
               Next level requires reputation {BUSINESS_LEVEL_REPUTATION_REQUIREMENTS[biz.level + 1]} and the valuation target. Expansion requirements are shown on each location.
@@ -1471,6 +1487,10 @@ const styles = StyleSheet.create({
   automationLabel: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
   automationTrack: { height: 6, backgroundColor: Colors.elevated, borderRadius: 3 },
   automationFill: { height: 6, backgroundColor: Colors.primary, borderRadius: 3 },
+  delegationStatus: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', backgroundColor: '#10382D', borderRadius: 8, padding: 8, marginTop: 9 },
+  delegationStatusTitle: { color: Colors.primary, fontSize: 10, fontWeight: '800' },
+  delegationStatusText: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 2 },
+  delegationStatusLast: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, marginTop: 3, fontStyle: 'italic' },
   divider: { height: 1, backgroundColor: Colors.cardBorder, marginVertical: 6 },
   statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   statRowLabel: { color: Colors.textSecondary, fontSize: 14 },
