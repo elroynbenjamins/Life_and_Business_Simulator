@@ -28,7 +28,7 @@ import {
   getAcquisitionTransactionCostRate,
   migrateAcquiredBusinessAssets,
 } from '../engine/acquisitionEngine';
-import { generateRelationshipCandidates, getChildFuturePotential, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getFamilyPlanningPreview, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
+import { PARTNER_CAREER_SYSTEM_VERSION, generateRelationshipCandidates, getChildFuturePotential, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getFamilyPlanningPreview, getNormalizedDatingAgeBounds, getPartnerCareerStartingLevel, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
 import coursesData from '../data/courses.json';
 import jobsData from '../data/jobs.json';
@@ -1444,6 +1444,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     const cost = getDateCost(kind, state.inflationMultiplier ?? 1);
     if ((state.cash ?? 0) < cost) return;
 
+    const startingCareerLevel = candidate.careerLevel
+      ?? getPartnerCareerStartingLevel(candidate.age ?? 20, candidate.ambition);
     const baseConnection: RelationshipConnection = {
       ...candidate,
       stage: 'dating',
@@ -1451,6 +1453,13 @@ const useGameStore = create<GameStore>((set, get) => ({
       relationship: 0,
       dates: 1,
       weeksKnown: 0,
+      employmentStatus: 'employed',
+      unemploymentWeeks: 0,
+      careerLevel: startingCareerLevel,
+      careerProgressWeeks: 0,
+      lastEmployedWeeklyIncome: candidate.weeklyIncome,
+      lastCareerEventWeek: gw,
+      careerSystemVersion: PARTNER_CAREER_SYSTEM_VERSION,
     };
     const gain = getDateConnectionGain(baseConnection, kind);
     const connection = revealNextTrait({ ...baseConnection, connection: Math.min(100, 20 + gain) });
@@ -2367,8 +2376,11 @@ const useGameStore = create<GameStore>((set, get) => ({
           householdSplit: 'proportional',
           employmentStatus: 'employed',
           unemploymentWeeks: 0,
-          careerLevel: 1,
+          careerLevel: getPartnerCareerStartingLevel(Math.max(18, preview.childAge), 'career_minded'),
+          careerProgressWeeks: 0,
+          lastEmployedWeeklyIncome: Math.max(500, Math.round((child.weeklyIncome ?? 700) * 0.8)),
           lastCareerEventWeek: currentGlobalWeek,
+          careerSystemVersion: PARTNER_CAREER_SYSTEM_VERSION,
           familyTreePersonId: `inlaw:${child.id}`,
         }
       : null;
