@@ -4,6 +4,7 @@ import {
   CorporateScaleTier,
   OwnedBusiness,
 } from '../types/game';
+import { getBusinessInsuranceTier } from './businessInsuranceEngine';
 
 export const CORPORATE_SCALE_MIN_VALUATION = 25_000_000;
 
@@ -247,6 +248,9 @@ export function makeCorporateScaleCrisis(
   const recallFull = corporateCashCost(business, 0.010, 350_000, 8_000_000);
   const recallLimited = corporateCashCost(business, 0.005, 200_000, 4_000_000);
 
+  const cyberTier = getBusinessInsuranceTier(business, 'cyber');
+  const liabilityTier = getBusinessInsuranceTier(business, 'liability');
+
   const candidates: BusinessPendingDecision[] = [
     {
       id: `corporate_cyber_${business.id}_${globalWeek}`,
@@ -254,6 +258,8 @@ export function makeCorporateScaleCrisis(
       title: 'Cybersecurity Incident',
       description: `${business.name} has suffered a serious systems and data-security incident. At this scale, the response affects customers, operations and regulators.`,
       icon: '🛡️',
+      insuranceArea: 'cyber',
+      insuranceTierAtCreation: cyberTier,
       createdGlobalWeek: globalWeek,
       deadlineGlobalWeek: globalWeek + 3,
       defaultChoiceId: 'accept_outage',
@@ -269,6 +275,8 @@ export function makeCorporateScaleCrisis(
       title: 'Regulatory Investigation',
       description: `Regulators have opened a formal review into part of ${business.name}'s operations.`,
       icon: '⚖️',
+      insuranceArea: 'liability',
+      insuranceTierAtCreation: liabilityTier,
       createdGlobalWeek: globalWeek,
       deadlineGlobalWeek: globalWeek + 3,
       defaultChoiceId: 'minimal_response',
@@ -329,6 +337,8 @@ export function makeCorporateScaleCrisis(
       title: 'Product / Service Recall',
       description: `A quality failure at ${business.name} has become large enough to require a coordinated corporate response.`,
       icon: '📣',
+      insuranceArea: 'liability',
+      insuranceTierAtCreation: liabilityTier,
       createdGlobalWeek: globalWeek,
       deadlineGlobalWeek: globalWeek + 3,
       defaultChoiceId: 'deny_scope',
