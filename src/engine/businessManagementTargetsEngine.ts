@@ -97,6 +97,17 @@ export type BusinessManagementTargetStatus = 'met' | 'near' | 'missed' | 'neutra
 
 export const MAX_MANAGEMENT_REVIEW_QUARTERS = 20;
 
+export interface BusinessManagementYearOverYearComparison {
+  comparisonYear: number;
+  quartersCompared: number[];
+  averageWeeklyRevenueChangePct: number | null;
+  profitMarginChangePctPoints: number | null;
+  payrollToRevenueChangePctPoints: number | null;
+  endingDebtChangePct: number | null;
+  maintenanceConditionChangePoints: number | null;
+  targetHitRateChangePctPoints: number | null;
+}
+
 export interface BusinessManagementYearReview {
   year: number;
   quarters: BusinessManagementQuarterReview[];
@@ -114,6 +125,7 @@ export interface BusinessManagementYearReview {
   targetTotalCount: number;
   targetHitRate: number | null;
   revenueChangePct: number | null;
+  yearOverYear: BusinessManagementYearOverYearComparison | null;
 }
 
 export interface BusinessManagementTargetResult {
@@ -525,6 +537,65 @@ export function closeCompletedBusinessManagementQuarter(
   };
 }
 
+function aggregateManagementYear(
+  year: number,
+  entries: BusinessManagementQuarterReview[],
+): BusinessManagementYearReview {
+  const quarters = [...entries].sort((a, b) => a.quarter - b.quarter);
+  const weeksTracked = quarters.reduce((sum, quarter) => sum + quarter.weeksTracked, 0);
+  const totalRevenue = quarters.reduce(
+    (sum, quarter) => sum + quarter.averageWeeklyRevenue * quarter.weeksTracked,
+    0,
+  );
+  const totalProfit = quarters.reduce(
+    (sum, quarter) => sum
+      + quarter.averageWeeklyRevenue * quarter.weeksTracked * quarter.profitMargin,
+    0,
+  );
+  const totalPayroll = quarters.reduce(
+    (sum, quarter) => sum
+      + quarter.averageWeeklyRevenue * quarter.weeksTracked * quarter.payrollToRevenueRatio,
+    0,
+  );
+  const maintenanceWeighted = quarters.reduce(
+    (sum, quarter) => sum + quarter.averageMaintenanceCondition * quarter.weeksTracked,
+    0,
+  );
+  const firstQuarter = quarters[0];
+  const lastQuarter = quarters[quarters.length - 1];
+  const targetMetCount = quarters.reduce((sum, quarter) => sum + quarter.targetMetCount, 0);
+  const targetNearCount = quarters.reduce((sum, quarter) => sum + quarter.targetNearCount, 0);
+  const targetMissedCount = quarters.reduce((sum, quarter) => sum + quarter.targetMissedCount, 0);
+  const targetTotalCount = quarters.reduce((sum, quarter) => sum + quarter.targetTotalCount, 0);
+
+  return {
+    year,
+    quarters,
+    quarterCount: quarters.length,
+    complete: quarters.length === 4 && quarters.every((quarter, index) => quarter.quarter === index + 1),
+    weeksTracked,
+    averageWeeklyRevenue: weeksTracked > 0 ? totalRevenue / weeksTracked : 0,
+    profitMargin: totalRevenue > 0 ? totalProfit / totalRevenue : 0,
+    payrollToRevenueRatio: totalRevenue > 0 ? totalPayroll / totalRevenue : 0,
+    endingDebtBalance: lastQuarter?.endingDebtBalance ?? 0,
+    averageMaintenanceCondition: weeksTracked > 0 ? maintenanceWeighted / weeksTracked : 0,
+    targetMetCount,
+    targetNearCount,
+    targetMissedCount,
+    targetTotalCount,
+    targetHitRate: targetTotalCount > 0 ? targetMetCount / targetTotalCount : null,
+    revenueChangePct: firstQuarter && lastQuarter && firstQuarter.averageWeeklyRevenue > 0 && quarters.length > 1
+      ? (lastQuarter.averageWeeklyRevenue - firstQuarter.averageWeeklyRevenue) / firstQuarter.averageWeeklyRevenue
+      : null,
+    yearOverYear: null,
+  };
+}
+
+function percentageChange(current: number, previous: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || Math.abs(previous) < 1e-9) return null;
+  return (current - previous) / Math.abs(previous);
+}
+
 export function getBusinessManagementReviewYears(
   business: OwnedBusiness,
 ): BusinessManagementYearReview[] {
@@ -535,55 +606,54 @@ export function getBusinessManagementReviewYears(
     byYear.set(review.year, entries);
   }
 
-  return [...byYear.entries()]
-    .map(([year, entries]) => {
-      const quarters = [...entries].sort((a, b) => a.quarter - b.quarter);
-      const weeksTracked = quarters.reduce((sum, quarter) => sum + quarter.weeksTracked, 0);
-      const totalRevenue = quarters.reduce(
-        (sum, quarter) => sum + quarter.averageWeeklyRevenue * quarter.weeksTracked,
-        0,
-      );
-      const totalProfit = quarters.reduce(
-        (sum, quarter) => sum
-          + quarter.averageWeeklyRevenue * quarter.weeksTracked * quarter.profitMargin,
-        0,
-      );
-      const totalPayroll = quarters.reduce(
-        (sum, quarter) => sum
-          + quarter.averageWeeklyRevenue * quarter.weeksTracked * quarter.payrollToRevenueRatio,
-        0,
-      );
-      const maintenanceWeighted = quarters.reduce(
-        (sum, quarter) => sum + quarter.averageMaintenanceCondition * quarter.weeksTracked,
-        0,
-      );
-      const firstQuarter = quarters[0];
-      const lastQuarter = quarters[quarters.length - 1];
-      const targetMetCount = quarters.reduce((sum, quarter) => sum + quarter.targetMetCount, 0);
-      const targetNearCount = quarters.reduce((sum, quarter) => sum + quarter.targetNearCount, 0);
-      const targetMissedCount = quarters.reduce((sum, quarter) => sum + quarter.targetMissedCount, 0);
-      const targetTotalCount = quarters.reduce((sum, quarter) => sum + quarter.targetTotalCount, 0);
-
-      return {
-        year,
-        quarters,
-        quarterCount: quarters.length,
-        complete: quarters.length === 4 && quarters.every((quarter, index) => quarter.quarter === index + 1),
-        weeksTracked,
-        averageWeeklyRevenue: weeksTracked > 0 ? totalRevenue / weeksTracked : 0,
-        profitMargin: totalRevenue > 0 ? totalProfit / totalRevenue : 0,
-        payrollToRevenueRatio: totalRevenue > 0 ? totalPayroll / totalRevenue : 0,
-        endingDebtBalance: lastQuarter?.endingDebtBalance ?? 0,
-        averageMaintenanceCondition: weeksTracked > 0 ? maintenanceWeighted / weeksTracked : 0,
-        targetMetCount,
-        targetNearCount,
-        targetMissedCount,
-        targetTotalCount,
-        targetHitRate: targetTotalCount > 0 ? targetMetCount / targetTotalCount : null,
-        revenueChangePct: firstQuarter && lastQuarter && firstQuarter.averageWeeklyRevenue > 0 && quarters.length > 1
-          ? (lastQuarter.averageWeeklyRevenue - firstQuarter.averageWeeklyRevenue) / firstQuarter.averageWeeklyRevenue
-          : null,
-      };
-    })
+  const years = [...byYear.entries()]
+    .map(([year, entries]) => aggregateManagementYear(year, entries))
     .sort((a, b) => b.year - a.year);
+
+  return years.map((current) => {
+    const previousEntries = byYear.get(current.year - 1);
+    if (!previousEntries?.length) return current;
+
+    const currentQuarterNumbers = new Set(current.quarters.map((quarter) => quarter.quarter));
+    const previousComparable = previousEntries
+      .filter((quarter) => currentQuarterNumbers.has(quarter.quarter))
+      .sort((a, b) => a.quarter - b.quarter);
+    const currentComparable = current.quarters.filter(
+      (quarter) => previousComparable.some((previous) => previous.quarter === quarter.quarter),
+    );
+    if (currentComparable.length === 0 || previousComparable.length === 0) return current;
+
+    const currentLikeForLike = aggregateManagementYear(current.year, currentComparable);
+    const previousLikeForLike = aggregateManagementYear(current.year - 1, previousComparable);
+    const currentTargetHitRate = currentLikeForLike.targetHitRate;
+    const previousTargetHitRate = previousLikeForLike.targetHitRate;
+
+    return {
+      ...current,
+      yearOverYear: {
+        comparisonYear: current.year - 1,
+        quartersCompared: currentComparable.map((quarter) => quarter.quarter),
+        averageWeeklyRevenueChangePct: percentageChange(
+          currentLikeForLike.averageWeeklyRevenue,
+          previousLikeForLike.averageWeeklyRevenue,
+        ),
+        profitMarginChangePctPoints: (currentLikeForLike.profitMargin - previousLikeForLike.profitMargin) * 100,
+        payrollToRevenueChangePctPoints: (
+          currentLikeForLike.payrollToRevenueRatio - previousLikeForLike.payrollToRevenueRatio
+        ) * 100,
+        endingDebtChangePct: previousLikeForLike.endingDebtBalance > 0
+          ? percentageChange(
+              currentLikeForLike.endingDebtBalance,
+              previousLikeForLike.endingDebtBalance,
+            )
+          : currentLikeForLike.endingDebtBalance <= 0 ? 0 : null,
+        maintenanceConditionChangePoints: (
+          currentLikeForLike.averageMaintenanceCondition - previousLikeForLike.averageMaintenanceCondition
+        ),
+        targetHitRateChangePctPoints: currentTargetHitRate != null && previousTargetHitRate != null
+          ? (currentTargetHitRate - previousTargetHitRate) * 100
+          : null,
+      },
+    };
+  });
 }
