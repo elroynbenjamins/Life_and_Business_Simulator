@@ -1,11 +1,13 @@
 import { createBusiness } from '../businessEngine';
 import { createCorporateWorkforce } from '../businessWorkforceEngine';
 import {
+  closeCompletedBusinessManagementQuarter,
   ensureBusinessManagementTargetPlan,
+  getBusinessManagementReviewYears,
   getBusinessManagementTargetProgress,
   setBusinessManagementTargetProfile,
 } from '../businessManagementTargetsEngine';
-import { CorporateKpiHistoryPoint, OwnedBusiness } from '../../types/game';
+import { BusinessManagementQuarterReview, CorporateKpiHistoryPoint, OwnedBusiness } from '../../types/game';
 
 const departmentProductivity = {
   operations: 100,
@@ -31,6 +33,35 @@ function point(
     departmentProductivity: { ...departmentProductivity },
     debtService: 0,
     averageMaintenanceCondition: 90,
+    ...overrides,
+  };
+}
+
+function quarterReview(
+  year: number,
+  quarter: number,
+  overrides: Partial<BusinessManagementQuarterReview> = {},
+): BusinessManagementQuarterReview {
+  const start = (year - 1) * 20 + (quarter - 1) * 5 + 1;
+  return {
+    year,
+    quarter,
+    periodStartGlobalWeek: start,
+    periodEndGlobalWeek: start + 4,
+    closedGlobalWeek: start + 5,
+    profile: 'balanced',
+    weeksTracked: 5,
+    averageWeeklyRevenue: 1_000_000 + (quarter - 1) * 100_000,
+    profitMargin: 0.20,
+    payrollToRevenueRatio: 0.30,
+    endingDebtBalance: 10_000_000 - quarter * 500_000,
+    averageMaintenanceCondition: 80,
+    targetMetCount: 4,
+    targetNearCount: 1,
+    targetMissedCount: 0,
+    targetTotalCount: 5,
+    targetResults: [],
+    partial: false,
     ...overrides,
   };
 }
@@ -230,5 +261,97 @@ describe('business management targets', () => {
     expect(progress.results).toHaveLength(5);
     expect(progress.metCount).toBe(5);
     expect(progress.missedCount).toBe(0);
+  });
+
+  test('quarter close freezes Q1 actuals and does not duplicate the review', () => {
+    let business = makeCorporateBusiness();
+    business.corporateKpiHistory = [
+      ...Array.from({ length: 5 }, (_, index) => point(16 + index)),
+      ...Array.from({ length: 5 }, (_, index) => point(21 + index, {
+        revenue: 1_100_000,
+        expenses: 800_000,
+        profit: 300_000,
+        payroll: 300_000,
+        debtBalance: 9_800_000 - index * 100_000,
+        averageMaintenanceCondition: 80,
+      })),
+    ];
+    business.managementTargets = ensureBusinessManagementTargetPlan(business, 21, 'balanced');
+
+    business = closeCompletedBusinessManagementQuarter(business, 26);
+    const review = business.managementReviewHistory?.[0];
+
+    expect(review).toBeDefined();
+    expect(review?.year).toBe(2);
+    expect(review?.quarter).toBe(1);
+    expect(review?.weeksTracked).toBe(5);
+    expect(review?.averageWeeklyRevenue).toBe(1_100_000);
+    expect(review?.profitMargin).toBeCloseTo(300_000 / 1_100_000, 4);
+    expect(review?.endingDebtBalance).toBe(9_400_000);
+    expect(review?.targetMetCount).toBe(5);
+    expect(review?.partial).toBe(false);
+
+    business = closeCompletedBusinessManagementQuarter(business, 27);
+    expect(business.managementReviewHistory).toHaveLength(1);
+  });
+
+  test('late-start target quarters are archived as partial reviews', () => {
+    let business = makeCorporateBusiness();
+    business.corporateKpiHistory = [
+      ...Array.from({ length: 5 }, (_, index) => point(16 + index)),
+      ...Array.from({ length: 5 }, (_, index) => point(21 + index, {
+        debtBalance: 10_000_000,
+      })),
+    ];
+    business.managementTargets = ensureBusinessManagementTargetPlan(business, 25, 'balanced');
+
+    business = closeCompletedBusinessManagementQuarter(business, 26);
+
+    expect(business.managementReviewHistory?.[0].partial).toBe(true);
+  });
+
+  test('annual review summarizes Q1 through Q4 for a completed game year', () => {
+    const business = makeCorporateBusiness();
+    business.managementReviewHistory = [
+      quarterReview(2, 1, { averageWeeklyRevenue: 1_000_000, profitMargin: 0.20, targetMetCount: 4 }),
+      quarterReview(2, 2, { averageWeeklyRevenue: 1_100_000, profitMargin: 0.22, targetMetCount: 5 }),
+      quarterReview(2, 3, { averageWeeklyRevenue: 1_200_000, profitMargin: 0.24, targetMetCount: 3, targetMissedCount: 1 }),
+      quarterReview(2, 4, { averageWeeklyRevenue: 1_300_000, profitMargin: 0.26, endingDebtBalance: 7_500_000, targetMetCount: 5 }),
+    ];
+
+    const years = getBusinessManagementReviewYears(business);
+    const year = years[0];
+
+    expect(year.year).toBe(2);
+    expect(year.complete).toBe(true);
+    expect(year.quarterCount).toBe(4);
+    expect(year.weeksTracked).toBe(20);
+    expect(year.averageWeeklyRevenue).toBe(1_150_000);
+    expect(year.endingDebtBalance).toBe(7_500_000);
+    expect(year.targetMetCount).toBe(17);
+    expect(year.targetTotalCount).toBe(20);
+    expect(year.targetHitRate).toBeCloseTo(0.85, 4);
+    expect(year.revenueChangePct).toBeCloseTo(0.30, 4);
+  });
+
+  test('history retention keeps the latest five game years', () => {
+    let business = makeCorporateBusiness();
+    business.managementReviewHistory = Array.from({ length: 5 }, (_, yearIndex) =>
+      [1, 2, 3, 4].map((quarter) => quarterReview(yearIndex + 1, quarter))
+    ).flat();
+    business.corporateKpiHistory = [
+      ...Array.from({ length: 5 }, (_, index) => point(96 + index)),
+      ...Array.from({ length: 5 }, (_, index) => point(101 + index, {
+        debtBalance: 8_000_000 - index * 100_000,
+      })),
+    ];
+    business.managementTargets = ensureBusinessManagementTargetPlan(business, 101, 'balanced');
+
+    business = closeCompletedBusinessManagementQuarter(business, 106);
+    const years = getBusinessManagementReviewYears(business).map((year) => year.year);
+
+    expect(years).toEqual([6, 5, 4, 3, 2]);
+    expect(business.managementReviewHistory?.some((review) => review.year === 1)).toBe(false);
+    expect(business.managementReviewHistory?.length).toBeLessThanOrEqual(20);
   });
 });
