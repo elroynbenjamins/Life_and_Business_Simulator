@@ -1101,6 +1101,7 @@ export interface BusinessBoardGovernance {
   confidence: number;
   establishedYear: number;
   lastReviewYear: number;
+  lastMandateChangeGlobalWeek: number;
   lastReviewSummary: string;
 }
 
