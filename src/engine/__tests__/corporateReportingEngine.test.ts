@@ -291,6 +291,54 @@ describe('corporate management reporting', () => {
     expect(integration?.title).toContain('drag eased');
   });
 
+  test('annual YTD variance compares weekly averages against the prior full year', () => {
+    const business = makeCorporateBusiness();
+    business.corporateKpiHistory = [
+      ...Array.from({ length: 20 }, (_, index) => point(1 + index, {
+        revenue: 1_000_000,
+        expenses: 700_000,
+        profit: 300_000,
+      })),
+      ...Array.from({ length: 5 }, (_, index) => point(21 + index, {
+        revenue: 1_000_000,
+        expenses: 700_000,
+        profit: 300_000,
+      })),
+    ];
+    business.lastWeekRevenue = 1_000_000;
+    business.lastWeekExpenses = 700_000;
+    business.lastWeekProfit = 300_000;
+
+    const report = getCorporateManagementReport(business, 25, 'annual', 1)!;
+
+    expect(report.weeksTracked).toBe(5);
+    expect(report.revenueChangePct).toBeCloseTo(0, 6);
+    expect(report.expensesChangePct).toBeCloseTo(0, 6);
+    expect(report.profitMarginChangePctPoints).toBeCloseTo(0, 6);
+  });
+
+  test('new KPI snapshots persist richer workforce and upkeep drivers', () => {
+    let business = makeCorporateBusiness();
+    business.reinvestment = {
+      technology: { condition: 60, lastRenewedGlobalWeek: 1 },
+      premises: { condition: 70, lastRenewedGlobalWeek: 1 },
+      equipment: { condition: 65, lastRenewedGlobalWeek: 1 },
+    };
+    business.corporateWorkforce!.departments.operations.averageSkill = 82;
+    business.corporateWorkforce!.departments.operations.morale = 55;
+    business.corporateWorkforce!.employeeRelations = 61;
+
+    business = appendCorporateKpiSnapshot(business, 10);
+    const snapshot = business.corporateKpiHistory?.find((entry) => entry.globalWeek === 10);
+
+    expect(snapshot?.averageDepartmentSkill).toBeDefined();
+    expect(snapshot?.averageDepartmentMorale).toBeDefined();
+    expect(snapshot?.employeeRelations).toBe(61);
+    expect(snapshot?.maintenanceRevenuePenalty).toBeGreaterThan(0);
+    expect(snapshot?.maintenanceExpenseIncrease).toBeGreaterThan(0);
+    expect(snapshot?.reputation).toBe(80);
+  });
+
   test('completed corporate investments receive a direct operating ROI estimate', () => {
     const business = makeCorporateBusiness();
     business.completedCorporateCapex = [{
