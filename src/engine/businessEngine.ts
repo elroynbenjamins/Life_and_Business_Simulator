@@ -667,6 +667,11 @@ export function getAllProjects() { return projectsData as any[]; }
 
 /** Business meets minimum staffing? */
 export function meetsMinStaffing(biz: OwnedBusiness): boolean {
+  if (biz.corporateWorkforce) {
+    const departmentHeadcount = Object.values(biz.corporateWorkforce.departments ?? {})
+      .reduce((sum, department: any) => sum + Math.max(0, department?.headcount ?? 0), 0);
+    if (departmentHeadcount > 0) return true;
+  }
   return (biz.employees?.length ?? 0) >= MIN_EMPLOYEES_REQUIRED;
 }
 
