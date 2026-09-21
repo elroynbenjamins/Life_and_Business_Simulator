@@ -59,8 +59,8 @@ export default function BusinessPortfolioScreen() {
   const netWorth = getNetWorthValue();
   const acquisitionsUnlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
   const summary = useMemo(
-    () => getBusinessEmpireSummary(businesses, holdingCompanies),
-    [businesses, holdingCompanies],
+    () => getBusinessEmpireSummary(businesses, holdingCompanies, currentYear),
+    [businesses, holdingCompanies, currentYear],
   );
 
   const sortedBusinesses = useMemo(() => {
