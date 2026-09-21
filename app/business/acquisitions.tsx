@@ -13,6 +13,7 @@ import {
   ACQUISITION_UNLOCK_NET_WORTH,
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
+  getAcquisitionTransactionCost,
 } from '../../src/engine/acquisitionEngine';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
 import { AcquisitionFundingMode } from '../../src/types/game';
@@ -74,6 +75,8 @@ export default function BusinessAcquisitionsScreen() {
     if (!target) return;
     const price = getAcquisitionPrice(target, negotiationBonus);
     const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction);
+    const transactionCost = getAcquisitionTransactionCost(target, price);
+    const totalCashNeeded = quote.cashContribution + transactionCost;
     const destination = selectedHolding?.name ?? 'your direct portfolio';
     const debtText = quote.debtPrincipal > 0
       ? ` + ${formatCurrency(quote.debtPrincipal)} acquisition debt (${formatCurrency(quote.weeklyPayment)}/wk)`
@@ -81,7 +84,7 @@ export default function BusinessAcquisitionsScreen() {
 
     showGameDialog({
       title: `Acquire ${target.name}?`,
-      message: `${formatCurrency(quote.cashContribution)} cash${debtText}. The company will enter ${destination}. After closing, choose Keep Independent, Integrate Operations, or Aggressive Turnaround.`,
+      message: `${formatCurrency(totalCashNeeded)} total cash at closing (${formatCurrency(quote.cashContribution)} equity + ${formatCurrency(transactionCost)} advisory/legal costs)${debtText}. The company will enter ${destination}. After closing, choose Keep Independent, Integrate Operations, or Aggressive Turnaround.`,
       confirmText: 'Acquire',
       onConfirm: () => acquireBusiness(target.id, selectedHoldingId, fundingMode),
     });
@@ -211,11 +214,13 @@ export default function BusinessAcquisitionsScreen() {
               const risk = RISK_LABELS[target.risk];
               const price = getAcquisitionPrice(target, negotiationBonus);
               const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction);
+              const transactionCost = getAcquisitionTransactionCost(target, price);
+              const totalCashNeeded = quote.cashContribution + transactionCost;
               const premiumPct = target.estimatedValue > 0
                 ? Math.round((price / target.estimatedValue - 1) * 100)
                 : 0;
               const debtServiceSafe = quote.weeklyPayment <= Math.max(1, target.weeklyProfit) * 0.80;
-              const canAfford = sourceCash >= quote.cashContribution && debtServiceSafe;
+              const canAfford = sourceCash >= totalCashNeeded && debtServiceSafe;
 
               return (
                 <GameCard key={target.id}>
@@ -225,7 +230,9 @@ export default function BusinessAcquisitionsScreen() {
                     </View>
                     <View style={styles.targetNameWrap}>
                       <Text style={styles.targetName}>{target.name}</Text>
-                      <Text style={styles.targetMeta}>{target.industry} • {target.tier.toUpperCase()}</Text>
+                      <Text style={styles.targetMeta}>
+                        {target.industry} • {target.tier.toUpperCase()} • {target.companyAgeYears ?? 8}y operating history
+                      </Text>
                     </View>
                     <View style={[styles.riskBadge, { borderColor: risk.color }]}>
                       <Text style={[styles.riskText, { color: risk.color }]}>{risk.label}</Text>
@@ -251,12 +258,16 @@ export default function BusinessAcquisitionsScreen() {
 
                   <View style={styles.metrics}>
                     <View style={styles.metric}>
-                      <Text style={styles.metricLabel}>Cash needed</Text>
-                      <Text style={styles.metricValue}>{formatCurrency(quote.cashContribution)}</Text>
+                      <Text style={styles.metricLabel}>Cash at closing</Text>
+                      <Text style={styles.metricValue}>{formatCurrency(totalCashNeeded)}</Text>
                     </View>
                     <View style={styles.metric}>
                       <Text style={styles.metricLabel}>Financed</Text>
                       <Text style={styles.metricValue}>{formatCurrency(quote.debtPrincipal)}</Text>
+                    </View>
+                    <View style={styles.metric}>
+                      <Text style={styles.metricLabel}>Closing costs</Text>
+                      <Text style={styles.metricValue}>{formatCurrency(transactionCost)}</Text>
                     </View>
                     <View style={styles.metric}>
                       <Text style={styles.metricLabel}>Debt service</Text>
@@ -281,14 +292,80 @@ export default function BusinessAcquisitionsScreen() {
                     </View>
                   </View>
 
-                  <View style={styles.diligenceBox}>
-                    <Text style={styles.diligenceTitle}>Due diligence</Text>
-                    {target.diligenceNotes.map((note) => (
-                      <View key={note} style={styles.noteRow}>
-                        <View style={[styles.noteDot, { backgroundColor: risk.color }]} />
-                        <Text style={styles.noteText}>{note}</Text>
+                  <View style={styles.profileBox}>
+                    <View style={styles.profileHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.diligenceTitle}>Company profile</Text>
+                        <Text style={styles.profileReason}>{target.sellerReason ?? target.sellerName}</Text>
                       </View>
-                    ))}
+                      <Text style={styles.profileAge}>{target.companyAgeYears ?? 8} years</Text>
+                    </View>
+                    {(target.traits ?? []).length > 0 && (
+                      <View style={styles.traitRow}>
+                        {(target.traits ?? []).map((trait) => (
+                          <View
+                            key={trait.id}
+                            style={[
+                              styles.traitChip,
+                              trait.kind === 'strength' ? styles.traitStrength : styles.traitRisk,
+                            ]}
+                          >
+                            <Ionicons
+                              name={trait.kind === 'strength' ? 'sparkles-outline' : 'warning-outline'}
+                              size={11}
+                              color={trait.kind === 'strength' ? Colors.primary : Colors.warning}
+                            />
+                            <Text
+                              style={[
+                                styles.traitText,
+                                { color: trait.kind === 'strength' ? Colors.primary : Colors.warning },
+                              ]}
+                            >
+                              {trait.name}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.diligenceBox}>
+                    <Text style={styles.diligenceTitle}>Due diligence • {target.diligenceScore}/100</Text>
+                    {(target.diligenceFindings?.length
+                      ? target.diligenceFindings
+                      : target.diligenceNotes.map((note, index) => ({
+                          id: `fallback_${index}`,
+                          title: note,
+                          kind: 'neutral' as const,
+                          description: 'Due-diligence observation.',
+                        }))
+                    ).map((finding) => {
+                      const findingColor = finding.kind === 'strength'
+                        ? Colors.primary
+                        : finding.kind === 'risk'
+                          ? Colors.warning
+                          : Colors.info;
+                      return (
+                        <View key={finding.id} style={styles.findingRow}>
+                          <View style={[styles.findingIcon, { borderColor: findingColor }]}>
+                            <Ionicons
+                              name={finding.kind === 'strength' ? 'checkmark' : finding.kind === 'risk' ? 'alert' : 'information'}
+                              size={10}
+                              color={findingColor}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.findingTitle, { color: findingColor }]}>{finding.title}</Text>
+                            <Text style={styles.findingText}>{finding.description}</Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                    <Text style={styles.integrationText}>
+                      Persistent operating profile: {((target.persistentRevenueModifier ?? 0) * 100) >= 0 ? '+' : ''}
+                      {((target.persistentRevenueModifier ?? 0) * 100).toFixed(1)}% revenue • {((target.persistentExpenseModifier ?? 0) * 100) >= 0 ? '+' : ''}
+                      {((target.persistentExpenseModifier ?? 0) * 100).toFixed(1)}% expenses.
+                    </Text>
                     <Text style={styles.integrationText}>
                       Base integration: {target.integrationWeeks} weeks • {Math.round(target.integrationPenalty * 100)}% disruption. You choose the integration approach after closing.
                     </Text>
@@ -302,7 +379,7 @@ export default function BusinessAcquisitionsScreen() {
                       style={[styles.acquireButton, !canAfford && styles.acquireButtonDisabled]}
                     >
                       <Text style={[styles.acquireText, !canAfford && styles.acquireTextDisabled]}>
-                        {!debtServiceSafe ? 'Too leveraged' : sourceCash < quote.cashContribution ? 'Need cash' : 'Acquire'}
+                        {!debtServiceSafe ? 'Too leveraged' : sourceCash < totalCashNeeded ? 'Need cash' : 'Acquire'}
                       </Text>
                     </Pressable>
                   </View>
@@ -362,12 +439,22 @@ const styles = StyleSheet.create({
   metric: { flex: 1, minWidth: 0 },
   metricLabel: { color: Colors.textMuted, fontSize: 9 },
   metricValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', marginTop: 3 },
-  diligenceBox: { backgroundColor: Colors.elevated, borderRadius: 10, padding: 10, marginTop: 12 },
+  profileBox: { backgroundColor: '#14202F', borderRadius: 10, padding: 10, marginTop: 12, borderWidth: 1, borderColor: Colors.cardBorder },
+  profileHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  profileReason: { color: Colors.textSecondary, fontSize: 10, marginTop: 2 },
+  profileAge: { color: Colors.info, fontSize: 10, fontWeight: '800' },
+  traitRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
+  traitChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 12, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 5 },
+  traitStrength: { borderColor: `${Colors.primary}55`, backgroundColor: `${Colors.primary}10` },
+  traitRisk: { borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}10` },
+  traitText: { fontSize: 9, fontWeight: '800' },
+  diligenceBox: { backgroundColor: Colors.elevated, borderRadius: 10, padding: 10, marginTop: 8 },
   diligenceTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', marginBottom: 6 },
-  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
-  noteDot: { width: 6, height: 6, borderRadius: 3 },
-  noteText: { color: Colors.textSecondary, fontSize: 10, flex: 1 },
-  integrationText: { color: Colors.textMuted, fontSize: 9, marginTop: 8 },
+  findingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, marginTop: 7 },
+  findingIcon: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  findingTitle: { fontSize: 10, fontWeight: '800' },
+  findingText: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 1 },
+  integrationText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 8 },
   sellerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, gap: 12 },
   sellerText: { color: Colors.textMuted, fontSize: 10, flex: 1 },
   acquireButton: { minWidth: 100, alignItems: 'center', backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
