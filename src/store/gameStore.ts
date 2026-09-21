@@ -1807,7 +1807,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const updates = { cash, relationshipState };
     const preview = plan === 'trying' ? getFamilyPlanningPreview(state) : null;
     const planningNote = preview
-      ? ` Expected first child costs about ${formatCurrencySafe(preview.childCost)}/wk${preview.familySupport > 0 ? ` before ${formatCurrencySafe(preview.familySupport)}/wk support` : ''}.${preview.recommendedHousing ? ` You should move to ${preview.recommendedHousing} for enough space.` : ''}`
+      ? ` Expected first child costs about ${formatCurrencySafe(preview.childCost)}/wk${preview.familySupport > 0 ? ` before ${formatCurrencySafe(preview.familySupport)}/wk support` : ''}.${preview.recommendedHousing ? ` You should move to ${preview.recommendedHousing} for enough space.` : ''} The default family work schedule after birth is Both 80% until the youngest child reaches 6, and you can change it later.`
       : '';
     const familyFeedback = plan === 'trying'
       ? (acceptedPlan === 'trying' && familyExpansionWeeksRemaining > 0
