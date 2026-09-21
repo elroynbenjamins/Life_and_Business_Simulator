@@ -1,4 +1,6 @@
 import {
+  AcquisitionCompanyTrait,
+  AcquisitionDiligenceFinding,
   AcquisitionFundingMode,
   AcquisitionIntegrationStrategy,
   AcquisitionRisk,
@@ -38,6 +40,109 @@ const SELLERS = [
   'Growth fund exit', 'Management consortium', 'Strategic divestment',
 ];
 
+const SELLER_REASONS = [
+  { label: 'Founder retirement', premiumMin: 1.11, premiumMax: 1.21 },
+  { label: 'Family succession transition', premiumMin: 1.12, premiumMax: 1.23 },
+  { label: 'Private equity fund exit', premiumMin: 1.18, premiumMax: 1.30 },
+  { label: 'Strategic portfolio divestment', premiumMin: 1.13, premiumMax: 1.25 },
+  { label: 'Owners reallocating capital', premiumMin: 1.12, premiumMax: 1.22 },
+  { label: 'Performance and liquidity pressure', premiumMin: 1.10, premiumMax: 1.18 },
+] as const;
+
+const STRENGTH_TRAITS: AcquisitionCompanyTrait[] = [
+  {
+    id: 'strong_brand',
+    name: 'Strong Brand',
+    kind: 'strength',
+    description: 'Established customer recognition supports pricing power and repeat demand.',
+    revenueModifier: 0.025,
+    expenseModifier: 0,
+  },
+  {
+    id: 'efficient_operations',
+    name: 'Efficient Operations',
+    kind: 'strength',
+    description: 'Mature processes keep operating costs below comparable companies.',
+    revenueModifier: 0,
+    expenseModifier: -0.03,
+  },
+  {
+    id: 'loyal_customers',
+    name: 'Loyal Customers',
+    kind: 'strength',
+    description: 'A sticky customer base provides a modest recurring revenue advantage.',
+    revenueModifier: 0.02,
+    expenseModifier: 0,
+  },
+  {
+    id: 'experienced_management',
+    name: 'Experienced Management',
+    kind: 'strength',
+    description: 'A seasoned leadership team improves execution and operating discipline.',
+    revenueModifier: 0.01,
+    expenseModifier: -0.01,
+  },
+  {
+    id: 'premium_customer_base',
+    name: 'Premium Customer Base',
+    kind: 'strength',
+    description: 'Higher-value customers lift revenue, though servicing them is slightly more expensive.',
+    revenueModifier: 0.03,
+    expenseModifier: 0.01,
+  },
+];
+
+const RISK_TRAITS: AcquisitionCompanyTrait[] = [
+  {
+    id: 'legacy_systems',
+    name: 'Legacy Systems',
+    kind: 'risk',
+    description: 'Older systems create friction and modestly raise ongoing operating costs.',
+    revenueModifier: -0.005,
+    expenseModifier: 0.03,
+  },
+  {
+    id: 'customer_concentration',
+    name: 'Customer Concentration',
+    kind: 'risk',
+    description: 'A few major customers account for too much revenue, reducing resilience.',
+    revenueModifier: -0.02,
+    expenseModifier: 0,
+  },
+  {
+    id: 'high_staff_turnover',
+    name: 'High Staff Turnover',
+    kind: 'risk',
+    description: 'Recruitment and onboarding churn increase costs and weaken execution.',
+    revenueModifier: -0.01,
+    expenseModifier: 0.025,
+  },
+  {
+    id: 'deferred_maintenance',
+    name: 'Deferred Maintenance',
+    kind: 'risk',
+    description: 'Past underinvestment leaves a higher ongoing maintenance burden.',
+    revenueModifier: -0.005,
+    expenseModifier: 0.035,
+  },
+  {
+    id: 'founder_dependency',
+    name: 'Founder Dependence',
+    kind: 'risk',
+    description: 'Important customer and operating relationships still depend heavily on the seller.',
+    revenueModifier: -0.025,
+    expenseModifier: 0,
+  },
+  {
+    id: 'margin_pressure',
+    name: 'Margin Pressure',
+    kind: 'risk',
+    description: 'Competitive pricing pressure reduces revenue quality and pushes costs higher.',
+    revenueModifier: -0.015,
+    expenseModifier: 0.015,
+  },
+];
+
 const TARGET_BANDS: Array<{ tier: AcquisitionTier; min: number; max: number }> = [
   { tier: 'regional', min: 7_500_000, max: 18_000_000 },
   { tier: 'regional', min: 10_000_000, max: 24_000_000 },
@@ -69,16 +174,92 @@ function integrationPenaltyForRisk(risk: AcquisitionRisk): number {
   return risk === 'low' ? 0.05 : risk === 'medium' ? 0.10 : 0.16;
 }
 
-function diligenceIssues(risk: AcquisitionRisk): string[] {
+function acquisitionCompanyAgeYears(tier: AcquisitionTier): number {
+  if (tier === 'enterprise') return Math.round(randomBetween(14, 45));
+  if (tier === 'national') return Math.round(randomBetween(9, 30));
+  return Math.round(randomBetween(5, 18));
+}
+
+function pickTrait(pool: AcquisitionCompanyTrait[], excludedIds = new Set<string>()): AcquisitionCompanyTrait {
+  const eligible = pool.filter((trait) => !excludedIds.has(trait.id));
+  return eligible[Math.floor(Math.random() * Math.max(1, eligible.length))] ?? pool[0];
+}
+
+function acquisitionTraitsForRisk(risk: AcquisitionRisk): AcquisitionCompanyTrait[] {
+  const selected: AcquisitionCompanyTrait[] = [];
+  const ids = new Set<string>();
+  const add = (trait: AcquisitionCompanyTrait) => {
+    if (!ids.has(trait.id)) {
+      selected.push({ ...trait });
+      ids.add(trait.id);
+    }
+  };
+
   if (risk === 'low') {
-    return ['Audited financials', Math.random() < 0.5 ? 'Stable management team' : 'Diversified customer base'];
+    add(pickTrait(STRENGTH_TRAITS, ids));
+    if (Math.random() < 0.65) add(pickTrait(STRENGTH_TRAITS, ids));
+  } else if (risk === 'medium') {
+    add(pickTrait(STRENGTH_TRAITS, ids));
+    add(pickTrait(RISK_TRAITS, ids));
+  } else {
+    add(pickTrait(RISK_TRAITS, ids));
+    if (Math.random() < 0.70) add(pickTrait(RISK_TRAITS, ids));
+    else add(pickTrait(STRENGTH_TRAITS, ids));
   }
-  if (risk === 'medium') {
-    const pool = ['Customer concentration', 'Key-person dependency', 'Margin pressure', 'Aging systems'];
-    return pool.sort(() => Math.random() - 0.5).slice(0, 2);
+  return selected.slice(0, 2);
+}
+
+function buildDiligenceFindings(
+  diligenceScore: number,
+  risk: AcquisitionRisk,
+  traits: AcquisitionCompanyTrait[],
+): AcquisitionDiligenceFinding[] {
+  const findings: AcquisitionDiligenceFinding[] = traits.map((trait) => ({
+    id: `trait_${trait.id}`,
+    title: trait.name,
+    kind: trait.kind,
+    description: trait.description,
+  }));
+  findings.push({
+    id: 'financial_quality',
+    title: diligenceScore >= 80 ? 'Clean Financial Reporting' : diligenceScore >= 64 ? 'Some Normalization Required' : 'Financial Quality Concerns',
+    kind: diligenceScore >= 80 ? 'strength' : diligenceScore >= 64 ? 'neutral' : 'risk',
+    description: diligenceScore >= 80
+      ? 'Historical reporting is consistent and requires little adjustment.'
+      : diligenceScore >= 64
+        ? 'Some owner-specific or one-off costs need normalization, but the earnings picture is usable.'
+        : 'Working-capital, accounting, or one-off items make the earnings picture less certain.',
+  });
+  if (risk === 'high') {
+    findings.push({
+      id: 'integration_complexity',
+      title: 'Higher Integration Complexity',
+      kind: 'risk',
+      description: 'The operating model will require more time and management attention after closing.',
+    });
   }
-  const pool = ['Deferred maintenance', 'Debt refinancing risk', 'Customer concentration', 'Management turnover', 'Margin pressure', 'Compliance remediation'];
-  return pool.sort(() => Math.random() - 0.5).slice(0, 3);
+  return findings.slice(0, 4);
+}
+
+function getTraitOperatingModifiers(traits: AcquisitionCompanyTrait[]): { revenue: number; expense: number } {
+  return {
+    revenue: clamp(traits.reduce((sum, trait) => sum + (trait.revenueModifier ?? 0), 0), -0.05, 0.05),
+    expense: clamp(traits.reduce((sum, trait) => sum + (trait.expenseModifier ?? 0), 0), -0.05, 0.05),
+  };
+}
+
+export function getAcquisitionTransactionCostRate(tier: AcquisitionTier): number {
+  if (tier === 'enterprise') return 0.02;
+  if (tier === 'national') return 0.0175;
+  return 0.015;
+}
+
+export function getAcquisitionTransactionCost(
+  target: Pick<BusinessAcquisitionTarget, 'tier' | 'acquisitionTransactionCostRate'>,
+  purchasePrice: number,
+): number {
+  const rate = clamp(target.acquisitionTransactionCostRate ?? getAcquisitionTransactionCostRate(target.tier), 0.01, 0.03);
+  return Math.round(Math.max(0, purchasePrice) * rate);
 }
 
 function uniqueTypeIds(): string[] {
@@ -210,9 +391,14 @@ export function generateAcquisitionTargets(
     const weeklyRevenue = Math.round(weeklyProfit / margin);
     const diligenceScore = Math.round(randomBetween(50, 94));
     const risk = riskFromDiligence(diligenceScore);
-    // Established companies should normally command a control premium rather than
-    // spawning as instant below-fair-value arbitrage opportunities.
-    const premium = randomBetween(1.10, 1.30);
+    const traits = acquisitionTraitsForRisk(risk);
+    const traitModifiers = getTraitOperatingModifiers(traits);
+    const diligenceFindings = buildDiligenceFindings(diligenceScore, risk, traits);
+    const sellerReasonProfile = SELLER_REASONS[Math.floor(Math.random() * SELLER_REASONS.length)];
+    // Established companies command a control premium. Seller circumstances
+    // alter the premium range, but even pressured sales do not spawn as instant
+    // below-fair-value arbitrage opportunities.
+    const premium = randomBetween(sellerReasonProfile.premiumMin, sellerReasonProfile.premiumMax);
     const askingPrice = Math.round(estimatedValue * premium);
     const prefix = COMPANY_PREFIXES[Math.floor(Math.random() * COMPANY_PREFIXES.length)];
     const suffix = COMPANY_SUFFIXES[Math.floor(Math.random() * COMPANY_SUFFIXES.length)];
@@ -230,7 +416,14 @@ export function generateAcquisitionTargets(
       reputation,
       diligenceScore,
       risk,
-      diligenceNotes: diligenceIssues(risk),
+      diligenceNotes: diligenceFindings.map((finding) => finding.title),
+      companyAgeYears: acquisitionCompanyAgeYears(band.tier),
+      sellerReason: sellerReasonProfile.label,
+      traits,
+      diligenceFindings,
+      persistentRevenueModifier: traitModifiers.revenue,
+      persistentExpenseModifier: traitModifiers.expense,
+      acquisitionTransactionCostRate: getAcquisitionTransactionCostRate(band.tier),
       integrationWeeks: integrationWeeksForRisk(risk),
       integrationPenalty: integrationPenaltyForRisk(risk),
       sellerName: SELLERS[Math.floor(Math.random() * SELLERS.length)],
@@ -282,6 +475,7 @@ export function createAcquiredBusiness(
   if (!base || !type) return null;
 
   const financing = getAcquisitionFinancingQuote(purchasePrice, fundingMode, loanRateReduction);
+  const acquisitionTransactionCost = getAcquisitionTransactionCost(target, financing.purchasePrice);
   const employees = createAcquisitionEmployees(target, state.inflationMultiplier);
   const level = target.tier === 'enterprise' ? 7 : target.tier === 'national' ? 6 : 5;
   const currentGlobalWeek = ((state.year - 1) * 20) + state.week;
@@ -354,7 +548,7 @@ export function createAcquiredBusiness(
     operatingScaleMultiplier,
     holdingCompanyId,
     portfolioIntent: 'active',
-    capitalInvested: financing.cashContribution,
+    capitalInvested: financing.cashContribution + acquisitionTransactionCost,
     totalPlayerDistributions: 0,
     acquisition: {
       assetBaselineVersion: 1,
@@ -376,6 +570,14 @@ export function createAcquiredBusiness(
       postIntegrationExpenseReduction: 0,
       initialRisk: target.risk,
       diligenceScore: target.diligenceScore,
+      companyAgeYears: target.companyAgeYears ?? 8,
+      sellerReason: target.sellerReason ?? target.sellerName,
+      traits: (target.traits ?? []).map((trait) => ({ ...trait })),
+      diligenceFindings: (target.diligenceFindings ?? []).map((finding) => ({ ...finding })),
+      persistentRevenueModifier: target.persistentRevenueModifier ?? 0,
+      persistentExpenseModifier: target.persistentExpenseModifier ?? 0,
+      acquisitionTransactionCost,
+      acquisitionTransactionCostRate: target.acquisitionTransactionCostRate ?? getAcquisitionTransactionCostRate(target.tier),
       additionalCapitalInvested: 0,
       quotedWeeklyRevenue: target.weeklyRevenue,
       quotedWeeklyProfit: target.weeklyProfit,
@@ -396,8 +598,8 @@ export function createAcquiredBusiness(
         week: state.week,
         year: state.year,
         title: fundingMode === 'cash'
-          ? `🤝 Acquired for €${Math.round(financing.purchasePrice).toLocaleString('en-US')} cash`
-          : `🤝 Acquired with ${Math.round(financing.leveragePct * 100)}% acquisition financing`,
+          ? `🤝 Acquired for €${Math.round(financing.purchasePrice).toLocaleString('en-US')} + €${Math.round(acquisitionTransactionCost).toLocaleString('en-US')} closing costs`
+          : `🤝 Acquired with ${Math.round(financing.leveragePct * 100)}% financing + €${Math.round(acquisitionTransactionCost).toLocaleString('en-US')} closing costs`,
         icon: '🤝',
         kind: 'event' as const,
       },
@@ -489,12 +691,14 @@ export function getAcquisitionReturn(business: OwnedBusiness) {
   if (!business.acquisition) return null;
   const investedCapital = Math.max(
     1,
-    (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
-      + (business.acquisition.additionalCapitalInvested ?? 0),
+    business.capitalInvested
+      ?? ((business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
+        + (business.acquisition.acquisitionTransactionCost ?? 0)
+        + (business.acquisition.additionalCapitalInvested ?? 0)),
   );
   const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
   const equityValue = Math.max(0, (business.valuation ?? 0) - debt);
-  const gain = equityValue - investedCapital;
+  const gain = equityValue + Math.max(0, business.totalPlayerDistributions ?? 0) - investedCapital;
   return {
     investedCapital,
     debt,
