@@ -181,6 +181,7 @@ export default function BusinessPortfolioScreen() {
               annualReport={annualManagementReport}
               period={managementReportPeriod}
               onPeriodChange={setManagementReportPeriod}
+              onCompanyPress={(businessId) => router.push(`/business/${businessId}`)}
             />
           </GameCard>
         )}
