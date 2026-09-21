@@ -144,6 +144,37 @@ describe('business budget engine', () => {
     expect(result.dividendPaid).toBe(10_000);
   });
 
+  test('automatic debt paydown does not raid existing upkeep or growth earmarks', () => {
+    const business = makeBusiness({
+      budgetPlan: createBusinessBudgetPlan('deleveraging', 3),
+      budgetReserves: { reinvestment: 100_000, growth: 100_000 },
+      businessLoans: [{
+        id: 'loan',
+        amount: 100_000,
+        remainingAmount: 100_000,
+        weeklyPayment: 5_000,
+        weeksRemaining: 20,
+        interestRate: 0.12,
+        purpose: 'operating',
+      }],
+    });
+    const result = applyBusinessBudgetWeek({
+      business,
+      balanceBeforeBudget: 310_000,
+      profit: 100_000,
+      totalExpenses: 10_000,
+      loans: business.businessLoans,
+      currentWeek: 5,
+      currentYear: 3,
+      inflationMultiplier: 1,
+    });
+
+    // 10-week operating reserve = 100k, plus 200k existing earmarks.
+    expect(result.snapshot.extraDebtPaid).toBe(10_000);
+    expect(result.reserves.reinvestment).toBeGreaterThanOrEqual(100_000);
+    expect(result.reserves.growth).toBeGreaterThanOrEqual(100_000);
+  });
+
   test('growth and reinvestment earmarks are labels inside company cash and have bounded targets', () => {
     const business = makeBusiness({ valuation: 10_000_000 });
     const targets = getBusinessBudgetReserveTargets(business, 100_000, 1);
