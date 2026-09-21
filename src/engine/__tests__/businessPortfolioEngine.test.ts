@@ -7,6 +7,7 @@ import {
   getBusinessSaleTransactionCostRate,
 } from '../businessPortfolioEngine';
 import { OwnedBusiness } from '../../types/game';
+import { createBusinessBudgetPlan } from '../businessBudgetEngine';
 
 function makeBusiness(): OwnedBusiness {
   const business = createBusiness('coffee_shop', 'Ledger Coffee', 1, 2, 1)!;
@@ -171,6 +172,31 @@ describe('business portfolio engine', () => {
     expect(seasonedRate).toBeCloseTo(0.025);
     expect(getBusinessSaleQuote(business, 5, 3).netSaleProceeds)
       .toBeLessThan(getBusinessSaleQuote(business, 20, 4).netSaleProceeds);
+  });
+
+  test('annual budget review due counts as portfolio attention for mature companies', () => {
+    const business = {
+      ...makeBusiness(),
+      level: 4,
+      pendingDecision: null,
+      pendingRetention: null,
+      acquisition: null,
+      reinvestment: {
+        technology: { condition: 100, lastRenewedGlobalWeek: 1 },
+        premises: { condition: 100, lastRenewedGlobalWeek: 1 },
+        equipment: { condition: 100, lastRenewedGlobalWeek: 1 },
+      },
+      insurancePolicies: {
+        property: 'standard' as const,
+        equipment: 'standard' as const,
+        cyber: 'standard' as const,
+        liability: 'standard' as const,
+      },
+      budgetPlan: createBusinessBudgetPlan('balanced', 3),
+    };
+
+    expect(getBusinessEmpireSummary([business], [], 3).attentionCount).toBe(0);
+    expect(getBusinessEmpireSummary([business], [], 4).attentionCount).toBe(1);
   });
 
   test('summarizes empire debt, cash and attention without double counting', () => {
