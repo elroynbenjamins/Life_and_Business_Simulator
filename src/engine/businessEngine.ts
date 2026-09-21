@@ -699,6 +699,11 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     familyRoles: [],
     capitalInvested: null,
     totalPlayerDistributions: 0,
+    delegationPolicy: 'manual',
+    delegatedManagerEmployeeId: null,
+    delegatedManagerName: null,
+    lastDelegationReviewWeek: 0,
+    lastDelegationSummary: null,
   };
 }
 
