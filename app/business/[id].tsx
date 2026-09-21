@@ -144,6 +144,18 @@ const GOVERNANCE_ROLES: Array<{ key: BusinessGovernanceRole; label: string }> = 
 
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
 const INTEGRATION_STRATEGIES: Array<Exclude<AcquisitionIntegrationStrategy, 'pending'>> = ['independent', 'integrate', 'turnaround'];
+type BusinessDetailSection = 'overview' | 'ownership' | 'leadership' | 'finance' | 'people' | 'risk' | 'growth' | 'capital';
+
+const BUSINESS_SECTION_CHIPS: Array<{ key: BusinessDetailSection; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  { key: 'overview', label: 'Overview', icon: 'speedometer-outline' },
+  { key: 'ownership', label: 'Ownership', icon: 'people-outline' },
+  { key: 'leadership', label: 'Corporate', icon: 'briefcase-outline' },
+  { key: 'finance', label: 'Finance', icon: 'cash-outline' },
+  { key: 'people', label: 'Team', icon: 'person-add-outline' },
+  { key: 'risk', label: 'Risk', icon: 'shield-checkmark-outline' },
+  { key: 'growth', label: 'Growth', icon: 'trending-up-outline' },
+  { key: 'capital', label: 'Capital', icon: 'card-outline' },
+];
 
 export default function BusinessDetailScreen() {
   const { width: screenWidth } = useWindowDimensions();
@@ -227,8 +239,19 @@ export default function BusinessDetailScreen() {
   const [showProjectsModal, setShowProjectsModal] = useState(false);
   const [showFundingNotice, setShowFundingNotice] = useState(newBusiness === '1');
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
+  const [transferError, setTransferError] = useState('');
   const detailScrollRef = useRef<ScrollView>(null);
   const managementSectionOffsets = useRef<Partial<Record<CorporateManagementActionTarget, number>>>({});
+  const sectionOffsets = useRef<Partial<Record<BusinessDetailSection, number>>>({});
+
+  const recordSection = (target: BusinessDetailSection, event: LayoutChangeEvent) => {
+    sectionOffsets.current[target] = event.nativeEvent.layout.y;
+  };
+  const scrollToSection = (target: BusinessDetailSection) => {
+    const y = sectionOffsets.current[target];
+    if (y == null) return;
+    detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+  };
 
   const recordManagementSection = (target: CorporateManagementActionTarget, event: LayoutChangeEvent) => {
     managementSectionOffsets.current[target] = event.nativeEvent.layout.y;
@@ -259,13 +282,25 @@ export default function BusinessDetailScreen() {
 
   const handleTransfer = () => {
     const amount = Math.floor(Number(transferAmount));
-    if (!Number.isFinite(amount) || amount <= 0 || !showTransferModal) return;
+    if (!Number.isFinite(amount) || amount <= 0 || !showTransferModal) {
+      setTransferError('Enter a valid amount first.');
+      return;
+    }
     if (showTransferModal === 'inject') {
+      if (amount > cash) {
+        setTransferError(`You only have ${formatCurrency(cash)} personal cash available.`);
+        return;
+      }
       injectCashIntoBusiness(biz.id, amount);
     } else {
+      if (amount > (biz.balance ?? 0)) {
+        setTransferError(`This business only has ${formatCurrency(biz.balance ?? 0)} available.`);
+        return;
+      }
       withdrawFromBusiness(biz.id, amount);
     }
     setTransferAmount('');
+    setTransferError('');
     setShowTransferModal(null);
   };
 
@@ -406,6 +441,88 @@ export default function BusinessDetailScreen() {
   // Expense breakdown
   const eb = biz.lastExpenseBreakdown;
 
+  const nextAction = (() => {
+    if (pendingDecision) {
+      return {
+        tone: pendingDecision.kind === 'crisis' ? Colors.negative : Colors.warning,
+        icon: pendingDecision.kind === 'crisis' ? 'alert-circle-outline' : 'help-circle-outline',
+        title: pendingDecision.kind === 'crisis' ? 'Resolve the business crisis' : 'Choose a business decision',
+        detail: `${pendingDecision.title} expires in ${decisionWeeksLeft} week${decisionWeeksLeft === 1 ? '' : 's'}.`,
+        target: 'overview' as BusinessDetailSection,
+      };
+    }
+    if (isUnderStaffed) {
+      return {
+        tone: Colors.warning,
+        icon: 'person-add-outline',
+        title: 'Recruit enough employees',
+        detail: `Hire ${Math.max(0, MIN_EMPLOYEES_REQUIRED - (biz.employees?.length ?? 0))} more before this business can earn revenue.`,
+        target: 'people' as BusinessDetailSection,
+      };
+    }
+    if (biz.acquisition?.integrationStrategy === 'pending') {
+      return {
+        tone: Colors.info,
+        icon: 'git-merge-outline',
+        title: 'Choose an acquisition strategy',
+        detail: 'Set whether the company stays independent, integrates, or goes through turnaround.',
+        target: 'overview' as BusinessDetailSection,
+      };
+    }
+    if (budgetReviewDue) {
+      return {
+        tone: Colors.warning,
+        icon: 'calendar-outline',
+        title: 'Review the annual cash plan',
+        detail: 'Budget policy controls dividends, debt paydown, reinvestment reserves, and growth reserves.',
+        target: 'finance' as BusinessDetailSection,
+      };
+    }
+    if (insuranceRisk.coverageGaps.length > 0) {
+      return {
+        tone: Colors.warning,
+        icon: 'shield-outline',
+        title: 'Close insurance coverage gaps',
+        detail: `${insuranceRisk.coverageGaps.length} risk area${insuranceRisk.coverageGaps.length === 1 ? '' : 's'} currently has no cover.`,
+        target: 'risk' as BusinessDetailSection,
+      };
+    }
+    if (reinvestmentEffects.revenuePenalty > 0.04 || reinvestmentEffects.expenseIncrease > 0.04) {
+      return {
+        tone: Colors.warning,
+        icon: 'construct-outline',
+        title: 'Renew aging infrastructure',
+        detail: `Current drag is -${(reinvestmentEffects.revenuePenalty * 100).toFixed(1)}% revenue and +${(reinvestmentEffects.expenseIncrease * 100).toFixed(1)}% expenses.`,
+        target: 'risk' as BusinessDetailSection,
+      };
+    }
+    if ((biz.balance ?? 0) < 0) {
+      return {
+        tone: Colors.negative,
+        icon: 'cash-outline',
+        title: 'Repair the business balance',
+        detail: 'Inject personal cash, take a business loan, or reduce spending before losses compound.',
+        target: 'finance' as BusinessDetailSection,
+      };
+    }
+    if ((biz.valuation ?? 0) >= 25_000_000 && !corporateWorkforce) {
+      return {
+        tone: Colors.info,
+        icon: 'business-outline',
+        title: 'Set up corporate departments',
+        detail: 'The company is large enough for corporate workforce planning and management reports.',
+        target: 'leadership' as BusinessDetailSection,
+      };
+    }
+    return {
+      tone: Colors.primary,
+      icon: 'trending-up-outline',
+      title: 'Grow reputation and cash flow',
+      detail: 'Use marketing, projects, upgrades and reinvestment to prepare for the next business level.',
+      target: 'growth' as BusinessDetailSection,
+    };
+  })();
+
   // Retention event
   const retention = biz.pendingRetention;
   const retentionEmployee = retention ? (biz.employees ?? []).find((e) => e.id === retention.employeeId) : null;
@@ -444,6 +561,8 @@ export default function BusinessDetailScreen() {
             </Text>
           </View>
         )}
+
+        <View collapsable={false} onLayout={(event) => recordSection('overview', event)} />
 
         {/* Top Info */}
         <GameCard>
@@ -499,6 +618,30 @@ export default function BusinessDetailScreen() {
             </Text>
           )}
         </GameCard>
+
+        <Pressable
+          style={[styles.nextActionCard, { borderColor: `${nextAction.tone}55`, backgroundColor: `${nextAction.tone}12` }]}
+          onPress={() => scrollToSection(nextAction.target)}
+        >
+          <View style={[styles.nextActionIcon, { backgroundColor: `${nextAction.tone}22` }]}>
+            <Ionicons name={nextAction.icon as any} size={20} color={nextAction.tone} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.nextActionEyebrow, { color: nextAction.tone }]}>Recommended next action</Text>
+            <Text style={styles.nextActionTitle}>{nextAction.title}</Text>
+            <Text style={styles.nextActionDetail}>{nextAction.detail}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={nextAction.tone} />
+        </Pressable>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionJumpRow}>
+          {BUSINESS_SECTION_CHIPS.map((section) => (
+            <Pressable key={section.key} style={styles.sectionJumpChip} onPress={() => scrollToSection(section.key)}>
+              <Ionicons name={section.icon as any} size={13} color={Colors.textSecondary} />
+              <Text style={styles.sectionJumpText}>{section.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
 
         {/* Family Business */}
         <GameCard title="Family Business">
@@ -793,6 +936,7 @@ export default function BusinessDetailScreen() {
           )}
         </GameCard>
 
+        <View collapsable={false} onLayout={(event) => recordSection('ownership', event)} />
         <GameCard title="Ownership Structure">
           <View style={styles.ownershipSummary}>
             <View>
@@ -993,6 +1137,7 @@ export default function BusinessDetailScreen() {
           </GameCard>
         )}
 
+        <View collapsable={false} onLayout={(event) => recordSection('leadership', event)} />
         {((biz.valuation ?? 0) >= 10_000_000 || (biz.executives?.length ?? 0) > 0 || !!biz.pendingExecutiveSearch || !!biz.boardGovernance) && (
           <GameCard title="Executive Leadership & Board">
             <Text style={styles.sectionHint}>
@@ -1415,6 +1560,7 @@ export default function BusinessDetailScreen() {
         )}
 
         {/* Weekly Financials */}
+        <View collapsable={false} onLayout={(event) => recordSection('finance', event)} />
         <GameCard title="Weekly Financials">
           <Text style={styles.sectionHint}>Revenue = employees × productivity × reputation demand × market share × upgrades. Reputation improves demand; upgrades add revenue; market share changes customer volume. Lower-reputation companies use leaner overhead and premises.</Text>
           <StatRow label="Revenue" value={biz.lastWeekRevenue} positive />
@@ -1597,11 +1743,11 @@ export default function BusinessDetailScreen() {
         {/* Cash Management */}
         <GameCard title="Cash Management">
           <View style={styles.cashBtnRow}>
-            <Pressable style={styles.cashBtn} onPress={() => { setShowTransferModal('inject'); setTransferAmount(''); }}>
+            <Pressable style={styles.cashBtn} onPress={() => { setShowTransferModal('inject'); setTransferAmount(''); setTransferError(''); }}>
               <Ionicons name="arrow-down-circle" size={18} color={Colors.primary} />
               <Text style={styles.cashBtnText}>Inject Cash</Text>
             </Pressable>
-            <Pressable style={styles.cashBtn} onPress={() => { setShowTransferModal('withdraw'); setTransferAmount(''); }}>
+            <Pressable style={styles.cashBtn} onPress={() => { setShowTransferModal('withdraw'); setTransferAmount(''); setTransferError(''); }}>
               <Ionicons name="arrow-up-circle" size={18} color={Colors.warning} />
               <Text style={styles.cashBtnText}>Withdraw</Text>
             </Pressable>
@@ -1640,6 +1786,7 @@ export default function BusinessDetailScreen() {
           </View>
         </GameCard>
 
+        <View collapsable={false} onLayout={(event) => recordSection('people', event)} />
         {/* Employees */}
         <GameCard title={`Employees (${biz.employees?.length ?? 0}/${maxEmployees})`}>
           <Text style={{ color: Colors.textMuted, fontSize: 12, marginBottom: 8 }}>
@@ -1742,6 +1889,7 @@ export default function BusinessDetailScreen() {
           })}
         </GameCard>
 
+        <View collapsable={false} onLayout={(event) => recordSection('risk', event)} />
         <GameCard title="Insurance & Risk">
           <View style={styles.insuranceSummary}>
             <View style={styles.insuranceScoreBox}>
@@ -1910,6 +2058,7 @@ export default function BusinessDetailScreen() {
         </GameCard>
 
         {/* Active Business Projects */}
+        <View collapsable={false} onLayout={(event) => recordSection('growth', event)} />
         <GameCard title="Business Projects">
           {/* Active projects */}
           {(biz.activeProjects ?? []).length > 0 && (
@@ -2221,31 +2370,33 @@ export default function BusinessDetailScreen() {
 
         <View collapsable={false} onLayout={(event) => recordManagementSection('finance', event)} />
         {corporateScaleTier !== 'local' && (
-          <GameCard title="Corporate Financing">
-            <View style={styles.creditHeader}>
-              <View style={styles.creditRatingBox}>
-                <Text style={styles.creditRating}>{corporateCredit.rating}</Text>
-                <Text style={styles.creditScore}>Score {corporateCredit.score}/100</Text>
+          <>
+            <View collapsable={false} onLayout={(event) => recordSection('capital', event)} />
+            <GameCard title="Corporate Financing">
+              <View style={styles.creditHeader}>
+                <View style={styles.creditRatingBox}>
+                  <Text style={styles.creditRating}>{corporateCredit.rating}</Text>
+                  <Text style={styles.creditScore}>Score {corporateCredit.score}/100</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.creditTitle}>Corporate Credit Profile</Text>
+                  <Text style={styles.creditMeta}>
+                    Debt / value {(corporateCredit.debtToValue * 100).toFixed(1)}% • Coverage {corporateCredit.interestCoverage >= 9.9 ? '10+' : corporateCredit.interestCoverage.toFixed(1)}×
+                  </Text>
+                  <Text style={styles.creditMeta}>
+                    Remaining debt capacity {formatCurrency(corporateCredit.remainingDebtCapacity)}
+                  </Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.creditTitle}>Corporate Credit Profile</Text>
-                <Text style={styles.creditMeta}>
-                  Debt / value {(corporateCredit.debtToValue * 100).toFixed(1)}% • Coverage {corporateCredit.interestCoverage >= 9.9 ? '10+' : corporateCredit.interestCoverage.toFixed(1)}×
-                </Text>
-                <Text style={styles.creditMeta}>
-                  Remaining debt capacity {formatCurrency(corporateCredit.remainingDebtCapacity)}
-                </Text>
-              </View>
-            </View>
 
-            {(corporateCredit.debtToValue > 0.35 || corporateCredit.interestCoverage < 1.5) && (
-              <View style={styles.creditWarning}>
-                <Ionicons name="warning-outline" size={14} color={Colors.warning} />
-                <Text style={styles.creditWarningText}>
-                  Leverage is becoming restrictive. New financing may be limited if earnings weaken further.
-                </Text>
-              </View>
-            )}
+              {(corporateCredit.debtToValue > 0.35 || corporateCredit.interestCoverage < 1.5) && (
+                <View style={styles.creditWarning}>
+                  <Ionicons name="warning-outline" size={14} color={Colors.warning} />
+                  <Text style={styles.creditWarningText}>
+                    Leverage is becoming restrictive. New financing may be limited if earnings weaken further.
+                  </Text>
+                </View>
+              )}
 
             <View style={styles.financeSection}>
               <View style={styles.financeSectionHeader}>
@@ -2320,9 +2471,13 @@ export default function BusinessDetailScreen() {
                   : null;
               })()}
             </View>
-          </GameCard>
+            </GameCard>
+          </>
         )}
 
+        {corporateScaleTier === 'local' && (
+          <View collapsable={false} onLayout={(event) => recordSection('capital', event)} />
+        )}
         {/* Business Loans */}
         <GameCard title="Business Loans">
           {(biz.businessLoans ?? []).map((loan) => {
@@ -2567,9 +2722,10 @@ export default function BusinessDetailScreen() {
               placeholder="Amount"
               placeholderTextColor={Colors.textMuted}
               value={transferAmount}
-              onChangeText={setTransferAmount}
+              onChangeText={(value) => { setTransferAmount(value); setTransferError(''); }}
               keyboardType="numeric"
             />
+            {!!transferError && <Text style={styles.transferError}>{transferError}</Text>}
             <Pressable style={styles.transferBtn} onPress={handleTransfer}>
               <Text style={styles.transferBtnText}>Confirm</Text>
             </Pressable>
@@ -2585,7 +2741,7 @@ export default function BusinessDetailScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Fund your new business</Text>
             <Text style={styles.modalSubtitle}>Recruitment, training, projects, morale actions, and upgrades are paid only from the business balance. Inject personal cash first or use a business loan.</Text>
-            <Pressable style={[styles.modalClose, { backgroundColor: '#047857', borderRadius: 10 }]} onPress={() => { setShowFundingNotice(false); setShowTransferModal('inject'); }}>
+            <Pressable style={[styles.modalClose, { backgroundColor: '#047857', borderRadius: 10 }]} onPress={() => { setShowFundingNotice(false); setShowTransferModal('inject'); setTransferError(''); }}>
               <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Inject cash</Text>
             </Pressable>
             <Pressable style={[styles.modalClose, { backgroundColor: '#1D4ED8', borderRadius: 10 }]} onPress={() => { takeBusinessLoan(biz.id, 50000, 0.10, 52); setShowFundingNotice(false); }}>
@@ -3359,6 +3515,14 @@ const styles = StyleSheet.create({
   healthScore: { fontSize: 28, fontWeight: '800', marginBottom: 2 },
   strategyPanel: { marginTop: 10, padding: 12, borderRadius: 12, backgroundColor: Colors.elevated },
   strategyText: { color: Colors.textPrimary, fontSize: 13, marginTop: 4 },
+  nextActionCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, padding: 12 },
+  nextActionIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  nextActionEyebrow: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.7 },
+  nextActionTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '900', marginTop: 2 },
+  nextActionDetail: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
+  sectionJumpRow: { gap: 7, paddingRight: 10 },
+  sectionJumpChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
+  sectionJumpText: { color: Colors.textSecondary, fontSize: 10, fontWeight: '800' },
   automationLabel: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
   automationTrack: { height: 6, backgroundColor: Colors.elevated, borderRadius: 3 },
   automationFill: { height: 6, backgroundColor: Colors.primary, borderRadius: 3 },
@@ -3872,6 +4036,7 @@ const styles = StyleSheet.create({
   modalCloseText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '600' },
   transferInfo: { color: Colors.textSecondary, fontSize: 14, marginBottom: 12 },
   transferInput: { backgroundColor: Colors.elevated, borderRadius: 10, padding: 14, color: Colors.textPrimary, fontSize: 16, borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 12 },
+  transferError: { color: Colors.negative, fontSize: 12, fontWeight: '700', marginBottom: 10 },
   transferBtn: { backgroundColor: Colors.primary, borderRadius: 10, padding: 14, alignItems: 'center' },
   transferBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

@@ -704,6 +704,7 @@
     "description": "Total extra real estate rent bonus: +5%",
     "icon": "🏘️",
     "cost": 135,
+    "tier": 5,
     "requires": "skill_growth_4",
     "effect": {
       "type": "rental_growth",
