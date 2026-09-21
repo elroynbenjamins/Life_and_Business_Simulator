@@ -1121,6 +1121,7 @@ export interface CorporateWorkforceState {
   nextHrEventWeek?: number;
   lastHrEventWeek?: number;
   recentTurnover?: number;
+  lastPolicyChangeWeek?: number;
 }
 
 export type BusinessBoardMandate = 'founder_led' | 'balanced_oversight' | 'growth_mandate' | 'risk_committee';
