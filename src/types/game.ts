@@ -945,6 +945,28 @@ export interface BusinessExpenseBreakdown {
 export type CorporateCreditRating = 'AAA' | 'AA' | 'A' | 'BBB' | 'BB' | 'B';
 export type CorporateFinancingType = 'revolver' | 'project_finance' | 'bond';
 
+export type BusinessReinvestmentArea = 'technology' | 'premises' | 'equipment';
+
+export interface BusinessReinvestmentTrack {
+  condition: number;
+  lastRenewedGlobalWeek: number;
+}
+
+export interface BusinessReinvestmentState {
+  technology: BusinessReinvestmentTrack;
+  premises: BusinessReinvestmentTrack;
+  equipment: BusinessReinvestmentTrack;
+}
+
+export interface ActiveBusinessReinvestment {
+  area: BusinessReinvestmentArea;
+  projectName: string;
+  costPaid: number;
+  startedGlobalWeek: number;
+  weeksRemaining: number;
+  totalWeeks: number;
+}
+
 /** Business loan (separate from personal loans) */
 export interface BusinessLoan {
   id: string;
@@ -1220,6 +1242,9 @@ export interface OwnedBusiness {
   // Long-horizon corporate capital expenditure
   activeCorporateCapex?: ActiveCorporateCapex | null;
   completedCorporateCapex?: CompletedCorporateCapex[];
+  // Recurring upkeep / modernization required to keep operations competitive
+  reinvestment?: BusinessReinvestmentState;
+  activeReinvestment?: ActiveBusinessReinvestment | null;
   // Loans
   businessLoans: BusinessLoan[];
   // Active events
