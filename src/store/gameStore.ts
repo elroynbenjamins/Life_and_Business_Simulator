@@ -24,6 +24,7 @@ import {
   generateAcquisitionTargets,
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
+  migrateAcquiredBusinessAssets,
 } from '../engine/acquisitionEngine';
 import { generateRelationshipCandidates, getChildFuturePotential, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getFamilyPlanningPreview, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
@@ -406,6 +407,9 @@ const useGameStore = create<GameStore>((set, get) => ({
       }
       merged.stocks = mergeStocks(merged.stocks);
       const loadGlobalWeek = ((merged.year - 1) * 20) + merged.week;
+      merged.businesses = merged.businesses.map((business) =>
+        migrateAcquiredBusinessAssets(business, merged.inflationMultiplier, loadGlobalWeek)
+      );
       merged.competitors = Object.fromEntries(merged.businesses.map((business) => [business.id, migrateBusinessCompetitors(business, merged.competitors[business.id] ?? [], loadGlobalWeek)]));
       merged.activeAuctions = ensureAuctions(merged.activeAuctions, ((merged.year - 1) * 20) + merged.week, merged.inflationMultiplier, getNetWorth(merged));
       merged.familyTree = syncFamilyTree(merged);
@@ -559,6 +563,9 @@ const useGameStore = create<GameStore>((set, get) => ({
       }
       merged.stocks = mergeStocks(merged.stocks);
       const slotGlobalWeek = ((merged.year - 1) * 20) + merged.week;
+      merged.businesses = merged.businesses.map((business) =>
+        migrateAcquiredBusinessAssets(business, merged.inflationMultiplier, slotGlobalWeek)
+      );
       merged.competitors = Object.fromEntries(merged.businesses.map((business) => [business.id, migrateBusinessCompetitors(business, merged.competitors[business.id] ?? [], slotGlobalWeek)]));
       merged.activeAuctions = ensureAuctions(merged.activeAuctions, ((merged.year - 1) * 20) + merged.week, merged.inflationMultiplier, getNetWorth(merged));
       merged.familyTree = syncFamilyTree(merged);
