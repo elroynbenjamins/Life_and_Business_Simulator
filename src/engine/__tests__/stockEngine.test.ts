@@ -95,6 +95,18 @@ describe('stockEngine market reporting and type events', () => {
     random.mockRestore();
   });
 
+  test('MOJO keeps ordinary quiet-week moves below the old extreme range', () => {
+    const random = jest.spyOn(Math, 'random').mockReturnValue(0.99);
+    const result = processStocks({
+      ...INITIAL_GAME_STATE,
+      stocks: [{ ticker: 'MOJO', currentPrice: 5, priceHistory: [5] }],
+    }, { headline: 'Quiet week', effects: {} });
+
+    const move = Math.abs((result.stocks[0].currentPrice - 5) / 5);
+    expect(move).toBeLessThan(0.15);
+    random.mockRestore();
+  });
+
   test('MOJO carries strong short-term momentum in both directions', () => {
     const random = jest.spyOn(Math, 'random').mockReturnValue(0.5);
 
