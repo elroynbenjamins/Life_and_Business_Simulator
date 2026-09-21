@@ -131,6 +131,15 @@ function traitBonus(trait: BusinessExecutiveTrait) {
   }
 }
 
+export function getExecutiveSearchCooldownWeeks(
+  business: OwnedBusiness,
+  role: BusinessExecutiveRole,
+  globalWeek: number,
+): number {
+  const lastSearchWeek = business.executiveSearchCooldowns?.[role] ?? -100;
+  return Math.max(0, 10 - (Math.max(1, globalWeek) - lastSearchWeek));
+}
+
 export function getExecutiveRoleEligibility(
   business: OwnedBusiness,
   role: BusinessExecutiveRole,
