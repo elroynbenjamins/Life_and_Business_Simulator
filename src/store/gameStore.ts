@@ -3792,6 +3792,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (idx < 0) return;
     const biz = { ...businesses[idx] };
     biz.employees = (biz.employees ?? []).filter((e) => e?.id !== employeeId);
+    if (biz.delegatedManagerEmployeeId === employeeId) {
+      biz.delegationPolicy = 'manual';
+      biz.delegatedManagerEmployeeId = null;
+      biz.delegatedManagerName = null;
+      biz.lastDelegationSummary = 'Delegation ended because the appointed manager left the company.';
+    }
     businesses[idx] = biz;
     const updates = { businesses };
     set(updates);
