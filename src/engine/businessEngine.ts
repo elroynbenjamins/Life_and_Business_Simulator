@@ -1736,7 +1736,7 @@ export function processBusinessWeek(
     nextCrisisCheckWeek = globalWeek + 8 + Math.floor(Math.random() * 10);
   }
 
-  const updatedBusiness: OwnedBusiness = {
+  let updatedBusiness: OwnedBusiness = {
     ...biz,
     balance: newBalance,
     totalRevenue: (biz.totalRevenue ?? 0) + revenue,
