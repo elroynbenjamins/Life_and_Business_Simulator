@@ -174,6 +174,7 @@ export function buildSoldBusinessRecord(
 export function getBusinessEmpireSummary(
   businesses: OwnedBusiness[],
   holdingCompanies: HoldingCompany[] = [],
+  currentYear = 1,
 ): BusinessEmpireSummary {
   const totalValue = (businesses ?? []).reduce((sum, business) => sum + Math.max(0, business.valuation ?? 0), 0);
   const totalDebt = (businesses ?? []).reduce((sum, business) => sum + getBusinessDebt(business), 0);
@@ -186,6 +187,7 @@ export function getBusinessEmpireSummary(
     || (business.acquisition?.integrationStrategy === 'pending')
     || Boolean(getBusinessReinvestmentUrgency(business))
     || getBusinessCoverageGaps(business).length > 0
+    || isBusinessBudgetReviewDue(business, currentYear)
   ).length;
   const acquisitionCount = (businesses ?? []).filter((business) => Boolean(business.acquisition)).length;
   const leveragedAcquisitionCount = (businesses ?? []).filter((business) =>
