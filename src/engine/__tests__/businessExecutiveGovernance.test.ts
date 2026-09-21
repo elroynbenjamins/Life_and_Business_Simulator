@@ -7,6 +7,7 @@ import {
   getBusinessGovernanceAttentionReason,
   getBusinessGovernanceEffects,
   getExecutiveRoleEligibility,
+  getExecutiveSearchCooldownWeeks,
   hireExecutiveCandidate,
   tickBusinessGovernance,
 } from '../businessGovernanceEngine';
@@ -95,6 +96,16 @@ describe('professional executive and board governance', () => {
 
     const fiftyMillion = makeBusiness({ valuation: 50_000_000, reputation: 70 });
     expect(getExecutiveRoleEligibility(fiftyMillion, 'general_counsel').allowed).toBe(true);
+  });
+
+  test('executive search cooldown is isolated per role', () => {
+    const business = makeBusiness({
+      executiveSearchCooldowns: { cfo: 75 },
+    });
+
+    expect(getExecutiveSearchCooldownWeeks(business, 'cfo', 80)).toBe(5);
+    expect(getExecutiveSearchCooldownWeeks(business, 'coo', 80)).toBe(0);
+    expect(getExecutiveSearchCooldownWeeks(business, 'cfo', 85)).toBe(0);
   });
 
   test('executive search returns three paid candidates with eight-week signing fees', () => {
