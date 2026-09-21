@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -71,6 +71,13 @@ import {
   normalizeBusinessBudgetPlan,
   normalizeBusinessBudgetReserves,
 } from '../engine/businessBudgetEngine';
+import {
+  BOARD_GOVERNANCE_UNLOCK_VALUATION,
+  createDefaultBoardGovernance,
+  generateExecutiveSearch,
+  getExecutiveRoleEligibility,
+  hireExecutiveCandidate as buildExecutiveHire,
+} from '../engine/businessGovernanceEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
@@ -234,6 +241,11 @@ interface GameStore extends GameState {
   designateFamilyBusiness: (businessId: string) => void;
   setBusinessStrategicFocus: (businessId: string, focus: BusinessStrategicFocus) => void;
   setBusinessBudgetProfile: (businessId: string, profile: BusinessBudgetProfile) => void;
+  openExecutiveSearch: (businessId: string, role: BusinessExecutiveRole) => void;
+  hireExecutiveCandidate: (businessId: string, candidateId: string) => void;
+  cancelExecutiveSearch: (businessId: string) => void;
+  dismissBusinessExecutive: (businessId: string, executiveId: string) => void;
+  setBusinessBoardMandate: (businessId: string, mandate: BusinessBoardMandate) => void;
   resolveBusinessDecision: (businessId: string, choiceId: string) => void;
   appointChildToBusiness: (businessId: string, childId: string, role: BusinessGovernanceRole) => void;
   transferBusinessShares: (businessId: string, targetType: 'child' | 'family_trust' | 'investor', targetId: string | null, percent: number) => void;
@@ -353,6 +365,23 @@ const useGameStore = create<GameStore>((set, get) => ({
             ...role,
             weeklySalary: role.weeklySalary ?? 0,
           })),
+          executives: (business.executives ?? []).map((executive) => ({
+            ...executive,
+            tenureWeeks: executive.tenureWeeks ?? 0,
+            nextReviewGlobalWeek: executive.nextReviewGlobalWeek
+              ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 20),
+          })),
+          pendingExecutiveSearch: business.pendingExecutiveSearch ?? null,
+          boardGovernance: business.boardGovernance
+            ? {
+                ...business.boardGovernance,
+                confidence: business.boardGovernance.confidence ?? 60,
+                establishedYear: business.boardGovernance.establishedYear ?? (saved.year ?? 1),
+                lastReviewYear: business.boardGovernance.lastReviewYear ?? (saved.year ?? 1),
+                lastMandateChangeGlobalWeek: business.boardGovernance.lastMandateChangeGlobalWeek ?? 0,
+                lastReviewSummary: business.boardGovernance.lastReviewSummary ?? 'Board review pending.',
+              }
+            : null,
           businessLoans: (business.businessLoans ?? []).map((loan) => ({
             ...loan,
             purpose: loan.purpose ?? 'operating',
@@ -556,6 +585,23 @@ const useGameStore = create<GameStore>((set, get) => ({
             ...role,
             weeklySalary: role.weeklySalary ?? 0,
           })),
+          executives: (business.executives ?? []).map((executive) => ({
+            ...executive,
+            tenureWeeks: executive.tenureWeeks ?? 0,
+            nextReviewGlobalWeek: executive.nextReviewGlobalWeek
+              ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 20),
+          })),
+          pendingExecutiveSearch: business.pendingExecutiveSearch ?? null,
+          boardGovernance: business.boardGovernance
+            ? {
+                ...business.boardGovernance,
+                confidence: business.boardGovernance.confidence ?? 60,
+                establishedYear: business.boardGovernance.establishedYear ?? (saved.year ?? 1),
+                lastReviewYear: business.boardGovernance.lastReviewYear ?? (saved.year ?? 1),
+                lastMandateChangeGlobalWeek: business.boardGovernance.lastMandateChangeGlobalWeek ?? 0,
+                lastReviewSummary: business.boardGovernance.lastReviewSummary ?? 'Board review pending.',
+              }
+            : null,
           businessLoans: (business.businessLoans ?? []).map((loan) => ({
             ...loan,
             purpose: loan.purpose ?? 'operating',
@@ -3333,6 +3379,134 @@ const useGameStore = create<GameStore>((set, get) => ({
                 year: state.year,
                 title: '📊 Annual budget set: ' + profile.replace(/_/g, ' '),
                 icon: '📊',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  openExecutiveSearch: (businessId, role) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business || !getExecutiveRoleEligibility(business, role).allowed) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const search = generateExecutiveSearch(business, role, globalWeek);
+    if (!search) return;
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId ? { ...item, pendingExecutiveSearch: search } : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  hireExecutiveCandidate: (businessId, candidateId) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    const candidate = business?.pendingExecutiveSearch?.candidates?.find((item) => item.id === candidateId);
+    if (!business || !candidate || !getExecutiveRoleEligibility(business, candidate.role).allowed) return;
+    if ((business.balance ?? 0) < (candidate.signingFee ?? 0)) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const executive = buildExecutiveHire(candidate, globalWeek);
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            balance: Math.max(0, (item.balance ?? 0) - candidate.signingFee),
+            executives: [...(item.executives ?? []), executive],
+            pendingExecutiveSearch: null,
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: '💼 Hired ' + executive.name + ' as ' + executive.role.toUpperCase(),
+                icon: '💼',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  cancelExecutiveSearch: (businessId) => {
+    const state = get();
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId ? { ...item, pendingExecutiveSearch: null } : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  dismissBusinessExecutive: (businessId, executiveId) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    const executive = business?.executives?.find((item) => item.id === executiveId);
+    if (!business || !executive) return;
+    const severance = Math.round((executive.weeklySalary ?? 0) * 6);
+    if ((business.balance ?? 0) < severance) return;
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            balance: Math.max(0, (item.balance ?? 0) - severance),
+            executives: (item.executives ?? []).filter((entry) => entry.id !== executiveId),
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: '🚪 ' + executive.name + ' left the executive team • Severance ' + formatCurrencySafe(severance),
+                icon: '🚪',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  setBusinessBoardMandate: (businessId, mandate) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business || (business.valuation ?? 0) < BOARD_GOVERNANCE_UNLOCK_VALUATION) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const existing = business.boardGovernance;
+    if (existing && globalWeek - (existing.lastMandateChangeGlobalWeek ?? 0) < 10) return;
+    const board = existing
+      ? {
+          ...existing,
+          mandate,
+          lastMandateChangeGlobalWeek: globalWeek,
+        }
+      : {
+          ...createDefaultBoardGovernance(state.year, mandate),
+          lastMandateChangeGlobalWeek: globalWeek,
+        };
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            boardGovernance: board,
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: '📋 Board mandate: ' + mandate.replace(/_/g, ' '),
+                icon: '📋',
                 kind: 'event' as const,
               },
             ].slice(-50),
