@@ -1140,6 +1140,17 @@ export interface CorporateKpiHistoryPoint {
   departmentProductivity: Record<CorporateDepartmentId, number>;
   debtService: number;
   averageMaintenanceCondition: number;
+  /** Optional richer driver history. Older saves can omit these fields safely. */
+  averageDepartmentSkill?: number;
+  averageDepartmentMorale?: number;
+  employeeRelations?: number;
+  maintenanceRevenuePenalty?: number;
+  maintenanceExpenseIncrease?: number;
+  acquisitionRevenueModifier?: number;
+  acquisitionExpenseModifier?: number;
+  integrationWeeksRemaining?: number;
+  reputation?: number;
+  marketShareModifier?: number;
 }
 
 export type BusinessBoardMandate = 'founder_led' | 'balanced_oversight' | 'growth_mandate' | 'risk_committee';
