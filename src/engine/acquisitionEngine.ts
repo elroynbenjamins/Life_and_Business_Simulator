@@ -401,6 +401,60 @@ export function createAcquiredBusiness(
   return acquired;
 }
 
+export function migrateAcquiredBusinessAssets(
+  business: OwnedBusiness,
+  inflationMultiplier = 1,
+  currentGlobalWeek = 1,
+): OwnedBusiness {
+  if (!business.acquisition) return business;
+  const type = getBusinessType(business.typeId);
+  if (!type) return business;
+
+  const templates = getAllBusinessLocationTemplates();
+  const existingLocations = business.locations ?? [];
+  const existingTemplateIds = new Set(existingLocations.map((location) => location.templateId));
+  const activeExpansionId = business.activeExpansion?.templateId ?? null;
+  const missingLocations = templates
+    .filter((template) =>
+      !existingTemplateIds.has(template.id)
+      && (
+        ((business.level ?? 0) >= (template.requiredLevel ?? 0)
+          && (business.reputation ?? 0) >= (template.requiredReputation ?? 0))
+        || template.id === activeExpansionId
+      )
+    )
+    .map((template, index) => {
+      const scaledCosts = getScaledLocationCosts(business, template.id, inflationMultiplier);
+      return {
+        id: `acq_migrated_location_${business.id}_${template.id}`,
+        templateId: template.id,
+        name: template.name,
+        region: template.region,
+        revenueBoost: template.revenueBoost ?? 0,
+        weeklyOperatingCost: scaledCosts?.weeklyOperatingCost ?? template.weeklyOperatingCost ?? 0,
+        openedWeek: Math.max(1, currentGlobalWeek - ((index + 1) * 10)),
+      };
+    });
+
+  const migrated: OwnedBusiness = {
+    ...business,
+    purchasedUpgrades: [...new Set(type.upgrades ?? [])],
+    activeUpgrade: null,
+    locations: [...existingLocations, ...missingLocations],
+    activeExpansion: null,
+  };
+
+  return {
+    ...migrated,
+    acquisition: {
+      ...business.acquisition,
+      // Rebase old saves to the mature asset footprint so inherited branches and
+      // upgrades do not become an instant revenue multiplier after migration.
+      referenceRevenueCapacity: getBusinessRevenueCapacity(migrated),
+    },
+  };
+}
+
 export function createHoldingCompany(
   name: string,
   state: Pick<GameState, 'week' | 'year' | 'generation' | 'playerName' | 'familyTree'>,
