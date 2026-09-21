@@ -215,7 +215,11 @@ function createPlanFromBaseline(
   profileId: BusinessManagementTargetProfile,
   globalWeek: number,
   preserved?: Pick<BusinessManagementTargetPlan,
-    'baselineWeeklyRevenue' | 'baselineProfitMargin' | 'baselinePayrollToRevenueRatio' | 'baselineDebt'
+    'baselineWeeklyRevenue'
+    | 'baselineProfitMargin'
+    | 'baselinePayrollToRevenueRatio'
+    | 'baselineDebt'
+    | 'createdGlobalWeek'
   >,
 ): BusinessManagementTargetPlan {
   const profile = BUSINESS_MANAGEMENT_TARGET_PROFILES[profileId]
@@ -231,7 +235,7 @@ function createPlanFromBaseline(
     year: baseline.year,
     quarter: baseline.quarter,
     periodStartGlobalWeek: baseline.startGlobalWeek,
-    createdGlobalWeek: Math.max(1, Math.round(globalWeek)),
+    createdGlobalWeek: preserved?.createdGlobalWeek ?? Math.max(1, Math.round(globalWeek)),
     baselineWeeklyRevenue: Math.max(0, Math.round(baselineWeeklyRevenue)),
     baselineProfitMargin,
     baselinePayrollToRevenueRatio,
@@ -270,6 +274,7 @@ export function ensureBusinessManagementTargetPlan(
       baselineProfitMargin: existing.baselineProfitMargin,
       baselinePayrollToRevenueRatio: existing.baselinePayrollToRevenueRatio,
       baselineDebt: existing.baselineDebt,
+      createdGlobalWeek: existing.createdGlobalWeek,
     } : undefined,
   );
 }
@@ -311,7 +316,12 @@ export function getBusinessManagementTargetProgress(
     : Math.max(0, business.lastWeekRevenue ?? 0);
   const currentDebt = totalDebt(business);
   const quarterWeek = clamp(globalWeek - plan.periodStartGlobalWeek + 1, 1, 5);
-  const progress = quarterWeek / 5;
+  const quarterEndGlobalWeek = plan.periodStartGlobalWeek + 4;
+  const createdAfterQuarterStart = plan.createdGlobalWeek > plan.periodStartGlobalWeek;
+  const remainingAfterCreation = Math.max(1, quarterEndGlobalWeek - plan.createdGlobalWeek);
+  const progress = createdAfterQuarterStart
+    ? clamp((globalWeek - plan.createdGlobalWeek) / remainingAfterCreation, 0, 1)
+    : quarterWeek / 5;
   const scheduledDebtBalance = plan.baselineDebt
     - (plan.baselineDebt - plan.targetDebtBalance) * progress;
   const debtStatus = plan.baselineDebt <= 0
