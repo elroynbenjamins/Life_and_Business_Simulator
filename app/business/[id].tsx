@@ -98,6 +98,8 @@ import {
   BUSINESS_MANAGEMENT_TARGET_PROFILES,
   BusinessManagementTargetProgress,
   BusinessManagementTargetStatus,
+  BusinessManagementYearReview,
+  getBusinessManagementReviewYears,
   getBusinessManagementTargetProgress,
 } from '../../src/engine/businessManagementTargetsEngine';
 
@@ -357,6 +359,7 @@ export default function BusinessDetailScreen() {
         globalGameWeek,
       )
     : null;
+  const managementReviewYears = getBusinessManagementReviewYears(reportingBusiness);
   const boardMandateCooldown = biz.boardGovernance
     ? Math.max(0, 10 - (globalGameWeek - (biz.boardGovernance.lastMandateChangeGlobalWeek ?? 0)))
     : 0;
@@ -1392,6 +1395,7 @@ export default function BusinessDetailScreen() {
               quarterlyActions={quarterlyManagementActions}
               annualActions={annualManagementActions}
               targetProgress={managementTargetProgress}
+              reviewYears={managementReviewYears}
               onTargetProfileChange={(profile) => setBusinessManagementTargetProfile(biz.id, profile)}
               onActionPress={scrollToManagementSection}
             />
@@ -2709,6 +2713,7 @@ function CorporateManagementReportPanel({
   quarterlyActions,
   annualActions,
   targetProgress,
+  reviewYears,
   period,
   onPeriodChange,
   onTargetProfileChange,
@@ -2719,6 +2724,7 @@ function CorporateManagementReportPanel({
   quarterlyActions: CorporateManagementAction[];
   annualActions: CorporateManagementAction[];
   targetProgress: BusinessManagementTargetProgress | null;
+  reviewYears: BusinessManagementYearReview[];
   period: CorporateReportPeriod;
   onPeriodChange: (period: CorporateReportPeriod) => void;
   onTargetProfileChange: (profile: BusinessManagementTargetProfile) => void;
@@ -2726,6 +2732,12 @@ function CorporateManagementReportPanel({
 }) {
   const report = period === 'quarter' ? quarterlyReport : annualReport;
   const actions = period === 'quarter' ? quarterlyActions : annualActions;
+  const [historyYearIndex, setHistoryYearIndex] = useState(0);
+  const safeHistoryYearIndex = Math.min(
+    historyYearIndex,
+    Math.max(0, reviewYears.length - 1),
+  );
+  const selectedHistoryYear = reviewYears[safeHistoryYearIndex] ?? null;
   const statusColor = corporateKpiColor(report.overallStatus);
   const revenueTrend = report.revenuePerEmployeeChangePct == null
     ? 'Baseline forming'
@@ -2951,6 +2963,133 @@ function CorporateManagementReportPanel({
         </View>
       )}
 
+      {period === 'annual' && (
+        <View style={styles.managementHistoryBox}>
+          <View style={styles.managementHistoryHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.managementHistoryTitle}>Management history</Text>
+              <Text style={styles.managementHistoryMeta}>
+                Frozen quarter closes • latest 5 game years
+              </Text>
+            </View>
+            {selectedHistoryYear && (
+              <View style={styles.managementHistoryNav}>
+                <Pressable
+                  disabled={safeHistoryYearIndex >= reviewYears.length - 1}
+                  style={[
+                    styles.managementHistoryNavButton,
+                    safeHistoryYearIndex >= reviewYears.length - 1 && styles.disabledAction,
+                  ]}
+                  onPress={() => setHistoryYearIndex((index) => Math.min(reviewYears.length - 1, index + 1))}
+                >
+                  <Ionicons name="chevron-back" size={13} color={Colors.textSecondary} />
+                </Pressable>
+                <Text style={styles.managementHistoryYear}>Year {selectedHistoryYear.year}</Text>
+                <Pressable
+                  disabled={safeHistoryYearIndex <= 0}
+                  style={[
+                    styles.managementHistoryNavButton,
+                    safeHistoryYearIndex <= 0 && styles.disabledAction,
+                  ]}
+                  onPress={() => setHistoryYearIndex((index) => Math.max(0, index - 1))}
+                >
+                  <Ionicons name="chevron-forward" size={13} color={Colors.textSecondary} />
+                </Pressable>
+              </View>
+            )}
+          </View>
+
+          {!selectedHistoryYear ? (
+            <Text style={styles.managementHistoryEmpty}>
+              The first historical review is saved when the current quarter closes.
+            </Text>
+          ) : (
+            <>
+              <View style={styles.managementHistorySummary}>
+                <View style={styles.managementHistorySummaryItem}>
+                  <Text style={styles.managementHistorySummaryValue}>
+                    {selectedHistoryYear.targetHitRate == null
+                      ? '—'
+                      : `${Math.round(selectedHistoryYear.targetHitRate * 100)}%`}
+                  </Text>
+                  <Text style={styles.managementHistorySummaryLabel}>Targets met</Text>
+                </View>
+                <View style={styles.managementHistorySummaryItem}>
+                  <Text style={styles.managementHistorySummaryValue}>
+                    {formatCurrency(selectedHistoryYear.averageWeeklyRevenue)}
+                  </Text>
+                  <Text style={styles.managementHistorySummaryLabel}>Avg revenue/wk</Text>
+                </View>
+                <View style={styles.managementHistorySummaryItem}>
+                  <Text style={styles.managementHistorySummaryValue}>
+                    {(selectedHistoryYear.profitMargin * 100).toFixed(1)}%
+                  </Text>
+                  <Text style={styles.managementHistorySummaryLabel}>Profit margin</Text>
+                </View>
+              </View>
+
+              <Text style={styles.managementHistoryAnnualMeta}>
+                {selectedHistoryYear.complete
+                  ? 'Full year'
+                  : `${selectedHistoryYear.quarterCount}/4 quarters closed`}
+                {' • '}Payroll {(selectedHistoryYear.payrollToRevenueRatio * 100).toFixed(1)}%
+                {' • '}Debt {formatCurrency(selectedHistoryYear.endingDebtBalance)}
+                {' • '}Upkeep {selectedHistoryYear.averageMaintenanceCondition.toFixed(0)}%
+                {selectedHistoryYear.revenueChangePct != null
+                  ? ` • Revenue Q1→Q${selectedHistoryYear.quarters[selectedHistoryYear.quarters.length - 1]?.quarter ?? 1} ${selectedHistoryYear.revenueChangePct >= 0 ? '+' : ''}${(selectedHistoryYear.revenueChangePct * 100).toFixed(1)}%`
+                  : ''}
+              </Text>
+
+              <View style={styles.managementHistoryQuarterList}>
+                {[1, 2, 3, 4].map((quarterNumber) => {
+                  const quarter = selectedHistoryYear.quarters.find((item) => item.quarter === quarterNumber);
+                  if (!quarter) {
+                    return (
+                      <View key={quarterNumber} style={styles.managementHistoryQuarterRow}>
+                        <View style={styles.managementHistoryQuarterBadge}>
+                          <Text style={styles.managementHistoryQuarterBadgeText}>Q{quarterNumber}</Text>
+                        </View>
+                        <Text style={styles.managementHistoryQuarterMissing}>Not closed</Text>
+                      </View>
+                    );
+                  }
+                  const profileLabel = BUSINESS_MANAGEMENT_TARGET_PROFILES[quarter.profile]?.label ?? quarter.profile;
+                  const quarterColor = quarter.targetMissedCount > 0
+                    ? Colors.warning
+                    : quarter.targetMetCount === quarter.targetTotalCount
+                      ? Colors.primary
+                      : Colors.textSecondary;
+                  return (
+                    <View key={quarterNumber} style={styles.managementHistoryQuarterRow}>
+                      <View style={styles.managementHistoryQuarterBadge}>
+                        <Text style={styles.managementHistoryQuarterBadgeText}>Q{quarterNumber}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.managementHistoryQuarterTitle}>
+                          {profileLabel}
+                          {quarter.partial ? ' • Partial' : ''}
+                        </Text>
+                        <Text style={styles.managementHistoryQuarterMeta}>
+                          {formatCurrency(quarter.averageWeeklyRevenue)}/wk
+                          {' • '}Margin {(quarter.profitMargin * 100).toFixed(1)}%
+                          {' • '}Debt {formatCurrency(quarter.endingDebtBalance)}
+                        </Text>
+                      </View>
+                      <View style={styles.managementHistoryQuarterScore}>
+                        <Text style={[styles.managementHistoryQuarterScoreValue, { color: quarterColor }]}>
+                          {quarter.targetMetCount}/{quarter.targetTotalCount}
+                        </Text>
+                        <Text style={styles.managementHistoryQuarterScoreLabel}>targets</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </>
+          )}
+        </View>
+      )}
+
       <View style={styles.managementKpiGrid}>
         <CorporateKpiCell
           label="Productivity"
@@ -3167,6 +3306,29 @@ const styles = StyleSheet.create({
   managementTargetPace: { color: Colors.textMuted, fontSize: 6, marginTop: 1 },
   managementTargetStatus: { fontSize: 7, fontWeight: '900', marginTop: 2 },
   managementTargetFootnote: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 6, fontStyle: 'italic' },
+  managementHistoryBox: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, paddingTop: 9 },
+  managementHistoryHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  managementHistoryTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
+  managementHistoryMeta: { color: Colors.textMuted, fontSize: 7, marginTop: 2 },
+  managementHistoryNav: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  managementHistoryNavButton: { width: 25, height: 25, borderRadius: 7, borderWidth: 1, borderColor: Colors.cardBorder, alignItems: 'center', justifyContent: 'center' },
+  managementHistoryYear: { minWidth: 47, textAlign: 'center', color: Colors.info, fontSize: 8, fontWeight: '900' },
+  managementHistoryEmpty: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 7 },
+  managementHistorySummary: { flexDirection: 'row', gap: 6, marginTop: 8 },
+  managementHistorySummaryItem: { flex: 1, backgroundColor: Colors.elevated, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 6, alignItems: 'center' },
+  managementHistorySummaryValue: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900' },
+  managementHistorySummaryLabel: { color: Colors.textMuted, fontSize: 6, marginTop: 2, textAlign: 'center' },
+  managementHistoryAnnualMeta: { color: Colors.textSecondary, fontSize: 7, lineHeight: 11, marginTop: 7 },
+  managementHistoryQuarterList: { marginTop: 6 },
+  managementHistoryQuarterRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 7, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  managementHistoryQuarterBadge: { width: 29, height: 25, borderRadius: 7, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  managementHistoryQuarterBadgeText: { color: Colors.info, fontSize: 8, fontWeight: '900' },
+  managementHistoryQuarterTitle: { color: Colors.textPrimary, fontSize: 8, fontWeight: '800' },
+  managementHistoryQuarterMeta: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 1 },
+  managementHistoryQuarterMissing: { color: Colors.textMuted, fontSize: 8, fontStyle: 'italic' },
+  managementHistoryQuarterScore: { alignItems: 'flex-end' },
+  managementHistoryQuarterScoreValue: { fontSize: 9, fontWeight: '900' },
+  managementHistoryQuarterScoreLabel: { color: Colors.textMuted, fontSize: 6, marginTop: 1 },
   managementKpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
   managementKpiCell: { width: '48.8%', minHeight: 66, borderRadius: 9, backgroundColor: Colors.elevated, paddingHorizontal: 9, paddingVertical: 8 },
   managementKpiLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
