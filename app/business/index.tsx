@@ -18,6 +18,7 @@ import { ACQUISITION_UNLOCK_NET_WORTH } from '../../src/engine/acquisitionEngine
 import { getBusinessReinvestmentUrgency } from '../../src/engine/businessReinvestmentEngine';
 import { BUSINESS_INSURANCE_AREAS, getBusinessCoverageGaps } from '../../src/engine/businessInsuranceEngine';
 import { isBusinessBudgetReviewDue } from '../../src/engine/businessBudgetEngine';
+import { getBusinessGovernanceAttentionReason } from '../../src/engine/businessGovernanceEngine';
 
 type SortMode = 'attention' | 'value' | 'profit' | 'roi';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -37,6 +38,7 @@ function needsAttention(business: any, currentYear: number): boolean {
     || getBusinessReinvestmentUrgency(business)
     || getBusinessCoverageGaps(business).length > 0
     || isBusinessBudgetReviewDue(business, currentYear)
+    || getBusinessGovernanceAttentionReason(business)
   );
 }
 
@@ -346,6 +348,11 @@ export default function BusinessPortfolioScreen() {
                   {!biz.pendingDecision && !getBusinessReinvestmentUrgency(biz) && getBusinessCoverageGaps(biz).length === 0 && isBusinessBudgetReviewDue(biz, currentYear) && (
                     <View style={styles.pendingStrip}>
                       <Text style={styles.pendingStripText}>Annual cash-plan review due for Year {currentYear}.</Text>
+                    </View>
+                  )}
+                  {!biz.pendingDecision && !getBusinessReinvestmentUrgency(biz) && getBusinessCoverageGaps(biz).length === 0 && !isBusinessBudgetReviewDue(biz, currentYear) && getBusinessGovernanceAttentionReason(biz) && (
+                    <View style={styles.pendingStrip}>
+                      <Text style={styles.pendingStripText}>{getBusinessGovernanceAttentionReason(biz)}</Text>
                     </View>
                   )}
 
