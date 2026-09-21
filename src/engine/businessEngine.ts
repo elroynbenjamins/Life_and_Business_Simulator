@@ -333,7 +333,7 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
   return options[Math.floor(Math.random() * options.length)];
 }
 
-function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPendingDecision {
+export function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPendingDecision {
   const absoluteCost = (pct: number, minimum: number, maximum: number) =>
     Math.round(Math.max(minimum, Math.min(maximum, Math.max(0, biz.valuation ?? 0) * pct)));
 
