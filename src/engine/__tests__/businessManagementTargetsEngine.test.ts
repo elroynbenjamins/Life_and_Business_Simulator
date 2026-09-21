@@ -334,6 +334,80 @@ describe('business management targets', () => {
     expect(year.revenueChangePct).toBeCloseTo(0.30, 4);
   });
 
+  test('year-over-year review compares complete years across the same four quarters', () => {
+    const business = makeCorporateBusiness();
+    business.managementReviewHistory = [
+      ...[1, 2, 3, 4].map((quarter) => quarterReview(1, quarter, {
+        averageWeeklyRevenue: 1_000_000,
+        profitMargin: 0.20,
+        payrollToRevenueRatio: 0.30,
+        endingDebtBalance: quarter === 4 ? 10_000_000 : 11_000_000,
+        averageMaintenanceCondition: 80,
+        targetMetCount: 3,
+        targetNearCount: 1,
+        targetMissedCount: 1,
+      })),
+      ...[1, 2, 3, 4].map((quarter) => quarterReview(2, quarter, {
+        averageWeeklyRevenue: 1_100_000,
+        profitMargin: 0.24,
+        payrollToRevenueRatio: 0.27,
+        endingDebtBalance: quarter === 4 ? 8_000_000 : 9_000_000,
+        averageMaintenanceCondition: 85,
+        targetMetCount: 4,
+        targetNearCount: 1,
+        targetMissedCount: 0,
+      })),
+    ];
+
+    const years = getBusinessManagementReviewYears(business);
+    const year2 = years.find((year) => year.year === 2)!;
+    const comparison = year2.yearOverYear!;
+
+    expect(comparison.comparisonYear).toBe(1);
+    expect(comparison.quartersCompared).toEqual([1, 2, 3, 4]);
+    expect(comparison.averageWeeklyRevenueChangePct).toBeCloseTo(0.10, 4);
+    expect(comparison.profitMarginChangePctPoints).toBeCloseTo(4, 4);
+    expect(comparison.payrollToRevenueChangePctPoints).toBeCloseTo(-3, 4);
+    expect(comparison.endingDebtChangePct).toBeCloseTo(-0.20, 4);
+    expect(comparison.maintenanceConditionChangePoints).toBeCloseTo(5, 4);
+    expect(comparison.targetHitRateChangePctPoints).toBeCloseTo(20, 4);
+  });
+
+  test('partial current year compares only matching prior-year quarters', () => {
+    const business = makeCorporateBusiness();
+    business.managementReviewHistory = [
+      quarterReview(2, 1, { averageWeeklyRevenue: 1_000_000 }),
+      quarterReview(2, 2, { averageWeeklyRevenue: 1_100_000 }),
+      quarterReview(2, 3, { averageWeeklyRevenue: 10_000_000 }),
+      quarterReview(2, 4, { averageWeeklyRevenue: 10_000_000 }),
+      quarterReview(3, 1, { averageWeeklyRevenue: 2_000_000 }),
+      quarterReview(3, 2, { averageWeeklyRevenue: 2_200_000 }),
+    ];
+
+    const years = getBusinessManagementReviewYears(business);
+    const year3 = years.find((year) => year.year === 3)!;
+    const comparison = year3.yearOverYear!;
+
+    expect(year3.complete).toBe(false);
+    expect(comparison.comparisonYear).toBe(2);
+    expect(comparison.quartersCompared).toEqual([1, 2]);
+    expect(comparison.averageWeeklyRevenueChangePct).toBeCloseTo(1.0, 4);
+  });
+
+  test('first retained year has no fabricated year-over-year comparison', () => {
+    const business = makeCorporateBusiness();
+    business.managementReviewHistory = [
+      quarterReview(4, 1),
+      quarterReview(4, 2),
+      quarterReview(4, 3),
+      quarterReview(4, 4),
+    ];
+
+    const year4 = getBusinessManagementReviewYears(business)[0];
+
+    expect(year4.yearOverYear).toBeNull();
+  });
+
   test('Q4 closes into the old year before Year 2 Q1 begins', () => {
     let business = makeCorporateBusiness();
     business.corporateKpiHistory = [
