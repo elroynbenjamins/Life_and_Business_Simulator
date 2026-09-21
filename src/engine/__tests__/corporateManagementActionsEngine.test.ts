@@ -99,9 +99,11 @@ describe('corporate management action guidance', () => {
     const business = corporateBusiness();
     business.corporateWorkforce!.compensationPolicy = 'market';
 
-    const report = reportWith(business, {
-      turnover: 1,
-    });
+    const report = reportWith(
+      business,
+      { turnover: 1 },
+      { turnover: 1 },
+    );
     const actions = getCorporateManagementActions(business, report, 1);
 
     expect(report.turnoverStatus).toBe('watch');
