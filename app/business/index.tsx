@@ -19,6 +19,7 @@ import { getBusinessReinvestmentUrgency } from '../../src/engine/businessReinves
 import { BUSINESS_INSURANCE_AREAS, getBusinessCoverageGaps } from '../../src/engine/businessInsuranceEngine';
 import { isBusinessBudgetReviewDue } from '../../src/engine/businessBudgetEngine';
 import { getBusinessGovernanceAttentionReason } from '../../src/engine/businessGovernanceEngine';
+import { getCorporateWorkforceAttentionReason } from '../../src/engine/businessWorkforceEngine';
 
 type SortMode = 'attention' | 'value' | 'profit' | 'roi';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -39,6 +40,7 @@ function needsAttention(business: any, currentYear: number): boolean {
     || getBusinessCoverageGaps(business).length > 0
     || isBusinessBudgetReviewDue(business, currentYear)
     || getBusinessGovernanceAttentionReason(business)
+    || getCorporateWorkforceAttentionReason(business)
   );
 }
 
@@ -353,6 +355,11 @@ export default function BusinessPortfolioScreen() {
                   {!biz.pendingDecision && !getBusinessReinvestmentUrgency(biz) && getBusinessCoverageGaps(biz).length === 0 && !isBusinessBudgetReviewDue(biz, currentYear) && getBusinessGovernanceAttentionReason(biz) && (
                     <View style={styles.pendingStrip}>
                       <Text style={styles.pendingStripText}>{getBusinessGovernanceAttentionReason(biz)}</Text>
+                    </View>
+                  )}
+                  {!biz.pendingDecision && !getBusinessReinvestmentUrgency(biz) && getBusinessCoverageGaps(biz).length === 0 && !isBusinessBudgetReviewDue(biz, currentYear) && !getBusinessGovernanceAttentionReason(biz) && getCorporateWorkforceAttentionReason(biz) && (
+                    <View style={styles.pendingStrip}>
+                      <Text style={styles.pendingStripText}>{getCorporateWorkforceAttentionReason(biz)}</Text>
                     </View>
                   )}
 
