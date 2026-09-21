@@ -270,7 +270,9 @@ export function getBusinessGovernanceEffects(business: OwnedBusiness) {
 
   let boardWeeklyCost = 0;
   const board = business.boardGovernance;
-  if (board && (business.valuation ?? 0) >= BOARD_GOVERNANCE_UNLOCK_VALUATION) {
+  // The valuation threshold controls when a board can be established. Once the
+  // board exists, its fees and mandate continue even if company value later falls.
+  if (board) {
     const confidenceMultiplier = 0.8 + clamp(board.confidence ?? 50, 0, 100) / 250;
     boardWeeklyCost = Math.round(clamp((business.valuation ?? 0) * 0.00004, 2_500, 75_000));
     if (board.mandate === 'founder_led') {
