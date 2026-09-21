@@ -684,6 +684,13 @@ export function createHoldingCompany(
     executivePerformance: 50,
     designatedSuccessorChildId: null,
     designatedSuccessorChildName: null,
+    sharedServices: {
+      finance: 0,
+      hr: 0,
+      procurement: 0,
+      marketing: 0,
+      it: 0,
+    },
   };
 }
 
