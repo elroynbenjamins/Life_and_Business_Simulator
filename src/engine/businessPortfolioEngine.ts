@@ -3,6 +3,7 @@ import { getBusinessReinvestmentUrgency } from './businessReinvestmentEngine';
 import { getBusinessCoverageGaps } from './businessInsuranceEngine';
 import { isBusinessBudgetReviewDue } from './businessBudgetEngine';
 import { getBusinessGovernanceAttentionReason } from './businessGovernanceEngine';
+import { getCorporateWorkforceAttentionReason } from './businessWorkforceEngine';
 
 export interface BusinessSaleQuote {
   grossSalePrice: number;
@@ -190,6 +191,7 @@ export function getBusinessEmpireSummary(
     || getBusinessCoverageGaps(business).length > 0
     || isBusinessBudgetReviewDue(business, currentYear)
     || Boolean(getBusinessGovernanceAttentionReason(business))
+    || Boolean(getCorporateWorkforceAttentionReason(business))
   ).length;
   const acquisitionCount = (businesses ?? []).filter((business) => Boolean(business.acquisition)).length;
   const leveragedAcquisitionCount = (businesses ?? []).filter((business) =>
