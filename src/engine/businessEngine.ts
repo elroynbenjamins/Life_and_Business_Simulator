@@ -1711,6 +1711,15 @@ export function applyDelegatedBusinessRoutine(
 ): OwnedBusiness {
   const policy = biz.delegationPolicy ?? 'manual';
   if (policy === 'manual') return biz;
+  if (!biz.holdingCompanyId) {
+    return {
+      ...biz,
+      delegationPolicy: 'manual',
+      delegatedManagerEmployeeId: null,
+      delegatedManagerName: null,
+      lastDelegationSummary: 'Delegation ended because the company is no longer part of a holding group.',
+    };
+  }
 
   const manager = getDelegationManagers(biz).find((employee) => employee.id === biz.delegatedManagerEmployeeId);
   if (!manager) {
