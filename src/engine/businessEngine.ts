@@ -29,7 +29,10 @@ import {
 } from './businessGovernanceEngine';
 import {
   CORPORATE_WORKFORCE_UNLOCK_VALUATION,
+  applyCorporateHrDecisionChoice,
   createCorporateWorkforce,
+  makeCorporateHrDecision,
+  scheduleNextCorporateHrEvent,
   tickCorporateWorkforce,
 } from './businessWorkforceEngine';
 
@@ -940,8 +943,9 @@ export function processBusinessWeek(
   }
   const globalWeek = ((currentYear - 1) * 20) + currentWeek;
   const workforceTick = tickCorporateWorkforce(biz, globalWeek, inflationMultiplier);
-  const workforceBiz = workforceTick.workforce
-    ? { ...biz, corporateWorkforce: workforceTick.workforce }
+  let corporateWorkforce = workforceTick.workforce;
+  const workforceBiz = corporateWorkforce
+    ? { ...biz, corporateWorkforce }
     : biz;
   const reinvestmentTick = tickBusinessReinvestment(workforceBiz, globalWeek);
 
@@ -950,7 +954,7 @@ export function processBusinessWeek(
     return {
       updatedBusiness: {
         ...biz,
-        corporateWorkforce: workforceTick.workforce,
+        corporateWorkforce,
         reinvestment: reinvestmentTick.reinvestment,
         activeReinvestment: reinvestmentTick.activeReinvestment,
         lastWeekRevenue: 0,
@@ -1165,7 +1169,10 @@ export function processBusinessWeek(
   const locationOperatingCosts = Math.round((biz.locations ?? []).reduce((total, location) => total + (location.weeklyOperatingCost ?? 0), 0) * inflationMultiplier * prestigeCostMultiplier);
   let baseMisc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult)
     + locationOperatingCosts;
-  let misc = baseMisc + governanceEffects.boardWeeklyCost + workforceTick.transitionCost;
+  let misc = baseMisc
+    + governanceEffects.boardWeeklyCost
+    + workforceTick.transitionCost
+    + workforceTick.trainingCost;
   if (acquisition) {
     const quotedRevenue = Math.max(1, acquisition.quotedWeeklyRevenue!);
     const inflationRatio = inflationMultiplier / Math.max(0.01, acquisition.quoteInflation!);
@@ -1183,7 +1190,10 @@ export function processBusinessWeek(
     insurance = baseInsurance + explicitInsurancePremium;
     maintenance = Math.round(maintenance * scale);
     baseMisc = Math.max(0, overhead - rent - cogs - utilities - baseInsurance - maintenance) + locationOperatingCosts;
-    misc = baseMisc + governanceEffects.boardWeeklyCost + workforceTick.transitionCost;
+    misc = baseMisc
+      + governanceEffects.boardWeeklyCost
+      + workforceTick.transitionCost
+      + workforceTick.trainingCost;
   }
 
   let loanInterest = 0;
@@ -1651,6 +1661,23 @@ export function processBusinessWeek(
           morale: Math.max(10, Math.min(100, (employee.morale ?? 50) + (fallback.moraleDelta ?? 0))),
         }));
       }
+      if (
+        corporateWorkforce
+        && (
+          fallback.workforceCompensationPolicy
+          || fallback.workforceTrainingPolicy
+          || fallback.workforceRelationsDelta
+          || fallback.workforceTargetMultiplier
+        )
+      ) {
+        corporateWorkforce = applyCorporateHrDecisionChoice(
+          { ...biz, corporateWorkforce },
+          corporateWorkforce,
+          fallback,
+          globalWeek,
+          inflationMultiplier,
+        );
+      }
       timeline = [
         ...timeline,
         {
@@ -1666,7 +1693,17 @@ export function processBusinessWeek(
     autoResolvedDecision = true;
   }
 
-  if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextStrategicDecisionWeek) {
+  if (
+    !pendingDecision
+    && !autoResolvedDecision
+    && corporateWorkforce
+    && globalWeek >= (corporateWorkforce.nextHrEventWeek ?? globalWeek + 12)
+  ) {
+    pendingDecision = makeCorporateHrDecision({ ...biz, corporateWorkforce }, globalWeek);
+    if (pendingDecision) {
+      corporateWorkforce = scheduleNextCorporateHrEvent(corporateWorkforce, globalWeek);
+    }
+  } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextStrategicDecisionWeek) {
     pendingDecision = makeStrategicDecision(biz, globalWeek);
     nextStrategicDecisionWeek = globalWeek + 6 + Math.floor(Math.random() * 7);
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextCrisisCheckWeek) {
