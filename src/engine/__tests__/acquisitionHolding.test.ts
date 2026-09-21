@@ -105,7 +105,7 @@ describe('business acquisitions and holding companies', () => {
       locations: [],
       activeUpgrade: { upgradeId: acquired.purchasedUpgrades[0], weeksRemaining: 1 },
       activeExpansion: { templateId: 'local_branch', weeksRemaining: 1 },
-      acquisition: { ...acquired.acquisition!, referenceRevenueCapacity: 1 },
+      acquisition: { ...acquired.acquisition!, assetBaselineVersion: 0, referenceRevenueCapacity: 1 },
     };
 
     const migrated = migrateAcquiredBusinessAssets(legacy, 1, 140);
@@ -116,6 +116,8 @@ describe('business acquisitions and holding companies', () => {
     expect(migrated.activeExpansion ?? null).toBeNull();
     expect((migrated.locations ?? []).some((location) => location.templateId === 'local_branch')).toBe(true);
     expect(migrated.acquisition?.referenceRevenueCapacity).toBeGreaterThan(1);
+    expect(migrated.acquisition?.assetBaselineVersion).toBe(1);
+    expect(migrateAcquiredBusinessAssets(migrated, 1, 160)).toBe(migrated);
   });
 
   test('supports all-cash, balanced, and leveraged acquisition structures', () => {
