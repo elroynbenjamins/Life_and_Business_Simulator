@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, CorporateDepartmentId, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -79,6 +79,10 @@ import {
   getExecutiveSearchCooldownWeeks,
   hireExecutiveCandidate as buildExecutiveHire,
 } from '../engine/businessGovernanceEngine';
+import {
+  normalizeCorporateWorkforce,
+  setCorporateDepartmentTarget,
+} from '../engine/businessWorkforceEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
@@ -247,6 +251,7 @@ interface GameStore extends GameState {
   cancelExecutiveSearch: (businessId: string) => void;
   dismissBusinessExecutive: (businessId: string, executiveId: string) => void;
   setBusinessBoardMandate: (businessId: string, mandate: BusinessBoardMandate) => void;
+  setCorporateDepartmentTarget: (businessId: string, departmentId: CorporateDepartmentId, targetHeadcount: number) => void;
   resolveBusinessDecision: (businessId: string, choiceId: string) => void;
   appointChildToBusiness: (businessId: string, childId: string, role: BusinessGovernanceRole) => void;
   transferBusinessShares: (businessId: string, targetType: 'child' | 'family_trust' | 'investor', targetId: string | null, percent: number) => void;
@@ -384,6 +389,12 @@ const useGameStore = create<GameStore>((set, get) => ({
                 lastReviewSummary: business.boardGovernance.lastReviewSummary ?? 'Board review pending.',
               }
             : null,
+          corporateWorkforce: normalizeCorporateWorkforce(
+            business,
+            business.corporateWorkforce,
+            (((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1),
+            saved.inflationMultiplier ?? 1,
+          ),
           businessLoans: (business.businessLoans ?? []).map((loan) => ({
             ...loan,
             purpose: loan.purpose ?? 'operating',
@@ -605,6 +616,12 @@ const useGameStore = create<GameStore>((set, get) => ({
                 lastReviewSummary: business.boardGovernance.lastReviewSummary ?? 'Board review pending.',
               }
             : null,
+          corporateWorkforce: normalizeCorporateWorkforce(
+            business,
+            business.corporateWorkforce,
+            (((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1),
+            saved.inflationMultiplier ?? 1,
+          ),
           businessLoans: (business.businessLoans ?? []).map((loan) => ({
             ...loan,
             purpose: loan.purpose ?? 'operating',
@@ -3521,6 +3538,43 @@ const useGameStore = create<GameStore>((set, get) => ({
                 year: state.year,
                 title: '📋 Board mandate: ' + mandate.replace(/_/g, ' '),
                 icon: '📋',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  setCorporateDepartmentTarget: (businessId, departmentId, targetHeadcount) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const workforce = setCorporateDepartmentTarget(
+      business,
+      departmentId,
+      targetHeadcount,
+      globalWeek,
+      state.inflationMultiplier ?? 1,
+    );
+    if (!workforce) return;
+
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            corporateWorkforce: workforce,
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: '👥 ' + departmentId + ' workforce target set to ' + workforce.departments[departmentId].targetHeadcount,
+                icon: '👥',
                 kind: 'event' as const,
               },
             ].slice(-50),
