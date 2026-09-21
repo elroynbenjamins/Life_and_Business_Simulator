@@ -1,4 +1,5 @@
 import {
+  BusinessManagementQuarterReview,
   BusinessManagementTargetPlan,
   BusinessManagementTargetProfile,
   CorporateKpiHistoryPoint,
@@ -94,6 +95,27 @@ export type BusinessManagementTargetMetricId =
 
 export type BusinessManagementTargetStatus = 'met' | 'near' | 'missed' | 'neutral';
 
+export const MAX_MANAGEMENT_REVIEW_QUARTERS = 20;
+
+export interface BusinessManagementYearReview {
+  year: number;
+  quarters: BusinessManagementQuarterReview[];
+  quarterCount: number;
+  complete: boolean;
+  weeksTracked: number;
+  averageWeeklyRevenue: number;
+  profitMargin: number;
+  payrollToRevenueRatio: number;
+  endingDebtBalance: number;
+  averageMaintenanceCondition: number;
+  targetMetCount: number;
+  targetNearCount: number;
+  targetMissedCount: number;
+  targetTotalCount: number;
+  targetHitRate: number | null;
+  revenueChangePct: number | null;
+}
+
 export interface BusinessManagementTargetResult {
   id: BusinessManagementTargetMetricId;
   label: string;
@@ -120,6 +142,7 @@ interface ManagementReportMetrics {
   profitMargin: number;
   payrollToRevenueRatio: number;
   averageMaintenanceCondition: number;
+  debtBalance?: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -303,18 +326,16 @@ function statusLower(actual: number, target: number, nearTolerance: number): Bus
   return 'missed';
 }
 
-export function getBusinessManagementTargetProgress(
+function evaluateBusinessManagementTargetProgress(
   business: OwnedBusiness,
+  plan: BusinessManagementTargetPlan,
   report: ManagementReportMetrics,
   globalWeek: number,
-): BusinessManagementTargetProgress | null {
-  const plan = ensureBusinessManagementTargetPlan(business, globalWeek);
-  if (!plan) return null;
-
+): BusinessManagementTargetProgress {
   const actualWeeklyRevenue = report.weeksTracked > 0
     ? report.periodRevenue / report.weeksTracked
     : Math.max(0, business.lastWeekRevenue ?? 0);
-  const currentDebt = totalDebt(business);
+  const currentDebt = report.debtBalance ?? totalDebt(business);
   const quarterWeek = clamp(globalWeek - plan.periodStartGlobalWeek + 1, 1, 5);
   const quarterEndGlobalWeek = plan.periodStartGlobalWeek + 4;
   const createdAfterQuarterStart = plan.createdGlobalWeek > plan.periodStartGlobalWeek;
@@ -393,4 +414,168 @@ export function getBusinessManagementTargetProgress(
     missedCount: results.filter((result) => result.status === 'missed').length,
     totalCount: results.length,
   };
+}
+
+export function getBusinessManagementTargetProgress(
+  business: OwnedBusiness,
+  report: ManagementReportMetrics,
+  globalWeek: number,
+): BusinessManagementTargetProgress | null {
+  const plan = ensureBusinessManagementTargetPlan(business, globalWeek);
+  if (!plan) return null;
+  return evaluateBusinessManagementTargetProgress(business, plan, report, globalWeek);
+}
+
+export function closeCompletedBusinessManagementQuarter(
+  business: OwnedBusiness,
+  globalWeek: number,
+): OwnedBusiness {
+  const plan = business.managementTargets;
+  if (!plan) return business;
+
+  const periodEndGlobalWeek = plan.periodStartGlobalWeek + 4;
+  if (globalWeek <= periodEndGlobalWeek) return business;
+
+  const existingHistory = business.managementReviewHistory ?? [];
+  if (existingHistory.some((review) =>
+    review.year === plan.year && review.quarter === plan.quarter
+  )) {
+    return business;
+  }
+
+  const points = (business.corporateKpiHistory ?? [])
+    .filter((point) =>
+      point.globalWeek >= plan.periodStartGlobalWeek
+      && point.globalWeek <= periodEndGlobalWeek
+    )
+    .sort((a, b) => a.globalWeek - b.globalWeek);
+  if (points.length === 0) return business;
+
+  const periodRevenue = points.reduce((sum, point) => sum + Math.max(0, point.revenue), 0);
+  const periodProfit = points.reduce((sum, point) => sum + point.profit, 0);
+  const periodPayroll = points.reduce((sum, point) => sum + Math.max(0, point.payroll), 0);
+  const averageMaintenanceCondition = points.reduce(
+    (sum, point) => sum + Math.max(0, point.averageMaintenanceCondition ?? 0),
+    0,
+  ) / points.length;
+  const endingPoint = points[points.length - 1];
+  const endingDebtBalance = endingPoint.debtBalance ?? totalDebt(business);
+  const profitMargin = periodRevenue > 0 ? periodProfit / periodRevenue : 0;
+  const payrollToRevenueRatio = periodRevenue > 0 ? periodPayroll / periodRevenue : 0;
+
+  const progress = evaluateBusinessManagementTargetProgress(
+    business,
+    plan,
+    {
+      weeksTracked: points.length,
+      periodRevenue,
+      profitMargin,
+      payrollToRevenueRatio,
+      averageMaintenanceCondition,
+      debtBalance: endingDebtBalance,
+    },
+    periodEndGlobalWeek,
+  );
+
+  const review: BusinessManagementQuarterReview = {
+    year: plan.year,
+    quarter: plan.quarter,
+    periodStartGlobalWeek: plan.periodStartGlobalWeek,
+    periodEndGlobalWeek,
+    closedGlobalWeek: Math.max(periodEndGlobalWeek + 1, Math.round(globalWeek)),
+    profile: plan.profile,
+    weeksTracked: points.length,
+    averageWeeklyRevenue: periodRevenue / points.length,
+    profitMargin,
+    payrollToRevenueRatio,
+    endingDebtBalance,
+    averageMaintenanceCondition,
+    targetMetCount: progress.metCount,
+    targetNearCount: progress.nearCount,
+    targetMissedCount: progress.missedCount,
+    targetTotalCount: progress.totalCount,
+    targetResults: progress.results.map((result) => ({
+      id: result.id,
+      label: result.label,
+      actual: result.actual,
+      target: result.target,
+      status: result.status,
+    })),
+    partial: points.length < 5 || endingPoint.debtBalance == null,
+  };
+
+  const managementReviewHistory = [...existingHistory, review]
+    .sort((a, b) =>
+      a.year - b.year
+      || a.quarter - b.quarter
+    )
+    .slice(-MAX_MANAGEMENT_REVIEW_QUARTERS);
+
+  return {
+    ...business,
+    managementReviewHistory,
+  };
+}
+
+export function getBusinessManagementReviewYears(
+  business: OwnedBusiness,
+): BusinessManagementYearReview[] {
+  const byYear = new Map<number, BusinessManagementQuarterReview[]>();
+  for (const review of business.managementReviewHistory ?? []) {
+    const entries = byYear.get(review.year) ?? [];
+    entries.push(review);
+    byYear.set(review.year, entries);
+  }
+
+  return [...byYear.entries()]
+    .map(([year, entries]) => {
+      const quarters = [...entries].sort((a, b) => a.quarter - b.quarter);
+      const weeksTracked = quarters.reduce((sum, quarter) => sum + quarter.weeksTracked, 0);
+      const totalRevenue = quarters.reduce(
+        (sum, quarter) => sum + quarter.averageWeeklyRevenue * quarter.weeksTracked,
+        0,
+      );
+      const totalProfit = quarters.reduce(
+        (sum, quarter) => sum
+          + quarter.averageWeeklyRevenue * quarter.weeksTracked * quarter.profitMargin,
+        0,
+      );
+      const totalPayroll = quarters.reduce(
+        (sum, quarter) => sum
+          + quarter.averageWeeklyRevenue * quarter.weeksTracked * quarter.payrollToRevenueRatio,
+        0,
+      );
+      const maintenanceWeighted = quarters.reduce(
+        (sum, quarter) => sum + quarter.averageMaintenanceCondition * quarter.weeksTracked,
+        0,
+      );
+      const firstQuarter = quarters[0];
+      const lastQuarter = quarters[quarters.length - 1];
+      const targetMetCount = quarters.reduce((sum, quarter) => sum + quarter.targetMetCount, 0);
+      const targetNearCount = quarters.reduce((sum, quarter) => sum + quarter.targetNearCount, 0);
+      const targetMissedCount = quarters.reduce((sum, quarter) => sum + quarter.targetMissedCount, 0);
+      const targetTotalCount = quarters.reduce((sum, quarter) => sum + quarter.targetTotalCount, 0);
+
+      return {
+        year,
+        quarters,
+        quarterCount: quarters.length,
+        complete: quarters.length === 4 && quarters.every((quarter, index) => quarter.quarter === index + 1),
+        weeksTracked,
+        averageWeeklyRevenue: weeksTracked > 0 ? totalRevenue / weeksTracked : 0,
+        profitMargin: totalRevenue > 0 ? totalProfit / totalRevenue : 0,
+        payrollToRevenueRatio: totalRevenue > 0 ? totalPayroll / totalRevenue : 0,
+        endingDebtBalance: lastQuarter?.endingDebtBalance ?? 0,
+        averageMaintenanceCondition: weeksTracked > 0 ? maintenanceWeighted / weeksTracked : 0,
+        targetMetCount,
+        targetNearCount,
+        targetMissedCount,
+        targetTotalCount,
+        targetHitRate: targetTotalCount > 0 ? targetMetCount / targetTotalCount : null,
+        revenueChangePct: firstQuarter && lastQuarter && firstQuarter.averageWeeklyRevenue > 0 && quarters.length > 1
+          ? (lastQuarter.averageWeeklyRevenue - firstQuarter.averageWeeklyRevenue) / firstQuarter.averageWeeklyRevenue
+          : null,
+      };
+    })
+    .sort((a, b) => b.year - a.year);
 }
