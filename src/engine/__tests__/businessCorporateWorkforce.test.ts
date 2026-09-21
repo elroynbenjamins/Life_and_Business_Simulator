@@ -322,12 +322,13 @@ describe('corporate department workforce', () => {
       },
     });
     const payroll = getCorporateWorkforceWeeklyPayroll(business.corporateWorkforce);
+    const training = Math.round(payroll * 0.008);
 
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const first = processBusinessWeek(business, 1, 5, 5).updatedBusiness;
 
     expect(first.acquisition?.workforceBaselineVersion).toBe(1);
-    expect(first.acquisition?.referenceStaffCost).toBe(5_000 + payroll);
+    expect(first.acquisition?.referenceStaffCost).toBe(5_000 + payroll + training);
 
     const second = processBusinessWeek(first, 1, 6, 5).updatedBusiness;
     expect(second.acquisition?.referenceStaffCost).toBe(first.acquisition?.referenceStaffCost);
