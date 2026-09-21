@@ -160,6 +160,23 @@ export function getBusinessInsuranceQuote(
   };
 }
 
+export function getBusinessInsuranceLossQuote(
+  policyTier: BusinessInsuranceTier,
+  grossLoss: number,
+): { netLoss: number; payout: number; deductible: number } {
+  const loss = Math.max(0, Math.round(grossLoss));
+  if (loss <= 0 || policyTier === 'none') {
+    return { netLoss: loss, payout: 0, deductible: loss };
+  }
+
+  const config = TIER_CONFIG[policyTier];
+  const deductible = Math.min(loss, Math.round(loss * config.deductiblePct));
+  const coveredBase = Math.max(0, loss - deductible);
+  const payout = Math.min(loss, Math.round(coveredBase * config.coveragePct));
+  const netLoss = Math.max(0, loss - payout);
+  return { netLoss, payout, deductible };
+}
+
 export function resolveBusinessInsuranceLoss(
   business: OwnedBusiness,
   area: BusinessInsuranceArea,
@@ -168,32 +185,20 @@ export function resolveBusinessInsuranceLoss(
   incidentTitle: string,
   globalWeek: number,
 ): { netLoss: number; payout: number; deductible: number; claim: BusinessInsuranceClaim | null } {
-  const loss = Math.max(0, Math.round(grossLoss));
-  if (loss <= 0 || policyTier === 'none') {
-    return { netLoss: loss, payout: 0, deductible: loss, claim: null };
-  }
-
-  const config = TIER_CONFIG[policyTier];
-  const deductible = Math.min(loss, Math.round(loss * config.deductiblePct));
-  const coveredBase = Math.max(0, loss - deductible);
-  const payout = Math.min(loss, Math.round(coveredBase * config.coveragePct));
-  const netLoss = Math.max(0, loss - payout);
-
+  const quote = getBusinessInsuranceLossQuote(policyTier, grossLoss);
   return {
-    netLoss,
-    payout,
-    deductible,
-    claim: payout > 0
+    ...quote,
+    claim: quote.payout > 0
       ? {
           id: `claim_${business.id}_${globalWeek}_${Math.random().toString(36).slice(2, 7)}`,
           area,
           policyTier,
           incidentTitle,
           globalWeek,
-          grossLoss: loss,
-          deductible,
-          payout,
-          netLoss,
+          grossLoss: Math.max(0, Math.round(grossLoss)),
+          deductible: quote.deductible,
+          payout: quote.payout,
+          netLoss: quote.netLoss,
         }
       : null,
   };
