@@ -163,7 +163,7 @@ describe('corporate management reporting', () => {
 
     expect(report.payrollStatus).toBe('critical');
     expect(report.turnoverStatus).toBe('watch');
-    expect(report.debtCoverageStatus).toBe('watch');
+    expect(report.debtCoverageStatus).toBe('critical');
     expect(report.maintenanceStatus).toBe('watch');
     expect(report.productivityStatus).toBe('watch');
     expect(warningIds).toEqual(expect.arrayContaining([
