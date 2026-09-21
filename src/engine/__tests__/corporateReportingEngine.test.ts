@@ -176,6 +176,122 @@ describe('corporate management reporting', () => {
     expect(report.overallStatus).toBe('critical');
   });
 
+  test('explains period variance from tracked operating drivers', () => {
+    const business = makeCorporateBusiness();
+    const rich = {
+      averageDepartmentSkill: 72,
+      averageDepartmentMorale: 74,
+      employeeRelations: 72,
+      maintenanceRevenuePenalty: 0,
+      maintenanceExpenseIncrease: 0,
+      acquisitionRevenueModifier: 0,
+      acquisitionExpenseModifier: 0,
+      integrationWeeksRemaining: 0,
+      reputation: 80,
+      marketShareModifier: 0,
+    };
+    business.corporateKpiHistory = [
+      ...Array.from({ length: 5 }, (_, index) => point(16 + index, {
+        ...rich,
+        revenue: 1_200_000,
+        expenses: 800_000,
+        profit: 400_000,
+        headcount: 20,
+        payroll: 250_000,
+        productivityIndex: 100,
+        averageMaintenanceCondition: 90,
+      })),
+      ...Array.from({ length: 5 }, (_, index) => point(21 + index, {
+        ...rich,
+        revenue: 1_000_000,
+        expenses: 750_000,
+        profit: 250_000,
+        headcount: 25,
+        payroll: 310_000,
+        productivityIndex: 88,
+        averageDepartmentMorale: 68,
+        averageMaintenanceCondition: 80,
+        maintenanceRevenuePenalty: 0.02,
+        maintenanceExpenseIncrease: 0.015,
+        reputation: 77,
+      })),
+    ];
+    business.lastWeekRevenue = 1_000_000;
+    business.lastWeekExpenses = 750_000;
+    business.lastWeekProfit = 250_000;
+
+    const report = getCorporateManagementReport(business, 25, 'quarter', 1)!;
+
+    expect(report.revenueChangePct).toBeCloseTo(-1 / 6, 3);
+    expect(report.expensesChangePct).toBeCloseTo(-0.0625, 3);
+    expect(report.profitMargin).toBeCloseTo(0.25, 4);
+    expect(report.profitMarginChangePctPoints).toBeCloseTo(-8.333, 2);
+    expect(report.varianceHistoryCoverage).toBe('full');
+    expect(report.varianceDrivers.map((driver) => driver.id)).toEqual(expect.arrayContaining([
+      'productivity-change',
+      'headcount-change',
+      'maintenance-change',
+      'morale-change',
+      'reputation-change',
+    ]));
+    expect(report.varianceDrivers[0].direction).toBe('negative');
+    expect(report.varianceDrivers).toHaveLength(4);
+  });
+
+  test('legacy KPI history stays usable with partial variance attribution', () => {
+    const business = makeCorporateBusiness();
+    business.corporateKpiHistory = [
+      ...Array.from({ length: 5 }, (_, index) => point(16 + index, {
+        revenue: 1_000_000,
+        productivityIndex: 100,
+      })),
+      ...Array.from({ length: 5 }, (_, index) => point(21 + index, {
+        revenue: 900_000,
+        productivityIndex: 92,
+      })),
+    ];
+    business.lastWeekRevenue = 900_000;
+
+    const report = getCorporateManagementReport(business, 25, 'quarter', 1)!;
+
+    expect(report.varianceHistoryCoverage).toBe('partial');
+    expect(report.varianceDrivers.some((driver) => driver.id === 'productivity-change')).toBe(true);
+    expect(report.revenueChangePct).toBeCloseTo(-0.10, 4);
+  });
+
+  test('tracks acquisition integration changes when richer history is available', () => {
+    const business = makeCorporateBusiness();
+    const base = {
+      averageDepartmentSkill: 72,
+      averageDepartmentMorale: 72,
+      employeeRelations: 70,
+      maintenanceRevenuePenalty: 0,
+      maintenanceExpenseIncrease: 0,
+      reputation: 80,
+      marketShareModifier: 0,
+    };
+    business.corporateKpiHistory = [
+      ...Array.from({ length: 5 }, (_, index) => point(16 + index, {
+        ...base,
+        acquisitionRevenueModifier: -0.10,
+        acquisitionExpenseModifier: 0.075,
+        integrationWeeksRemaining: 8,
+      })),
+      ...Array.from({ length: 5 }, (_, index) => point(21 + index, {
+        ...base,
+        acquisitionRevenueModifier: -0.02,
+        acquisitionExpenseModifier: 0.015,
+        integrationWeeksRemaining: 2,
+      })),
+    ];
+
+    const report = getCorporateManagementReport(business, 25, 'quarter', 1)!;
+    const integration = report.varianceDrivers.find((driver) => driver.id === 'integration-change');
+
+    expect(integration?.direction).toBe('positive');
+    expect(integration?.title).toContain('drag eased');
+  });
+
   test('completed corporate investments receive a direct operating ROI estimate', () => {
     const business = makeCorporateBusiness();
     business.completedCorporateCapex = [{
