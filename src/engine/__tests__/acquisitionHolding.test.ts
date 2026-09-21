@@ -139,6 +139,9 @@ describe('business acquisitions and holding companies', () => {
 
     expect(getAcquisitionPrice(target, 0.05)).toBe(Math.round(target.askingPrice * 0.95));
     expect(getAcquisitionPrice(target, 0.50)).toBe(Math.round(target.askingPrice * 0.85));
+
+    const lowPremiumTarget = { ...target, estimatedValue: 100_000_000, askingPrice: 110_000_000 };
+    expect(getAcquisitionPrice(lowPremiumTarget, 0.50)).toBe(100_000_000);
   });
 
   test('leveraged acquisitions attach debt and wait for an integration decision', () => {
