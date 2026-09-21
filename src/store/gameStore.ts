@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, AcquisitionFundingMode, AcquisitionIntegrationStrategy, HoldingCapitalPurpose } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -43,6 +43,7 @@ import { AD_GEM_REWARD, GEM_CASH_RATE } from '../constants/rewards';
 import { AD_CONFIG } from '../services/adConfig';
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
+import { getHoldingSharedServiceUpgradeCost, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
@@ -196,7 +197,9 @@ interface GameStore extends GameState {
   setAcquisitionIntegrationStrategy: (businessId: string, strategy: Exclude<AcquisitionIntegrationStrategy, 'pending'>) => void;
   createHoldingCompany: (name: string) => void;
   fundHoldingCompany: (holdingCompanyId: string, amount: number) => void;
+  upgradeHoldingSharedService: (holdingCompanyId: string, serviceId: HoldingSharedServiceId) => void;
   allocateHoldingCapital: (holdingCompanyId: string, businessId: string, amount: number, purpose: HoldingCapitalPurpose) => void;
+  setBusinessDelegation: (businessId: string, policy: BusinessDelegationPolicy, managerEmployeeId?: string | null) => void;
   appointChildToHolding: (holdingCompanyId: string, childId: string, role: 'executive' | 'successor') => void;
   assignBusinessToHolding: (businessId: string, holdingCompanyId: string | null) => void;
   toggleLongTermFamilyAsset: (businessId: string) => void;
@@ -323,6 +326,11 @@ const useGameStore = create<GameStore>((set, get) => ({
           portfolioIntent: business.portfolioIntent ?? 'active',
           capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
+          delegationPolicy: business.delegationPolicy ?? 'manual',
+          delegatedManagerEmployeeId: business.delegatedManagerEmployeeId ?? null,
+          delegatedManagerName: business.delegatedManagerName ?? null,
+          lastDelegationReviewWeek: business.lastDelegationReviewWeek ?? 0,
+          lastDelegationSummary: business.lastDelegationSummary ?? null,
           acquisition: business.acquisition
             ? {
                 ...business.acquisition,
@@ -358,6 +366,7 @@ const useGameStore = create<GameStore>((set, get) => ({
           executivePerformance: holding.executivePerformance ?? 50,
           designatedSuccessorChildId: holding.designatedSuccessorChildId ?? null,
           designatedSuccessorChildName: holding.designatedSuccessorChildName ?? null,
+          sharedServices: normalizeHoldingSharedServices(holding.sharedServices),
         })),
         acquisitionTargets: (saved.acquisitionTargets ?? []).map((target) => ({
           ...target,
@@ -508,6 +517,11 @@ const useGameStore = create<GameStore>((set, get) => ({
           portfolioIntent: business.portfolioIntent ?? 'active',
           capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
+          delegationPolicy: business.delegationPolicy ?? 'manual',
+          delegatedManagerEmployeeId: business.delegatedManagerEmployeeId ?? null,
+          delegatedManagerName: business.delegatedManagerName ?? null,
+          lastDelegationReviewWeek: business.lastDelegationReviewWeek ?? 0,
+          lastDelegationSummary: business.lastDelegationSummary ?? null,
           acquisition: business.acquisition
             ? {
                 ...business.acquisition,
@@ -543,6 +557,7 @@ const useGameStore = create<GameStore>((set, get) => ({
           executivePerformance: holding.executivePerformance ?? 50,
           designatedSuccessorChildId: holding.designatedSuccessorChildId ?? null,
           designatedSuccessorChildName: holding.designatedSuccessorChildName ?? null,
+          sharedServices: normalizeHoldingSharedServices(holding.sharedServices),
         })),
         acquisitionTargets: (saved.acquisitionTargets ?? []).map((target) => ({
           ...target,
