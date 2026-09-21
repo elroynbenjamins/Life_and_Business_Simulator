@@ -6,6 +6,11 @@ export type RiskTolerance = 'cautious' | 'balanced' | 'risk_taking';
 export type AmbitionLevel = 'relaxed' | 'career_minded' | 'driven';
 export type FamilyGoal = 'no_children' | 'unsure' | 'wants_children';
 export type FamilyPlan = 'not_discussed' | 'no_children' | 'later' | 'trying';
+export type FamilyWorkArrangement =
+  | 'full_time'
+  | 'both_80'
+  | 'partner_80'
+  | 'partner_primary';
 export type RelationshipStage = 'dating' | 'partner' | 'living_together' | 'engaged' | 'married';
 export type HouseholdSplit = 'equal' | 'proportional' | 'player_pays_most';
 export type MarriageAgreement = 'separate' | 'shared_future';
@@ -272,6 +277,12 @@ export interface RelationshipState {
   financialObligations: RelationshipFinancialObligation[];
   familyPlan: FamilyPlan;
   familyExpansionWeeksRemaining: number;
+  /**
+   * Household work schedule while the youngest child is under 6.
+   * Existing saves default to both_80 through runtime normalization.
+   */
+  familyWorkArrangement?: FamilyWorkArrangement;
+  familyWorkArrangementChangedWeek?: number;
   familySpendingMode: 'normal' | 'reduced';
   familySpendingWeeksRemaining: number;
   lastFamilyAttemptWeek: number;
@@ -304,6 +315,8 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   financialObligations: [],
   familyPlan: 'not_discussed',
   familyExpansionWeeksRemaining: 0,
+  familyWorkArrangement: 'both_80',
+  familyWorkArrangementChangedWeek: 0,
   familySpendingMode: 'normal',
   familySpendingWeeksRemaining: 0,
   lastFamilyAttemptWeek: 0,
