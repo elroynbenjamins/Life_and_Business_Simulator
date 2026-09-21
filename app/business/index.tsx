@@ -17,8 +17,9 @@ import { businessTypeImages } from '../../src/assets/progressionImages';
 import { ACQUISITION_UNLOCK_NET_WORTH } from '../../src/engine/acquisitionEngine';
 
 type SortMode = 'attention' | 'value' | 'profit' | 'roi';
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const SORT_OPTIONS: Array<{ key: SortMode; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+const SORT_OPTIONS: Array<{ key: SortMode; label: string; icon: IconName }> = [
   { key: 'attention', label: 'Attention', icon: 'alert-circle-outline' },
   { key: 'value', label: 'Value', icon: 'diamond-outline' },
   { key: 'profit', label: 'Profit', icon: 'cash-outline' },
