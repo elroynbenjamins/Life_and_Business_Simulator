@@ -1,5 +1,6 @@
 import {
   ChildPersonality,
+  FamilyWorkArrangement,
   GameState,
   RelationshipCandidate,
   RelationshipChild,
@@ -332,6 +333,120 @@ export function revealNextTrait(connection: RelationshipConnection): Relationshi
   return { ...connection, visibleTraits: [...(connection.visibleTraits ?? []), next] };
 }
 
+export const FAMILY_WORK_ARRANGEMENTS: Record<FamilyWorkArrangement, {
+  id: FamilyWorkArrangement;
+  label: string;
+  description: string;
+}> = {
+  full_time: {
+    id: 'full_time',
+    label: 'Both Full-time',
+    description: 'Both adults stay at 100% salary. Childcare costs remain highest.',
+  },
+  both_80: {
+    id: 'both_80',
+    label: 'Both 80%',
+    description: 'Both adults work four days. Each receives 80% of normal salary while the youngest child is under 6.',
+  },
+  partner_80: {
+    id: 'partner_80',
+    label: 'Partner 80%',
+    description: 'You remain full-time while your partner works 80% until the youngest child reaches 6.',
+  },
+  partner_primary: {
+    id: 'partner_primary',
+    label: 'Partner Cares More',
+    description: 'Your partner works 60% until age 3, then 80% until the youngest child reaches 6.',
+  },
+};
+
+export interface FamilyWorkArrangementEffects {
+  arrangement: FamilyWorkArrangement;
+  active: boolean;
+  youngestChildAge: number | null;
+  playerWorkFraction: number;
+  partnerWorkFraction: number;
+  childcareMultiplier: number;
+}
+
+function getYoungestChildAge(state: GameState): number | null {
+  const children = state.relationshipState?.children ?? [];
+  if (children.length === 0) return null;
+  return children.reduce(
+    (youngest, child) => Math.min(youngest, getChildAge(child, globalWeek(state))),
+    Number.POSITIVE_INFINITY,
+  );
+}
+
+export function getFamilyWorkArrangementEffects(state: GameState): FamilyWorkArrangementEffects {
+  const arrangement = state.relationshipState?.familyWorkArrangement ?? 'both_80';
+  const youngestChildAge = getYoungestChildAge(state);
+  const partner = state.relationshipState?.partnerId
+    ? (state.relationshipState.activeConnections ?? []).find(
+        (connection) => connection.id === state.relationshipState.partnerId,
+      ) ?? null
+    : null;
+  const sharedHousehold = !!partner
+    && (partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married');
+  const active = sharedHousehold && youngestChildAge != null && youngestChildAge < 6;
+
+  if (!active || arrangement === 'full_time') {
+    return {
+      arrangement,
+      active,
+      youngestChildAge,
+      playerWorkFraction: 1,
+      partnerWorkFraction: 1,
+      childcareMultiplier: 1,
+    };
+  }
+
+  if (arrangement === 'partner_80') {
+    return {
+      arrangement,
+      active: true,
+      youngestChildAge,
+      playerWorkFraction: 1,
+      partnerWorkFraction: 0.8,
+      childcareMultiplier: 0.82,
+    };
+  }
+
+  if (arrangement === 'partner_primary') {
+    const veryYoung = (youngestChildAge ?? 6) < 3;
+    return {
+      arrangement,
+      active: true,
+      youngestChildAge,
+      playerWorkFraction: 1,
+      partnerWorkFraction: veryYoung ? 0.6 : 0.8,
+      childcareMultiplier: veryYoung ? 0.55 : 0.78,
+    };
+  }
+
+  return {
+    arrangement: 'both_80',
+    active: true,
+    youngestChildAge,
+    playerWorkFraction: 0.8,
+    partnerWorkFraction: 0.8,
+    childcareMultiplier: 0.70,
+  };
+}
+
+export function getEffectivePartnerWeeklyIncome(
+  connection: RelationshipConnection | null,
+  state: GameState,
+): number {
+  if (!connection || connection.employmentStatus === 'unemployed') return 0;
+  const effects = getFamilyWorkArrangementEffects(state);
+  return Math.max(0, Math.round((connection.weeklyIncome ?? 0) * effects.partnerWorkFraction));
+}
+
+export function getPlayerFamilyWorkFraction(state: GameState): number {
+  return getFamilyWorkArrangementEffects(state).playerWorkFraction;
+}
+
 export function getChildAge(child: RelationshipChild, currentGlobalWeek: number): number {
   return Math.max(0, Math.floor((currentGlobalWeek - child.birthGlobalWeek) / 20));
 }
@@ -358,7 +473,14 @@ export function getChildCostBreakdown(child: RelationshipChild, state: GameState
     : age < 16 ? [65, 30, 25, 25, 20]
     : age < 18 ? [75, 35, 30, 30, 20] : [0, 0, 0, 0, 0];
   const multiplier = (state.inflationMultiplier ?? 1) * getFamilySpendingMultiplier(state);
-  const [food, careSchool, clothingHealth, transportActivities, utilities] = base.map(value => Math.round(value * multiplier));
+  const workEffects = getFamilyWorkArrangementEffects(state);
+  const food = Math.round(base[0] * multiplier);
+  const careSchool = Math.round(
+    base[1] * multiplier * (age < 6 ? workEffects.childcareMultiplier : 1),
+  );
+  const clothingHealth = Math.round(base[2] * multiplier);
+  const transportActivities = Math.round(base[3] * multiplier);
+  const utilities = Math.round(base[4] * multiplier);
   return { food, careSchool, clothingHealth, transportActivities, utilities,
     total: food + careSchool + clothingHealth + transportActivities + utilities };
 }
@@ -384,8 +506,13 @@ export function getRelationshipObligationWeeklyCost(state: GameState): number {
 }
 
 function getPlayerEmploymentIncome(state: GameState): number {
-  if (state.career?.companyId) return getCareerSalary(state.career, state.inflationMultiplier ?? 1);
-  if (state.currentJobId) return getWeeklySalary(state);
+  const workFraction = getPlayerFamilyWorkFraction(state);
+  if (state.career?.companyId) {
+    return Math.round(getCareerSalary(state.career, state.inflationMultiplier ?? 1) * workFraction);
+  }
+  if (state.currentJobId) {
+    return Math.round(getWeeklySalary(state) * workFraction);
+  }
   if (state.partTimeJob) return 350;
   return 0;
 }
@@ -399,7 +526,9 @@ export function getFamilySupportAmount(state: GameState, grossFamilyCost?: numbe
   if (familyCost <= 0) return 0;
 
   const inflation = state.inflationMultiplier ?? 1;
-  const householdIncome = getPlayerEmploymentIncome(state) + Math.max(0, partnerIncome);
+  const workEffects = getFamilyWorkArrangementEffects(state);
+  const effectivePartnerIncome = Math.max(0, Math.round(partnerIncome * workEffects.partnerWorkFraction));
+  const householdIncome = getPlayerEmploymentIncome(state) + effectivePartnerIncome;
   const threshold = Math.round((1100 + dependentChildren * 250) * inflation);
   if (householdIncome >= threshold) return 0;
 
@@ -471,8 +600,9 @@ export function calculatePartnerContribution(
   const obligationCost = getRelationshipObligationWeeklyCost(state);
   const children = state.relationshipState?.children ?? [];
   const grossFamilyCost = children.reduce((total, child) => total + getChildWeeklyCost(child, state), 0);
-  const partnerIncome = Math.max(0, connection?.weeklyIncome ?? 0);
-  const familySupport = getFamilySupportAmount(state, grossFamilyCost, partnerIncome);
+  const partnerIncome = getEffectivePartnerWeeklyIncome(connection, state);
+  const rawPartnerIncome = Math.max(0, connection?.weeklyIncome ?? 0);
+  const familySupport = getFamilySupportAmount(state, grossFamilyCost, rawPartnerIncome);
   const familyCost = Math.max(0, grossFamilyCost - familySupport);
 
   if (!connection || !(connection.isCohabiting || connection.stage === 'living_together' || connection.stage === 'married')) {
@@ -1331,7 +1461,8 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   const savingsConnections = activeConnections.map((connection) => {
     if (connection.id !== activePartnerId) return connection;
     const rate = connection.financialStyle === 'frugal' ? 0.20 : connection.financialStyle === 'luxury' ? 0.04 : 0.10;
-    const disposable = Math.max(0, (connection.weeklyIncome ?? 0) - finances.contribution);
+    const effectiveIncome = getEffectivePartnerWeeklyIncome(connection, workingState);
+    const disposable = Math.max(0, effectiveIncome - finances.contribution);
     return { ...connection, savings: Math.round((connection.savings ?? 0) + disposable * rate) };
   });
 
