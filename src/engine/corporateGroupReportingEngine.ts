@@ -237,6 +237,14 @@ export function getCorporateGroupManagementReport(
   if (reportPairs.length === 0) return null;
 
   const reports = reportPairs.map((pair) => pair.report);
+  const periodRevenue = reports.reduce((sum, report) => sum + report.periodRevenue, 0);
+  const periodExpenses = reports.reduce((sum, report) => sum + report.periodExpenses, 0);
+  const periodPayroll = reports.reduce((sum, report) => sum + report.periodPayroll, 0);
+  const periodProfit = reports.reduce((sum, report) => sum + report.periodProfit, 0);
+  const periodDebtService = reports.reduce((sum, report) => sum + report.periodDebtService, 0);
+  const employeeWeeks = reports.reduce((sum, report) => sum + report.periodEmployeeWeeks, 0);
+  const turnoverCount = reports.reduce((sum, report) => sum + report.periodTurnoverCount, 0);
+
   const comparisonPairs = reportPairs.filter(({ report }) => report.previousWeeksTracked > 0);
   const currentComparableWeeklyRevenue = comparisonPairs.reduce(
     (sum, { report }) => sum + report.periodRevenue / Math.max(1, report.weeksTracked),
@@ -256,6 +264,30 @@ export function getCorporateGroupManagementReport(
   );
   const currentComparableWeeklyProfit = comparisonPairs.reduce(
     (sum, { report }) => sum + report.periodProfit / Math.max(1, report.weeksTracked),
+    0,
+  );
+  const currentComparableEmployeeWeeks = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.periodEmployeeWeeks,
+    0,
+  );
+  const previousComparableEmployeeWeeks = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.previousPeriodEmployeeWeeks,
+    0,
+  );
+  const currentComparableTurnover = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.periodTurnoverCount,
+    0,
+  );
+  const previousComparableTurnover = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.previousPeriodTurnoverCount,
+    0,
+  );
+  const currentComparableRevenueTotal = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.periodRevenue,
+    0,
+  );
+  const previousComparableRevenueTotal = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.previousPeriodRevenue,
     0,
   );
   const previousComparableWeeklyProfit = comparisonPairs.reduce(
@@ -293,21 +325,15 @@ export function getCorporateGroupManagementReport(
   );
   const reportingValueCoverage = totalValue > 0 ? reportingValue / totalValue : 1;
 
-  const periodRevenue = reports.reduce((sum, report) => sum + report.periodRevenue, 0);
-  const periodPayroll = reports.reduce((sum, report) => sum + report.periodPayroll, 0);
-  const periodProfit = reports.reduce((sum, report) => sum + report.periodProfit, 0);
-  const periodDebtService = reports.reduce((sum, report) => sum + report.periodDebtService, 0);
-  const employeeWeeks = reports.reduce((sum, report) => sum + report.periodEmployeeWeeks, 0);
-  const turnoverCount = reports.reduce((sum, report) => sum + report.periodTurnoverCount, 0);
-
-  const previousRevenue = reports.reduce((sum, report) => sum + report.previousPeriodRevenue, 0);
-  const previousEmployeeWeeks = reports.reduce((sum, report) => sum + report.previousPeriodEmployeeWeeks, 0);
-  const previousTurnoverCount = reports.reduce((sum, report) => sum + report.previousPeriodTurnoverCount, 0);
-
   const revenuePerEmployee = employeeWeeks > 0 ? periodRevenue / employeeWeeks : 0;
-  const previousRevenuePerEmployee = previousEmployeeWeeks > 0 ? previousRevenue / previousEmployeeWeeks : 0;
+  const comparableRevenuePerEmployee = currentComparableEmployeeWeeks > 0
+    ? currentComparableRevenueTotal / currentComparableEmployeeWeeks
+    : 0;
+  const previousRevenuePerEmployee = previousComparableEmployeeWeeks > 0
+    ? previousComparableRevenueTotal / previousComparableEmployeeWeeks
+    : 0;
   const revenuePerEmployeeChangePct = previousRevenuePerEmployee > 0
-    ? (revenuePerEmployee - previousRevenuePerEmployee) / previousRevenuePerEmployee
+    ? (comparableRevenuePerEmployee - previousRevenuePerEmployee) / previousRevenuePerEmployee
     : null;
 
   const payrollToRevenueRatio = periodRevenue > 0
@@ -317,11 +343,14 @@ export function getCorporateGroupManagementReport(
   const annualizedTurnoverRate = employeeWeeks > 0
     ? turnoverCount / employeeWeeks * 20
     : 0;
-  const previousAnnualizedTurnoverRate = previousEmployeeWeeks > 0
-    ? previousTurnoverCount / previousEmployeeWeeks * 20
+  const comparableAnnualizedTurnoverRate = currentComparableEmployeeWeeks > 0
+    ? currentComparableTurnover / currentComparableEmployeeWeeks * 20
     : 0;
-  const turnoverChangePctPoints = previousEmployeeWeeks > 0
-    ? annualizedTurnoverRate - previousAnnualizedTurnoverRate
+  const previousAnnualizedTurnoverRate = previousComparableEmployeeWeeks > 0
+    ? previousComparableTurnover / previousComparableEmployeeWeeks * 20
+    : 0;
+  const turnoverChangePctPoints = previousComparableEmployeeWeeks > 0
+    ? comparableAnnualizedTurnoverRate - previousAnnualizedTurnoverRate
     : null;
   const turnoverTrend = turnoverChangePctPoints == null
     ? 'baseline'
