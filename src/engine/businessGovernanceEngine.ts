@@ -8,6 +8,7 @@ import {
   BusinessExecutiveTrait,
   OwnedBusiness,
 } from '../types/game';
+import { getCorporateWorkforceEffects } from './businessWorkforceEngine';
 
 export const BOARD_GOVERNANCE_UNLOCK_VALUATION = 25_000_000;
 
@@ -344,6 +345,7 @@ export function tickBusinessGovernance(
   timelineEntries: Array<{ week: number; year: number; title: string; icon: string; kind: 'event' }>;
 } {
   const globalWeek = ((currentYear - 1) * 20) + currentWeek;
+  const workforceEffects = getCorporateWorkforceEffects(business);
   const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
   const debtToValue = debt / Math.max(1, business.valuation ?? 1);
   const policies = business.insurancePolicies ?? {};
@@ -356,17 +358,32 @@ export function tickBusinessGovernance(
     if (executive.role === 'cfo') {
       delta += debtToValue <= 0.35 ? 0.08 : debtToValue > 0.50 ? -0.16 : 0;
       delta += budgetReviewed ? 0.05 : -0.10;
+      delta += workforceEffects.departmentRatios.finance >= 0.95
+        ? 0.06
+        : workforceEffects.departmentRatios.finance < 0.75 ? -0.12 : 0;
     } else if (executive.role === 'coo') {
       const condition = averageInfrastructureCondition(business);
       delta += condition >= 75 ? 0.07 : condition < 55 ? -0.14 : 0;
+      delta += workforceEffects.departmentRatios.operations >= 0.95
+        ? 0.06
+        : workforceEffects.departmentRatios.operations < 0.75 ? -0.12 : 0;
     } else if (executive.role === 'cto') {
       const tech = business.reinvestment?.technology?.condition ?? 100;
       delta += tech >= 75 ? 0.08 : tech < 55 ? -0.16 : 0;
+      delta += workforceEffects.departmentRatios.technology >= 0.95
+        ? 0.07
+        : workforceEffects.departmentRatios.technology < 0.75 ? -0.14 : 0;
     } else if (executive.role === 'cmo') {
       delta += currentRevenue >= (business.lastWeekRevenue ?? 0) ? 0.08 : -0.07;
+      delta += workforceEffects.departmentRatios.sales >= 0.95
+        ? 0.06
+        : workforceEffects.departmentRatios.sales < 0.75 ? -0.12 : 0;
     } else if (executive.role === 'general_counsel') {
       delta += policies.liability && policies.liability !== 'none' ? 0.05 : -0.08;
       delta += policies.cyber && policies.cyber !== 'none' ? 0.03 : -0.04;
+      delta += workforceEffects.departmentRatios.support >= 0.95
+        ? 0.05
+        : workforceEffects.departmentRatios.support < 0.75 ? -0.10 : 0;
     }
 
     const updated: BusinessExecutive = {
@@ -410,6 +427,9 @@ export function tickBusinessGovernance(
     confidenceChange += debtToValue < 0.35 ? 2 : debtToValue > 0.50 ? -4 : 0;
     const condition = averageInfrastructureCondition(business);
     confidenceChange += condition >= 70 ? 2 : condition < 50 ? -4 : 0;
+    confidenceChange += workforceEffects.staffingScore >= 90
+      ? 2
+      : workforceEffects.staffingScore < 75 ? -4 : 0;
     const requiredRoles = (Object.keys(BUSINESS_EXECUTIVE_ROLES) as BusinessExecutiveRole[])
       .filter((role) => (business.valuation ?? 0) >= BUSINESS_EXECUTIVE_ROLES[role].minValuation);
     const vacancies = requiredRoles.filter((role) => !executives.some((executive) => executive.role === role)).length;
