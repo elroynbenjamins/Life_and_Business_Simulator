@@ -177,6 +177,61 @@ describe('corporate group management reporting', () => {
     expect(report.warnings.some((warning) => warning.id === 'concentration')).toBe(false);
   });
 
+  test('aggregates comparable revenue variance and cross-company driver signals', () => {
+    const weaker = makeBusiness('Weaker Co', 100_000_000);
+    setPeriodHistory(
+      weaker,
+      {
+        revenue: 1_000_000,
+        expenses: 700_000,
+        profit: 300_000,
+        productivityIndex: 100,
+      },
+      {
+        revenue: 900_000,
+        expenses: 720_000,
+        profit: 180_000,
+        productivityIndex: 88,
+      },
+    );
+
+    const stronger = makeBusiness('Stronger Co', 150_000_000);
+    setPeriodHistory(
+      stronger,
+      {
+        revenue: 2_000_000,
+        expenses: 1_400_000,
+        profit: 600_000,
+        productivityIndex: 95,
+      },
+      {
+        revenue: 2_200_000,
+        expenses: 1_430_000,
+        profit: 770_000,
+        productivityIndex: 103,
+      },
+    );
+
+    const report = getCorporateGroupManagementReport(
+      [weaker, stronger],
+      25,
+      'quarter',
+      1,
+    )!;
+
+    expect(report.revenueChangePct).toBeCloseTo(0.0333, 3);
+    expect(report.expensesChangePct).toBeCloseTo((2_150_000 - 2_100_000) / 2_100_000, 3);
+    expect(report.profitMargin).toBeCloseTo(950_000 / 3_100_000, 4);
+    expect(report.profitMarginChangePctPoints).toBeGreaterThan(0);
+    expect(report.varianceHistoryCoverage).toBe('partial');
+    expect(report.varianceDrivers.some((driver) =>
+      driver.area === 'productivity' && driver.direction === 'negative' && driver.detail.includes('Weaker Co')
+    )).toBe(true);
+    expect(report.varianceDrivers.some((driver) =>
+      driver.area === 'productivity' && driver.direction === 'positive' && driver.detail.includes('Stronger Co')
+    )).toBe(true);
+  });
+
   test('identifies and orders the companies behind critical and watch KPIs', () => {
     const critical = makeBusiness('Critical Co', 100_000_000);
     setPeriodHistory(
