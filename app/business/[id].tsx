@@ -23,7 +23,8 @@ import { businessTypeImages, employeeRoleImages } from '../../src/assets/progres
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
 import { AcquisitionIntegrationStrategy, BusinessGovernanceRole, BusinessStrategicFocus } from '../../src/types/game';
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
-import { getAcquisitionReturn, getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
+import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
+import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -183,7 +184,7 @@ export default function BusinessDetailScreen() {
   const fivePctStakeValue = Math.round((biz.valuation ?? 0) * 0.05);
   const childShareGiftTax = calculateChildInheritanceTax(fivePctStakeValue);
   const trustShareTransferTax = Math.round(fivePctStakeValue * 0.075);
-  const acquisitionReturn = getAcquisitionReturn(biz);
+  const acquisitionReturn = biz.acquisition ? getBusinessEquityReturn(biz) : null;
   // Market share pie chart data. Keep these as plain calculations rather than
   // hooks because selling the current business removes it from the store
   // synchronously and this screen then takes the early "not found" return.
@@ -353,7 +354,7 @@ export default function BusinessDetailScreen() {
                   Purchased for {formatCurrency(biz.acquisition.purchasePrice)} • Cash contribution {formatCurrency(biz.acquisition.cashContribution ?? 0)} • Initial debt {formatCurrency(biz.acquisition.debtFinanced ?? 0)}
                 </Text>
               </View>
-              {acquisitionReturn && (
+              {acquisitionReturn?.returnPct != null && (
                 <Text style={[styles.acquisitionReturn, { color: acquisitionReturn.returnPct >= 0 ? Colors.primary : Colors.negative }]}>
                   {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
                 </Text>
