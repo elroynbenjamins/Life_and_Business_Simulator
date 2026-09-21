@@ -4,6 +4,7 @@ import { getBusinessCoverageGaps } from './businessInsuranceEngine';
 import { isBusinessBudgetReviewDue } from './businessBudgetEngine';
 import { getBusinessGovernanceAttentionReason } from './businessGovernanceEngine';
 import { getCorporateWorkforceAttentionReason } from './businessWorkforceEngine';
+import { getCorporateManagementAttentionReason } from './corporateReportingEngine';
 
 export interface BusinessSaleQuote {
   grossSalePrice: number;
@@ -177,12 +178,15 @@ export function getBusinessEmpireSummary(
   businesses: OwnedBusiness[],
   holdingCompanies: HoldingCompany[] = [],
   currentYear = 1,
+  currentWeek = 1,
+  inflationMultiplier = 1,
 ): BusinessEmpireSummary {
   const totalValue = (businesses ?? []).reduce((sum, business) => sum + Math.max(0, business.valuation ?? 0), 0);
   const totalDebt = (businesses ?? []).reduce((sum, business) => sum + getBusinessDebt(business), 0);
   const weeklyProfit = (businesses ?? []).reduce((sum, business) => sum + (business.lastWeekProfit ?? 0), 0);
   const operatingCash = (businesses ?? []).reduce((sum, business) => sum + Math.max(0, business.balance ?? 0), 0);
   const holdingCash = (holdingCompanies ?? []).reduce((sum, holding) => sum + Math.max(0, holding.cashReserve ?? 0), 0);
+  const globalWeek = Math.max(1, ((currentYear - 1) * 20) + currentWeek);
   const attentionCount = (businesses ?? []).filter((business) =>
     Boolean(business.pendingDecision)
     || Boolean(business.pendingRetention)
@@ -192,6 +196,7 @@ export function getBusinessEmpireSummary(
     || isBusinessBudgetReviewDue(business, currentYear)
     || Boolean(getBusinessGovernanceAttentionReason(business))
     || Boolean(getCorporateWorkforceAttentionReason(business))
+    || Boolean(getCorporateManagementAttentionReason(business, globalWeek, inflationMultiplier))
   ).length;
   const acquisitionCount = (businesses ?? []).filter((business) => Boolean(business.acquisition)).length;
   const leveragedAcquisitionCount = (businesses ?? []).filter((business) =>
