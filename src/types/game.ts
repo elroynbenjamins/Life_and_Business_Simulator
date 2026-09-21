@@ -1220,6 +1220,8 @@ export interface BusinessAcquisitionTarget {
 export interface BusinessAcquisitionState {
   /** One-time save migration version for mature acquisition assets/baseline. */
   assetBaselineVersion?: number;
+  /** One-time migration version for the visible corporate-workforce staffing baseline. */
+  workforceBaselineVersion?: number;
   purchasePrice: number;
   cashContribution: number;
   debtFinanced: number;
