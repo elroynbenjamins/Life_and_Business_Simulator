@@ -92,7 +92,10 @@ function uniqueTypeIds(): string[] {
 
 export function getAcquisitionPrice(target: BusinessAcquisitionTarget, negotiationBonus = 0): number {
   const reduction = clamp(negotiationBonus, 0, 0.15);
-  return Math.round(Math.max(0, target.askingPrice) * (1 - reduction));
+  const negotiatedPrice = Math.max(0, target.askingPrice) * (1 - reduction);
+  // Negotiation can reduce the seller's control premium, but cannot turn the
+  // acquisition into a below-estimated-value instant resale arbitrage.
+  return Math.round(Math.max(target.estimatedValue ?? 0, negotiatedPrice));
 }
 
 export function getAcquisitionFinancingQuote(
