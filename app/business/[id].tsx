@@ -277,6 +277,16 @@ export default function BusinessDetailScreen() {
     corporateWorkforce ? { ...biz, corporateWorkforce } : biz,
   );
   const workforcePayroll = getCorporateWorkforceWeeklyPayroll(corporateWorkforce);
+  const workforceHeadcount = corporateWorkforce
+    ? (Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[])
+        .reduce((sum, departmentId) => sum + corporateWorkforce.departments[departmentId].headcount, 0)
+    : 0;
+  const workforceTargetHeadcount = corporateWorkforce
+    ? (Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[])
+        .reduce((sum, departmentId) => sum + corporateWorkforce.departments[departmentId].targetHeadcount, 0)
+    : 0;
+  const workforceRecommendedTotal = (Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[])
+    .reduce((sum, departmentId) => sum + (workforceRecommended[departmentId] ?? 0), 0);
   const boardMandateCooldown = biz.boardGovernance
     ? Math.max(0, 10 - (globalGameWeek - (biz.boardGovernance.lastMandateChangeGlobalWeek ?? 0)))
     : 0;
@@ -1078,6 +1088,135 @@ export default function BusinessDetailScreen() {
                   <Text style={styles.boardCooldown}>Board mandate can change again in {boardMandateCooldown} weeks.</Text>
                 )}
               </View>
+            )}
+          </GameCard>
+        )}
+
+        {((biz.valuation ?? 0) >= 20_000_000 || !!corporateWorkforce) && (
+          <GameCard title="Corporate Workforce">
+            {!corporateWorkforce ? (
+              <View style={styles.workforceLocked}>
+                <Ionicons name="people-outline" size={21} color={Colors.warning} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.workforceLockedTitle}>Department workforce unlocks at €25M valuation</Text>
+                  <Text style={styles.workforceLockedText}>
+                    Named employees remain key people. At corporate scale, broader Operations, Sales, Finance, Technology and Support headcount becomes a separate management layer.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <>
+                <View style={styles.workforceSummary}>
+                  <View style={styles.workforceSummaryMain}>
+                    <Text style={styles.workforceSummaryValue}>{workforceHeadcount}</Text>
+                    <Text style={styles.workforceSummaryLabel}>Employees</Text>
+                  </View>
+                  <View style={styles.workforceSummaryStat}>
+                    <Text style={styles.workforceSummarySmall}>{workforceTargetHeadcount}</Text>
+                    <Text style={styles.workforceSummaryLabel}>Target</Text>
+                  </View>
+                  <View style={styles.workforceSummaryStat}>
+                    <Text style={styles.workforceSummarySmall}>{workforceRecommendedTotal}</Text>
+                    <Text style={styles.workforceSummaryLabel}>Recommended</Text>
+                  </View>
+                  <View style={styles.workforceSummaryStat}>
+                    <Text style={styles.workforceSummarySmall}>{workforceEffects.staffingScore}%</Text>
+                    <Text style={styles.workforceSummaryLabel}>Staffing</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.workforcePayrollText}>
+                  Department payroll {formatCurrency(workforcePayroll)}/wk • Named employees and C-suite are shown separately.
+                </Text>
+                <Text style={styles.workforceEffectText}>
+                  Current capacity effect: {workforceEffects.revenueBonus >= 0 ? '+' : ''}{(workforceEffects.revenueBonus * 100).toFixed(1)}% revenue • {workforceEffects.expenseReduction >= 0 ? '-' : '+'}{Math.abs(workforceEffects.expenseReduction * 100).toFixed(1)}% overhead • {workforceEffects.crisisReduction >= 0 ? '-' : '+'}{Math.abs(workforceEffects.crisisReduction * 100).toFixed(1)}% risk
+                </Text>
+
+                {(Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[]).map((departmentId) => {
+                  const definition = CORPORATE_DEPARTMENT_DEFINITIONS[departmentId];
+                  const department = corporateWorkforce.departments[departmentId];
+                  const recommended = workforceRecommended[departmentId] ?? department.headcount;
+                  const ratio = workforceEffects.departmentRatios[departmentId];
+                  const step = recommended < 50 ? 5 : 10;
+                  const executive = definition.executiveRole
+                    ? (biz.executives ?? []).find((item) => item.role === definition.executiveRole)
+                    : null;
+                  const statusColor = ratio >= 0.95
+                    ? Colors.primary
+                    : ratio >= 0.78
+                      ? Colors.warning
+                      : Colors.negative;
+
+                  return (
+                    <View key={departmentId} style={styles.workforceDepartment}>
+                      <View style={styles.workforceDepartmentHeader}>
+                        <View style={styles.workforceDepartmentIcon}>
+                          <Text style={styles.workforceDepartmentEmoji}>{definition.icon}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.workforceTitleRow}>
+                            <Text style={styles.workforceDepartmentName}>{definition.name}</Text>
+                            <Text style={[styles.workforceCapacity, { color: statusColor }]}>
+                              {Math.round(ratio * 100)}% capacity
+                            </Text>
+                          </View>
+                          <Text style={styles.workforceDepartmentMeta}>
+                            {department.headcount} current • {department.targetHeadcount} target • {recommended} recommended
+                          </Text>
+                          <Text style={styles.workforceDepartmentMeta}>
+                            Skill {Math.round(department.averageSkill)} • Morale {Math.round(department.morale)} • {formatCurrency(department.weeklyWage)}/employee/wk
+                          </Text>
+                          <Text style={styles.workforceLeader}>
+                            {executive
+                              ? `Led by ${BUSINESS_EXECUTIVE_ROLES[executive.role].shortLabel} ${executive.name}`
+                              : definition.executiveRole
+                                ? `${BUSINESS_EXECUTIVE_ROLES[definition.executiveRole].shortLabel} role vacant`
+                                : 'No dedicated executive role'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.workforceTargetControls}>
+                        <Pressable
+                          style={styles.workforceTargetButton}
+                          onPress={() => setCorporateDepartmentTarget(
+                            biz.id,
+                            departmentId,
+                            department.targetHeadcount - step,
+                          )}
+                        >
+                          <Text style={styles.workforceTargetButtonText}>−{step}</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.workforceTargetButton, styles.workforceRecommendedButton]}
+                          onPress={() => setCorporateDepartmentTarget(biz.id, departmentId, recommended)}
+                        >
+                          <Text style={[styles.workforceTargetButtonText, { color: Colors.info }]}>Recommended</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.workforceTargetButton}
+                          onPress={() => setCorporateDepartmentTarget(
+                            biz.id,
+                            departmentId,
+                            department.targetHeadcount + step,
+                          )}
+                        >
+                          <Text style={styles.workforceTargetButtonText}>+{step}</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })}
+
+                <View style={styles.workforcePlanNote}>
+                  <Ionicons name="time-outline" size={14} color={Colors.textMuted} />
+                  <Text style={styles.workforcePlanText}>
+                    Targets execute gradually each week. Hiring costs about 2 weeks of salary per new employee; layoffs cost about 1.5 weeks of salary in severance and temporarily hurt department morale.
+                  </Text>
+                </View>
+                {!!corporateWorkforce.lastChangeSummary && (
+                  <Text style={styles.workforceLastChange}>Last change: {corporateWorkforce.lastChangeSummary}</Text>
+                )}
+              </>
             )}
           </GameCard>
         )}
@@ -2497,6 +2636,33 @@ const styles = StyleSheet.create({
   governanceButtonActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
   governanceButtonText: { color: Colors.textSecondary, fontSize: 9, fontWeight: '700' },
   governanceWarning: { color: Colors.negative, fontSize: 9, marginTop: 3 },
+  workforceLocked: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, backgroundColor: `${Colors.warning}0D`, borderRadius: 9, padding: 10 },
+  workforceLockedTitle: { color: Colors.warning, fontSize: 11, fontWeight: '800' },
+  workforceLockedText: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 2 },
+  workforceSummary: { flexDirection: 'row', gap: 6, marginBottom: 8 },
+  workforceSummaryMain: { minWidth: 66, backgroundColor: '#17263A', borderRadius: 9, paddingVertical: 8, alignItems: 'center' },
+  workforceSummaryStat: { flex: 1, backgroundColor: Colors.elevated, borderRadius: 9, paddingVertical: 8, alignItems: 'center' },
+  workforceSummaryValue: { color: Colors.info, fontSize: 17, fontWeight: '900' },
+  workforceSummarySmall: { color: Colors.textPrimary, fontSize: 12, fontWeight: '900' },
+  workforceSummaryLabel: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
+  workforcePayrollText: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12 },
+  workforceEffectText: { color: Colors.info, fontSize: 8, lineHeight: 12, marginTop: 3, marginBottom: 5 },
+  workforceDepartment: { paddingVertical: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  workforceDepartmentHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  workforceDepartmentIcon: { width: 31, height: 31, borderRadius: 8, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  workforceDepartmentEmoji: { fontSize: 16 },
+  workforceTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  workforceDepartmentName: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  workforceCapacity: { fontSize: 8, fontWeight: '900' },
+  workforceDepartmentMeta: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  workforceLeader: { color: Colors.textSecondary, fontSize: 8, lineHeight: 11, marginTop: 3 },
+  workforceTargetControls: { flexDirection: 'row', gap: 5, marginTop: 7, paddingLeft: 39 },
+  workforceTargetButton: { minWidth: 48, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 6, alignItems: 'center' },
+  workforceRecommendedButton: { flex: 1, borderColor: `${Colors.info}44`, backgroundColor: '#17263A' },
+  workforceTargetButtonText: { color: Colors.textSecondary, fontSize: 8, fontWeight: '800' },
+  workforcePlanNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: Colors.elevated, borderRadius: 8, padding: 8, marginTop: 8 },
+  workforcePlanText: { flex: 1, color: Colors.textMuted, fontSize: 8, lineHeight: 12 },
+  workforceLastChange: { color: Colors.textSecondary, fontSize: 8, fontStyle: 'italic', marginTop: 5 },
   execEffectGrid: { flexDirection: 'row', gap: 5, marginBottom: 7 },
   execEffectItem: { flex: 1, backgroundColor: Colors.elevated, borderRadius: 8, paddingVertical: 7, alignItems: 'center' },
   execEffectValue: { color: Colors.info, fontSize: 10, fontWeight: '900' },
