@@ -696,24 +696,103 @@ export function getAutomationScore(biz: OwnedBusiness): number {
   return Math.min(100, Math.round(score));
 }
 
-export function calculateValuation(biz: OwnedBusiness): number {
+export interface BusinessValuationBreakdown {
+  cashValue: number;
+  corporateAssetValue: number;
+  blendedWeeklyProfit: number;
+  annualizedProfit: number;
+  profitMultiple: number;
+  maintenanceDiscount: number;
+  distressDiscount: number;
+  operatingValue: number;
+  tangibleFloor: number;
+  valuation: number;
+}
+
+export function getBusinessValuationBreakdown(biz: OwnedBusiness): BusinessValuationBreakdown {
   const reputation = Math.max(0, Math.min(100, biz.reputation ?? 0));
-  const profitMultiple = 2 + (reputation / 100) * 3;
-  const twentyWeekProfit = (biz.weeklyProfitHistory ?? []).slice(-20).reduce((total, profit) => total + (profit ?? 0), 0);
-  const availableBalance = Math.max(0, biz.balance ?? 0);
-  const outstandingBusinessDebt = (biz.businessLoans ?? []).reduce(
-    (sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0),
+  const history = (biz.weeklyProfitHistory ?? [])
+    .filter((profit) => Number.isFinite(profit))
+    .slice(-20);
+  const trailingAverage = history.length > 0
+    ? history.reduce((sum, profit) => sum + profit, 0) / history.length
+    : 0;
+  const recent = history.slice(-6);
+  const recentAverage = recent.length > 0
+    ? recent.reduce((sum, profit) => sum + profit, 0) / recent.length
+    : trailingAverage;
+
+  // Stable run-rate valuation: recent performance matters, but one strong week
+  // cannot multiply the company value. New businesses receive only partial
+  // confidence until enough operating history exists.
+  const blendedWeeklyProfit = trailingAverage * 0.65 + recentAverage * 0.35;
+  const historyConfidence = history.length === 0
+    ? 0
+    : Math.min(1, 0.45 + (history.length / 20) * 0.55);
+  const annualizedProfit = blendedWeeklyProfit * 20 * historyConfidence;
+
+  // Lower than the old 2x–5x 20-week-profit multiple. Reputation still matters,
+  // but even an exceptional company tops out below the former ceiling.
+  const profitMultiple = 1.35 + (reputation / 100) * 2.40;
+
+  // Company cash is worth company cash. The old 1.5x equity-cash premium caused
+  // retained earnings to create valuation faster than the underlying business.
+  const cashValue = Math.max(0, biz.balance ?? 0);
+  const corporateAssetBookValue = Math.max(0, getCorporateCapexBookValue(biz));
+  const reinvestment = getBusinessReinvestmentEffects(biz);
+  const maintenanceDiscount = Math.max(
     0,
+    Math.min(
+      0.18,
+      reinvestment.revenuePenalty * 0.70
+        + reinvestment.expenseIncrease * 0.50
+        + reinvestment.crisisIncrease * 0.25,
+    ),
   );
-  // Debt-funded cash must not create valuation out of thin air. Cash up to the
-  // outstanding debt balance is valued 1:1; genuinely accumulated equity cash
-  // keeps the existing 1.5x liquidity premium.
-  const debtBackedCash = Math.min(availableBalance, outstandingBusinessDebt);
-  const equityCash = Math.max(0, availableBalance - debtBackedCash);
-  const cashValue = debtBackedCash + equityCash * 1.5;
-  const corporateAssetValue = getCorporateCapexBookValue(biz);
-  if (twentyWeekProfit <= 0) return Math.round(cashValue + corporateAssetValue);
-  return Math.round(cashValue + twentyWeekProfit * profitMultiple + corporateAssetValue);
+
+  const positiveOperatingValue = annualizedProfit > 0
+    ? annualizedProfit * profitMultiple * (1 - maintenanceDiscount)
+    : 0;
+  const lossMultiple = 0.75 + ((100 - reputation) / 100) * 0.50 + maintenanceDiscount;
+  const lossPenalty = annualizedProfit < 0 ? Math.abs(annualizedProfit) * lossMultiple : 0;
+
+  let lossStreak = 0;
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    if (history[index] >= 0) break;
+    lossStreak += 1;
+  }
+  const distressDiscount = Math.min(0.18, Math.max(0, lossStreak - 1) * 0.025);
+  const corporateAssetValue = corporateAssetBookValue
+    * (1 - maintenanceDiscount * 0.50)
+    * (1 - distressDiscount);
+
+  const operatingValue = positiveOperatingValue - lossPenalty;
+  const rawValuation = cashValue
+    + corporateAssetValue
+    + positiveOperatingValue * (1 - distressDiscount)
+    - lossPenalty;
+
+  // A distressed company can fall sharply, but cash and a conservative
+  // liquidation value for completed corporate assets prevent impossible values.
+  const tangibleFloor = cashValue + corporateAssetBookValue * 0.55;
+  const valuation = Math.max(0, tangibleFloor, rawValuation);
+
+  return {
+    cashValue: Math.round(cashValue),
+    corporateAssetValue: Math.round(corporateAssetValue),
+    blendedWeeklyProfit,
+    annualizedProfit,
+    profitMultiple,
+    maintenanceDiscount,
+    distressDiscount,
+    operatingValue,
+    tangibleFloor: Math.round(tangibleFloor),
+    valuation: Math.round(valuation),
+  };
+}
+
+export function calculateValuation(biz: OwnedBusiness): number {
+  return getBusinessValuationBreakdown(biz).valuation;
 }
 
 export function getBusinessMarketStrength(biz: OwnedBusiness): number {
