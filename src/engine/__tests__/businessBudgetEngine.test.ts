@@ -160,6 +160,24 @@ describe('business budget engine', () => {
     expect(consumed).toEqual({ reinvestment: 200_000, growth: 375_000 });
   });
 
+  test('budget allocation never erases a negative business cash balance', () => {
+    const business = makeBusiness();
+    const result = applyBusinessBudgetWeek({
+      business,
+      balanceBeforeBudget: -25_000,
+      profit: -15_000,
+      totalExpenses: 20_000,
+      loans: [],
+      currentWeek: 5,
+      currentYear: 3,
+      inflationMultiplier: 1,
+    });
+
+    expect(result.balance).toBe(-25_000);
+    expect(result.dividendPaid).toBe(0);
+    expect(result.reserves).toEqual({ reinvestment: 0, growth: 0 });
+  });
+
   test('mature businesses require an annual budget review while young businesses do not', () => {
     const mature = makeBusiness({
       level: 4,
