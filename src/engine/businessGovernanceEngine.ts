@@ -430,6 +430,8 @@ export function tickBusinessGovernance(
     confidenceChange += workforceEffects.staffingScore >= 90
       ? 2
       : workforceEffects.staffingScore < 75 ? -4 : 0;
+    const employeeRelations = business.corporateWorkforce?.employeeRelations ?? 70;
+    confidenceChange += employeeRelations >= 75 ? 2 : employeeRelations < 45 ? -5 : 0;
     const requiredRoles = (Object.keys(BUSINESS_EXECUTIVE_ROLES) as BusinessExecutiveRole[])
       .filter((role) => (business.valuation ?? 0) >= BUSINESS_EXECUTIVE_ROLES[role].minValuation);
     const vacancies = requiredRoles.filter((role) => !executives.some((executive) => executive.role === role)).length;
@@ -439,7 +441,7 @@ export function tickBusinessGovernance(
       ...boardGovernance,
       confidence: nextConfidence,
       lastReviewYear: currentYear,
-      lastReviewSummary: `Annual review: ${reviewProfit > 0 ? 'profitable' : 'loss-making'} year • debt/value ${Math.round(debtToValue * 100)}% • ${vacancies} executive ${vacancies === 1 ? 'vacancy' : 'vacancies'}.`,
+      lastReviewSummary: `Annual review: ${reviewProfit > 0 ? 'profitable' : 'loss-making'} year • debt/value ${Math.round(debtToValue * 100)}% • employee relations ${Math.round(employeeRelations)}/100 • ${vacancies} executive ${vacancies === 1 ? 'vacancy' : 'vacancies'}.`,
     };
     timelineEntries.push({
       week: currentWeek,
