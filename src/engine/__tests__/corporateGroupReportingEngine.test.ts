@@ -283,6 +283,83 @@ describe('corporate group management reporting', () => {
     expect(report.priorityCompanies[1].status).toBe('watch');
   });
 
+  test('quarterly group report summarizes company target attainment', () => {
+    const onTarget = makeBusiness('On Target Co', 100_000_000);
+    setPeriodHistory(
+      onTarget,
+      {
+        revenue: 1_000_000,
+        expenses: 700_000,
+        profit: 300_000,
+        payroll: 250_000,
+      },
+      {
+        revenue: 1_100_000,
+        expenses: 700_000,
+        profit: 400_000,
+        payroll: 250_000,
+      },
+    );
+
+    const offTarget = makeBusiness('Off Target Co', 100_000_000);
+    setPeriodHistory(
+      offTarget,
+      {
+        revenue: 1_000_000,
+        expenses: 700_000,
+        profit: 300_000,
+        payroll: 250_000,
+      },
+      {
+        revenue: 900_000,
+        expenses: 800_000,
+        profit: 100_000,
+        payroll: 400_000,
+      },
+    );
+    offTarget.reinvestment = {
+      technology: { condition: 60, lastRenewedGlobalWeek: 1 },
+      premises: { condition: 60, lastRenewedGlobalWeek: 1 },
+      equipment: { condition: 60, lastRenewedGlobalWeek: 1 },
+    };
+
+    const report = getCorporateGroupManagementReport(
+      [onTarget, offTarget],
+      25,
+      'quarter',
+      1,
+    )!;
+
+    expect(report.targetCompanyCount).toBe(2);
+    expect(report.targetCompaniesFullyMet).toBe(1);
+    expect(report.targetCompaniesAtRisk).toBe(1);
+    expect(report.targetMetricsTotal).toBe(10);
+    expect(report.targetMetricsMet).toBe(6);
+    expect(report.targetPriorityCompanies[0].businessName).toBe('Off Target Co');
+    expect(report.targetPriorityCompanies[0].missedLabels).toEqual(expect.arrayContaining([
+      'Weekly revenue',
+      'Profit margin',
+      'Payroll / revenue',
+      'Maintenance condition',
+    ]));
+  });
+
+  test('annual group report keeps quarterly target attainment out of the annual period', () => {
+    const business = makeBusiness('Annual Target Co', 100_000_000);
+    setPeriodHistory(business, {}, { revenue: 1_100_000, profit: 350_000 });
+
+    const report = getCorporateGroupManagementReport(
+      [business],
+      25,
+      'annual',
+      1,
+    )!;
+
+    expect(report.targetCompanyCount).toBe(0);
+    expect(report.targetMetricsTotal).toBe(0);
+    expect(report.targetPriorityCompanies).toHaveLength(0);
+  });
+
   test('corporate KPI breaches count in the existing Empire Pulse attention total', () => {
     const business = makeBusiness('KPI Attention', 100_000_000);
     setPeriodHistory(
