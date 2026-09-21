@@ -971,6 +971,30 @@ export interface BusinessBudgetPlan {
   reviewYear: number;
 }
 
+export type BusinessManagementTargetProfile =
+  | 'balanced'
+  | 'growth'
+  | 'margin'
+  | 'deleveraging'
+  | 'resilient';
+
+export interface BusinessManagementTargetPlan {
+  profile: BusinessManagementTargetProfile;
+  year: number;
+  quarter: number;
+  periodStartGlobalWeek: number;
+  createdGlobalWeek: number;
+  baselineWeeklyRevenue: number;
+  baselineProfitMargin: number;
+  baselinePayrollToRevenueRatio: number;
+  baselineDebt: number;
+  targetWeeklyRevenue: number;
+  targetProfitMargin: number;
+  maxPayrollToRevenueRatio: number;
+  targetDebtBalance: number;
+  minMaintenanceCondition: number;
+}
+
 export interface BusinessBudgetReserves {
   reinvestment: number;
   growth: number;
@@ -1418,6 +1442,8 @@ export interface OwnedBusiness {
   budgetPlan?: BusinessBudgetPlan;
   budgetReserves?: BusinessBudgetReserves;
   lastBudgetAllocation?: BusinessBudgetAllocationSnapshot | null;
+  /** Quarterly outcome targets used by corporate management reporting. */
+  managementTargets?: BusinessManagementTargetPlan;
   // Loans
   businessLoans: BusinessLoan[];
   // Active events
