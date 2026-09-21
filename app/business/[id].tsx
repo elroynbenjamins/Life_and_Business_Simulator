@@ -870,6 +870,188 @@ export default function BusinessDetailScreen() {
           </GameCard>
         )}
 
+        {((biz.valuation ?? 0) >= 10_000_000 || (biz.executives?.length ?? 0) > 0 || !!biz.pendingExecutiveSearch || !!biz.boardGovernance) && (
+          <GameCard title="Executive Leadership & Board">
+            <Text style={styles.sectionHint}>
+              Professional executives specialize in finance, operations, technology, growth and legal risk. Family Governance remains separate for dynasty roles and succession.
+            </Text>
+
+            <View style={styles.execEffectGrid}>
+              <View style={styles.execEffectItem}>
+                <Text style={styles.execEffectValue}>
+                  {governanceEffects.revenueBonus >= 0 ? '+' : ''}{(governanceEffects.revenueBonus * 100).toFixed(1)}%
+                </Text>
+                <Text style={styles.execEffectLabel}>Revenue</Text>
+              </View>
+              <View style={styles.execEffectItem}>
+                <Text style={styles.execEffectValue}>
+                  {governanceEffects.expenseReduction >= 0 ? '-' : '+'}{Math.abs(governanceEffects.expenseReduction * 100).toFixed(1)}%
+                </Text>
+                <Text style={styles.execEffectLabel}>Expenses</Text>
+              </View>
+              <View style={styles.execEffectItem}>
+                <Text style={styles.execEffectValue}>-{(governanceEffects.financingRateReduction * 100).toFixed(2)}pp</Text>
+                <Text style={styles.execEffectLabel}>Finance rate</Text>
+              </View>
+              <View style={styles.execEffectItem}>
+                <Text style={styles.execEffectValue}>-{(governanceEffects.crisisReduction * 100).toFixed(1)}%</Text>
+                <Text style={styles.execEffectLabel}>Crisis risk</Text>
+              </View>
+            </View>
+            <Text style={styles.execPayroll}>
+              Executive payroll {formatCurrency(governanceEffects.executiveWeeklySalary)}/wk
+              {governanceEffects.boardWeeklyCost > 0 ? ` • Board fees ${formatCurrency(governanceEffects.boardWeeklyCost)}/wk` : ''}
+            </Text>
+
+            <Text style={styles.subHeading}>C-suite</Text>
+            {(Object.keys(BUSINESS_EXECUTIVE_ROLES) as BusinessExecutiveRole[]).map((role) => {
+              const definition = BUSINESS_EXECUTIVE_ROLES[role];
+              const executive = (biz.executives ?? []).find((item) => item.role === role);
+              const eligibility = getExecutiveRoleEligibility(biz, role);
+              const searchActive = biz.pendingExecutiveSearch?.role === role;
+              const severance = executive ? Math.round((executive.weeklySalary ?? 0) * 6) : 0;
+
+              return (
+                <View key={role} style={styles.execRoleRow}>
+                  <View style={styles.execRoleBadge}>
+                    <Text style={styles.execRoleBadgeText}>{definition.shortLabel}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.execRoleName}>{definition.label}</Text>
+                    {executive ? (
+                      <>
+                        <Text style={styles.execName}>
+                          {executive.name} • Performance {Math.round(executive.performance)}
+                        </Text>
+                        <Text style={styles.execMeta}>
+                          {executive.trait.replace(/_/g, ' ')} • {formatCurrency(executive.weeklySalary)}/wk • {executive.tenureWeeks}w tenure
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.execVacant}>Vacant</Text>
+                        <Text style={styles.execMeta}>
+                          {eligibility.allowed
+                            ? definition.description
+                            : eligibility.reason}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                  {executive ? (
+                    <Pressable
+                      disabled={(biz.balance ?? 0) < severance}
+                      style={[styles.execSmallButton, (biz.balance ?? 0) < severance && styles.disabledAction]}
+                      onPress={() => confirmAction(
+                        'Dismiss Executive',
+                        `Dismiss ${executive.name} from the ${definition.shortLabel} role? Severance costs ${formatCurrency(severance)}.`,
+                        () => dismissBusinessExecutive(biz.id, executive.id),
+                      )}
+                    >
+                      <Text style={styles.execSmallButtonText}>Dismiss</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      disabled={!eligibility.allowed}
+                      style={[styles.execSmallButton, eligibility.allowed && styles.execSearchButton, !eligibility.allowed && styles.disabledAction]}
+                      onPress={() => openExecutiveSearch(biz.id, role)}
+                    >
+                      <Text style={[styles.execSmallButtonText, eligibility.allowed && { color: Colors.info }]}>
+                        {searchActive ? 'Refresh' : 'Search'}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
+
+            {biz.pendingExecutiveSearch && (
+              <View style={styles.execSearchBox}>
+                <View style={styles.execSearchHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.execSearchTitle}>
+                      {BUSINESS_EXECUTIVE_ROLES[biz.pendingExecutiveSearch.role].shortLabel} Search
+                    </Text>
+                    <Text style={styles.execSearchMeta}>Choose one candidate. Signing/search fee is paid immediately.</Text>
+                  </View>
+                  <Pressable onPress={() => cancelExecutiveSearch(biz.id)} hitSlop={8}>
+                    <Ionicons name="close" size={17} color={Colors.textMuted} />
+                  </Pressable>
+                </View>
+                {(biz.pendingExecutiveSearch.candidates ?? []).map((candidate) => {
+                  const affordable = (biz.balance ?? 0) >= candidate.signingFee;
+                  return (
+                    <View key={candidate.id} style={styles.execCandidateRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.execCandidateName}>{candidate.name}</Text>
+                        <Text style={styles.execCandidateMeta}>
+                          Performance {candidate.performance} • {candidate.trait.replace(/_/g, ' ')}
+                        </Text>
+                        <Text style={styles.execCandidateMeta}>
+                          {formatCurrency(candidate.weeklySalary)}/wk • Signing/search {formatCurrency(candidate.signingFee)}
+                        </Text>
+                      </View>
+                      <Pressable
+                        disabled={!affordable}
+                        style={[styles.execHireButton, !affordable && styles.disabledAction]}
+                        onPress={() => hireExecutiveCandidate(biz.id, candidate.id)}
+                      >
+                        <Text style={styles.execHireButtonText}>{affordable ? 'Hire' : 'Need cash'}</Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {((biz.valuation ?? 0) >= BOARD_GOVERNANCE_UNLOCK_VALUATION || !!biz.boardGovernance) && (
+              <View style={styles.boardSection}>
+                <View style={styles.boardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.boardTitle}>Board Governance</Text>
+                    <Text style={styles.boardMeta}>
+                      {biz.boardGovernance
+                        ? `${BUSINESS_BOARD_MANDATES[biz.boardGovernance.mandate].label} • Confidence ${Math.round(biz.boardGovernance.confidence)}/100`
+                        : 'Not yet established'}
+                    </Text>
+                  </View>
+                  <Ionicons name="people-circle-outline" size={20} color={biz.boardGovernance ? Colors.info : Colors.textMuted} />
+                </View>
+
+                {!!biz.boardGovernance?.lastReviewSummary && (
+                  <Text style={styles.boardReview}>{biz.boardGovernance.lastReviewSummary}</Text>
+                )}
+
+                <View style={styles.boardMandateGrid}>
+                  {(Object.keys(BUSINESS_BOARD_MANDATES) as BusinessBoardMandate[]).map((mandate) => {
+                    const definition = BUSINESS_BOARD_MANDATES[mandate];
+                    const active = biz.boardGovernance?.mandate === mandate;
+                    const disabled = !!biz.boardGovernance && boardMandateCooldown > 0 && !active;
+                    return (
+                      <Pressable
+                        key={mandate}
+                        disabled={disabled || active}
+                        style={[
+                          styles.boardMandateChip,
+                          active && styles.boardMandateChipActive,
+                          disabled && styles.disabledAction,
+                        ]}
+                        onPress={() => setBusinessBoardMandate(biz.id, mandate)}
+                      >
+                        <Text style={[styles.boardMandateTitle, active && { color: Colors.primary }]}>{definition.label}</Text>
+                        <Text style={styles.boardMandateDesc}>{definition.description}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {boardMandateCooldown > 0 && (
+                  <Text style={styles.boardCooldown}>Board mandate can change again in {boardMandateCooldown} weeks.</Text>
+                )}
+              </View>
+            )}
+          </GameCard>
+        )}
+
         {/* Weekly Financials */}
         <GameCard title="Weekly Financials">
           <Text style={styles.sectionHint}>Revenue = employees × productivity × reputation demand × market share × upgrades. Reputation improves demand; upgrades add revenue; market share changes customer volume. Lower-reputation companies use leaner overhead and premises.</Text>
@@ -2285,6 +2467,41 @@ const styles = StyleSheet.create({
   governanceButtonActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
   governanceButtonText: { color: Colors.textSecondary, fontSize: 9, fontWeight: '700' },
   governanceWarning: { color: Colors.negative, fontSize: 9, marginTop: 3 },
+  execEffectGrid: { flexDirection: 'row', gap: 5, marginBottom: 7 },
+  execEffectItem: { flex: 1, backgroundColor: Colors.elevated, borderRadius: 8, paddingVertical: 7, alignItems: 'center' },
+  execEffectValue: { color: Colors.info, fontSize: 10, fontWeight: '900' },
+  execEffectLabel: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
+  execPayroll: { color: Colors.textSecondary, fontSize: 8, marginBottom: 5 },
+  execRoleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  execRoleBadge: { width: 43, height: 31, borderRadius: 8, backgroundColor: '#17263A', alignItems: 'center', justifyContent: 'center' },
+  execRoleBadgeText: { color: Colors.info, fontSize: 8, fontWeight: '900' },
+  execRoleName: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  execName: { color: Colors.primary, fontSize: 9, fontWeight: '800', marginTop: 2 },
+  execVacant: { color: Colors.warning, fontSize: 8, fontWeight: '800', marginTop: 2 },
+  execMeta: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2, textTransform: 'capitalize' },
+  execSmallButton: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 6 },
+  execSearchButton: { borderColor: `${Colors.info}55`, backgroundColor: '#17263A' },
+  execSmallButtonText: { color: Colors.textSecondary, fontSize: 7, fontWeight: '900' },
+  execSearchBox: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 9, marginTop: 8 },
+  execSearchHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
+  execSearchTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  execSearchMeta: { color: Colors.textMuted, fontSize: 8, marginTop: 2 },
+  execCandidateRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 7, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  execCandidateName: { color: Colors.textPrimary, fontSize: 9, fontWeight: '800' },
+  execCandidateMeta: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2, textTransform: 'capitalize' },
+  execHireButton: { borderWidth: 1, borderColor: Colors.primary, borderRadius: 7, backgroundColor: `${Colors.primary}0D`, paddingHorizontal: 8, paddingVertical: 6 },
+  execHireButtonText: { color: Colors.primary, fontSize: 8, fontWeight: '900' },
+  boardSection: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, marginTop: 10, paddingTop: 10 },
+  boardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  boardTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  boardMeta: { color: Colors.info, fontSize: 8, marginTop: 2 },
+  boardReview: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 6 },
+  boardMandateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  boardMandateChip: { width: '48.5%', minHeight: 52, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, padding: 7 },
+  boardMandateChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
+  boardMandateTitle: { color: Colors.textPrimary, fontSize: 8, fontWeight: '800' },
+  boardMandateDesc: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 2 },
+  boardCooldown: { color: Colors.warning, fontSize: 8, marginTop: 6 },
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   optionChip: { borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 12, paddingVertical: 10, minWidth: '45%', flex: 1 },
   optionChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}15` },
