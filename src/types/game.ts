@@ -889,7 +889,7 @@ export interface BusinessTimelineEntry {
   year: number;
   title: string;
   icon?: string;
-  kind?: 'founded' | 'level' | 'project' | 'event' | 'hire' | 'season' | 'upgrade' | 'expansion';
+  kind?: 'founded' | 'level' | 'project' | 'event' | 'hire' | 'season' | 'upgrade' | 'expansion' | 'corporate_capex';
 }
 
 /** Active business project (marketing campaign, R&D, etc.) */
@@ -908,6 +908,24 @@ export interface ActiveBusinessProject {
   neededRoll?: number;
   actualRoll?: number;
   projectName?: string;
+}
+
+export type CorporateScaleTier = 'local' | 'corporate' | 'major' | 'global';
+
+export interface ActiveCorporateCapex {
+  projectId: string;
+  projectName: string;
+  costPaid: number;
+  startedGlobalWeek: number;
+  weeksRemaining: number;
+  totalWeeks: number;
+}
+
+export interface CompletedCorporateCapex {
+  projectId: string;
+  projectName: string;
+  costPaid: number;
+  completedGlobalWeek: number;
 }
 
 /** Detailed weekly expense breakdown */
@@ -1142,6 +1160,8 @@ export interface BusinessPendingDecisionChoice {
   text: string;
   description: string;
   businessCashCost?: number;
+  /** Corporate-scale choices can already be denominated in current euros. */
+  cashCostScale?: 'inflation' | 'absolute';
   revenueMultiplier?: number;
   expenseMultiplier?: number;
   reputationDelta?: number;
@@ -1191,6 +1211,9 @@ export interface OwnedBusiness {
   activeUpgrade?: { upgradeId: string; weeksRemaining: number } | null;
   locations?: BusinessLocation[];
   activeExpansion?: { templateId: string; weeksRemaining: number } | null;
+  // Long-horizon corporate capital expenditure
+  activeCorporateCapex?: ActiveCorporateCapex | null;
+  completedCorporateCapex?: CompletedCorporateCapex[];
   // Loans
   businessLoans: BusinessLoan[];
   // Active events
