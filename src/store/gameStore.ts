@@ -76,6 +76,7 @@ import {
   createDefaultBoardGovernance,
   generateExecutiveSearch,
   getExecutiveRoleEligibility,
+  getExecutiveSearchCooldownWeeks,
   hireExecutiveCandidate as buildExecutiveHire,
 } from '../engine/businessGovernanceEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
@@ -3398,8 +3399,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!business || !getExecutiveRoleEligibility(business, role).allowed) return;
     if (business.pendingExecutiveSearch && business.pendingExecutiveSearch.role !== role) return;
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
-    const lastSearchWeek = business.executiveSearchCooldowns?.[role] ?? -100;
-    if (globalWeek - lastSearchWeek < 10) return;
+    if (getExecutiveSearchCooldownWeeks(business, role, globalWeek) > 0) return;
     const search = generateExecutiveSearch(business, role, globalWeek);
     if (!search) return;
     const businesses = (state.businesses ?? []).map((item) =>
