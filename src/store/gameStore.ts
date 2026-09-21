@@ -49,6 +49,12 @@ import {
   getCorporateCapexCost,
   getCorporateCapexProject,
 } from '../engine/corporateScaleEngine';
+import {
+  createCorporateLoan,
+  getBondQuote,
+  getProjectFinanceQuote,
+  getRevolverDrawQuote,
+} from '../engine/corporateFinanceEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
@@ -223,7 +229,10 @@ interface GameStore extends GameState {
   applyMoraleActionToBusiness: (businessId: string, actionId: string) => void;
   startEmployeeTraining: (businessId: string, employeeId: string, trainingId: string) => void;
   startBusinessProject: (businessId: string, projectId: string) => void;
-  startCorporateCapex: (businessId: string, projectId: string) => void;
+  startCorporateCapex: (businessId: string, projectId: string, financingMode?: 'cash' | 'project_finance') => void;
+  drawCorporateRevolver: (businessId: string, amount: number) => void;
+  issueCorporateBond: (businessId: string, amount: number) => void;
+  repayBusinessLoan: (businessId: string, loanId: string, amount: number) => void;
   resolveBusinessRetention: (businessId: string, choice: 'accept' | 'match_salary' | 'increase_salary' | 'promote' | 'let_go' | 'training' | 'deny') => void;
   setBusinessPricing: (businessId: string, strategy: OwnedBusiness['pricingStrategy']) => void;
   setBusinessAdvertising: (businessId: string, level: OwnedBusiness['advertisingLevel']) => void;
@@ -3774,7 +3783,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
-  startCorporateCapex: (businessId: string, projectId: string) => {
+  startCorporateCapex: (businessId: string, projectId: string, financingMode = 'cash') => {
     const state = get();
     if (state.lifecycle?.isDead) return;
     const businesses = [...(state.businesses ?? [])];
@@ -3785,13 +3794,28 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!project) return;
     const eligibility = canStartCorporateCapex(business, project);
     if (!eligibility.allowed) return;
-    const cost = getCorporateCapexCost(project, state.inflationMultiplier ?? 1);
-    if ((business.balance ?? 0) < cost) return;
 
+    const cost = getCorporateCapexCost(project, state.inflationMultiplier ?? 1);
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const loanRateReduction = getPrestigeEffects(state.profile).loan_rate_reduction ?? 0;
+    let cashRequired = cost;
+    let financingLoan: BusinessLoan | null = null;
+
+    if (financingMode === 'project_finance') {
+      const quote = getProjectFinanceQuote(business, cost, loanRateReduction);
+      if (!quote.allowed || (business.balance ?? 0) < quote.cashContribution) return;
+      cashRequired = quote.cashContribution;
+      financingLoan = createCorporateLoan(quote, globalWeek, project.id);
+    } else if ((business.balance ?? 0) < cost) {
+      return;
+    }
+
     const updated = {
       ...business,
-      balance: Math.max(0, (business.balance ?? 0) - cost),
+      balance: Math.max(0, (business.balance ?? 0) - cashRequired),
+      businessLoans: financingLoan
+        ? [...(business.businessLoans ?? []), financingLoan]
+        : (business.businessLoans ?? []),
       activeCorporateCapex: {
         projectId: project.id,
         projectName: project.name,
@@ -3805,9 +3829,131 @@ const useGameStore = create<GameStore>((set, get) => ({
         {
           week: state.week,
           year: state.year,
-          title: project.icon + ' Started corporate investment: ' + project.name,
+          title: project.icon + ' Started corporate investment: ' + project.name
+            + (financingLoan ? ' (project financed)' : ' (cash funded)'),
           icon: project.icon,
           kind: 'corporate_capex' as const,
+        },
+      ].slice(-50),
+    };
+    updated.valuation = calculateValuation(updated);
+    businesses[index] = updated;
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  drawCorporateRevolver: (businessId: string, amount: number) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const businesses = [...(state.businesses ?? [])];
+    const index = businesses.findIndex((business) => business.id === businessId);
+    if (index < 0) return;
+    const business = businesses[index];
+    const quote = getRevolverDrawQuote(
+      business,
+      amount,
+      getPrestigeEffects(state.profile).loan_rate_reduction ?? 0,
+    );
+    if (!quote.allowed) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const loan = createCorporateLoan(quote, globalWeek);
+    const updated = {
+      ...business,
+      balance: (business.balance ?? 0) + Math.max(0, quote.debtPrincipal - quote.arrangementFee),
+      businessLoans: [...(business.businessLoans ?? []), loan],
+      timeline: [
+        ...(business.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: '🏦 Drew ' + formatCurrencySafe(quote.debtPrincipal) + ' from revolving credit',
+          icon: '🏦',
+          kind: 'event' as const,
+        },
+      ].slice(-50),
+    };
+    updated.valuation = calculateValuation(updated);
+    businesses[index] = updated;
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  issueCorporateBond: (businessId: string, amount: number) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const businesses = [...(state.businesses ?? [])];
+    const index = businesses.findIndex((business) => business.id === businessId);
+    if (index < 0) return;
+    const business = businesses[index];
+    const quote = getBondQuote(
+      business,
+      amount,
+      getPrestigeEffects(state.profile).loan_rate_reduction ?? 0,
+    );
+    if (!quote.allowed) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const loan = createCorporateLoan(quote, globalWeek);
+    const updated = {
+      ...business,
+      balance: (business.balance ?? 0) + Math.max(0, quote.debtPrincipal - quote.arrangementFee),
+      businessLoans: [...(business.businessLoans ?? []), loan],
+      timeline: [
+        ...(business.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: '📜 Issued ' + formatCurrencySafe(quote.debtPrincipal) + ' corporate bond',
+          icon: '📜',
+          kind: 'event' as const,
+        },
+      ].slice(-50),
+    };
+    updated.valuation = calculateValuation(updated);
+    businesses[index] = updated;
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  repayBusinessLoan: (businessId: string, loanId: string, amount: number) => {
+    const state = get();
+    if (state.lifecycle?.isDead || !Number.isFinite(amount) || amount <= 0) return;
+    const businesses = [...(state.businesses ?? [])];
+    const index = businesses.findIndex((business) => business.id === businessId);
+    if (index < 0) return;
+    const business = businesses[index];
+    const loan = (business.businessLoans ?? []).find((item) => item.id === loanId);
+    if (!loan) return;
+    const repayment = Math.min(
+      Math.round(amount),
+      Math.max(0, business.balance ?? 0),
+      Math.max(0, loan.remainingAmount ?? 0),
+    );
+    if (repayment <= 0) return;
+    const remainingAmount = Math.max(0, (loan.remainingAmount ?? 0) - repayment);
+    const businessLoans = (business.businessLoans ?? [])
+      .map((item) => {
+        if (item.id !== loanId) return item;
+        if (remainingAmount <= 0) return null;
+        const weeksRemaining = Math.max(1, item.weeksRemaining ?? 1);
+        return {
+          ...item,
+          remainingAmount,
+          weeklyPayment: Math.ceil(remainingAmount / weeksRemaining),
+        };
+      })
+      .filter((item): item is BusinessLoan => !!item);
+    const updated = {
+      ...business,
+      balance: Math.max(0, (business.balance ?? 0) - repayment),
+      businessLoans,
+      timeline: [
+        ...(business.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: '💳 Repaid ' + formatCurrencySafe(repayment) + ' of business debt',
+          icon: '💳',
+          kind: 'event' as const,
         },
       ].slice(-50),
     };
