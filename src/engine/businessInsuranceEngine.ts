@@ -7,6 +7,45 @@ import {
 import businessTypesData from '../data/business_types.json';
 import { normalizeBusinessReinvestmentState } from './businessReinvestmentEngine';
 
+export const BUSINESS_INSURANCE_AREAS: Record<BusinessInsuranceArea, {
+  area: BusinessInsuranceArea;
+  name: string;
+  icon: string;
+  description: string;
+}> = {
+  property: {
+    area: 'property',
+    name: 'Property',
+    icon: '🏢',
+    description: 'Covers insured premises damage and physical-site incidents.',
+  },
+  equipment: {
+    area: 'equipment',
+    name: 'Equipment',
+    icon: '🛠️',
+    description: 'Covers insured machinery, hardware and essential operating equipment failures.',
+  },
+  cyber: {
+    area: 'cyber',
+    name: 'Cyber',
+    icon: '🔐',
+    description: 'Covers insured data, payment-system and cybersecurity response costs.',
+  },
+  liability: {
+    area: 'liability',
+    name: 'Liability',
+    icon: '⚖️',
+    description: 'Covers insured customer, product, regulatory and third-party claims.',
+  },
+};
+
+export const BUSINESS_INSURANCE_TIERS: BusinessInsuranceTier[] = [
+  'none',
+  'basic',
+  'standard',
+  'comprehensive',
+];
+
 const DEFAULT_POLICIES: Record<BusinessInsuranceArea, BusinessInsuranceTier> = {
   property: 'none',
   equipment: 'none',
