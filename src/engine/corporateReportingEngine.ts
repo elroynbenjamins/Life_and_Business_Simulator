@@ -57,6 +57,18 @@ export interface CorporateManagementReport {
   completedProjectCount: number;
   projectRoiStatus: CorporateKpiStatus;
   warnings: CorporateKpiWarning[];
+  /** Period totals exposed for group / holding-company rollups. */
+  periodRevenue: number;
+  periodExpenses: number;
+  periodProfit: number;
+  periodPayroll: number;
+  periodDebtService: number;
+  periodEmployeeWeeks: number;
+  periodTurnoverCount: number;
+  averageHeadcount: number;
+  previousPeriodRevenue: number;
+  previousPeriodEmployeeWeeks: number;
+  previousPeriodTurnoverCount: number;
 }
 
 const DEPARTMENT_IDS = Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[];
@@ -513,5 +525,16 @@ export function getCorporateManagementReport(
     completedProjectCount,
     projectRoiStatus: statuses.projectRoi,
     warnings,
+    periodRevenue: current.revenue,
+    periodExpenses: current.expenses,
+    periodProfit: current.profit,
+    periodPayroll: current.payroll,
+    periodDebtService: current.debtService,
+    periodEmployeeWeeks: current.averageHeadcount * current.weeks,
+    periodTurnoverCount: current.turnover,
+    averageHeadcount: current.averageHeadcount,
+    previousPeriodRevenue: previous.revenue,
+    previousPeriodEmployeeWeeks: previous.averageHeadcount * previous.weeks,
+    previousPeriodTurnoverCount: previous.turnover,
   };
 }
