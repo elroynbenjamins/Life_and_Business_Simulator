@@ -678,7 +678,7 @@ export function createBusiness(typeId: string, customName: string | null, week: 
       votingPercent: 100,
     }],
     familyRoles: [],
-    initialCapitalInvested: null,
+    capitalInvested: null,
     totalPlayerDistributions: 0,
   };
 }
