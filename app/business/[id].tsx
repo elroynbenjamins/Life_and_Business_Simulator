@@ -909,6 +909,9 @@ export default function BusinessDetailScreen() {
               const executive = (biz.executives ?? []).find((item) => item.role === role);
               const eligibility = getExecutiveRoleEligibility(biz, role);
               const searchActive = biz.pendingExecutiveSearch?.role === role;
+              const lastSearchWeek = biz.executiveSearchCooldowns?.[role] ?? -100;
+              const searchCooldown = Math.max(0, 10 - (globalGameWeek - lastSearchWeek));
+              const searchBlockedByOtherRole = !!biz.pendingExecutiveSearch && !searchActive;
               const severance = executive ? Math.round((executive.weeklySalary ?? 0) * 6) : 0;
 
               return (
@@ -952,12 +955,16 @@ export default function BusinessDetailScreen() {
                     </Pressable>
                   ) : (
                     <Pressable
-                      disabled={!eligibility.allowed}
-                      style={[styles.execSmallButton, eligibility.allowed && styles.execSearchButton, !eligibility.allowed && styles.disabledAction]}
+                      disabled={!eligibility.allowed || searchActive || searchCooldown > 0 || searchBlockedByOtherRole}
+                      style={[
+                        styles.execSmallButton,
+                        eligibility.allowed && searchCooldown <= 0 && !searchBlockedByOtherRole && styles.execSearchButton,
+                        (!eligibility.allowed || searchActive || searchCooldown > 0 || searchBlockedByOtherRole) && styles.disabledAction,
+                      ]}
                       onPress={() => openExecutiveSearch(biz.id, role)}
                     >
-                      <Text style={[styles.execSmallButtonText, eligibility.allowed && { color: Colors.info }]}>
-                        {searchActive ? 'Refresh' : 'Search'}
+                      <Text style={[styles.execSmallButtonText, eligibility.allowed && searchCooldown <= 0 && !searchBlockedByOtherRole && { color: Colors.info }]}>
+                        {searchActive ? 'Active' : searchBlockedByOtherRole ? 'Wait' : searchCooldown > 0 ? `${searchCooldown}w` : 'Search'}
                       </Text>
                     </Pressable>
                   )}
