@@ -169,9 +169,9 @@ function buildDebtQuote(
   } else if (requested <= 0) {
     allowed = false;
     reason = 'Choose a positive financing amount.';
-  } else if (requested > profile.remainingDebtCapacity) {
+  } else if (totalRepayment > profile.remainingDebtCapacity) {
     allowed = false;
-    reason = 'This would exceed the company’s credit capacity.';
+    reason = 'This would exceed the company’s credit capacity after scheduled interest.';
   }
 
   return {
@@ -246,9 +246,9 @@ export function getProjectFinanceQuote(
     allowed = false;
     reason = 'A BB credit rating or better is required for project finance.';
   }
-  if (allowed && debtPrincipal > profile.remainingDebtCapacity) {
+  if (allowed && totalRepayment > profile.remainingDebtCapacity) {
     allowed = false;
-    reason = 'This project would exceed the company’s credit capacity.';
+    reason = 'This project would exceed the company’s credit capacity after scheduled interest.';
   }
   // Avoid financing structures where scheduled debt service would absorb almost
   // all current operating profit before construction disruption.
