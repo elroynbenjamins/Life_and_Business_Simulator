@@ -1127,6 +1127,21 @@ export interface CorporateWorkforceState {
   lastPolicyChangeWeek?: number;
 }
 
+/** Lightweight weekly snapshot used by quarterly / annual management reporting. */
+export interface CorporateKpiHistoryPoint {
+  globalWeek: number;
+  revenue: number;
+  expenses: number;
+  profit: number;
+  headcount: number;
+  payroll: number;
+  turnover: number;
+  productivityIndex: number;
+  departmentProductivity: Record<CorporateDepartmentId, number>;
+  debtService: number;
+  averageMaintenanceCondition: number;
+}
+
 export type BusinessBoardMandate = 'founder_led' | 'balanced_oversight' | 'growth_mandate' | 'risk_committee';
 
 export interface BusinessBoardGovernance {
@@ -1398,6 +1413,7 @@ export interface OwnedBusiness {
   activeEvents: ActiveBusinessEvent[];
   // History
   weeklyProfitHistory: number[];
+  corporateKpiHistory?: CorporateKpiHistoryPoint[];
   // NEW: candidate pool for pending hire
   pendingCandidates?: EmployeeCandidate[] | null;
   pendingCandidateRoleId?: string | null;
