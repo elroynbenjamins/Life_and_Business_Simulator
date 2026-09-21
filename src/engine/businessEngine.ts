@@ -1757,7 +1757,7 @@ export function applyDelegatedBusinessRoutine(
     Math.min(maxEmployees, Math.ceil(maxEmployees * config.targetStaffRatio)),
   );
 
-  if (employees.length < targetEmployees && employees.length < maxEmployees) {
+  if (employees.length < targetEmployees && employees.length < maxEmployees && !(biz.pendingCandidates?.length)) {
     const canUseRecruit = freeRecruits > 0 || (recruitCharges > 0 && balance >= 10_000);
     if (canUseRecruit) {
       const roleId = employees.length < MIN_EMPLOYEES_REQUIRED ? 'worker' : 'skilled_worker';
