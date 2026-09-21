@@ -7,6 +7,10 @@ import {
   tickBusinessReinvestment,
 } from './businessReinvestmentEngine';
 import {
+  applyBusinessBudgetWeek,
+  createBusinessBudgetPlan,
+} from './businessBudgetEngine';
+import {
   getBusinessInsuranceTier,
   getBusinessInsuranceTotalWeeklyPremium,
 } from './businessInsuranceEngine';
@@ -817,6 +821,9 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     activeReinvestment: null,
     insurancePolicies: { property: 'none', equipment: 'none', cyber: 'none', liability: 'none' },
     insuranceClaims: [],
+    budgetPlan: createBusinessBudgetPlan('standard', year),
+    budgetReserves: { reinvestment: 0, growth: 0 },
+    lastBudgetAllocation: null,
     businessLoans: [],
     activeEvents: [],
     weeklyProfitHistory: [],
@@ -1361,14 +1368,22 @@ export function processBusinessWeek(
   });
   let newLevel = getBusinessLevelForMetrics(thresholds, valuation, newReputation);
 
-  // Balance & dividend
+  // Balance, annual budget allocation, extra debt paydown, and dividends.
   let newBalance = (biz.balance ?? 0) + profit + extraCashDelta;
+  const budgetResult = applyBusinessBudgetWeek({
+    business: biz,
+    balanceBeforeBudget: newBalance,
+    profit,
+    totalExpenses,
+    loans: updatedLoans,
+    currentWeek,
+    currentYear,
+    inflationMultiplier,
+  });
+  newBalance = budgetResult.balance;
   let playerDividend = 0;
   let ownershipDistributions: BusinessTickResult['ownershipDistributions'] = [];
-  if (newBalance > 0 && profit > 0) {
-    const dividendRate = 0.7;
-    const operatingReserve = totalExpenses * 6;
-    const totalDividend = Math.round(Math.min(Math.max(0, profit * dividendRate), Math.max(0, newBalance - operatingReserve)));
+  if (budgetResult.dividendPaid > 0) {
     const ownership = biz.ownership?.length
       ? biz.ownership
       : [{ ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 100, votingPercent: 100 }];
@@ -1378,12 +1393,11 @@ export function processBusinessWeek(
         ownerType: stake.ownerType,
         ownerId: stake.ownerId,
         ownerName: stake.ownerName,
-        amount: Math.round(totalDividend * (stake.percent ?? 0) / 100),
+        amount: Math.round(budgetResult.dividendPaid * (stake.percent ?? 0) / 100),
       }));
     playerDividend = ownershipDistributions
       .filter((distribution) => distribution.ownerType === 'player')
       .reduce((sum, distribution) => sum + distribution.amount, 0);
-    newBalance -= totalDividend;
   }
   valuation = calculateValuation({
     ...biz,
@@ -1393,6 +1407,7 @@ export function processBusinessWeek(
     lastWeekProfit: profit,
     weeklyProfitHistory: valuationProfitHistory,
     employees: updatedEmployees,
+    businessLoans: budgetResult.loans,
   });
   newLevel = getBusinessLevelForMetrics(thresholds, valuation, newReputation);
 
@@ -1620,7 +1635,10 @@ export function processBusinessWeek(
     valuation,
     marketShareModifier: resolvedMarketShareModifier,
     employees: updatedEmployees,
-    businessLoans: updatedLoans,
+    businessLoans: budgetResult.loans,
+    budgetPlan: budgetResult.plan,
+    budgetReserves: budgetResult.reserves,
+    lastBudgetAllocation: budgetResult.snapshot,
     activeEvents: newActiveEvents,
     activeProjects: updatedProjects,
     lastExpenseBreakdown: expenseBreakdown,
