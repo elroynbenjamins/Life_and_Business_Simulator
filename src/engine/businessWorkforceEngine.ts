@@ -1,13 +1,116 @@
 import {
   BusinessExecutiveRole,
+  BusinessPendingDecision,
+  BusinessPendingDecisionChoice,
+  CorporateCompensationPolicy,
   CorporateDepartmentId,
   CorporateDepartmentState,
+  CorporateTrainingPolicy,
   CorporateWorkforceState,
   OwnedBusiness,
 } from '../types/game';
 import businessTypesData from '../data/business_types.json';
 
 export const CORPORATE_WORKFORCE_UNLOCK_VALUATION = 25_000_000;
+
+export const CORPORATE_COMPENSATION_POLICIES: Record<CorporateCompensationPolicy, {
+  id: CorporateCompensationPolicy;
+  label: string;
+  description: string;
+  wageMultiplier: number;
+  moralePerWeek: number;
+  turnoverMultiplier: number;
+  hiringSpeedMultiplier: number;
+  hiringSkillBonus: number;
+}> = {
+  lean: {
+    id: 'lean',
+    label: 'Lean Pay',
+    description: 'Below-market compensation lowers payroll but increases turnover and slows hiring.',
+    wageMultiplier: 0.92,
+    moralePerWeek: -0.10,
+    turnoverMultiplier: 1.45,
+    hiringSpeedMultiplier: 0.75,
+    hiringSkillBonus: -2,
+  },
+  market: {
+    id: 'market',
+    label: 'Market Pay',
+    description: 'Pay broadly in line with the labor market.',
+    wageMultiplier: 1.00,
+    moralePerWeek: 0,
+    turnoverMultiplier: 1.00,
+    hiringSpeedMultiplier: 1.00,
+    hiringSkillBonus: 0,
+  },
+  competitive: {
+    id: 'competitive',
+    label: 'Competitive',
+    description: 'Above-market pay improves retention and makes open roles easier to fill.',
+    wageMultiplier: 1.08,
+    moralePerWeek: 0.05,
+    turnoverMultiplier: 0.75,
+    hiringSpeedMultiplier: 1.15,
+    hiringSkillBonus: 2,
+  },
+  premium: {
+    id: 'premium',
+    label: 'Premium',
+    description: 'Top-of-market compensation strongly supports retention, hiring and talent quality.',
+    wageMultiplier: 1.15,
+    moralePerWeek: 0.10,
+    turnoverMultiplier: 0.55,
+    hiringSpeedMultiplier: 1.30,
+    hiringSkillBonus: 4,
+  },
+};
+
+export const CORPORATE_TRAINING_POLICIES: Record<CorporateTrainingPolicy, {
+  id: CorporateTrainingPolicy;
+  label: string;
+  description: string;
+  payrollCostPct: number;
+  skillGainPerWeek: number;
+  moralePerWeek: number;
+  turnoverMultiplier: number;
+}> = {
+  minimal: {
+    id: 'minimal',
+    label: 'Minimal',
+    description: 'Mandatory training only. Cheapest, but skills and retention improve slowly.',
+    payrollCostPct: 0,
+    skillGainPerWeek: 0.01,
+    moralePerWeek: -0.02,
+    turnoverMultiplier: 1.10,
+  },
+  standard: {
+    id: 'standard',
+    label: 'Standard',
+    description: 'Routine role training and professional development.',
+    payrollCostPct: 0.008,
+    skillGainPerWeek: 0.05,
+    moralePerWeek: 0,
+    turnoverMultiplier: 1.00,
+  },
+  development: {
+    id: 'development',
+    label: 'Development',
+    description: 'Meaningful training investment that steadily improves capability and retention.',
+    payrollCostPct: 0.018,
+    skillGainPerWeek: 0.12,
+    moralePerWeek: 0.05,
+    turnoverMultiplier: 0.85,
+  },
+  academy: {
+    id: 'academy',
+    label: 'Internal Academy',
+    description: 'Heavy talent investment for faster skill growth and stronger retention.',
+    payrollCostPct: 0.035,
+    skillGainPerWeek: 0.22,
+    moralePerWeek: 0.10,
+    turnoverMultiplier: 0.70,
+  },
+};
 
 export const CORPORATE_DEPARTMENT_DEFINITIONS: Record<CorporateDepartmentId, {
   id: CorporateDepartmentId;
@@ -135,9 +238,16 @@ export function getRecommendedDepartmentHeadcounts(
 export function getDepartmentWeeklyWage(
   departmentId: CorporateDepartmentId,
   inflationMultiplier = 1,
+  compensationPolicy: CorporateCompensationPolicy = 'market',
 ): number {
   const base = CORPORATE_DEPARTMENT_DEFINITIONS[departmentId].baseWeeklyWage;
-  return Math.round(base * Math.max(0.5, inflationMultiplier || 1));
+  const compensation = CORPORATE_COMPENSATION_POLICIES[compensationPolicy]
+    ?? CORPORATE_COMPENSATION_POLICIES.market;
+  return Math.round(
+    base
+    * Math.max(0.5, inflationMultiplier || 1)
+    * compensation.wageMultiplier,
+  );
 }
 
 function getExecutiveEfficiency(
@@ -165,8 +275,9 @@ function makeDepartment(
     targetHeadcount: headcount,
     averageSkill: clamp(62 + (business.reputation ?? 50) * 0.12, 60, 78),
     morale: 72,
-    weeklyWage: getDepartmentWeeklyWage(id, inflationMultiplier),
+    weeklyWage: getDepartmentWeeklyWage(id, inflationMultiplier, 'market'),
     lastHeadcountChangeWeek: globalWeek,
+    turnoverAccumulator: 0,
   };
 }
 
@@ -188,6 +299,13 @@ export function createCorporateWorkforce(
     },
     lastPlanWeek: Math.max(1, globalWeek),
     lastChangeSummary: 'Corporate departments established at recommended staffing.',
+    compensationPolicy: 'market',
+    trainingPolicy: 'standard',
+    employeeRelations: 70,
+    laborMarketPressure: 50,
+    nextHrEventWeek: Math.max(1, globalWeek) + 12,
+    lastHrEventWeek: 0,
+    recentTurnover: 0,
   };
 }
 
@@ -211,8 +329,13 @@ export function normalizeCorporateWorkforce(
       targetHeadcount: Math.max(1, Math.round(existing?.targetHeadcount ?? existing?.headcount ?? defaultHeadcount)),
       averageSkill: clamp(existing?.averageSkill ?? 68, 40, 95),
       morale: clamp(existing?.morale ?? 70, 35, 95),
-      weeklyWage: getDepartmentWeeklyWage(id, inflationMultiplier),
+      weeklyWage: getDepartmentWeeklyWage(
+        id,
+        inflationMultiplier,
+        fallback.compensationPolicy ?? 'market',
+      ),
       lastHeadcountChangeWeek: Math.max(1, existing?.lastHeadcountChangeWeek ?? globalWeek),
+      turnoverAccumulator: Math.max(0, existing?.turnoverAccumulator ?? 0),
     };
   }
 
@@ -221,6 +344,13 @@ export function normalizeCorporateWorkforce(
     departments: normalizedDepartments,
     lastPlanWeek: Math.max(1, fallback.lastPlanWeek ?? globalWeek),
     lastChangeSummary: fallback.lastChangeSummary ?? null,
+    compensationPolicy: fallback.compensationPolicy ?? 'market',
+    trainingPolicy: fallback.trainingPolicy ?? 'standard',
+    employeeRelations: clamp(fallback.employeeRelations ?? 70, 0, 100),
+    laborMarketPressure: clamp(fallback.laborMarketPressure ?? 50, 20, 90),
+    nextHrEventWeek: Math.max(1, fallback.nextHrEventWeek ?? (globalWeek + 12)),
+    lastHrEventWeek: Math.max(0, fallback.lastHrEventWeek ?? 0),
+    recentTurnover: Math.max(0, fallback.recentTurnover ?? 0),
   };
 }
 
