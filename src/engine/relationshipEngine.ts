@@ -505,16 +505,40 @@ export function getRelationshipObligationWeeklyCost(state: GameState): number {
   }, 0);
 }
 
-function getPlayerEmploymentIncome(state: GameState): number {
-  const workFraction = getPlayerFamilyWorkFraction(state);
-  if (state.career?.companyId) {
-    return Math.round(getCareerSalary(state.career, state.inflationMultiplier ?? 1) * workFraction);
-  }
-  if (state.currentJobId) {
-    return Math.round(getWeeklySalary(state) * workFraction);
-  }
+function getPlayerFullTimeEmploymentIncome(state: GameState): number {
+  if (state.career?.companyId) return getCareerSalary(state.career, state.inflationMultiplier ?? 1);
+  if (state.currentJobId) return getWeeklySalary(state);
   if (state.partTimeJob) return 350;
   return 0;
+}
+
+function getPlayerEmploymentIncome(state: GameState): number {
+  const fullIncome = getPlayerFullTimeEmploymentIncome(state);
+  if (state.partTimeJob && !state.currentJobId && !state.career?.companyId) return fullIncome;
+  return Math.round(fullIncome * getPlayerFamilyWorkFraction(state));
+}
+
+export function getFamilyWorkIncomePreview(
+  state: GameState,
+  connection: RelationshipConnection | null,
+) {
+  const effects = getFamilyWorkArrangementEffects(state);
+  const playerFullTimeIncome = getPlayerFullTimeEmploymentIncome(state);
+  const playerEffectiveIncome = state.partTimeJob && !state.currentJobId && !state.career?.companyId
+    ? playerFullTimeIncome
+    : Math.round(playerFullTimeIncome * effects.playerWorkFraction);
+  const partnerFullTimeIncome = Math.max(0, connection?.weeklyIncome ?? 0);
+  const partnerEffectiveIncome = connection?.employmentStatus === 'unemployed'
+    ? 0
+    : Math.round(partnerFullTimeIncome * effects.partnerWorkFraction);
+
+  return {
+    ...effects,
+    playerFullTimeIncome,
+    playerEffectiveIncome,
+    partnerFullTimeIncome,
+    partnerEffectiveIncome,
+  };
 }
 
 export function getFamilySupportAmount(state: GameState, grossFamilyCost?: number, partnerIncome = 0): number {
