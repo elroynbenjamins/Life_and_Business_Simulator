@@ -995,6 +995,37 @@ export interface BusinessManagementTargetPlan {
   minMaintenanceCondition: number;
 }
 
+export type BusinessManagementTargetReviewStatus = 'met' | 'near' | 'missed' | 'neutral';
+
+export interface BusinessManagementQuarterTargetReview {
+  id: 'revenue' | 'margin' | 'payroll' | 'debt' | 'maintenance';
+  label: string;
+  actual: number;
+  target: number;
+  status: BusinessManagementTargetReviewStatus;
+}
+
+export interface BusinessManagementQuarterReview {
+  year: number;
+  quarter: number;
+  periodStartGlobalWeek: number;
+  periodEndGlobalWeek: number;
+  closedGlobalWeek: number;
+  profile: BusinessManagementTargetProfile;
+  weeksTracked: number;
+  averageWeeklyRevenue: number;
+  profitMargin: number;
+  payrollToRevenueRatio: number;
+  endingDebtBalance: number;
+  averageMaintenanceCondition: number;
+  targetMetCount: number;
+  targetNearCount: number;
+  targetMissedCount: number;
+  targetTotalCount: number;
+  targetResults: BusinessManagementQuarterTargetReview[];
+  partial: boolean;
+}
+
 export interface BusinessBudgetReserves {
   reinvestment: number;
   growth: number;
@@ -1163,6 +1194,8 @@ export interface CorporateKpiHistoryPoint {
   productivityIndex: number;
   departmentProductivity: Record<CorporateDepartmentId, number>;
   debtService: number;
+  /** Outstanding business debt at the end of this reporting week. */
+  debtBalance?: number;
   averageMaintenanceCondition: number;
   /** Optional richer driver history. Older saves can omit these fields safely. */
   averageDepartmentSkill?: number;
@@ -1444,6 +1477,8 @@ export interface OwnedBusiness {
   lastBudgetAllocation?: BusinessBudgetAllocationSnapshot | null;
   /** Quarterly outcome targets used by corporate management reporting. */
   managementTargets?: BusinessManagementTargetPlan;
+  /** Frozen quarter-close reviews, capped to the latest five game years. */
+  managementReviewHistory?: BusinessManagementQuarterReview[];
   // Loans
   businessLoans: BusinessLoan[];
   // Active events
