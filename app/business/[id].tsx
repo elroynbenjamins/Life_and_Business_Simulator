@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, useWindowDimensions, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -189,28 +189,22 @@ export default function BusinessDetailScreen() {
   const netSaleProceeds = Math.max(0, (biz.valuation ?? 0) - totalBusinessDebt);
 
 
-  // Market share pie chart data
+  // Market share pie chart data. Keep these as plain calculations rather than
+  // hooks because selling the current business removes it from the store
+  // synchronously and this screen then takes the early "not found" return.
   const bizCompetitors = competitors[biz.id] ?? [];
-  const marketShare = useMemo(() => {
-    const strengths = bizCompetitors.map((c) => c.strength ?? 30);
-    return computeMarketShare(biz, strengths);
-  }, [biz.reputation, biz.valuation, biz.marketShareModifier, biz.employees?.length, bizCompetitors]);
-
-  const pieData = useMemo(() => {
-    const data: { name: string; population: number; color: string; legendFontColor: string; legendFontSize: number }[] = [
-      { name: biz.name?.slice(0, 14) ?? 'You', population: marketShare.player, color: PIE_COLORS[0], legendFontColor: Colors.textSecondary, legendFontSize: 11 },
-    ];
-    bizCompetitors.forEach((c, i) => {
-      data.push({
-        name: (c.name ?? `Rival ${i + 1}`).slice(0, 14),
-        population: marketShare.competitors[i] ?? 0,
-        color: PIE_COLORS[(i + 1) % PIE_COLORS.length],
-        legendFontColor: Colors.textSecondary,
-        legendFontSize: 11,
-      });
-    });
-    return data;
-  }, [marketShare, bizCompetitors.length]);
+  const strengths = bizCompetitors.map((c) => c.strength ?? 30);
+  const marketShare = computeMarketShare(biz, strengths);
+  const pieData: { name: string; population: number; color: string; legendFontColor: string; legendFontSize: number }[] = [
+    { name: biz.name?.slice(0, 14) ?? 'You', population: marketShare.player, color: PIE_COLORS[0], legendFontColor: Colors.textSecondary, legendFontSize: 11 },
+    ...bizCompetitors.map((c, i) => ({
+      name: (c.name ?? `Rival ${i + 1}`).slice(0, 14),
+      population: marketShare.competitors[i] ?? 0,
+      color: PIE_COLORS[(i + 1) % PIE_COLORS.length],
+      legendFontColor: Colors.textSecondary,
+      legendFontSize: 11,
+    })),
+  ];
 
   // Expense breakdown
   const eb = biz.lastExpenseBreakdown;
