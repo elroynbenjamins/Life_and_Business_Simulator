@@ -268,14 +268,15 @@ export function getCorporateGroupManagementReport(
   const expensesChangePct = comparisonPairs.length > 0 && previousComparableWeeklyExpenses > 0
     ? (currentComparableWeeklyExpenses - previousComparableWeeklyExpenses) / previousComparableWeeklyExpenses
     : null;
-  const profitMargin = currentComparableWeeklyRevenue > 0
+  const profitMargin = periodRevenue > 0 ? periodProfit / periodRevenue : 0;
+  const comparableCurrentProfitMargin = currentComparableWeeklyRevenue > 0
     ? currentComparableWeeklyProfit / currentComparableWeeklyRevenue
     : 0;
   const previousProfitMargin = previousComparableWeeklyRevenue > 0
     ? previousComparableWeeklyProfit / previousComparableWeeklyRevenue
     : 0;
   const profitMarginChangePctPoints = comparisonPairs.length > 0
-    ? (profitMargin - previousProfitMargin) * 100
+    ? (comparableCurrentProfitMargin - previousProfitMargin) * 100
     : null;
   const varianceDrivers = aggregateVarianceDrivers(comparisonPairs);
   const varianceHistoryCoverage: CorporateGroupManagementReport['varianceHistoryCoverage'] = comparisonPairs.length === 0
