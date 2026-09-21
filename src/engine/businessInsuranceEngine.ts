@@ -6,6 +6,7 @@ import {
 } from '../types/game';
 import businessTypesData from '../data/business_types.json';
 import { normalizeBusinessReinvestmentState } from './businessReinvestmentEngine';
+import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
 
 export const BUSINESS_INSURANCE_AREAS: Record<BusinessInsuranceArea, {
   area: BusinessInsuranceArea;
@@ -158,12 +159,19 @@ export function getBusinessInsuranceWeeklyPremium(
     type?.startupCost ?? 10_000,
     business.valuation ?? 0,
   );
+  const governance = getBusinessGovernanceEffects(business);
+  const executiveReduction = area === 'cyber'
+    ? governance.cyberPremiumReduction
+    : area === 'liability'
+      ? governance.liabilityPremiumReduction
+      : 0;
   const annualPremium = valuation
     * ANNUAL_RATE[area]
     * TIER_CONFIG[tier].premiumMultiplier
     * industryMultiplier
     * conditionRiskMultiplier(business, area)
-    * recentClaimMultiplier(business, currentGlobalWeek);
+    * recentClaimMultiplier(business, currentGlobalWeek)
+    * (1 - executiveReduction);
   // One game year = 20 weeks.
   return Math.max(0, Math.round(annualPremium / 20));
 }
