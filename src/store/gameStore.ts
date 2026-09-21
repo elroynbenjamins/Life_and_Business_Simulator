@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, CorporateDepartmentId, CorporateCompensationPolicy, CorporateTrainingPolicy, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, CorporateDepartmentId, CorporateCompensationPolicy, CorporateTrainingPolicy, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, BusinessManagementTargetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -71,6 +71,7 @@ import {
   normalizeBusinessBudgetPlan,
   normalizeBusinessBudgetReserves,
 } from '../engine/businessBudgetEngine';
+import { setBusinessManagementTargetProfile as buildBusinessManagementTargetProfile } from '../engine/businessManagementTargetsEngine';
 import {
   BOARD_GOVERNANCE_UNLOCK_VALUATION,
   createDefaultBoardGovernance,
@@ -249,6 +250,7 @@ interface GameStore extends GameState {
   designateFamilyBusiness: (businessId: string) => void;
   setBusinessStrategicFocus: (businessId: string, focus: BusinessStrategicFocus) => void;
   setBusinessBudgetProfile: (businessId: string, profile: BusinessBudgetProfile) => void;
+  setBusinessManagementTargetProfile: (businessId: string, profile: BusinessManagementTargetProfile) => void;
   openExecutiveSearch: (businessId: string, role: BusinessExecutiveRole) => void;
   hireExecutiveCandidate: (businessId: string, candidateId: string) => void;
   cancelExecutiveSearch: (businessId: string) => void;
@@ -3410,6 +3412,33 @@ const useGameStore = create<GameStore>((set, get) => ({
           }
         : item
     );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  setBusinessManagementTargetProfile: (businessId, profile) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business?.corporateWorkforce) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const businesses = (state.businesses ?? []).map((item) => {
+      if (item.id !== businessId) return item;
+      const updated = buildBusinessManagementTargetProfile(item, profile, globalWeek);
+      return {
+        ...updated,
+        timeline: [
+          ...(item.timeline ?? []),
+          {
+            week: state.week,
+            year: state.year,
+            title: '🎯 Quarterly management targets: ' + profile.replace(/_/g, ' '),
+            icon: '🎯',
+            kind: 'event' as const,
+          },
+        ].slice(-50),
+      };
+    });
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
