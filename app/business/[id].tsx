@@ -361,6 +361,79 @@ export default function BusinessDetailScreen() {
               )}
             </View>
 
+            <View style={styles.acquisitionProfile}>
+              <View style={styles.acquisitionProfileHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.acquisitionProfileTitle}>Company history</Text>
+                  <Text style={styles.acquisitionProfileText}>
+                    {biz.acquisition.companyAgeYears ?? 8} years operating • {biz.acquisition.sellerReason ?? biz.acquisition.sellerName}
+                  </Text>
+                </View>
+                <Text style={styles.acquisitionCostText}>
+                  {formatCurrency(biz.acquisition.acquisitionTransactionCost ?? 0)} closing costs
+                </Text>
+              </View>
+
+              {(biz.acquisition.traits ?? []).length > 0 && (
+                <View style={styles.acquisitionTraitRow}>
+                  {(biz.acquisition.traits ?? []).map((trait) => (
+                    <View
+                      key={trait.id}
+                      style={[
+                        styles.acquisitionTraitChip,
+                        trait.kind === 'strength' ? styles.acquisitionTraitStrength : styles.acquisitionTraitRisk,
+                      ]}
+                    >
+                      <Ionicons
+                        name={trait.kind === 'strength' ? 'sparkles-outline' : 'warning-outline'}
+                        size={11}
+                        color={trait.kind === 'strength' ? Colors.primary : Colors.warning}
+                      />
+                      <Text
+                        style={[
+                          styles.acquisitionTraitText,
+                          { color: trait.kind === 'strength' ? Colors.primary : Colors.warning },
+                        ]}
+                      >
+                        {trait.name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {(biz.acquisition.diligenceFindings ?? []).length > 0 && (
+                <View style={styles.acquisitionFindings}>
+                  {(biz.acquisition.diligenceFindings ?? []).map((finding) => {
+                    const findingColor = finding.kind === 'strength'
+                      ? Colors.primary
+                      : finding.kind === 'risk'
+                        ? Colors.warning
+                        : Colors.info;
+                    return (
+                      <View key={finding.id} style={styles.acquisitionFindingRow}>
+                        <Ionicons
+                          name={finding.kind === 'strength' ? 'checkmark-circle-outline' : finding.kind === 'risk' ? 'alert-circle-outline' : 'information-circle-outline'}
+                          size={14}
+                          color={findingColor}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.acquisitionFindingTitle, { color: findingColor }]}>{finding.title}</Text>
+                          <Text style={styles.acquisitionFindingText}>{finding.description}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              <Text style={styles.acquisitionOperatingProfile}>
+                Structural profile: {((biz.acquisition.persistentRevenueModifier ?? 0) * 100) >= 0 ? '+' : ''}
+                {((biz.acquisition.persistentRevenueModifier ?? 0) * 100).toFixed(1)}% revenue • {((biz.acquisition.persistentExpenseModifier ?? 0) * 100) >= 0 ? '+' : ''}
+                {((biz.acquisition.persistentExpenseModifier ?? 0) * 100).toFixed(1)}% expenses
+              </Text>
+            </View>
+
             {biz.acquisition.integrationStrategy === 'pending' ? (
               <>
                 <Text style={styles.integrationPrompt}>Choose how to integrate this company. The integration clock begins only after you choose.</Text>
@@ -1432,6 +1505,21 @@ const styles = StyleSheet.create({
   acquisitionHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   acquisitionTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800' },
   acquisitionReturn: { fontSize: 16, fontWeight: '900' },
+  acquisitionProfile: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 9 },
+  acquisitionProfileHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  acquisitionProfileTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  acquisitionProfileText: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 2 },
+  acquisitionCostText: { color: Colors.warning, fontSize: 9, fontWeight: '800', textAlign: 'right' },
+  acquisitionTraitRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8 },
+  acquisitionTraitChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 11, paddingHorizontal: 7, paddingVertical: 4 },
+  acquisitionTraitStrength: { borderColor: `${Colors.primary}55`, backgroundColor: `${Colors.primary}0D` },
+  acquisitionTraitRisk: { borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}0D` },
+  acquisitionTraitText: { fontSize: 8, fontWeight: '800' },
+  acquisitionFindings: { gap: 7, marginTop: 9, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  acquisitionFindingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  acquisitionFindingTitle: { fontSize: 9, fontWeight: '800' },
+  acquisitionFindingText: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, marginTop: 1 },
+  acquisitionOperatingProfile: { color: Colors.info, fontSize: 8, marginTop: 8 },
   integrationPrompt: { color: Colors.warning, fontSize: 11, lineHeight: 16, fontWeight: '700', marginTop: 8, marginBottom: 4 },
   integrationChoice: { flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, paddingVertical: 10 },
   integrationChoiceTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
