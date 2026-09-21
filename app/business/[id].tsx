@@ -1432,14 +1432,153 @@ export default function BusinessDetailScreen() {
           })}
         </GameCard>
 
+        {corporateScaleTier !== 'local' && (
+          <GameCard title="Corporate Financing">
+            <View style={styles.creditHeader}>
+              <View style={styles.creditRatingBox}>
+                <Text style={styles.creditRating}>{corporateCredit.rating}</Text>
+                <Text style={styles.creditScore}>Score {corporateCredit.score}/100</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.creditTitle}>Corporate Credit Profile</Text>
+                <Text style={styles.creditMeta}>
+                  Debt / value {(corporateCredit.debtToValue * 100).toFixed(1)}% • Coverage {corporateCredit.interestCoverage >= 9.9 ? '10+' : corporateCredit.interestCoverage.toFixed(1)}×
+                </Text>
+                <Text style={styles.creditMeta}>
+                  Remaining debt capacity {formatCurrency(corporateCredit.remainingDebtCapacity)}
+                </Text>
+              </View>
+            </View>
+
+            {(corporateCredit.debtToValue > 0.35 || corporateCredit.interestCoverage < 1.5) && (
+              <View style={styles.creditWarning}>
+                <Ionicons name="warning-outline" size={14} color={Colors.warning} />
+                <Text style={styles.creditWarningText}>
+                  Leverage is becoming restrictive. New financing may be limited if earnings weaken further.
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.financeSection}>
+              <View style={styles.financeSectionHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.financeSectionTitle}>Revolving Credit Facility</Text>
+                  <Text style={styles.financeSectionMeta}>
+                    Limit {formatCurrency(corporateCredit.revolverLimit)} • Used {formatCurrency(corporateCredit.revolverOutstanding)} • Available {formatCurrency(corporateCredit.revolverAvailable)}
+                  </Text>
+                </View>
+                <Ionicons name="repeat-outline" size={17} color={Colors.info} />
+              </View>
+              <Text style={styles.financeDescription}>
+                Flexible 60-week liquidity for maintenance, working capital or short-term needs. More expensive than bonds.
+              </Text>
+              <View style={styles.financeButtons}>
+                {REVOLVER_DRAWS.map((amount) => {
+                  const quote = getRevolverDrawQuote(biz, amount, loanRateReduction);
+                  return (
+                    <Pressable
+                      key={amount}
+                      disabled={!quote.allowed}
+                      style={[styles.financeButton, quote.allowed && styles.financeButtonActive, !quote.allowed && styles.disabledAction]}
+                      onPress={() => confirmAction(
+                        'Draw Revolving Credit',
+                        `Draw ${formatCurrency(amount)}? Fee ${formatCurrency(quote.arrangementFee)} • rate ${(quote.interestRate * 100).toFixed(1)}% • ${formatCurrency(quote.weeklyPayment)}/wk for ${quote.durationWeeks} weeks.`,
+                        () => drawCorporateRevolver(biz.id, amount),
+                      )}
+                    >
+                      <Text style={[styles.financeButtonTitle, quote.allowed && { color: Colors.info }]}>{formatCurrency(amount)}</Text>
+                      <Text style={styles.financeButtonMeta}>{quote.allowed ? `${(quote.interestRate * 100).toFixed(1)}%` : 'Locked'}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.financeSection}>
+              <View style={styles.financeSectionHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.financeSectionTitle}>Corporate Bonds</Text>
+                  <Text style={styles.financeSectionMeta}>200-week funding • lower spread • BBB or better • €75M+ company value</Text>
+                </View>
+                <Ionicons name="document-text-outline" size={17} color={Colors.warning} />
+              </View>
+              <Text style={styles.financeDescription}>
+                Long-duration funding for major investments. Maximum two bond tranches can be outstanding.
+              </Text>
+              <View style={styles.financeButtons}>
+                {BOND_ISSUES.map((amount) => {
+                  const quote = getBondQuote(biz, amount, loanRateReduction);
+                  return (
+                    <Pressable
+                      key={amount}
+                      disabled={!quote.allowed}
+                      style={[styles.financeButton, quote.allowed && styles.bondButtonActive, !quote.allowed && styles.disabledAction]}
+                      onPress={() => confirmAction(
+                        'Issue Corporate Bond',
+                        `Issue ${formatCurrency(amount)} of bonds? Fee ${formatCurrency(quote.arrangementFee)} • rate ${(quote.interestRate * 100).toFixed(1)}% • ${formatCurrency(quote.weeklyPayment)}/wk for ${quote.durationWeeks} weeks.`,
+                        () => issueCorporateBond(biz.id, amount),
+                      )}
+                    >
+                      <Text style={[styles.financeButtonTitle, quote.allowed && { color: Colors.warning }]}>{formatCurrency(amount)}</Text>
+                      <Text style={styles.financeButtonMeta}>{quote.allowed ? `${(quote.interestRate * 100).toFixed(1)}%` : 'Locked'}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {(() => {
+                const sample = getBondQuote(biz, BOND_ISSUES[0], loanRateReduction);
+                return !sample.allowed
+                  ? <Text style={styles.financeLocked}>{sample.reason}</Text>
+                  : null;
+              })()}
+            </View>
+          </GameCard>
+        )}
+
         {/* Business Loans */}
         <GameCard title="Business Loans">
-          {(biz.businessLoans ?? []).map((loan) => (
-            <View key={loan.id} style={styles.loanRow}>
-              <Text style={styles.loanAmount}>{formatCurrency(loan.remainingAmount)} remaining</Text>
-              <Text style={styles.loanPayment}>{loan.purpose === 'acquisition' ? 'Acquisition debt • ' : ''}{formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk left</Text>
-            </View>
-          ))}
+          {(biz.businessLoans ?? []).map((loan) => {
+            const debtLabel = loan.purpose === 'acquisition'
+              ? 'Acquisition debt'
+              : loan.purpose === 'corporate_revolver'
+                ? 'Revolving credit'
+                : loan.purpose === 'project_finance'
+                  ? 'Project finance'
+                  : loan.purpose === 'corporate_bond'
+                    ? 'Corporate bond'
+                    : 'Business loan';
+            const quarterRepayment = Math.min(loan.remainingAmount ?? 0, Math.max(0, Math.round((loan.remainingAmount ?? 0) * 0.25)));
+            return (
+              <View key={loan.id} style={styles.loanRow}>
+                <View style={styles.loanHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.loanAmount}>{formatCurrency(loan.remainingAmount)} remaining</Text>
+                    <Text style={styles.loanPayment}>
+                      {debtLabel} • {(Math.max(0, loan.interestRate ?? 0) * 100).toFixed(1)}% • {formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk
+                    </Text>
+                  </View>
+                  {(loan.purpose === 'corporate_revolver' || loan.purpose === 'project_finance' || loan.purpose === 'corporate_bond') && (
+                    <View style={styles.loanRepayButtons}>
+                      <Pressable
+                        disabled={(biz.balance ?? 0) <= 0 || quarterRepayment <= 0}
+                        style={[styles.loanRepayButton, ((biz.balance ?? 0) <= 0 || quarterRepayment <= 0) && styles.disabledAction]}
+                        onPress={() => repayBusinessLoan(biz.id, loan.id, quarterRepayment)}
+                      >
+                        <Text style={styles.loanRepayText}>Repay 25%</Text>
+                      </Pressable>
+                      <Pressable
+                        disabled={(biz.balance ?? 0) < (loan.remainingAmount ?? 0)}
+                        style={[styles.loanRepayButton, (biz.balance ?? 0) < (loan.remainingAmount ?? 0) && styles.disabledAction]}
+                        onPress={() => repayBusinessLoan(biz.id, loan.id, loan.remainingAmount ?? 0)}
+                      >
+                        <Text style={styles.loanRepayText}>Pay off</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
           {(biz.businessLoans?.length ?? 0) < 3 && (
             <View style={styles.loanOptions}>
               {LOAN_OPTIONS.map((opt) => (
@@ -1974,7 +2113,32 @@ const styles = StyleSheet.create({
   expansionActive: { padding: 10, backgroundColor: `${Colors.warning}18`, borderRadius: 8, marginBottom: 8 },
   expansionActiveTitle: { color: Colors.warning, fontWeight: '700', fontSize: 13 },
   locationOwned: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
-  loanRow: { paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  creditHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 9 },
+  creditRatingBox: { minWidth: 58, alignItems: 'center', backgroundColor: '#17263A', borderRadius: 9, paddingHorizontal: 8, paddingVertical: 7 },
+  creditRating: { color: Colors.info, fontSize: 18, fontWeight: '900' },
+  creditScore: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
+  creditTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  creditMeta: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 2 },
+  creditWarning: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: `${Colors.warning}10`, borderRadius: 8, padding: 8, marginBottom: 8 },
+  creditWarningText: { flex: 1, color: Colors.warning, fontSize: 8, lineHeight: 12 },
+  financeSection: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, paddingTop: 9, marginTop: 8 },
+  financeSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  financeSectionTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  financeSectionMeta: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  financeDescription: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 5 },
+  financeButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 7 },
+  financeButton: { minWidth: 88, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 7 },
+  financeButtonActive: { borderColor: `${Colors.info}55`, backgroundColor: '#17263A' },
+  bondButtonActive: { borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}0D` },
+  financeButtonTitle: { color: Colors.textMuted, fontSize: 9, fontWeight: '900' },
+  financeButtonMeta: { color: Colors.textSecondary, fontSize: 7, marginTop: 2 },
+  financeLocked: { color: Colors.warning, fontSize: 8, lineHeight: 11, marginTop: 6 },
+  disabledAction: { opacity: 0.35 },
+  loanRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  loanHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  loanRepayButtons: { flexDirection: 'row', gap: 4 },
+  loanRepayButton: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 5 },
+  loanRepayText: { color: Colors.textSecondary, fontSize: 7, fontWeight: '800' },
   loanAmount: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
   loanPayment: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   loanOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
