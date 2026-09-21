@@ -858,6 +858,7 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     familyRoles: [],
     executives: [],
     pendingExecutiveSearch: null,
+    executiveSearchCooldowns: {},
     boardGovernance: null,
     capitalInvested: null,
     totalPlayerDistributions: 0,
