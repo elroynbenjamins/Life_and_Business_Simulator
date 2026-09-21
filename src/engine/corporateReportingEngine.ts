@@ -201,14 +201,14 @@ function getHistoryWithCurrentPoint(
   globalWeek: number,
 ): CorporateKpiHistoryPoint[] {
   const existing = (business.corporateKpiHistory ?? [])
-    .filter((point) => Number.isFinite(point.globalWeek));
-  const current = buildCorporateKpiSnapshot(business, globalWeek);
-  if (!current) return existing;
-
-  return existing
-    .filter((point) => point.globalWeek !== current.globalWeek)
-    .concat(current)
+    .filter((point) => Number.isFinite(point.globalWeek))
     .sort((a, b) => a.globalWeek - b.globalWeek);
+  const current = buildCorporateKpiSnapshot(business, globalWeek);
+  if (!current || existing.some((point) => point.globalWeek === current.globalWeek)) {
+    return existing;
+  }
+
+  return existing.concat(current).sort((a, b) => a.globalWeek - b.globalWeek);
 }
 
 function aggregatePeriod(points: CorporateKpiHistoryPoint[]) {
