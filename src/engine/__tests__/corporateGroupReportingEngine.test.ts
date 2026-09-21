@@ -1,6 +1,7 @@
 import { createBusiness } from '../businessEngine';
 import { createCorporateWorkforce } from '../businessWorkforceEngine';
 import { getCorporateGroupManagementReport } from '../corporateGroupReportingEngine';
+import { getBusinessEmpireSummary } from '../businessPortfolioEngine';
 import { CorporateKpiHistoryPoint, OwnedBusiness } from '../../types/game';
 
 const defaultDepartments = {
@@ -174,6 +175,88 @@ describe('corporate group management reporting', () => {
 
     expect(report.valueConcentration).toBeCloseTo(0.90, 4);
     expect(report.warnings.some((warning) => warning.id === 'concentration')).toBe(false);
+  });
+
+  test('identifies and orders the companies behind critical and watch KPIs', () => {
+    const critical = makeBusiness('Critical Co', 100_000_000);
+    setPeriodHistory(
+      critical,
+      {},
+      {
+        productivityIndex: 80,
+        departmentProductivity: {
+          operations: 80,
+          sales: 80,
+          finance: 80,
+          technology: 80,
+          support: 80,
+        },
+        payroll: 500_000,
+      },
+    );
+
+    const watch = makeBusiness('Watch Co', 200_000_000);
+    setPeriodHistory(
+      watch,
+      {},
+      {
+        productivityIndex: 90,
+        departmentProductivity: {
+          operations: 90,
+          sales: 90,
+          finance: 90,
+          technology: 90,
+          support: 90,
+        },
+      },
+    );
+
+    const healthy = makeBusiness('Healthy Co', 300_000_000);
+    setPeriodHistory(healthy, {}, {});
+
+    const report = getCorporateGroupManagementReport(
+      [healthy, watch, critical],
+      25,
+      'quarter',
+      1,
+    )!;
+
+    expect(report.priorityCompanies.map((company) => company.businessName))
+      .toEqual(['Critical Co', 'Watch Co']);
+    expect(report.priorityCompanies[0].status).toBe('critical');
+    expect(report.priorityCompanies[0].topWarning).toContain('productivity');
+    expect(report.priorityCompanies[1].status).toBe('watch');
+  });
+
+  test('corporate KPI breaches count in the existing Empire Pulse attention total', () => {
+    const business = makeBusiness('KPI Attention', 100_000_000);
+    setPeriodHistory(
+      business,
+      {},
+      {
+        productivityIndex: 80,
+        departmentProductivity: {
+          operations: 80,
+          sales: 80,
+          finance: 80,
+          technology: 80,
+          support: 80,
+        },
+      },
+    );
+    business.pendingDecision = null;
+    business.pendingRetention = null;
+    business.acquisition = null;
+
+    const summary = getBusinessEmpireSummary(
+      [business],
+      [],
+      2,
+      5,
+      1,
+    );
+
+    expect(summary.attentionCount).toBe(1);
   });
 
   test('returns no management report before any company has corporate workforce reporting', () => {
