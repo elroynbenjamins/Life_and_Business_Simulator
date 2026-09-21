@@ -1,6 +1,6 @@
 import { GameState, WeekSummary, LifetimeStatistics, INITIAL_STATISTICS, INITIAL_CAREER_STATE, TriggeredEvent, TempHappinessEffect, PendingInvestment, AuctionResult, RealEstateAuction } from '../types/game';
 import { processEconomy } from './economyEngine';
-import { processRelationships } from './relationshipEngine';
+import { getPlayerFamilyWorkFraction, processRelationships } from './relationshipEngine';
 import { processLifecycle } from './lifecycleEngine';
 import { syncFamilyTree } from './familyTreeEngine';
 import { processNews } from './newsEngine';
@@ -118,10 +118,16 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const relationshipTick = processRelationships(stateWithInflation);
 
   // ---------- Step 8: Income ----------
-  const salaryReduced = isSalaryReduced(stateWithInflation);
+  const familyWorkState: GameState = {
+    ...stateWithInflation,
+    relationshipState: relationshipTick.state,
+  };
+  const playerFamilyWorkFraction = getPlayerFamilyWorkFraction(familyWorkState);
   const legacyIncome = processIncome(stateWithInflation);
   const hasCareerV2 = !!careerTick.updatedCareer.companyId;
-  const salary = hasCareerV2 ? careerTick.salary : legacyIncome.salary;
+  const fullTimeSalary = hasCareerV2 ? careerTick.salary : legacyIncome.salary;
+  const salary = Math.round(fullTimeSalary * playerFamilyWorkFraction);
+  const salaryReduced = isSalaryReduced(stateWithInflation) || playerFamilyWorkFraction < 1;
 
   // ---------- Step 9: Expenses ----------
   const expenses = processExpenses(stateWithInflation);
