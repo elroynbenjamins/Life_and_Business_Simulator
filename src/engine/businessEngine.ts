@@ -36,7 +36,10 @@ import {
   tickCorporateWorkforce,
 } from './businessWorkforceEngine';
 import { appendCorporateKpiSnapshot } from './corporateReportingEngine';
-import { ensureBusinessManagementTargetPlan } from './businessManagementTargetsEngine';
+import {
+  closeCompletedBusinessManagementQuarter,
+  ensureBusinessManagementTargetPlan,
+} from './businessManagementTargetsEngine';
 
 // -----------------------------------------------------------------------------
 // D&D-style tier system for employees
@@ -1805,6 +1808,7 @@ export function processBusinessWeek(
     );
   }
   updatedBusiness.level = getBusinessLevelForMetrics(thresholds, updatedBusiness.valuation, updatedBusiness.reputation);
+  updatedBusiness = closeCompletedBusinessManagementQuarter(updatedBusiness, globalWeek);
   updatedBusiness.managementTargets = ensureBusinessManagementTargetPlan(updatedBusiness, globalWeek);
   const reportedBusiness = appendCorporateKpiSnapshot(updatedBusiness, globalWeek);
 
