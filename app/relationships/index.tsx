@@ -366,6 +366,9 @@ export default function RelationshipsScreen() {
                   ) : (
                     <>
                       <Text style={styles.meta}>Discussing children can strengthen or strain the relationship depending on your partner's goals.</Text>
+                      <Text style={[styles.meta, { marginTop: 5 }]}>
+                        After the first child, the default household schedule is Both 80% while the youngest child is under 6. You can switch to full-time or a partner-focused schedule at any time.
+                      </Text>
                       <View style={styles.familyWarningBox}>
                         <Text style={styles.compactTitle}>Before growing the family</Text>
                         <Text style={styles.meta}>
@@ -448,7 +451,9 @@ export default function RelationshipsScreen() {
                   </View>
 
                   <Text style={styles.familyWorkCareNote}>
-                    Care/school costs are currently {Math.round((1 - familyWorkPreview.childcareMultiplier) * 100)}% lower because one or both adults are working less.
+                    {familyWorkPreview.childcareMultiplier < 1
+                      ? `Care/school costs are currently ${Math.round((1 - familyWorkPreview.childcareMultiplier) * 100)}% lower because one or both adults are working less.`
+                      : 'Both adults are working full-time, so care/school costs stay at the standard level.'}
                   </Text>
 
                   <View style={styles.familyWorkGrid}>
