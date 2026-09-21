@@ -1094,6 +1094,25 @@ export interface BusinessExecutiveSearch {
   generatedGlobalWeek: number;
 }
 
+export type CorporateDepartmentId = 'operations' | 'sales' | 'finance' | 'technology' | 'support';
+
+export interface CorporateDepartmentState {
+  id: CorporateDepartmentId;
+  headcount: number;
+  targetHeadcount: number;
+  averageSkill: number;
+  morale: number;
+  weeklyWage: number;
+  lastHeadcountChangeWeek: number;
+}
+
+export interface CorporateWorkforceState {
+  initializedGlobalWeek: number;
+  departments: Record<CorporateDepartmentId, CorporateDepartmentState>;
+  lastPlanWeek: number;
+  lastChangeSummary: string | null;
+}
+
 export type BusinessBoardMandate = 'founder_led' | 'balanced_oversight' | 'growth_mandate' | 'risk_committee';
 
 export interface BusinessBoardGovernance {
@@ -1393,6 +1412,7 @@ export interface OwnedBusiness {
   pendingExecutiveSearch?: BusinessExecutiveSearch | null;
   executiveSearchCooldowns?: Partial<Record<BusinessExecutiveRole, number>>;
   boardGovernance?: BusinessBoardGovernance | null;
+  corporateWorkforce?: CorporateWorkforceState | null;
   /** Optional organizational parent for portfolio-level capital allocation. */
   holdingCompanyId?: string | null;
   /** Scales mature acquired companies beyond startup-size base economics. */
