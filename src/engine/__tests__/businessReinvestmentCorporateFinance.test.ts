@@ -1,4 +1,4 @@
-import { calculateValuation, createBusiness } from '../businessEngine';
+import { calculateValuation, createBusiness, processBusinessWeek } from '../businessEngine';
 import {
   BUSINESS_REINVESTMENT_AREAS,
   canStartBusinessReinvestment,
@@ -91,6 +91,45 @@ describe('business reinvestment and corporate financing', () => {
     expect(getBusinessReinvestmentCost(large, 'technology', 1)).toBe(10_000_000);
     expect(getBusinessReinvestmentCost(large, 'premises', 1)).toBe(15_000_000);
     expect(getBusinessReinvestmentCost({ ...large, valuation: 2_000_000_000 }, 'premises', 1)).toBe(20_000_000);
+  });
+
+  test('neglected infrastructure flows through the weekly business simulation', () => {
+    const employee = (id: string) => ({
+      id,
+      roleId: 'worker',
+      name: id,
+      skill: 60,
+      morale: 75,
+      experience: 20,
+      potential: 75,
+      age: 30,
+      weeksEmployed: 20,
+      weeklySalary: 260,
+      inTrainingId: null,
+      trainingWeeksRemaining: 0,
+      tier: 'common' as const,
+      buffs: [],
+    });
+    const base = makeBusiness({
+      employees: [employee('A'), employee('B'), employee('C')],
+      operatingScaleMultiplier: 1,
+      reputation: 80,
+    });
+    const neglected = {
+      ...base,
+      reinvestment: {
+        technology: { condition: 20, lastRenewedGlobalWeek: 1 },
+        premises: { condition: 20, lastRenewedGlobalWeek: 1 },
+        equipment: { condition: 20, lastRenewedGlobalWeek: 1 },
+      },
+    };
+
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const healthyWeek = processBusinessWeek(base, 1, 5, 3);
+    const neglectedWeek = processBusinessWeek(neglected, 1, 5, 3);
+
+    expect(neglectedWeek.weeklyRevenue).toBeLessThan(healthyWeek.weeklyRevenue);
+    expect(neglectedWeek.weeklyExpenses).toBeGreaterThan(healthyWeek.weeklyExpenses);
   });
 
   test('reinvestment cannot be spammed at pristine condition and completes back at 100', () => {
