@@ -169,6 +169,62 @@ export function getFamilyFormationProfile(
   };
 }
 
+export const PARTNER_CAREER_SYSTEM_VERSION = 2;
+export const PARTNER_CAREER_MAX_LEVEL = 8;
+const PARTNER_CAREER_CHECK_WEEKS = 10;
+
+export function getPartnerCareerStartingLevel(
+  age: number,
+  ambition: RelationshipConnection['ambition'],
+): number {
+  const careerYears = Math.max(0, Math.floor(age) - 20);
+  let level = 1 + Math.floor(careerYears / 6);
+  if (ambition === 'driven' && careerYears >= 4) level += 1;
+  if (ambition === 'relaxed' && careerYears >= 12) level -= 1;
+  return Math.max(1, Math.min(PARTNER_CAREER_MAX_LEVEL, level));
+}
+
+function getPartnerOccupationBaseIncome(connection: Pick<RelationshipConnection, 'occupationId' | 'weeklyIncome'>): number {
+  const occupation = (occupationsData as any[]).find((item) => item.id === connection.occupationId);
+  return Math.max(450, Math.round(occupation?.baseWeeklyIncome ?? connection.weeklyIncome ?? 650));
+}
+
+export function normalizePartnerCareerConnection(
+  connection: RelationshipConnection,
+  gw: number,
+): RelationshipConnection {
+  const existingLevel = Math.max(1, Math.round(connection.careerLevel ?? 1));
+  const inferredLevel = getPartnerCareerStartingLevel(connection.age ?? 20, connection.ambition);
+  const careerLevel = connection.careerSystemVersion === PARTNER_CAREER_SYSTEM_VERSION
+    ? existingLevel
+    : Math.max(existingLevel, inferredLevel);
+  const employmentStatus = connection.employmentStatus ?? 'employed';
+  const baseIncome = getPartnerOccupationBaseIncome(connection);
+  const seniorityIncomeFloor = Math.round(baseIncome * (1 + (careerLevel - 1) * 0.05) * 0.88);
+  const currentIncome = Math.max(0, connection.weeklyIncome ?? 0);
+  const lastEmployedWeeklyIncome = Math.max(
+    connection.lastEmployedWeeklyIncome ?? 0,
+    currentIncome,
+    seniorityIncomeFloor,
+  );
+
+  return {
+    ...connection,
+    employmentStatus,
+    unemploymentWeeks: Math.max(0, connection.unemploymentWeeks ?? 0),
+    careerLevel,
+    careerProgressWeeks: Math.max(0, connection.careerProgressWeeks ?? 0),
+    weeklyIncome: employmentStatus === 'unemployed'
+      ? 0
+      : Math.max(currentIncome, seniorityIncomeFloor),
+    lastEmployedWeeklyIncome,
+    lastCareerEventWeek: connection.lastCareerEventWeek && connection.lastCareerEventWeek > 0
+      ? connection.lastCareerEventWeek
+      : Math.max(1, gw),
+    careerSystemVersion: PARTNER_CAREER_SYSTEM_VERSION,
+  };
+}
+
 function weightedCandidateAge(
   playerAge: number,
   minAge: number,
@@ -213,8 +269,13 @@ export function generateRelationshipCandidates(state: GameState, count = 3): Rel
     }
     const age = weightedCandidateAge(state.age ?? 20, minAge, maxAge);
     const occupation = randomOf(occupationsData as any[]);
+    const ambition = randomOf(AMBITION);
+    const careerLevel = getPartnerCareerStartingLevel(age, ambition);
     const incomeVariation = 0.85 + Math.random() * 0.3;
-    const weeklyIncome = Math.round((occupation.baseWeeklyIncome ?? 700) * incomeVariation);
+    const seniorityMultiplier = 1 + (careerLevel - 1) * 0.05;
+    const weeklyIncome = Math.round(
+      (occupation.baseWeeklyIncome ?? 700) * incomeVariation * seniorityMultiplier
+    );
     const savings = Math.max(0, Math.round(weeklyIncome * (2 + Math.random() * 18)));
 
     candidates.push({
@@ -225,10 +286,11 @@ export function generateRelationshipCandidates(state: GameState, count = 3): Rel
       occupationId: occupation.id,
       occupationTitle: occupation.title,
       weeklyIncome,
+      careerLevel,
       savings,
       financialStyle: randomOf(FINANCIAL_STYLES),
       riskTolerance: randomOf(RISK),
-      ambition: randomOf(AMBITION),
+      ambition,
       familyGoal: randomOf(FAMILY),
       visibleTraits: [],
     });
@@ -711,50 +773,101 @@ function processPartnerCareer(
   connection: RelationshipConnection,
   gw: number,
 ): { connection: RelationshipConnection; event: string | null } {
-  const lastEvent = connection.lastCareerEventWeek ?? 0;
+  const normalized = normalizePartnerCareerConnection(connection, gw);
+  const lastEvent = normalized.lastCareerEventWeek ?? gw;
   let lastCareerCheckWeek = lastEvent;
-  let employmentStatus = connection.employmentStatus ?? 'employed';
-  let unemploymentWeeks = connection.unemploymentWeeks ?? 0;
-  let weeklyIncome = connection.weeklyIncome ?? 0;
-  let careerLevel = connection.careerLevel ?? 1;
+  let employmentStatus = normalized.employmentStatus ?? 'employed';
+  let unemploymentWeeks = normalized.unemploymentWeeks ?? 0;
+  let weeklyIncome = normalized.weeklyIncome ?? 0;
+  let lastEmployedWeeklyIncome = Math.max(
+    normalized.lastEmployedWeeklyIncome ?? 0,
+    weeklyIncome,
+    getPartnerOccupationBaseIncome(normalized),
+  );
+  let careerLevel = normalized.careerLevel ?? 1;
+  let careerProgressWeeks = normalized.careerProgressWeeks ?? 0;
   let event: string | null = null;
 
   if (employmentStatus === 'unemployed') {
     unemploymentWeeks += 1;
-    const rehireChance = connection.ambition === 'driven' ? 0.22 : connection.ambition === 'career_minded' ? 0.16 : 0.11;
+    const rehireChance = normalized.ambition === 'driven'
+      ? 0.24
+      : normalized.ambition === 'career_minded'
+        ? 0.18
+        : 0.12;
     if (Math.random() < rehireChance) {
       employmentStatus = 'employed';
       lastCareerCheckWeek = gw;
       unemploymentWeeks = 0;
-      weeklyIncome = Math.max(450, Math.round(weeklyIncome * (0.95 + Math.random() * 0.20)));
-      event = `${connection.name} found a new job earning about €${weeklyIncome}/week.`;
+      const base = Math.max(
+        lastEmployedWeeklyIncome,
+        Math.round(getPartnerOccupationBaseIncome(normalized) * (1 + (careerLevel - 1) * 0.05)),
+      );
+      weeklyIncome = Math.max(450, Math.round(base * (0.96 + Math.random() * 0.12)));
+      lastEmployedWeeklyIncome = weeklyIncome;
+      careerProgressWeeks = Math.max(0, Math.floor(careerProgressWeeks * 0.6));
+      event = `${normalized.name} found a new job earning about €${weeklyIncome}/week.`;
     }
-  } else if (gw - lastEvent >= 20) {
-    // One career check per game year, even when no promotion or layoff occurs.
-    lastCareerCheckWeek = gw;
-    const promotionChance = connection.ambition === 'driven' ? 0.30 : connection.ambition === 'career_minded' ? 0.20 : 0.10;
-    const layoffChance = connection.ambition === 'driven' ? 0.035 : 0.05;
-    const roll = Math.random();
-    if (roll < layoffChance) {
-      employmentStatus = 'unemployed';
-      unemploymentWeeks = 0;
-      weeklyIncome = 0;
-      event = `${connection.name} was laid off. Household income may be tighter for a while.`;
-    } else if (roll < layoffChance + promotionChance) {
-      careerLevel += 1;
-      weeklyIncome = Math.round(Math.max(weeklyIncome, 500) * (1.08 + Math.random() * 0.08));
-      event = `${connection.name} earned a promotion and now makes about €${weeklyIncome}/week.`;
+  } else {
+    careerProgressWeeks += 1;
+    if (gw - lastEvent >= PARTNER_CAREER_CHECK_WEEKS) {
+      lastCareerCheckWeek = gw;
+      const basePromotionChance = normalized.ambition === 'driven'
+        ? 0.22
+        : normalized.ambition === 'career_minded'
+          ? 0.15
+          : 0.08;
+      const stagnationBonus = Math.min(
+        0.30,
+        Math.max(0, careerProgressWeeks - PARTNER_CAREER_CHECK_WEEKS) / 120,
+      );
+      const seniorityFactor = Math.max(0.55, 1 - Math.max(0, careerLevel - 1) * 0.055);
+      const promotionChance = careerProgressWeeks >= 50
+        ? 1
+        : Math.min(0.65, (basePromotionChance + stagnationBonus) * seniorityFactor);
+      const layoffChance = normalized.ambition === 'driven'
+        ? 0.018
+        : normalized.ambition === 'career_minded'
+          ? 0.024
+          : 0.032;
+      const roll = Math.random();
+
+      if (roll < layoffChance) {
+        employmentStatus = 'unemployed';
+        unemploymentWeeks = 0;
+        lastEmployedWeeklyIncome = Math.max(lastEmployedWeeklyIncome, weeklyIncome);
+        weeklyIncome = 0;
+        careerProgressWeeks = Math.max(0, careerProgressWeeks - 5);
+        event = `${normalized.name} was laid off. Household income may be tighter for a while.`;
+      } else if (roll < layoffChance + promotionChance && careerLevel < PARTNER_CAREER_MAX_LEVEL) {
+        careerLevel += 1;
+        weeklyIncome = Math.round(Math.max(weeklyIncome, 500) * (1.08 + Math.random() * 0.07));
+        lastEmployedWeeklyIncome = weeklyIncome;
+        careerProgressWeeks = 0;
+        event = `${normalized.name} earned a promotion to career level ${careerLevel} and now makes about €${weeklyIncome}/week.`;
+      } else {
+        const meritRaise = normalized.ambition === 'driven'
+          ? 0.02
+          : normalized.ambition === 'career_minded'
+            ? 0.012
+            : 0.006;
+        weeklyIncome = Math.round(weeklyIncome * (1 + meritRaise));
+        lastEmployedWeeklyIncome = Math.max(lastEmployedWeeklyIncome, weeklyIncome);
+      }
     }
   }
 
   return {
     connection: {
-      ...connection,
+      ...normalized,
       employmentStatus,
       unemploymentWeeks,
       weeklyIncome,
+      lastEmployedWeeklyIncome,
       careerLevel,
+      careerProgressWeeks,
       lastCareerEventWeek: lastCareerCheckWeek,
+      careerSystemVersion: PARTNER_CAREER_SYSTEM_VERSION,
     },
     event,
   };
@@ -1068,15 +1181,11 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   const annualProgression = state.week === 1;
   let partnerCareerEvent: string | null = null;
   let activeConnections = (current.activeConnections ?? []).map((connection) => {
-    let updated: RelationshipConnection = {
+    let updated: RelationshipConnection = normalizePartnerCareerConnection({
       ...connection,
       age: annualProgression && (connection.weeksKnown ?? 0) > 0 ? (connection.age ?? 18) + 1 : (connection.age ?? 18),
       weeksKnown: (connection.weeksKnown ?? 0) + 1,
-      employmentStatus: connection.employmentStatus ?? 'employed',
-      unemploymentWeeks: connection.unemploymentWeeks ?? 0,
-      careerLevel: connection.careerLevel ?? 1,
-      lastCareerEventWeek: connection.lastCareerEventWeek ?? 0,
-    };
+    }, gw);
 
     if (connection.id === current.partnerId) {
       const career = processPartnerCareer(updated, gw);
