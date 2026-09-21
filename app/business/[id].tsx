@@ -21,7 +21,7 @@ import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { businessTypeImages, employeeRoleImages } from '../../src/assets/progressionImages';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
-import { AcquisitionIntegrationStrategy, BusinessGovernanceRole, BusinessReinvestmentArea, BusinessStrategicFocus } from '../../src/types/game';
+import { AcquisitionIntegrationStrategy, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus } from '../../src/types/game';
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
@@ -48,6 +48,15 @@ import {
   getBusinessReinvestmentEffects,
   normalizeBusinessReinvestmentState,
 } from '../../src/engine/businessReinvestmentEngine';
+import {
+  BUSINESS_INSURANCE_AREAS,
+  BUSINESS_INSURANCE_TIERS,
+  getBusinessInsuranceLossQuote,
+  getBusinessInsuranceQuote,
+  getBusinessInsuranceRiskSummary,
+  getBusinessInsuranceTotalWeeklyPremium,
+  normalizeBusinessInsurancePolicies,
+} from '../../src/engine/businessInsuranceEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -114,7 +123,7 @@ export default function BusinessDetailScreen() {
     buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
     drawCorporateRevolver, issueCorporateBond, repayBusinessLoan,
     injectCashIntoBusiness, withdrawFromBusiness,
-    applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, startBusinessReinvestment, startCorporateCapex, resolveBusinessRetention,
+    applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, startBusinessReinvestment, setBusinessInsurancePolicy, startCorporateCapex, resolveBusinessRetention,
   } = useGameStore(useShallow((s) => ({
     designateFamilyBusiness: s.designateFamilyBusiness,
     toggleLongTermFamilyAsset: s.toggleLongTermFamilyAsset,
@@ -143,6 +152,7 @@ export default function BusinessDetailScreen() {
     startEmployeeTraining: s.startEmployeeTraining,
     startBusinessProject: s.startBusinessProject,
     startBusinessReinvestment: s.startBusinessReinvestment,
+    setBusinessInsurancePolicy: s.setBusinessInsurancePolicy,
     startCorporateCapex: s.startCorporateCapex,
     resolveBusinessRetention: s.resolveBusinessRetention,
   })));
@@ -213,6 +223,9 @@ export default function BusinessDetailScreen() {
   const globalGameWeek = ((gameYear - 1) * 20) + gameWeek;
   const reinvestmentState = normalizeBusinessReinvestmentState(biz.reinvestment, globalGameWeek);
   const reinvestmentEffects = getBusinessReinvestmentEffects(biz);
+  const insurancePolicies = normalizeBusinessInsurancePolicies(biz.insurancePolicies);
+  const insuranceRisk = getBusinessInsuranceRiskSummary(biz);
+  const insuranceWeeklyPremium = getBusinessInsuranceTotalWeeklyPremium(biz, globalGameWeek);
   const decisionWeeksLeft = pendingDecision
     ? Math.max(0, (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4) - globalGameWeek)
     : 0;
@@ -555,10 +568,19 @@ export default function BusinessDetailScreen() {
                 <Text style={styles.decisionDeadline}>
                   {decisionWeeksLeft > 0 ? `${decisionWeeksLeft} week${decisionWeeksLeft === 1 ? '' : 's'} to respond` : 'Final response week'}
                 </Text>
+                {pendingDecision.insuranceArea && (
+                  <Text style={styles.decisionInsurance}>
+                    Insurance at incident time: {BUSINESS_INSURANCE_AREAS[pendingDecision.insuranceArea].name} • {(pendingDecision.insuranceTierAtCreation ?? 'none').toUpperCase()}
+                  </Text>
+                )}
               </View>
             </View>
             {(pendingDecision.choices ?? []).map((choice) => {
-              const scaledCost = getBusinessDecisionChoiceCost(choice, inflationMultiplier);
+              const grossCost = getBusinessDecisionChoiceCost(choice, inflationMultiplier);
+              const insuranceQuote = pendingDecision.insuranceArea && grossCost > 0
+                ? getBusinessInsuranceLossQuote(pendingDecision.insuranceTierAtCreation ?? 'none', grossCost)
+                : { netLoss: grossCost, payout: 0, deductible: grossCost };
+              const scaledCost = insuranceQuote.netLoss;
               const affordable = (biz.balance ?? 0) >= scaledCost;
               return (
                 <Pressable
@@ -578,6 +600,11 @@ export default function BusinessDetailScreen() {
                       {choice.marketShareDelta ? ` • Share ${choice.marketShareDelta > 0 ? '+' : ''}${choice.marketShareDelta}` : ''}
                       {choice.moraleDelta ? ` • Morale ${choice.moraleDelta > 0 ? '+' : ''}${choice.moraleDelta}` : ''}
                     </Text>
+                    {grossCost > 0 && insuranceQuote.payout > 0 && (
+                      <Text style={styles.decisionInsurancePayout}>
+                        Gross {formatCurrency(grossCost)} • insurer pays {formatCurrency(insuranceQuote.payout)} • your cost {formatCurrency(insuranceQuote.netLoss)}
+                      </Text>
+                    )}
                   </View>
                   {scaledCost > 0 && <Text style={[styles.decisionCost, !affordable && { color: Colors.negative }]}>{formatCurrency(scaledCost)}</Text>}
                 </Pressable>
@@ -1035,6 +1062,86 @@ export default function BusinessDetailScreen() {
               </Pressable>
             );
           })}
+        </GameCard>
+
+        <GameCard title="Insurance & Risk">
+          <View style={styles.insuranceSummary}>
+            <View style={styles.insuranceScoreBox}>
+              <Text style={styles.insuranceScore}>{insuranceRisk.score}</Text>
+              <Text style={styles.insuranceScoreLabel}>Risk cover</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.insuranceSummaryTitle}>
+                {insuranceRisk.coveredAreas}/4 areas insured • {formatCurrency(insuranceWeeklyPremium)}/wk
+              </Text>
+              <Text style={styles.insuranceSummaryText}>
+                Insurance reduces eligible incident costs after the deductible. It does not prevent the incident or remove operational disruption.
+              </Text>
+              {insuranceRisk.coverageGaps.length > 0 && (
+                <Text style={styles.insuranceGapText}>
+                  Coverage gap: {insuranceRisk.coverageGaps.map((area) => BUSINESS_INSURANCE_AREAS[area].name).join(', ')}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {(Object.keys(BUSINESS_INSURANCE_AREAS) as BusinessInsuranceArea[]).map((area) => {
+            const definition = BUSINESS_INSURANCE_AREAS[area];
+            const currentTier = insurancePolicies[area];
+            const currentQuote = getBusinessInsuranceQuote(biz, area, currentTier, globalGameWeek);
+            return (
+              <View key={area} style={styles.insuranceAreaRow}>
+                <View style={styles.insuranceAreaHeader}>
+                  <Text style={styles.insuranceIcon}>{definition.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.insuranceAreaName}>{definition.name}</Text>
+                    <Text style={styles.insuranceAreaDesc}>{definition.description}</Text>
+                    <Text style={styles.insuranceAreaMeta}>
+                      Current: {currentTier.toUpperCase()} • {formatCurrency(currentQuote.weeklyPremium)}/wk • {Math.round(currentQuote.coveragePct * 100)}% of covered loss after {Math.round(currentQuote.deductiblePct * 100)}% deductible
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.insuranceTierRow}>
+                  {BUSINESS_INSURANCE_TIERS.map((tier) => {
+                    const quote = getBusinessInsuranceQuote(biz, area, tier, globalGameWeek);
+                    const active = currentTier === tier;
+                    return (
+                      <Pressable
+                        key={tier}
+                        style={[styles.insuranceTierChip, active && styles.insuranceTierChipActive]}
+                        onPress={() => setBusinessInsurancePolicy(biz.id, area, tier)}
+                      >
+                        <Text style={[styles.insuranceTierLabel, active && styles.insuranceTierLabelActive]}>
+                          {tier === 'none' ? 'None' : tier[0].toUpperCase() + tier.slice(1)}
+                        </Text>
+                        <Text style={styles.insuranceTierMeta}>
+                          {tier === 'none' ? '€0' : `${formatCurrency(quote.weeklyPremium)}/wk`}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })}
+
+          {(biz.insuranceClaims?.length ?? 0) > 0 && (
+            <View style={styles.claimHistory}>
+              <Text style={styles.subHeading}>Recent Claims</Text>
+              {(biz.insuranceClaims ?? []).slice(0, 5).map((claim) => (
+                <View key={claim.id} style={styles.claimRow}>
+                  <Text style={styles.claimIcon}>{BUSINESS_INSURANCE_AREAS[claim.area].icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.claimTitle}>{claim.incidentTitle}</Text>
+                    <Text style={styles.claimMeta}>
+                      {claim.policyTier.toUpperCase()} • Gross {formatCurrency(claim.grossLoss)} • Payout {formatCurrency(claim.payout)}
+                    </Text>
+                  </View>
+                  <Text style={styles.claimNet}>-{formatCurrency(claim.netLoss)}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </GameCard>
 
         <GameCard title="Business Reinvestment">
@@ -1975,6 +2082,8 @@ const styles = StyleSheet.create({
   decisionTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 2 },
   decisionDesc: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
   decisionDeadline: { color: Colors.warning, fontSize: 9, fontWeight: '800', marginTop: 5 },
+  decisionInsurance: { color: Colors.info, fontSize: 8, fontWeight: '700', marginTop: 4 },
+  decisionInsurancePayout: { color: Colors.primary, fontSize: 8, lineHeight: 12, marginTop: 4 },
   decisionChoice: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
   decisionChoiceTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
   decisionChoiceDesc: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
@@ -2045,6 +2154,31 @@ const styles = StyleSheet.create({
   actionCost: { color: Colors.warning, fontSize: 13, fontWeight: '600', marginLeft: 8 },
   disabledRow: { opacity: 0.45 },
   projectRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  insuranceSummary: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginBottom: 8 },
+  insuranceScoreBox: { width: 52, height: 52, borderRadius: 12, backgroundColor: '#17263A', alignItems: 'center', justifyContent: 'center' },
+  insuranceScore: { color: Colors.info, fontSize: 17, fontWeight: '900' },
+  insuranceScoreLabel: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
+  insuranceSummaryTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  insuranceSummaryText: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 3 },
+  insuranceGapText: { color: Colors.warning, fontSize: 8, fontWeight: '700', marginTop: 4 },
+  insuranceAreaRow: { paddingVertical: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  insuranceAreaHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
+  insuranceIcon: { fontSize: 17 },
+  insuranceAreaName: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  insuranceAreaDesc: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  insuranceAreaMeta: { color: Colors.info, fontSize: 8, lineHeight: 11, marginTop: 4 },
+  insuranceTierRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
+  insuranceTierChip: { minWidth: 62, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 6 },
+  insuranceTierChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
+  insuranceTierLabel: { color: Colors.textSecondary, fontSize: 8, fontWeight: '800' },
+  insuranceTierLabelActive: { color: Colors.primary },
+  insuranceTierMeta: { color: Colors.textMuted, fontSize: 7, marginTop: 2 },
+  claimHistory: { marginTop: 8, paddingTop: 7, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  claimRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6 },
+  claimIcon: { fontSize: 15 },
+  claimTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '800' },
+  claimMeta: { color: Colors.textMuted, fontSize: 8, marginTop: 2 },
+  claimNet: { color: Colors.warning, fontSize: 9, fontWeight: '800' },
   reinvestmentWarning: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, backgroundColor: `${Colors.warning}10`, borderRadius: 8, padding: 8, marginBottom: 8 },
   reinvestmentWarningText: { flex: 1, color: Colors.warning, fontSize: 9, lineHeight: 13, fontWeight: '700' },
   reinvestmentActive: { backgroundColor: '#17263A', borderRadius: 8, padding: 9, marginBottom: 8 },
