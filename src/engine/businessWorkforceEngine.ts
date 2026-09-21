@@ -336,6 +336,10 @@ export function tickCorporateWorkforce(
   const recommended = getRecommendedDepartmentHeadcounts({ ...business, corporateWorkforce: workforce });
   const nextDepartments = {} as Record<CorporateDepartmentId, CorporateDepartmentState>;
   let transitionCost = 0;
+  let transitionCashAvailable = Math.max(
+    0,
+    (business.balance ?? 0) - Math.max(0, business.lastWeekExpenses ?? 0) * 3,
+  );
   const changes: string[] = [];
 
   for (const id of Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[]) {
@@ -345,17 +349,27 @@ export function tickCorporateWorkforce(
       2,
       Math.ceil(Math.max(department.headcount, department.targetHeadcount) * 0.06),
     );
-    const change = difference === 0
+    const desiredChange = difference === 0
       ? 0
       : Math.sign(difference) * Math.min(Math.abs(difference), maxWeeklyChange);
+    const perPersonTransitionCost = desiredChange > 0
+      ? department.weeklyWage * 2
+      : desiredChange < 0
+        ? department.weeklyWage * 1.5
+        : 0;
+    const affordableCount = perPersonTransitionCost > 0
+      ? Math.floor(transitionCashAvailable / perPersonTransitionCost)
+      : Math.abs(desiredChange);
+    const change = desiredChange === 0
+      ? 0
+      : Math.sign(desiredChange) * Math.min(Math.abs(desiredChange), Math.max(0, affordableCount));
     const nextHeadcount = Math.max(1, department.headcount + change);
 
-    if (change > 0) {
-      transitionCost += Math.round(change * department.weeklyWage * 2);
-      changes.push(`+${change} ${CORPORATE_DEPARTMENT_DEFINITIONS[id].name}`);
-    } else if (change < 0) {
-      transitionCost += Math.round(Math.abs(change) * department.weeklyWage * 1.5);
-      changes.push(`${change} ${CORPORATE_DEPARTMENT_DEFINITIONS[id].name}`);
+    if (change !== 0) {
+      const cost = Math.round(Math.abs(change) * perPersonTransitionCost);
+      transitionCost += cost;
+      transitionCashAvailable = Math.max(0, transitionCashAvailable - cost);
+      changes.push(`${change > 0 ? '+' : ''}${change} ${CORPORATE_DEPARTMENT_DEFINITIONS[id].name}`);
     }
 
     const hiringSkill = clamp(60 + (business.reputation ?? 50) * 0.10, 58, 72);
