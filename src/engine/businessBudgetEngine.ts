@@ -7,6 +7,7 @@ import {
   OwnedBusiness,
 } from '../types/game';
 import { BUSINESS_REINVESTMENT_AREAS, getBusinessReinvestmentCost } from './businessReinvestmentEngine';
+import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
 
 export const BUSINESS_BUDGET_PRESETS: Record<BusinessBudgetProfile, {
   profile: BusinessBudgetProfile;
@@ -145,7 +146,11 @@ export function getBusinessBudgetReserveTargets(
   inflationMultiplier = 1,
 ) {
   const plan = normalizeBusinessBudgetPlan(business.budgetPlan, business.foundedYear ?? 1);
-  const operatingReserveTarget = Math.max(0, Math.round(Math.max(0, totalExpenses) * plan.targetReserveWeeks));
+  const governanceEffects = getBusinessGovernanceEffects(business);
+  const operatingReserveTarget = Math.max(
+    0,
+    Math.round(Math.max(0, totalExpenses) * plan.targetReserveWeeks * (1 - governanceEffects.treasuryEfficiency)),
+  );
   const reinvestmentReserveTarget = (Object.keys(BUSINESS_REINVESTMENT_AREAS) as Array<keyof typeof BUSINESS_REINVESTMENT_AREAS>)
     .reduce((sum, area) => sum + getBusinessReinvestmentCost(business, area, inflationMultiplier), 0);
   const growthReserveTarget = Math.round(
