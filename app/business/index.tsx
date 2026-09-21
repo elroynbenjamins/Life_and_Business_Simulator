@@ -15,6 +15,7 @@ import {
 } from '../../src/engine/businessPortfolioEngine';
 import { businessTypeImages } from '../../src/assets/progressionImages';
 import { ACQUISITION_UNLOCK_NET_WORTH } from '../../src/engine/acquisitionEngine';
+import { getBusinessReinvestmentUrgency } from '../../src/engine/businessReinvestmentEngine';
 
 type SortMode = 'attention' | 'value' | 'profit' | 'roi';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -31,6 +32,7 @@ function needsAttention(business: any): boolean {
     business.pendingDecision
     || business.pendingRetention
     || business.acquisition?.integrationStrategy === 'pending'
+    || getBusinessReinvestmentUrgency(business)
   );
 }
 
@@ -320,6 +322,13 @@ export default function BusinessPortfolioScreen() {
                   {!biz.pendingDecision && biz.acquisition?.integrationStrategy === 'pending' && (
                     <View style={styles.pendingStrip}>
                       <Text style={styles.pendingStripText}>Acquisition integration strategy needs a decision.</Text>
+                    </View>
+                  )}
+                  {!biz.pendingDecision && biz.acquisition?.integrationStrategy !== 'pending' && getBusinessReinvestmentUrgency(biz) && (
+                    <View style={styles.pendingStrip}>
+                      <Text style={styles.pendingStripText}>
+                        Reinvestment due: {getBusinessReinvestmentUrgency(biz) === 'technology' ? 'technology' : getBusinessReinvestmentUrgency(biz) === 'premises' ? 'premises' : 'equipment'} is aging.
+                      </Text>
                     </View>
                   )}
 
