@@ -12,6 +12,7 @@ import {
 } from '../types/game';
 import businessTypesData from '../data/business_types.json';
 import { aggregateEmployeeBuffs, candidateToEmployee, createBusiness, generateCandidates, getAllBusinessLocationTemplates, getBusinessType, getBusinessRevenueCapacity, getScaledLocationCosts } from './businessEngine';
+import { createCorporateWorkforce } from './businessWorkforceEngine';
 
 export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
@@ -606,6 +607,11 @@ export function createAcquiredBusiness(
     ].slice(-50),
   };
   acquired.acquisition!.referenceRevenueCapacity = getBusinessRevenueCapacity(acquired);
+  acquired.corporateWorkforce = createCorporateWorkforce(
+    acquired,
+    currentGlobalWeek,
+    state.inflationMultiplier ?? 1,
+  );
   return acquired;
 }
 
