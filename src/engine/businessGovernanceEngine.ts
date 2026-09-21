@@ -402,7 +402,10 @@ export function tickBusinessGovernance(
 
   let boardGovernance = business.boardGovernance ? { ...business.boardGovernance } : null;
   if (boardGovernance && currentYear > (boardGovernance.lastReviewYear ?? currentYear)) {
-    let confidenceChange = currentProfit > 0 ? 4 : -6;
+    const reviewProfit = currentYear > (business.annualProfitYear ?? currentYear)
+      ? (business.annualProfit ?? currentProfit)
+      : currentProfit;
+    let confidenceChange = reviewProfit > 0 ? 4 : -6;
     confidenceChange += budgetReviewed ? 4 : -4;
     confidenceChange += debtToValue < 0.35 ? 2 : debtToValue > 0.50 ? -4 : 0;
     const condition = averageInfrastructureCondition(business);
@@ -416,7 +419,7 @@ export function tickBusinessGovernance(
       ...boardGovernance,
       confidence: nextConfidence,
       lastReviewYear: currentYear,
-      lastReviewSummary: `Annual review: ${currentProfit > 0 ? 'profitable' : 'loss-making'} year • debt/value ${Math.round(debtToValue * 100)}% • ${vacancies} executive ${vacancies === 1 ? 'vacancy' : 'vacancies'}.`,
+      lastReviewSummary: `Annual review: ${reviewProfit > 0 ? 'profitable' : 'loss-making'} year • debt/value ${Math.round(debtToValue * 100)}% • ${vacancies} executive ${vacancies === 1 ? 'vacancy' : 'vacancies'}.`,
     };
     timelineEntries.push({
       week: currentWeek,
