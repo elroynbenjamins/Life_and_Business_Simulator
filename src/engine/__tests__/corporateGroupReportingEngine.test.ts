@@ -89,7 +89,7 @@ describe('corporate group management reporting', () => {
       { revenue: 1_000_000, headcount: 10, payroll: 300_000, profit: 200_000, turnover: 0.2 },
     );
 
-    const local = makeBusiness('Local Company', 50_000_000, false);
+    const local = makeBusiness('Local Company', 10_000_000, false);
 
     const report = getCorporateGroupManagementReport(
       [large, smaller, local],
@@ -100,7 +100,7 @@ describe('corporate group management reporting', () => {
 
     expect(report.companyCount).toBe(3);
     expect(report.reportingCompanyCount).toBe(2);
-    expect(report.reportingValueCoverage).toBeCloseTo(0.75, 4);
+    expect(report.reportingValueCoverage).toBeCloseTo(150_000_000 / 160_000_000, 4);
     expect(report.weeksTracked).toBe(5);
     expect(report.revenuePerEmployee).toBeCloseTo(100_000, 0);
     expect(report.revenuePerEmployeeChangePct).toBeCloseTo(0.0714, 3);
@@ -109,7 +109,7 @@ describe('corporate group management reporting', () => {
   });
 
   test('adds structural portfolio warnings for concentration, leverage and losses', () => {
-    const dominant = makeBusiness('Dominant', 90_000_000);
+    const dominant = makeBusiness('Dominant', 540_000_000);
     setPeriodHistory(
       dominant,
       { revenue: 2_000_000, headcount: 20, payroll: 400_000, profit: 400_000 },
@@ -117,22 +117,22 @@ describe('corporate group management reporting', () => {
     );
     dominant.businessLoans = [{
       id: 'dominant-debt',
-      amount: 75_000_000,
-      remainingAmount: 75_000_000,
+      amount: 450_000_000,
+      remainingAmount: 450_000_000,
       weeklyPayment: 0,
       weeksRemaining: 50,
       interestRate: 0.08,
       purpose: 'corporate_bond',
     }];
 
-    const smallA = makeBusiness('Small A', 5_000_000);
+    const smallA = makeBusiness('Small A', 30_000_000);
     setPeriodHistory(
       smallA,
       { revenue: 500_000, headcount: 5, payroll: 100_000, profit: 100_000 },
       { revenue: 500_000, headcount: 5, payroll: 100_000, profit: -10_000 },
     );
 
-    const smallB = makeBusiness('Small B', 5_000_000);
+    const smallB = makeBusiness('Small B', 30_000_000);
     setPeriodHistory(
       smallB,
       { revenue: 500_000, headcount: 5, payroll: 100_000, profit: 100_000 },
@@ -160,8 +160,8 @@ describe('corporate group management reporting', () => {
   });
 
   test('does not flag concentration for a deliberate two-company group', () => {
-    const first = makeBusiness('First', 90_000_000);
-    const second = makeBusiness('Second', 10_000_000);
+    const first = makeBusiness('First', 270_000_000);
+    const second = makeBusiness('Second', 30_000_000);
     setPeriodHistory(first, {}, { revenue: 9_000_000, profit: 500_000 });
     setPeriodHistory(second, {}, { revenue: 1_000_000, profit: 100_000 });
 
