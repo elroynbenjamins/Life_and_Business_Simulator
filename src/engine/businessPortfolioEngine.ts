@@ -3,6 +3,9 @@ import { HoldingCompany, OwnedBusiness, SoldBusinessRecord } from '../types/game
 export interface BusinessSaleQuote {
   grossSalePrice: number;
   debtSettlement: number;
+  saleTransactionCost: number;
+  saleTransactionCostRate: number;
+  heldWeeks: number | null;
   netSaleProceeds: number;
   investmentBasis: number | null;
   totalPlayerDistributions: number;
@@ -37,6 +40,7 @@ export function getBusinessInvestmentBasis(business: OwnedBusiness): number | nu
     return Math.max(
       0,
       (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
+        + (business.acquisition.acquisitionTransactionCost ?? 0)
         + (business.acquisition.additionalCapitalInvested ?? 0),
     );
   }
@@ -65,10 +69,44 @@ export function getBusinessEquityReturn(business: OwnedBusiness) {
   };
 }
 
-export function getBusinessSaleQuote(business: OwnedBusiness): BusinessSaleQuote {
+export function getBusinessHoldWeeks(
+  business: OwnedBusiness,
+  week?: number,
+  year?: number,
+): number | null {
+  if (week == null || year == null) return null;
+  const currentGlobalWeek = Math.max(1, ((year - 1) * 20) + week);
+  const startGlobalWeek = business.acquisition?.acquiredGlobalWeek
+    ?? Math.max(1, ((business.foundedYear - 1) * 20) + business.foundedWeek);
+  return Math.max(0, currentGlobalWeek - startGlobalWeek);
+}
+
+export function getBusinessSaleTransactionCostRate(
+  business: OwnedBusiness,
+  week?: number,
+  year?: number,
+): number {
+  // Ordinary business sales keep a modest broker/legal cost. Acquisition exits
+  // carry extra short-hold friction that fades over two in-game years, so a
+  // genuine turnaround can still be sold without an arbitrary lockout.
+  if (!business.acquisition) return 0.025;
+  const heldWeeks = getBusinessHoldWeeks(business, week, year);
+  if (heldWeeks == null) return 0.025;
+  const shortHoldWeight = Math.max(0, Math.min(1, 1 - heldWeeks / 40));
+  return 0.025 + 0.045 * shortHoldWeight;
+}
+
+export function getBusinessSaleQuote(
+  business: OwnedBusiness,
+  week?: number,
+  year?: number,
+): BusinessSaleQuote {
   const grossSalePrice = Math.max(0, business.valuation ?? 0);
   const debtSettlement = getBusinessDebt(business);
-  const netSaleProceeds = Math.max(0, grossSalePrice - debtSettlement);
+  const heldWeeks = getBusinessHoldWeeks(business, week, year);
+  const saleTransactionCostRate = getBusinessSaleTransactionCostRate(business, week, year);
+  const saleTransactionCost = Math.round(grossSalePrice * saleTransactionCostRate);
+  const netSaleProceeds = Math.max(0, grossSalePrice - debtSettlement - saleTransactionCost);
   const investmentBasis = getBusinessInvestmentBasis(business);
   const totalPlayerDistributions = Math.max(0, business.totalPlayerDistributions ?? 0);
   const lifetimeCashResult = investmentBasis == null
@@ -81,6 +119,9 @@ export function getBusinessSaleQuote(business: OwnedBusiness): BusinessSaleQuote
   return {
     grossSalePrice,
     debtSettlement,
+    saleTransactionCost,
+    saleTransactionCostRate,
+    heldWeeks,
     netSaleProceeds,
     investmentBasis,
     totalPlayerDistributions,
@@ -98,7 +139,7 @@ export function buildSoldBusinessRecord(
   const soldGlobalWeek = Math.max(1, ((year - 1) * 20) + week);
   const startGlobalWeek = business.acquisition?.acquiredGlobalWeek
     ?? Math.max(1, ((business.foundedYear - 1) * 20) + business.foundedWeek);
-  const quote = getBusinessSaleQuote(business);
+  const quote = getBusinessSaleQuote(business, week, year);
 
   return {
     id: `sold_${business.id}_${soldGlobalWeek}`,
@@ -113,6 +154,8 @@ export function buildSoldBusinessRecord(
     heldWeeks: Math.max(0, soldGlobalWeek - startGlobalWeek),
     grossSalePrice: quote.grossSalePrice,
     debtSettlement: quote.debtSettlement,
+    saleTransactionCost: quote.saleTransactionCost,
+    saleTransactionCostRate: quote.saleTransactionCostRate,
     netSaleProceeds: quote.netSaleProceeds,
     investmentBasis: quote.investmentBasis,
     totalPlayerDistributions: quote.totalPlayerDistributions,
