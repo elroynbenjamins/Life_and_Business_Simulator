@@ -732,8 +732,9 @@ export function getBusinessValuationBreakdown(biz: OwnedBusiness): BusinessValua
   const annualizedProfit = blendedWeeklyProfit * 20 * historyConfidence;
 
   // Lower than the old 2x–5x 20-week-profit multiple. Reputation still matters,
-  // but even an exceptional company tops out below the former ceiling.
-  const profitMultiple = 1.35 + (reputation / 100) * 2.40;
+  // while the reduction stays moderate enough that mature acquisitions do not
+  // reprice violently on their first player-owned week.
+  const profitMultiple = 1.65 + (reputation / 100) * 2.75;
 
   // Company cash is worth company cash. The old 1.5x equity-cash premium caused
   // retained earnings to create valuation faster than the underlying business.
