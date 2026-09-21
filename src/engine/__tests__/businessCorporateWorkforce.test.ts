@@ -1,5 +1,6 @@
 import {
   createBusiness,
+  meetsMinStaffing,
   processBusinessWeek,
 } from '../businessEngine';
 import {
@@ -264,6 +265,15 @@ describe('corporate department workforce', () => {
 
     expect(weakTick.reinvestment.technology.condition).toBeLessThan(healthyTick.reinvestment.technology.condition);
     expect(weakTick.reinvestment.equipment.condition).toBeLessThan(healthyTick.reinvestment.equipment.condition);
+  });
+
+  test('corporate departments replace the small-business three-person operating minimum', () => {
+    const corporate = makeCorporateBusiness({ employees: [] });
+    expect(meetsMinStaffing(corporate)).toBe(true);
+
+    const small = createBusiness('coffee_shop', 'Small Coffee', 1, 1, 1)!;
+    small.employees = [];
+    expect(meetsMinStaffing(small)).toBe(false);
   });
 
   test('weekly salary expense includes corporate department payroll', () => {
