@@ -672,6 +672,391 @@ export function setCorporateDepartmentTarget(
   };
 }
 
+export function getCorporateHrPolicyCooldownWeeks(
+  business: OwnedBusiness,
+  globalWeek: number,
+): number {
+  const lastChange = business.corporateWorkforce?.lastPolicyChangeWeek ?? 0;
+  if (lastChange <= 0) return 0;
+  return Math.max(0, 6 - (Math.max(1, globalWeek) - lastChange));
+}
+
+export function setCorporateHrPolicy(
+  business: OwnedBusiness,
+  policyType: 'compensation' | 'training',
+  policy: CorporateCompensationPolicy | CorporateTrainingPolicy,
+  globalWeek: number,
+  inflationMultiplier = 1,
+  force = false,
+): CorporateWorkforceState | null {
+  const workforce = normalizeCorporateWorkforce(
+    business,
+    business.corporateWorkforce,
+    globalWeek,
+    inflationMultiplier,
+  );
+  if (!workforce) return null;
+  if (!force && getCorporateHrPolicyCooldownWeeks({ ...business, corporateWorkforce: workforce }, globalWeek) > 0) {
+    return null;
+  }
+
+  const next = {
+    ...workforce,
+    lastPolicyChangeWeek: Math.max(1, globalWeek),
+    lastChangeSummary: policyType === 'compensation'
+      ? `Compensation policy changed to ${CORPORATE_COMPENSATION_POLICIES[policy as CorporateCompensationPolicy].label}.`
+      : `Training policy changed to ${CORPORATE_TRAINING_POLICIES[policy as CorporateTrainingPolicy].label}.`,
+  };
+  if (policyType === 'compensation') {
+    next.compensationPolicy = policy as CorporateCompensationPolicy;
+    for (const id of Object.keys(next.departments) as CorporateDepartmentId[]) {
+      next.departments[id] = {
+        ...next.departments[id],
+        weeklyWage: getDepartmentWeeklyWage(
+          id,
+          inflationMultiplier,
+          policy as CorporateCompensationPolicy,
+        ),
+      };
+    }
+  } else {
+    next.trainingPolicy = policy as CorporateTrainingPolicy;
+  }
+  return next;
+}
+
+export function scheduleNextCorporateHrEvent(
+  workforce: CorporateWorkforceState,
+  globalWeek: number,
+): CorporateWorkforceState {
+  return {
+    ...workforce,
+    lastHrEventWeek: Math.max(1, globalWeek),
+    nextHrEventWeek: Math.max(1, globalWeek) + 10 + Math.floor(Math.random() * 7),
+  };
+}
+
+export function applyCorporateHrDecisionChoice(
+  business: OwnedBusiness,
+  workforce: CorporateWorkforceState,
+  choice: BusinessPendingDecisionChoice,
+  globalWeek: number,
+  inflationMultiplier = 1,
+): CorporateWorkforceState {
+  let next: CorporateWorkforceState = {
+    ...workforce,
+    departments: Object.fromEntries(
+      (Object.keys(workforce.departments) as CorporateDepartmentId[])
+        .map((id) => [id, { ...workforce.departments[id] }]),
+    ) as Record<CorporateDepartmentId, CorporateDepartmentState>,
+  };
+
+  if (choice.workforceCompensationPolicy) {
+    next = setCorporateHrPolicy(
+      { ...business, corporateWorkforce: next },
+      'compensation',
+      choice.workforceCompensationPolicy,
+      globalWeek,
+      inflationMultiplier,
+      true,
+    ) ?? next;
+  }
+  if (choice.workforceTrainingPolicy) {
+    next = setCorporateHrPolicy(
+      { ...business, corporateWorkforce: next },
+      'training',
+      choice.workforceTrainingPolicy,
+      globalWeek,
+      inflationMultiplier,
+      true,
+    ) ?? next;
+  }
+  if (choice.workforceRelationsDelta) {
+    next.employeeRelations = clamp(
+      (next.employeeRelations ?? 70) + choice.workforceRelationsDelta,
+      0,
+      100,
+    );
+  }
+  if (choice.workforceTargetMultiplier && choice.workforceTargetMultiplier > 0) {
+    const multiplier = clamp(choice.workforceTargetMultiplier, 0.70, 1.30);
+    for (const id of Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[]) {
+      const updated = setCorporateDepartmentTarget(
+        { ...business, corporateWorkforce: next },
+        id,
+        Math.round(next.departments[id].targetHeadcount * multiplier),
+        globalWeek,
+        inflationMultiplier,
+      );
+      if (updated) next = updated;
+    }
+  }
+
+  next = {
+    ...scheduleNextCorporateHrEvent(next, globalWeek),
+    lastChangeSummary: `HR decision: ${choice.text}.`,
+  };
+  return next;
+}
+
+function totalWorkforceHeadcount(workforce: CorporateWorkforceState): number {
+  return (Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[])
+    .reduce((sum, id) => sum + Math.max(0, workforce.departments[id].headcount), 0);
+}
+
+export function makeCorporateHrDecision(
+  business: OwnedBusiness,
+  globalWeek: number,
+): BusinessPendingDecision | null {
+  const workforce = business.corporateWorkforce;
+  if (!workforce) return null;
+  const payroll = getCorporateWorkforceWeeklyPayroll(workforce);
+  const totalHeadcount = totalWorkforceHeadcount(workforce);
+  const effects = getCorporateWorkforceEffects(business, workforce);
+  const averageSkill = (Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[])
+    .reduce((sum, id) => sum + workforce.departments[id].averageSkill, 0) / 5;
+  const candidates: BusinessPendingDecision[] = [];
+
+  if ((workforce.laborMarketPressure ?? 50) >= 58) {
+    candidates.push({
+      id: `hr_wage_pressure_${business.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Wage Pressure',
+      description: `The labor market has tightened around ${business.name}. Recruiters and employees are pushing compensation upward.`,
+      icon: '💶',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 4,
+      defaultChoiceId: 'hold_pay',
+      choices: [
+        {
+          id: 'raise_market',
+          text: 'Move to Competitive Pay',
+          description: 'Pay above market to improve retention and hiring power.',
+          workforceCompensationPolicy: 'competitive',
+          workforceRelationsDelta: 6,
+          reputationDelta: 1,
+          durationWeeks: 1,
+        },
+        {
+          id: 'develop_people',
+          text: 'Invest in Development',
+          description: 'Keep base pay near market and improve careers through training.',
+          workforceTrainingPolicy: 'development',
+          workforceRelationsDelta: 4,
+          durationWeeks: 1,
+        },
+        {
+          id: 'hold_pay',
+          text: 'Hold the Pay Line',
+          description: 'Protect payroll but accept weaker relations and retention pressure.',
+          workforceRelationsDelta: -8,
+          revenueMultiplier: 0.98,
+          durationWeeks: 4,
+        },
+      ],
+    });
+  }
+
+  if (effects.staffingScore < 88 || (workforce.laborMarketPressure ?? 50) >= 68) {
+    candidates.push({
+      id: `hr_talent_shortage_${business.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Talent Shortage',
+      description: `${business.name} is struggling to fill enough roles at the pace management wants.`,
+      icon: '🔎',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 4,
+      defaultChoiceId: 'slow_hiring',
+      choices: [
+        {
+          id: 'premium_recruiting',
+          text: 'Pay for Scarce Talent',
+          description: 'Use premium compensation to improve hiring speed and quality.',
+          workforceCompensationPolicy: 'premium',
+          workforceRelationsDelta: 4,
+          durationWeeks: 1,
+        },
+        {
+          id: 'academy',
+          text: 'Build Internal Talent',
+          description: 'Invest heavily in internal development rather than chasing the market.',
+          workforceTrainingPolicy: 'academy',
+          workforceRelationsDelta: 5,
+          durationWeeks: 1,
+        },
+        {
+          id: 'slow_hiring',
+          text: 'Accept Slower Hiring',
+          description: 'Avoid a cost escalation and let vacancies close gradually.',
+          workforceRelationsDelta: -2,
+          durationWeeks: 1,
+        },
+      ],
+    });
+  }
+
+  if (totalHeadcount >= 200) {
+    candidates.push({
+      id: `hr_employee_council_${business.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Employee Council Negotiation',
+      description: `Workforce representatives at ${business.name} want a formal response on pay, development and restructuring safeguards.`,
+      icon: '🤝',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 4,
+      defaultChoiceId: 'minimal_concessions',
+      choices: [
+        {
+          id: 'pay_framework',
+          text: 'Agree a Pay Framework',
+          description: 'Commit to competitive compensation and improve workforce relations.',
+          workforceCompensationPolicy: 'competitive',
+          workforceRelationsDelta: 10,
+          reputationDelta: 1,
+          durationWeeks: 1,
+        },
+        {
+          id: 'skills_agreement',
+          text: 'Training & Mobility Deal',
+          description: 'Expand development and retraining instead of a broad pay commitment.',
+          businessCashCost: Math.round(payroll * 1.5),
+          cashCostScale: 'absolute',
+          workforceTrainingPolicy: 'development',
+          workforceRelationsDelta: 8,
+          durationWeeks: 1,
+        },
+        {
+          id: 'minimal_concessions',
+          text: 'Reject Most Demands',
+          description: 'Protect near-term costs but risk morale, reputation and disruption.',
+          workforceRelationsDelta: -15,
+          revenueMultiplier: 0.96,
+          reputationDelta: -2,
+          durationWeeks: 6,
+        },
+      ],
+    });
+  }
+
+  if ((business.lastWeekProfit ?? 0) < 0 || Object.values(effects.departmentRatios).some((ratio) => ratio > 1.22)) {
+    candidates.push({
+      id: `hr_restructure_${business.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Restructuring Review',
+      description: `Management is questioning whether ${business.name}'s current staffing plan still fits the business.`,
+      icon: '✂️',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 4,
+      defaultChoiceId: 'hold_structure',
+      choices: [
+        {
+          id: 'targeted_restructure',
+          text: 'Targeted Restructuring',
+          description: 'Reduce department targets by roughly 10%. Layoffs execute gradually with severance.',
+          workforceTargetMultiplier: 0.90,
+          workforceRelationsDelta: -12,
+          reputationDelta: -1,
+          durationWeeks: 1,
+        },
+        {
+          id: 'retrain_redeploy',
+          text: 'Retrain & Redeploy',
+          description: 'Spend more to improve skills and avoid most structural cuts.',
+          businessCashCost: Math.round(payroll * 2),
+          cashCostScale: 'absolute',
+          workforceTrainingPolicy: 'academy',
+          workforceRelationsDelta: 6,
+          durationWeeks: 1,
+        },
+        {
+          id: 'hold_structure',
+          text: 'Hold Current Structure',
+          description: 'Avoid disruption and keep the current staffing plan.',
+          workforceRelationsDelta: 1,
+          durationWeeks: 1,
+        },
+      ],
+    });
+  }
+
+  if (averageSkill < 67) {
+    candidates.push({
+      id: `hr_skills_gap_${business.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Capability Gap',
+      description: `Department leaders report that employee skills are starting to lag behind ${business.name}'s operating complexity.`,
+      icon: '🎓',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 4,
+      defaultChoiceId: 'standard_training',
+      choices: [
+        {
+          id: 'academy_program',
+          text: 'Launch Internal Academy',
+          description: 'Commit to the highest training investment and accelerate skill growth.',
+          workforceTrainingPolicy: 'academy',
+          workforceRelationsDelta: 5,
+          durationWeeks: 1,
+        },
+        {
+          id: 'development_program',
+          text: 'Expand Development',
+          description: 'Increase ongoing training without the full academy cost.',
+          workforceTrainingPolicy: 'development',
+          workforceRelationsDelta: 3,
+          durationWeeks: 1,
+        },
+        {
+          id: 'standard_training',
+          text: 'Keep Standard Training',
+          description: 'Avoid a larger training budget and improve skills gradually.',
+          workforceTrainingPolicy: 'standard',
+          durationWeeks: 1,
+        },
+      ],
+    });
+  }
+
+  if (candidates.length === 0) {
+    candidates.push({
+      id: `hr_retention_review_${business.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Retention Review',
+      description: `HR is reviewing whether ${business.name}'s employee proposition remains competitive as the organization grows.`,
+      icon: '👥',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 4,
+      defaultChoiceId: 'stay_market',
+      choices: [
+        {
+          id: 'competitive_package',
+          text: 'Strengthen Compensation',
+          description: 'Move to competitive pay and improve retention.',
+          workforceCompensationPolicy: 'competitive',
+          workforceRelationsDelta: 5,
+          durationWeeks: 1,
+        },
+        {
+          id: 'development_focus',
+          text: 'Strengthen Development',
+          description: 'Keep pay at market and invest more in careers.',
+          workforceTrainingPolicy: 'development',
+          workforceRelationsDelta: 4,
+          durationWeeks: 1,
+        },
+        {
+          id: 'stay_market',
+          text: 'Stay the Course',
+          description: 'Keep current people policies unchanged.',
+          durationWeeks: 1,
+        },
+      ],
+    });
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 export function getCorporateWorkforceAttentionReason(business: OwnedBusiness): string | null {
   if ((business.valuation ?? 0) >= CORPORATE_WORKFORCE_UNLOCK_VALUATION && !business.corporateWorkforce) {
     return 'Corporate workforce structure has not been established.';
@@ -679,6 +1064,13 @@ export function getCorporateWorkforceAttentionReason(business: OwnedBusiness): s
   if (!business.corporateWorkforce) return null;
   const effects = getCorporateWorkforceEffects(business, business.corporateWorkforce);
   if (effects.staffingScore < 78) return `Corporate departments are only ${effects.staffingScore}% staffed for current scale.`;
+  if ((business.corporateWorkforce.employeeRelations ?? 70) < 45) {
+    return 'Employee relations are deteriorating.';
+  }
+  const totalHeadcount = totalWorkforceHeadcount(business.corporateWorkforce);
+  if ((business.corporateWorkforce.recentTurnover ?? 0) >= Math.max(3, Math.ceil(totalHeadcount * 0.015))) {
+    return `High employee turnover: ${business.corporateWorkforce.recentTurnover} departures this week.`;
+  }
   const lowMorale = (Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[])
     .find((id) => business.corporateWorkforce!.departments[id].morale < 50);
   if (lowMorale) return `${CORPORATE_DEPARTMENT_DEFINITIONS[lowMorale].name} department morale is low.`;
