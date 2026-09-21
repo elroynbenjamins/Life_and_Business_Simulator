@@ -7,6 +7,7 @@ import {
 import businessTypesData from '../data/business_types.json';
 import { normalizeBusinessReinvestmentState } from './businessReinvestmentEngine';
 import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
+import { getCorporateWorkforceEffects } from './businessWorkforceEngine';
 
 export const BUSINESS_INSURANCE_AREAS: Record<BusinessInsuranceArea, {
   area: BusinessInsuranceArea;
@@ -160,17 +161,27 @@ export function getBusinessInsuranceWeeklyPremium(
     business.valuation ?? 0,
   );
   const governance = getBusinessGovernanceEffects(business);
+  const workforce = getCorporateWorkforceEffects(business);
   const executiveReduction = area === 'cyber'
     ? governance.cyberPremiumReduction
     : area === 'liability'
       ? governance.liabilityPremiumReduction
       : 0;
+  const staffingRatio = area === 'cyber'
+    ? workforce.departmentRatios.technology
+    : area === 'liability'
+      ? workforce.departmentRatios.support
+      : 1;
+  const workforceRiskMultiplier = staffingRatio < 1
+    ? 1 + Math.min(0.25, (1 - staffingRatio) * 0.35)
+    : 1 - Math.min(0.08, (staffingRatio - 1) * 0.10);
   const annualPremium = valuation
     * ANNUAL_RATE[area]
     * TIER_CONFIG[tier].premiumMultiplier
     * industryMultiplier
     * conditionRiskMultiplier(business, area)
     * recentClaimMultiplier(business, currentGlobalWeek)
+    * workforceRiskMultiplier
     * (1 - executiveReduction);
   // One game year = 20 weeks.
   return Math.max(0, Math.round(annualPremium / 20));
