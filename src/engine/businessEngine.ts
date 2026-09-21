@@ -1104,8 +1104,8 @@ export function processBusinessWeek(
   // Utilities/maintenance/misc scale moderately, insurance is mostly fixed
   let utilities = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
   const explicitInsurancePremium = getBusinessInsuranceTotalWeeklyPremium(biz, globalWeek);
-  let insurance = Math.round(baseExp * 0.10 * (0.8 + 0.2 * variableScale) * eventExpenseMultiplier * buffAgg.expenseMult)
-    + explicitInsurancePremium;
+  let baseInsurance = Math.round(baseExp * 0.10 * (0.8 + 0.2 * variableScale) * eventExpenseMultiplier * buffAgg.expenseMult);
+  let insurance = baseInsurance + explicitInsurancePremium;
   let maintenance = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
   const locationOperatingCosts = Math.round((biz.locations ?? []).reduce((total, location) => total + (location.weeklyOperatingCost ?? 0), 0) * inflationMultiplier * prestigeCostMultiplier);
   let misc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult) + locationOperatingCosts;
@@ -1117,14 +1117,15 @@ export function processBusinessWeek(
     const volume = Math.max(0, revenue / (quotedRevenue * inflationRatio));
     const expenseBuffChange = buffAgg.expenseMult / Math.max(0.01, acquisition.referenceExpenseMultiplier!);
     const overhead = Math.round(operatingBudget * inflationRatio * (0.6 + 0.4 * volume) * prestigeCostMultiplier * eventExpenseMultiplier * expenseBuffChange);
-    const originalOverhead = Math.max(1, rent + cogs + utilities + insurance + maintenance + misc - locationOperatingCosts);
+    const originalOverhead = Math.max(1, rent + cogs + utilities + baseInsurance + maintenance + misc - locationOperatingCosts);
     const scale = overhead / originalOverhead;
     rent = Math.round(rent * scale);
     cogs = Math.round(cogs * scale);
     utilities = Math.round(utilities * scale);
-    insurance = Math.round(insurance * scale);
+    baseInsurance = Math.round(baseInsurance * scale);
+    insurance = baseInsurance + explicitInsurancePremium;
     maintenance = Math.round(maintenance * scale);
-    misc = Math.max(0, overhead - rent - cogs - utilities - insurance - maintenance) + locationOperatingCosts;
+    misc = Math.max(0, overhead - rent - cogs - utilities - baseInsurance - maintenance) + locationOperatingCosts;
   }
 
   let loanInterest = 0;
