@@ -221,7 +221,7 @@ export function applyBusinessBudgetWeek(args: {
   const plan = normalizeBusinessBudgetPlan(business.budgetPlan, currentYear);
   const existingReserves = normalizeBusinessBudgetReserves(business.budgetReserves);
   const targets = getBusinessBudgetReserveTargets(business, totalExpenses, inflationMultiplier);
-  let balance = Math.max(0, args.balanceBeforeBudget);
+  let balance = Math.round(args.balanceBeforeBudget);
   let loans = [...args.loans];
 
   const positiveProfit = Math.max(0, profit);
@@ -232,7 +232,7 @@ export function applyBusinessBudgetWeek(args: {
     Math.min(desiredDebtPaydown, discretionaryCashBeforeDebt),
   );
   loans = debtResult.loans;
-  balance = Math.max(0, balance - debtResult.paid);
+  balance -= debtResult.paid;
 
   const cashAboveOperatingReserve = Math.max(0, balance - targets.operatingReserveTarget);
   let reinvestmentReserve = Math.min(
@@ -267,7 +267,7 @@ export function applyBusinessBudgetWeek(args: {
   const dividendPaid = Math.round(
     Math.min(desiredDividend, Math.max(0, balance - protectedCash)),
   );
-  balance = Math.max(0, balance - dividendPaid);
+  balance -= dividendPaid;
 
   // Earmarks are labels inside the same bank balance, not extra assets.
   // Clamp them if a shock or debt payment consumed cash unexpectedly.
