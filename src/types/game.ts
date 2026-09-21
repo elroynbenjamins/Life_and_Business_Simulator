@@ -965,6 +965,25 @@ export type AcquisitionTier = 'regional' | 'national' | 'enterprise';
 export type AcquisitionFundingMode = 'cash' | 'balanced' | 'leveraged';
 export type AcquisitionIntegrationStrategy = 'pending' | 'independent' | 'integrate' | 'turnaround';
 export type AcquisitionIntegrationOutcome = 'pending' | 'success' | 'mixed' | 'failed';
+export type AcquisitionTraitKind = 'strength' | 'risk';
+export type AcquisitionDiligenceFindingKind = 'strength' | 'risk' | 'neutral';
+
+export interface AcquisitionCompanyTrait {
+  id: string;
+  name: string;
+  kind: AcquisitionTraitKind;
+  description: string;
+  revenueModifier: number;
+  expenseModifier: number;
+}
+
+export interface AcquisitionDiligenceFinding {
+  id: string;
+  title: string;
+  kind: AcquisitionDiligenceFindingKind;
+  description: string;
+}
+
 export type HoldingCapitalPurpose = 'capital' | 'debt';
 export type BusinessPortfolioIntent = 'active' | 'long_term_family';
 
@@ -981,6 +1000,9 @@ export interface SoldBusinessRecord {
   heldWeeks: number;
   grossSalePrice: number;
   debtSettlement: number;
+  /** Advisory/legal costs paid when the business is sold. */
+  saleTransactionCost?: number;
+  saleTransactionCostRate?: number;
   netSaleProceeds: number;
   investmentBasis: number | null;
   totalPlayerDistributions: number;
@@ -1005,6 +1027,14 @@ export interface BusinessAcquisitionTarget {
   diligenceScore: number;
   risk: AcquisitionRisk;
   diligenceNotes: string[];
+  /** Generated operating history/personality for established acquisition targets. */
+  companyAgeYears?: number;
+  sellerReason?: string;
+  traits?: AcquisitionCompanyTrait[];
+  diligenceFindings?: AcquisitionDiligenceFinding[];
+  persistentRevenueModifier?: number;
+  persistentExpenseModifier?: number;
+  acquisitionTransactionCostRate?: number;
   integrationWeeks: number;
   integrationPenalty: number;
   sellerName: string;
@@ -1032,6 +1062,14 @@ export interface BusinessAcquisitionState {
   postIntegrationExpenseReduction: number;
   initialRisk: AcquisitionRisk;
   diligenceScore: number;
+  companyAgeYears?: number;
+  sellerReason?: string;
+  traits?: AcquisitionCompanyTrait[];
+  diligenceFindings?: AcquisitionDiligenceFinding[];
+  persistentRevenueModifier?: number;
+  persistentExpenseModifier?: number;
+  acquisitionTransactionCost?: number;
+  acquisitionTransactionCostRate?: number;
   additionalCapitalInvested: number;
   quotedWeeklyRevenue?: number;
   quotedWeeklyProfit?: number;
