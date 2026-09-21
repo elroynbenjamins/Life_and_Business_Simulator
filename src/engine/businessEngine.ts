@@ -23,6 +23,10 @@ import {
   getCorporateScaleTier,
   makeCorporateScaleCrisis,
 } from './corporateScaleEngine';
+import {
+  getBusinessGovernanceEffects,
+  tickBusinessGovernance,
+} from './businessGovernanceEngine';
 
 // -----------------------------------------------------------------------------
 // D&D-style tier system for employees
@@ -852,6 +856,9 @@ export function createBusiness(typeId: string, customName: string | null, week: 
       votingPercent: 100,
     }],
     familyRoles: [],
+    executives: [],
+    pendingExecutiveSearch: null,
+    boardGovernance: null,
     capitalInvested: null,
     totalPlayerDistributions: 0,
     delegationPolicy: 'manual',
@@ -1023,7 +1030,10 @@ export function processBusinessWeek(
   }
   const corporateCapexEffects = getCorporateCapexOperatingEffects(biz);
   const reinvestmentEffects = getBusinessReinvestmentEffects(biz);
+  const governanceEffects = getBusinessGovernanceEffects(biz);
   eventRevenueMultiplier *= 1 + corporateCapexEffects.revenueBonus;
+  eventRevenueMultiplier *= 1 + governanceEffects.revenueBonus;
+  eventExpenseMultiplier *= 1 - governanceEffects.expenseReduction;
   eventExpenseMultiplier *= 1 - corporateCapexEffects.expenseReduction;
   eventRevenueMultiplier *= 1 - corporateCapexEffects.constructionRevenuePenalty;
   eventExpenseMultiplier *= 1 + corporateCapexEffects.constructionExpensePenalty;
@@ -1082,10 +1092,15 @@ export function processBusinessWeek(
   let rent = Math.round(rentScale);
   const employeeSalaries = (biz.employees ?? []).reduce((t, e) => t + (e.weeklySalary ?? 0), 0);
   const familyGovernanceSalaries = (biz.familyRoles ?? []).reduce((t, role) => t + (role.weeklySalary ?? 0), 0);
-  const normalSalaries = employeeSalaries + familyGovernanceSalaries;
+  const executiveSalaries = governanceEffects.executiveWeeklySalary;
+  const normalSalaries = employeeSalaries + familyGovernanceSalaries + executiveSalaries;
   // Startup wage support applies only to ordinary employees. Family governance
-  // appointments remain contractual and must always be paid in full.
-  const salaries = Math.round(employeeSalaries * (startupSupport ? 0.95 : 1) + familyGovernanceSalaries);
+  // and professional executive appointments remain contractual.
+  const salaries = Math.round(
+    employeeSalaries * (startupSupport ? 0.95 : 1)
+    + familyGovernanceSalaries
+    + executiveSalaries
+  );
   const adCost = Math.round((adMod.weeklyCost ?? 0) * inflationMultiplier * prestigeCostMultiplier);
   const starterDemandWeight = acquisition ? 0 : Math.max(0, Math.min(1, (70 - (biz.reputation ?? 25)) / 30));
   if (starterDemandWeight > 0) {
@@ -1115,7 +1130,9 @@ export function processBusinessWeek(
   let insurance = baseInsurance + explicitInsurancePremium;
   let maintenance = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
   const locationOperatingCosts = Math.round((biz.locations ?? []).reduce((total, location) => total + (location.weeklyOperatingCost ?? 0), 0) * inflationMultiplier * prestigeCostMultiplier);
-  let misc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult) + locationOperatingCosts;
+  let misc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult)
+    + locationOperatingCosts
+    + governanceEffects.boardWeeklyCost;
   if (acquisition) {
     const quotedRevenue = Math.max(1, acquisition.quotedWeeklyRevenue!);
     const inflationRatio = inflationMultiplier / Math.max(0.01, acquisition.quoteInflation!);
@@ -1308,7 +1325,11 @@ export function processBusinessWeek(
   const projectRepBoost = updatedProjects
     .filter((project) => project.resolved && project.succeeded && !biz.activeProjects?.find((old) => old.id === project.id)?.resolved)
     .reduce((total, project) => total + project.reputationBonus, 0);
-  let newReputation = (biz.reputation ?? 25) + repGrowth + adRepBoost + pricingRepEffect + eventRepChange + projectRepBoost + buffAgg.weeklyRepBoost + strategyTotals.reputation + integrationRepDelta - reinvestmentEffects.reputationDrag;
+  let newReputation = (biz.reputation ?? 25)
+    + repGrowth + adRepBoost + pricingRepEffect + eventRepChange + projectRepBoost
+    + buffAgg.weeklyRepBoost + strategyTotals.reputation + integrationRepDelta
+    + governanceEffects.reputationPerWeek
+    - reinvestmentEffects.reputationDrag;
   newReputation = Math.max(0, Math.min(100, newReputation));
 
   // Employee morale & skill growth
@@ -1554,6 +1575,16 @@ export function processBusinessWeek(
     experienceWeeks: (role.experienceWeeks ?? 0) + 1,
     performance: Math.max(0, Math.min(100, (role.performance ?? 50) + ((role.performance ?? 50) >= 50 ? 0.05 : -0.02))),
   }));
+  const governanceTick = tickBusinessGovernance(
+    biz,
+    revenue,
+    profit,
+    currentWeek,
+    currentYear,
+  );
+  if (governanceTick.timelineEntries.length > 0) {
+    timeline = [...timeline, ...governanceTick.timelineEntries].slice(-50);
+  }
 
   let pendingDecision = biz.pendingDecision ?? null;
   let nextStrategicDecisionWeek = biz.nextStrategicDecisionWeek ?? (globalWeek + 8);
@@ -1612,7 +1643,8 @@ export function processBusinessWeek(
     const combinedCrisisReduction = 1
       - (1 - Math.max(0, Math.min(0.8, modifiers.businessCrisisReduction ?? 0)))
       * (1 - Math.max(0, Math.min(0.25, modifiers.holdingCrisisReduction ?? 0)))
-      * (1 - Math.max(0, Math.min(0.12, capexCrisisReduction)));
+      * (1 - Math.max(0, Math.min(0.12, capexCrisisReduction)))
+      * (1 - Math.max(-0.05, Math.min(0.12, governanceEffects.crisisReduction)));
     const crisisChance = Math.max(0.04, baseCrisisChance * (1 + reinvestmentEffects.crisisIncrease) * (1 - combinedCrisisReduction));
     if (Math.random() < crisisChance) {
       pendingDecision = corporateTier === 'local'
@@ -1667,6 +1699,9 @@ export function processBusinessWeek(
     strategicFocus: biz.strategicFocus ?? 'balanced',
     strategyModifiers,
     familyRoles,
+    executives: governanceTick.executives,
+    pendingExecutiveSearch: biz.pendingExecutiveSearch ?? null,
+    boardGovernance: governanceTick.boardGovernance,
     ownership: biz.ownership?.length ? biz.ownership : [{
       ownerType: 'player',
       ownerId: 'player',
