@@ -22,7 +22,7 @@ import { getBusinessGovernanceAttentionReason } from '../../src/engine/businessG
 import { getCorporateWorkforceAttentionReason } from '../../src/engine/businessWorkforceEngine';
 import CorporateGroupReportPanel from '../../src/components/CorporateGroupReportPanel';
 import { getCorporateGroupManagementReport } from '../../src/engine/corporateGroupReportingEngine';
-import { CorporateReportPeriod } from '../../src/engine/corporateReportingEngine';
+import { CorporateReportPeriod, getCorporateManagementAttentionReason } from '../../src/engine/corporateReportingEngine';
 
 type SortMode = 'attention' | 'value' | 'profit' | 'roi';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -34,7 +34,13 @@ const SORT_OPTIONS: Array<{ key: SortMode; label: string; icon: IconName }> = [
   { key: 'roi', label: 'ROI', icon: 'trending-up-outline' },
 ];
 
-function needsAttention(business: any, currentYear: number): boolean {
+function needsAttention(
+  business: any,
+  currentYear: number,
+  currentWeek: number,
+  inflationMultiplier: number,
+): boolean {
+  const globalWeek = Math.max(1, ((currentYear - 1) * 20) + currentWeek);
   return Boolean(
     business.pendingDecision
     || business.pendingRetention
@@ -44,6 +50,7 @@ function needsAttention(business: any, currentYear: number): boolean {
     || isBusinessBudgetReviewDue(business, currentYear)
     || getBusinessGovernanceAttentionReason(business)
     || getCorporateWorkforceAttentionReason(business)
+    || getCorporateManagementAttentionReason(business, globalWeek, inflationMultiplier)
   );
 }
 
@@ -69,15 +76,15 @@ export default function BusinessPortfolioScreen() {
   const netWorth = getNetWorthValue();
   const acquisitionsUnlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
   const summary = useMemo(
-    () => getBusinessEmpireSummary(businesses, holdingCompanies, currentYear),
-    [businesses, holdingCompanies, currentYear],
+    () => getBusinessEmpireSummary(businesses, holdingCompanies, currentYear, currentWeek, inflationMultiplier),
+    [businesses, holdingCompanies, currentYear, currentWeek, inflationMultiplier],
   );
 
   const sortedBusinesses = useMemo(() => {
     return [...businesses].sort((a, b) => {
       if (sortMode === 'attention') {
-        const aAttention = needsAttention(a, currentYear) ? 1 : 0;
-        const bAttention = needsAttention(b, currentYear) ? 1 : 0;
+        const aAttention = needsAttention(a, currentYear, currentWeek, inflationMultiplier) ? 1 : 0;
+        const bAttention = needsAttention(b, currentYear, currentWeek, inflationMultiplier) ? 1 : 0;
         if (aAttention !== bAttention) return bAttention - aAttention;
         return (b.lastWeekProfit ?? 0) - (a.lastWeekProfit ?? 0);
       }
@@ -91,7 +98,7 @@ export default function BusinessPortfolioScreen() {
       if (bRoi == null) return -1;
       return bRoi - aRoi;
     });
-  }, [businesses, sortMode, currentYear]);
+  }, [businesses, sortMode, currentYear, currentWeek, inflationMultiplier]);
 
   const recentDeals = soldBusinesses.slice(0, 5);
   const globalGameWeek = ((currentYear - 1) * 20) + currentWeek;
@@ -264,7 +271,7 @@ export default function BusinessPortfolioScreen() {
             const automation = getAutomationScore(biz);
             const debt = getBusinessDebt(biz);
             const equityReturn = getBusinessEquityReturn(biz);
-            const attention = needsAttention(biz, currentYear);
+            const attention = needsAttention(biz, currentYear, currentWeek, inflationMultiplier);
             const risk = biz.acquisition?.initialRisk;
 
             return (
