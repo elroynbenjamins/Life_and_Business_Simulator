@@ -1,5 +1,6 @@
 import { HoldingCompany, OwnedBusiness, SoldBusinessRecord } from '../types/game';
 import { getBusinessReinvestmentUrgency } from './businessReinvestmentEngine';
+import { getBusinessCoverageGaps } from './businessInsuranceEngine';
 
 export interface BusinessSaleQuote {
   grossSalePrice: number;
@@ -183,6 +184,7 @@ export function getBusinessEmpireSummary(
     || Boolean(business.pendingRetention)
     || (business.acquisition?.integrationStrategy === 'pending')
     || Boolean(getBusinessReinvestmentUrgency(business))
+    || getBusinessCoverageGaps(business).length > 0
   ).length;
   const acquisitionCount = (businesses ?? []).filter((business) => Boolean(business.acquisition)).length;
   const leveragedAcquisitionCount = (businesses ?? []).filter((business) =>
