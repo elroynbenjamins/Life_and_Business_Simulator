@@ -2633,6 +2633,22 @@ function corporateKpiColor(status: CorporateKpiStatus): string {
   return Colors.textMuted;
 }
 
+function corporateVarianceColor(direction: 'positive' | 'negative' | 'neutral'): string {
+  if (direction === 'positive') return Colors.primary;
+  if (direction === 'negative') return Colors.negative;
+  return Colors.textMuted;
+}
+
+function formatSignedPercent(value: number | null): string {
+  if (value == null) return 'Baseline';
+  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
+}
+
+function formatSignedPoints(value: number | null): string {
+  if (value == null) return 'Baseline';
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)} pts`;
+}
+
 function CorporateKpiCell({
   label,
   value,
@@ -2721,6 +2737,87 @@ function CorporateManagementReportPanel({
         <Text style={styles.managementReportCoverage}>
           {report.weeksTracked}/{report.expectedWeeks} weeks tracked
         </Text>
+      </View>
+
+      <View style={styles.managementVarianceSummary}>
+        <View style={styles.managementVarianceMetric}>
+          <Text style={styles.managementVarianceLabel}>Revenue / wk</Text>
+          <Text style={[styles.managementVarianceValue, {
+            color: report.revenueChangePct == null
+              ? Colors.textMuted
+              : report.revenueChangePct >= 0 ? Colors.primary : Colors.negative,
+          }]}>
+            {formatSignedPercent(report.revenueChangePct)}
+          </Text>
+        </View>
+        <View style={styles.managementVarianceMetric}>
+          <Text style={styles.managementVarianceLabel}>Expenses / wk</Text>
+          <Text style={[styles.managementVarianceValue, {
+            color: report.expensesChangePct == null
+              ? Colors.textMuted
+              : report.expensesChangePct <= 0 ? Colors.primary : Colors.negative,
+          }]}>
+            {formatSignedPercent(report.expensesChangePct)}
+          </Text>
+        </View>
+        <View style={styles.managementVarianceMetric}>
+          <Text style={styles.managementVarianceLabel}>Profit margin</Text>
+          <Text style={[styles.managementVarianceValue, {
+            color: report.profitMarginChangePctPoints == null
+              ? Colors.textMuted
+              : report.profitMarginChangePctPoints >= 0 ? Colors.primary : Colors.negative,
+          }]}>
+            {formatSignedPoints(report.profitMarginChangePctPoints)}
+          </Text>
+          <Text style={styles.managementVarianceMeta}>{(report.profitMargin * 100).toFixed(1)}% now</Text>
+        </View>
+      </View>
+
+      <View style={styles.managementVarianceBox}>
+        <View style={styles.managementVarianceHeader}>
+          <Text style={styles.managementVarianceTitle}>What changed vs prior period</Text>
+          <Text style={styles.managementVarianceCoverage}>
+            {report.varianceHistoryCoverage === 'full'
+              ? 'Tracked'
+              : report.varianceHistoryCoverage === 'partial'
+                ? 'Partial history'
+                : 'Baseline forming'}
+          </Text>
+        </View>
+        {report.varianceDrivers.length === 0 ? (
+          <Text style={styles.managementVarianceEmpty}>
+            {report.varianceHistoryCoverage === 'baseline'
+              ? 'A prior comparable period is needed before trend drivers can be ranked.'
+              : 'No tracked operating driver moved enough to stand out this period.'}
+          </Text>
+        ) : (
+          <>
+            {report.varianceDrivers.slice(0, 4).map((driver) => {
+              const color = corporateVarianceColor(driver.direction);
+              const icon = driver.direction === 'positive'
+                ? 'trending-up-outline'
+                : driver.direction === 'negative'
+                  ? 'trending-down-outline'
+                  : 'remove-outline';
+              return (
+                <View key={driver.id} style={styles.managementVarianceDriver}>
+                  <View style={[styles.managementVarianceIcon, { borderColor: `${color}55` }]}>
+                    <Ionicons name={icon} size={13} color={color} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.managementVarianceDriverTitle, { color }]}>{driver.title}</Text>
+                    <Text style={styles.managementVarianceDriverDetail}>{driver.detail}</Text>
+                  </View>
+                </View>
+              );
+            })}
+            {report.varianceHistoryCoverage === 'partial' && (
+              <Text style={styles.managementVarianceFootnote}>
+                Older saved weeks contain core KPI history only. Skill, morale, integration and detailed upkeep attribution becomes more complete as new weeks are recorded.
+              </Text>
+            )}
+          </>
+        )}
       </View>
 
       <View style={styles.managementKpiGrid}>
@@ -2903,6 +3000,21 @@ const styles = StyleSheet.create({
   managementReportMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 8 },
   managementReportPeriod: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
   managementReportCoverage: { color: Colors.textMuted, fontSize: 8, fontWeight: '700' },
+  managementVarianceSummary: { flexDirection: 'row', gap: 6, marginTop: 9 },
+  managementVarianceMetric: { flex: 1, minHeight: 48, borderRadius: 8, backgroundColor: Colors.elevated, paddingHorizontal: 7, paddingVertical: 7 },
+  managementVarianceLabel: { color: Colors.textMuted, fontSize: 7, fontWeight: '700' },
+  managementVarianceValue: { fontSize: 11, fontWeight: '900', marginTop: 3 },
+  managementVarianceMeta: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
+  managementVarianceBox: { marginTop: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, paddingTop: 8 },
+  managementVarianceHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  managementVarianceTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
+  managementVarianceCoverage: { color: Colors.textMuted, fontSize: 7, fontWeight: '800' },
+  managementVarianceEmpty: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 6 },
+  managementVarianceDriver: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingVertical: 6 },
+  managementVarianceIcon: { width: 24, height: 24, borderRadius: 7, borderWidth: 1, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  managementVarianceDriverTitle: { fontSize: 8, fontWeight: '900' },
+  managementVarianceDriverDetail: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 1 },
+  managementVarianceFootnote: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 4, fontStyle: 'italic' },
   managementKpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
   managementKpiCell: { width: '48.8%', minHeight: 66, borderRadius: 9, backgroundColor: Colors.elevated, paddingHorizontal: 9, paddingVertical: 8 },
   managementKpiLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
