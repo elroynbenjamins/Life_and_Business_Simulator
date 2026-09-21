@@ -101,8 +101,8 @@ export default function HoldingCompaniesScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.introTitle}>Build a business group</Text>
               <Text style={styles.introText}>
-                Holdings now act as real capital-allocation vehicles: fund a group reserve, finance acquisitions,
-                inject growth capital, repay debt and appoint the next generation.
+                Holdings act as real group headquarters: allocate capital, build shared Finance/HR/Procurement/
+                Marketing/IT teams, delegate routine subsidiary management and prepare the next generation.
               </Text>
             </View>
           </View>
