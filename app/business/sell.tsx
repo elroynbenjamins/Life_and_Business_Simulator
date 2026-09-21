@@ -113,6 +113,11 @@ export default function BusinessSaleScreen() {
         <GameCard>
           <Text style={styles.sectionTitle}>Sale Breakdown</Text>
           <Text style={styles.sectionSub}>Debt and transaction costs are settled automatically at closing.</Text>
+          {business.acquisition && (quote.heldWeeks ?? 40) < 40 && (
+            <Text style={styles.shortHoldNote}>
+              Recent acquisition: exit costs decline toward 2.5% as ownership approaches 40 weeks.
+            </Text>
+          )}
           <View style={styles.rows}>
             <View style={styles.row}>
               <Text style={styles.rowLabel}>Gross company value</Text>
@@ -246,6 +251,7 @@ const styles = StyleSheet.create({
   warningText: { flex: 1, color: Colors.warning, fontSize: 11, lineHeight: 16, fontWeight: '700' },
   sectionTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   sectionSub: { color: Colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 3 },
+  shortHoldNote: { color: Colors.warning, fontSize: 9, lineHeight: 13, marginTop: 5 },
   rows: { gap: 10, marginTop: 13 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
   rowLabel: { color: Colors.textSecondary, fontSize: 12, flex: 1 },
