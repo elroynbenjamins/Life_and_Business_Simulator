@@ -21,7 +21,7 @@ import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { businessTypeImages, employeeRoleImages } from '../../src/assets/progressionImages';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
-import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutiveRole, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus, CorporateCompensationPolicy, CorporateDepartmentId, CorporateTrainingPolicy } from '../../src/types/game';
+import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutiveRole, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus, BusinessManagementTargetProfile, CorporateCompensationPolicy, CorporateDepartmentId, CorporateTrainingPolicy } from '../../src/types/game';
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
@@ -94,6 +94,12 @@ import {
   CorporateManagementActionTarget,
   getCorporateManagementActions,
 } from '../../src/engine/corporateManagementActionsEngine';
+import {
+  BUSINESS_MANAGEMENT_TARGET_PROFILES,
+  BusinessManagementTargetProgress,
+  BusinessManagementTargetStatus,
+  getBusinessManagementTargetProgress,
+} from '../../src/engine/businessManagementTargetsEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -152,7 +158,7 @@ export default function BusinessDetailScreen() {
   const gameYear = useGameStore((s) => s.year ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
-    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessBudgetProfile,
+    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessBudgetProfile, setBusinessManagementTargetProfile,
     openExecutiveSearch, hireExecutiveCandidate, cancelExecutiveSearch, dismissBusinessExecutive, setBusinessBoardMandate,
     setCorporateDepartmentTarget, setCorporateCompensationPolicy, setCorporateTrainingPolicy, resolveBusinessDecision,
     setAcquisitionIntegrationStrategy,
@@ -168,6 +174,7 @@ export default function BusinessDetailScreen() {
     toggleLongTermFamilyAsset: s.toggleLongTermFamilyAsset,
     setBusinessStrategicFocus: s.setBusinessStrategicFocus,
     setBusinessBudgetProfile: s.setBusinessBudgetProfile,
+    setBusinessManagementTargetProfile: s.setBusinessManagementTargetProfile,
     openExecutiveSearch: s.openExecutiveSearch,
     hireExecutiveCandidate: s.hireExecutiveCandidate,
     cancelExecutiveSearch: s.cancelExecutiveSearch,
@@ -343,6 +350,13 @@ export default function BusinessDetailScreen() {
   const annualManagementActions = annualManagementReport
     ? getCorporateManagementActions(reportingBusiness, annualManagementReport, inflationMultiplier)
     : [];
+  const managementTargetProgress = quarterlyManagementReport
+    ? getBusinessManagementTargetProgress(
+        reportingBusiness,
+        quarterlyManagementReport,
+        globalGameWeek,
+      )
+    : null;
   const boardMandateCooldown = biz.boardGovernance
     ? Math.max(0, 10 - (globalGameWeek - (biz.boardGovernance.lastMandateChangeGlobalWeek ?? 0)))
     : 0;
@@ -1377,6 +1391,8 @@ export default function BusinessDetailScreen() {
               onPeriodChange={setManagementReportPeriod}
               quarterlyActions={quarterlyManagementActions}
               annualActions={annualManagementActions}
+              targetProgress={managementTargetProgress}
+              onTargetProfileChange={(profile) => setBusinessManagementTargetProfile(biz.id, profile)}
               onActionPress={scrollToManagementSection}
             />
           </GameCard>
@@ -2649,6 +2665,20 @@ function formatSignedPoints(value: number | null): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)} pts`;
 }
 
+function managementTargetStatusColor(status: BusinessManagementTargetStatus): string {
+  if (status === 'met') return Colors.primary;
+  if (status === 'near') return Colors.warning;
+  if (status === 'missed') return Colors.negative;
+  return Colors.textMuted;
+}
+
+function formatManagementTargetValue(id: string, value: number): string {
+  if (id === 'revenue' || id === 'debt') return formatCurrency(value);
+  if (id === 'margin' || id === 'payroll') return `${(value * 100).toFixed(1)}%`;
+  if (id === 'maintenance') return `${value.toFixed(0)}%`;
+  return value.toFixed(1);
+}
+
 function CorporateKpiCell({
   label,
   value,
@@ -2678,16 +2708,20 @@ function CorporateManagementReportPanel({
   annualReport,
   quarterlyActions,
   annualActions,
+  targetProgress,
   period,
   onPeriodChange,
+  onTargetProfileChange,
   onActionPress,
 }: {
   quarterlyReport: CorporateManagementReport;
   annualReport: CorporateManagementReport;
   quarterlyActions: CorporateManagementAction[];
   annualActions: CorporateManagementAction[];
+  targetProgress: BusinessManagementTargetProgress | null;
   period: CorporateReportPeriod;
   onPeriodChange: (period: CorporateReportPeriod) => void;
+  onTargetProfileChange: (profile: BusinessManagementTargetProfile) => void;
   onActionPress: (target: CorporateManagementActionTarget) => void;
 }) {
   const report = period === 'quarter' ? quarterlyReport : annualReport;
@@ -2819,6 +2853,103 @@ function CorporateManagementReportPanel({
           </>
         )}
       </View>
+
+      {targetProgress && (
+        <View style={styles.managementTargetBox}>
+          <View style={styles.managementTargetHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.managementTargetTitle}>
+                Q{targetProgress.plan.quarter} management targets
+              </Text>
+              <Text style={styles.managementTargetMeta}>
+                {BUSINESS_MANAGEMENT_TARGET_PROFILES[targetProgress.plan.profile].label} • {targetProgress.metCount}/{targetProgress.totalCount} met
+                {targetProgress.nearCount > 0 ? ` • ${targetProgress.nearCount} near` : ''}
+              </Text>
+            </View>
+            <View style={[
+              styles.managementTargetScore,
+              {
+                borderColor: targetProgress.missedCount > 0
+                  ? `${Colors.warning}55`
+                  : `${Colors.primary}55`,
+              },
+            ]}>
+              <Text style={[
+                styles.managementTargetScoreText,
+                { color: targetProgress.missedCount > 0 ? Colors.warning : Colors.primary },
+              ]}>
+                {targetProgress.metCount}/{targetProgress.totalCount}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.managementTargetDescription}>
+            {BUSINESS_MANAGEMENT_TARGET_PROFILES[targetProgress.plan.profile].description}
+          </Text>
+
+          <View style={styles.managementTargetProfileGrid}>
+            {(Object.keys(BUSINESS_MANAGEMENT_TARGET_PROFILES) as BusinessManagementTargetProfile[]).map((profile) => {
+              const definition = BUSINESS_MANAGEMENT_TARGET_PROFILES[profile];
+              const active = targetProgress.plan.profile === profile;
+              return (
+                <Pressable
+                  key={profile}
+                  style={[styles.managementTargetProfileChip, active && styles.managementTargetProfileChipActive]}
+                  onPress={() => !active && onTargetProfileChange(profile)}
+                >
+                  <Text style={[
+                    styles.managementTargetProfileText,
+                    active && { color: Colors.primary },
+                  ]}>
+                    {definition.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.managementTargetRows}>
+            {targetProgress.results.map((result) => {
+              const color = managementTargetStatusColor(result.status);
+              return (
+                <View key={result.id} style={styles.managementTargetRow}>
+                  <View style={[styles.managementTargetDot, { backgroundColor: color }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.managementTargetLabel}>{result.label}</Text>
+                    <Text style={styles.managementTargetActual}>
+                      {formatManagementTargetValue(result.id, result.actual)}
+                    </Text>
+                  </View>
+                  <View style={styles.managementTargetRight}>
+                    <Text style={styles.managementTargetGoal}>
+                      {result.direction === 'lower' ? '≤ ' : '≥ '}
+                      {formatManagementTargetValue(result.id, result.target)}
+                    </Text>
+                    {result.id === 'debt' && result.scheduleBenchmark != null && (
+                      <Text style={styles.managementTargetPace}>
+                        Pace ≤ {formatManagementTargetValue(result.id, result.scheduleBenchmark)}
+                      </Text>
+                    )}
+                    <Text style={[styles.managementTargetStatus, { color }]}>
+                      {result.status === 'met'
+                        ? 'MET'
+                        : result.status === 'near'
+                          ? 'NEAR'
+                          : result.status === 'missed'
+                            ? 'BELOW'
+                            : '—'}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+
+          <Text style={styles.managementTargetFootnote}>
+            Outcome targets do not change company behavior automatically. Use the Annual Cash Plan, workforce, financing and upkeep controls to work toward them.
+          </Text>
+        </View>
+      )}
 
       <View style={styles.managementKpiGrid}>
         <CorporateKpiCell
@@ -3015,6 +3146,27 @@ const styles = StyleSheet.create({
   managementVarianceDriverTitle: { fontSize: 8, fontWeight: '900' },
   managementVarianceDriverDetail: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 1 },
   managementVarianceFootnote: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 4, fontStyle: 'italic' },
+  managementTargetBox: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, paddingTop: 9 },
+  managementTargetHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  managementTargetTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
+  managementTargetMeta: { color: Colors.textMuted, fontSize: 7, marginTop: 2 },
+  managementTargetScore: { minWidth: 35, borderRadius: 8, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 5, alignItems: 'center' },
+  managementTargetScoreText: { fontSize: 10, fontWeight: '900' },
+  managementTargetDescription: { color: Colors.textSecondary, fontSize: 7, lineHeight: 10, marginTop: 5 },
+  managementTargetProfileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
+  managementTargetProfileChip: { minWidth: '31%', flexGrow: 1, borderRadius: 7, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center' },
+  managementTargetProfileChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
+  managementTargetProfileText: { color: Colors.textSecondary, fontSize: 7, fontWeight: '800' },
+  managementTargetRows: { marginTop: 7 },
+  managementTargetRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  managementTargetDot: { width: 7, height: 7, borderRadius: 4 },
+  managementTargetLabel: { color: Colors.textMuted, fontSize: 7 },
+  managementTargetActual: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900', marginTop: 1 },
+  managementTargetRight: { alignItems: 'flex-end' },
+  managementTargetGoal: { color: Colors.textSecondary, fontSize: 7, fontWeight: '700' },
+  managementTargetPace: { color: Colors.textMuted, fontSize: 6, marginTop: 1 },
+  managementTargetStatus: { fontSize: 7, fontWeight: '900', marginTop: 2 },
+  managementTargetFootnote: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 6, fontStyle: 'italic' },
   managementKpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
   managementKpiCell: { width: '48.8%', minHeight: 66, borderRadius: 9, backgroundColor: Colors.elevated, paddingHorizontal: 9, paddingVertical: 8 },
   managementKpiLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
