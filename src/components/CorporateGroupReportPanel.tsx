@@ -24,6 +24,22 @@ function statusLabel(status: CorporateKpiStatus): string {
   return 'Baseline';
 }
 
+function varianceColor(direction: 'positive' | 'negative' | 'neutral'): string {
+  if (direction === 'positive') return Colors.primary;
+  if (direction === 'negative') return Colors.negative;
+  return Colors.textMuted;
+}
+
+function signedPct(value: number | null): string {
+  if (value == null) return 'Baseline';
+  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
+}
+
+function signedPoints(value: number | null): string {
+  if (value == null) return 'Baseline';
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)} pts`;
+}
+
 function Metric({
   label,
   value,
@@ -109,6 +125,71 @@ export default function CorporateGroupReportPanel({
           </Text>
         </View>
         <Text style={styles.weeks}>{report.weeksTracked}/{report.expectedWeeks}w</Text>
+      </View>
+
+      <View style={styles.varianceSummary}>
+        <View style={styles.varianceMetric}>
+          <Text style={styles.varianceLabel}>Revenue / wk</Text>
+          <Text style={[styles.varianceValue, {
+            color: report.revenueChangePct == null
+              ? Colors.textMuted
+              : report.revenueChangePct >= 0 ? Colors.primary : Colors.negative,
+          }]}>
+            {signedPct(report.revenueChangePct)}
+          </Text>
+        </View>
+        <View style={styles.varianceMetric}>
+          <Text style={styles.varianceLabel}>Expenses / wk</Text>
+          <Text style={[styles.varianceValue, {
+            color: report.expensesChangePct == null
+              ? Colors.textMuted
+              : report.expensesChangePct <= 0 ? Colors.primary : Colors.negative,
+          }]}>
+            {signedPct(report.expensesChangePct)}
+          </Text>
+        </View>
+        <View style={styles.varianceMetric}>
+          <Text style={styles.varianceLabel}>Profit margin</Text>
+          <Text style={[styles.varianceValue, {
+            color: report.profitMarginChangePctPoints == null
+              ? Colors.textMuted
+              : report.profitMarginChangePctPoints >= 0 ? Colors.primary : Colors.negative,
+          }]}>
+            {signedPoints(report.profitMarginChangePctPoints)}
+          </Text>
+          <Text style={styles.varianceMeta}>{(report.profitMargin * 100).toFixed(1)}% now</Text>
+        </View>
+      </View>
+
+      <View style={styles.varianceBox}>
+        <View style={styles.varianceHeader}>
+          <Text style={styles.varianceTitle}>Cross-company trend signals</Text>
+          <Text style={styles.varianceCoverage}>
+            {report.varianceHistoryCoverage === 'full'
+              ? 'Tracked'
+              : report.varianceHistoryCoverage === 'partial'
+                ? 'Partial history'
+                : 'Baseline forming'}
+          </Text>
+        </View>
+        {report.varianceDrivers.length === 0 ? (
+          <Text style={styles.varianceEmpty}>
+            {report.varianceHistoryCoverage === 'baseline'
+              ? 'A prior comparable period is needed before group trend drivers can be ranked.'
+              : 'No tracked cross-company driver moved enough to stand out this period.'}
+          </Text>
+        ) : report.varianceDrivers.map((driver) => {
+          const driverColor = varianceColor(driver.direction);
+          return (
+            <View key={driver.id} style={styles.varianceDriver}>
+              <View style={[styles.varianceDot, { backgroundColor: driverColor }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.varianceDriverTitle, { color: driverColor }]}>{driver.title}</Text>
+                <Text style={styles.varianceDriverDetail}>{driver.detail}</Text>
+              </View>
+            </View>
+          );
+        })}
       </View>
 
       <View style={styles.grid}>
@@ -288,6 +369,20 @@ const styles = StyleSheet.create({
   period: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900' },
   coverageText: { color: Colors.textMuted, fontSize: 8, marginTop: 2 },
   weeks: { color: Colors.textMuted, fontSize: 8, fontWeight: '800' },
+  varianceSummary: { flexDirection: 'row', gap: 6, marginTop: 9 },
+  varianceMetric: { flex: 1, minHeight: 48, borderRadius: 8, backgroundColor: Colors.elevated, paddingHorizontal: 7, paddingVertical: 7 },
+  varianceLabel: { color: Colors.textMuted, fontSize: 7, fontWeight: '700' },
+  varianceValue: { fontSize: 11, fontWeight: '900', marginTop: 3 },
+  varianceMeta: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
+  varianceBox: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, marginTop: 9, paddingTop: 8 },
+  varianceHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  varianceTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
+  varianceCoverage: { color: Colors.textMuted, fontSize: 7, fontWeight: '800' },
+  varianceEmpty: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 6 },
+  varianceDriver: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingVertical: 6 },
+  varianceDot: { width: 7, height: 7, borderRadius: 4, marginTop: 2 },
+  varianceDriverTitle: { fontSize: 8, fontWeight: '900' },
+  varianceDriverDetail: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
   metric: { width: '48.8%', minHeight: 65, borderRadius: 9, backgroundColor: Colors.elevated, paddingHorizontal: 8, paddingVertical: 8 },
   metricLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
