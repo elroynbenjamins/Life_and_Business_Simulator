@@ -281,6 +281,48 @@ describe('corporate department workforce', () => {
       .toBe(900 + payroll);
   });
 
+  test('legacy acquisition staffing baseline absorbs department payroll exactly once', () => {
+    const business = makeCorporateBusiness({
+      acquisition: {
+        assetBaselineVersion: 1,
+        purchasePrice: 100_000_000,
+        cashContribution: 40_000_000,
+        debtFinanced: 60_000_000,
+        fundingMode: 'balanced',
+        sellerName: 'Legacy Seller',
+        acquiredGlobalWeek: 60,
+        estimatedValueAtPurchase: 100_000_000,
+        baseIntegrationWeeks: 6,
+        baseIntegrationPenalty: 0.05,
+        integrationStrategy: 'independent',
+        integrationOutcome: 'success',
+        integrationWeeksRemaining: 0,
+        integrationPenalty: 0,
+        integrationSuccessChance: 1,
+        postIntegrationRevenueBonus: 0,
+        postIntegrationExpenseReduction: 0,
+        initialRisk: 'low',
+        diligenceScore: 90,
+        additionalCapitalInvested: 0,
+        quotedWeeklyRevenue: 2_000_000,
+        quotedWeeklyProfit: 500_000,
+        quoteInflation: 1,
+        referenceStaffCost: 5_000,
+        referenceExpenseMultiplier: 1,
+      },
+    });
+    const payroll = getCorporateWorkforceWeeklyPayroll(business.corporateWorkforce);
+
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const first = processBusinessWeek(business, 1, 5, 5).updatedBusiness;
+
+    expect(first.acquisition?.workforceBaselineVersion).toBe(1);
+    expect(first.acquisition?.referenceStaffCost).toBe(5_000 + payroll);
+
+    const second = processBusinessWeek(first, 1, 6, 5).updatedBusiness;
+    expect(second.acquisition?.referenceStaffCost).toBe(first.acquisition?.referenceStaffCost);
+  });
+
   test('mature acquisitions are created with their corporate workforce already visible', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const targets = generateAcquisitionTargets(120, 1, 1);
