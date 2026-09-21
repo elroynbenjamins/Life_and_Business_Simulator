@@ -222,6 +222,7 @@ export function getBusinessGovernanceEffects(business: OwnedBusiness) {
   let expenseReduction = 0;
   let crisisReduction = 0;
   let financingRateReduction = 0;
+  let treasuryEfficiency = 0;
   let technologyWearReduction = 0;
   let premisesWearReduction = 0;
   let equipmentWearReduction = 0;
@@ -233,6 +234,7 @@ export function getBusinessGovernanceEffects(business: OwnedBusiness) {
     const quality = executiveQuality(executive.performance);
     if (executive.role === 'cfo') {
       financingRateReduction += Math.max(0, quality * 0.010);
+      treasuryEfficiency += Math.max(0, quality * 0.060);
       expenseReduction += quality * 0.004;
     } else if (executive.role === 'coo') {
       expenseReduction += quality * 0.015;
@@ -256,6 +258,7 @@ export function getBusinessGovernanceEffects(business: OwnedBusiness) {
     expenseReduction += bonus.expense ?? 0;
     crisisReduction += bonus.crisis ?? 0;
     financingRateReduction += bonus.financing ?? 0;
+    treasuryEfficiency += executive.trait === 'capital_allocator' ? 0.01 : 0;
     technologyWearReduction += bonus.technologyWear ?? 0;
     premisesWearReduction += bonus.premisesWear ?? 0;
     equipmentWearReduction += bonus.equipmentWear ?? 0;
@@ -292,6 +295,7 @@ export function getBusinessGovernanceEffects(business: OwnedBusiness) {
     expenseReduction: clamp(expenseReduction, -0.02, 0.05),
     crisisReduction: clamp(crisisReduction, -0.01, 0.08),
     financingRateReduction: clamp(financingRateReduction, 0, 0.0125),
+    treasuryEfficiency: clamp(treasuryEfficiency, 0, 0.08),
     technologyWearReduction: clamp(technologyWearReduction, 0, 0.30),
     premisesWearReduction: clamp(premisesWearReduction, 0, 0.20),
     equipmentWearReduction: clamp(equipmentWearReduction, 0, 0.25),
