@@ -9,6 +9,7 @@ import {
   getAcquisitionPrice,
   getAcquisitionReturn,
   getHoldingCompanySummary,
+  migrateAcquiredBusinessAssets,
 } from '../acquisitionEngine';
 import { getAllBusinessLocationTemplates, getBusinessType, getHoldingSynergyProfile, processBusinessWeek } from '../businessEngine';
 import { getNetWorth } from '../financeEngine';
@@ -92,6 +93,29 @@ describe('business acquisitions and holding companies', () => {
       expect(acquired.level).toBeGreaterThanOrEqual(template.requiredLevel);
       expect(acquired.reputation).toBeGreaterThanOrEqual(template.requiredReputation);
     }
+  });
+
+  test('legacy acquired companies are rebased to the mature asset footprint on load', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const target = generateAcquisitionTargets(120, 1, 1)[0];
+    const acquired = createAcquiredBusiness(target, { ...INITIAL_GAME_STATE, week: 8, year: 7, inflationMultiplier: 1 })!;
+    const legacy = {
+      ...acquired,
+      purchasedUpgrades: [],
+      locations: [],
+      activeUpgrade: { upgradeId: acquired.purchasedUpgrades[0], weeksRemaining: 1 },
+      activeExpansion: { templateId: 'local_branch', weeksRemaining: 1 },
+      acquisition: { ...acquired.acquisition!, referenceRevenueCapacity: 1 },
+    };
+
+    const migrated = migrateAcquiredBusinessAssets(legacy, 1, 140);
+    const type = getBusinessType(target.typeId)!;
+
+    expect(new Set(migrated.purchasedUpgrades)).toEqual(new Set(type.upgrades ?? []));
+    expect(migrated.activeUpgrade ?? null).toBeNull();
+    expect(migrated.activeExpansion ?? null).toBeNull();
+    expect((migrated.locations ?? []).some((location) => location.templateId === 'local_branch')).toBe(true);
+    expect(migrated.acquisition?.referenceRevenueCapacity).toBeGreaterThan(1);
   });
 
   test('supports all-cash, balanced, and leveraged acquisition structures', () => {
