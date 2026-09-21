@@ -17,6 +17,7 @@ import { businessTypeImages } from '../../src/assets/progressionImages';
 import { ACQUISITION_UNLOCK_NET_WORTH } from '../../src/engine/acquisitionEngine';
 import { getBusinessReinvestmentUrgency } from '../../src/engine/businessReinvestmentEngine';
 import { BUSINESS_INSURANCE_AREAS, getBusinessCoverageGaps } from '../../src/engine/businessInsuranceEngine';
+import { isBusinessBudgetReviewDue } from '../../src/engine/businessBudgetEngine';
 
 type SortMode = 'attention' | 'value' | 'profit' | 'roi';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -28,13 +29,14 @@ const SORT_OPTIONS: Array<{ key: SortMode; label: string; icon: IconName }> = [
   { key: 'roi', label: 'ROI', icon: 'trending-up-outline' },
 ];
 
-function needsAttention(business: any): boolean {
+function needsAttention(business: any, currentYear: number): boolean {
   return Boolean(
     business.pendingDecision
     || business.pendingRetention
     || business.acquisition?.integrationStrategy === 'pending'
     || getBusinessReinvestmentUrgency(business)
     || getBusinessCoverageGaps(business).length > 0
+    || isBusinessBudgetReviewDue(business, currentYear)
   );
 }
 
@@ -50,6 +52,7 @@ export default function BusinessPortfolioScreen() {
   const businesses = useGameStore((state) => state.businesses ?? []);
   const soldBusinesses = useGameStore((state) => state.soldBusinesses ?? []);
   const holdingCompanies = useGameStore((state) => state.holdingCompanies ?? []);
+  const currentYear = useGameStore((state) => state.year ?? 1);
   const getNetWorthValue = useGameStore((state) => state.getNetWorthValue);
   const [sortMode, setSortMode] = useState<SortMode>('attention');
 
@@ -63,8 +66,8 @@ export default function BusinessPortfolioScreen() {
   const sortedBusinesses = useMemo(() => {
     return [...businesses].sort((a, b) => {
       if (sortMode === 'attention') {
-        const aAttention = needsAttention(a) ? 1 : 0;
-        const bAttention = needsAttention(b) ? 1 : 0;
+        const aAttention = needsAttention(a, currentYear) ? 1 : 0;
+        const bAttention = needsAttention(b, currentYear) ? 1 : 0;
         if (aAttention !== bAttention) return bAttention - aAttention;
         return (b.lastWeekProfit ?? 0) - (a.lastWeekProfit ?? 0);
       }
@@ -78,7 +81,7 @@ export default function BusinessPortfolioScreen() {
       if (bRoi == null) return -1;
       return bRoi - aRoi;
     });
-  }, [businesses, sortMode]);
+  }, [businesses, sortMode, currentYear]);
 
   const recentDeals = soldBusinesses.slice(0, 5);
 
@@ -231,7 +234,7 @@ export default function BusinessPortfolioScreen() {
             const automation = getAutomationScore(biz);
             const debt = getBusinessDebt(biz);
             const equityReturn = getBusinessEquityReturn(biz);
-            const attention = needsAttention(biz);
+            const attention = needsAttention(biz, currentYear);
             const risk = biz.acquisition?.initialRisk;
 
             return (
@@ -338,6 +341,11 @@ export default function BusinessPortfolioScreen() {
                       <Text style={styles.pendingStripText}>
                         Coverage gap: {getBusinessCoverageGaps(biz).map((area) => BUSINESS_INSURANCE_AREAS[area].name).join(', ')}.
                       </Text>
+                    </View>
+                  )}
+                  {!biz.pendingDecision && !getBusinessReinvestmentUrgency(biz) && getBusinessCoverageGaps(biz).length === 0 && isBusinessBudgetReviewDue(biz, currentYear) && (
+                    <View style={styles.pendingStrip}>
+                      <Text style={styles.pendingStripText}>Annual cash-plan review due for Year {currentYear}.</Text>
                     </View>
                   )}
 
