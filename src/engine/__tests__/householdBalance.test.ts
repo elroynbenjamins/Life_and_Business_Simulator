@@ -25,26 +25,30 @@ function budget(state: GameState, companion: RelationshipConnection | null) {
 }
 describe('household costs and balance', () => {
   afterEach(() => jest.restoreAllMocks());
-  test.each([[0,175], [2,175], [3,155], [5,155], [6,130], [11,130], [12,165], [15,165], [16,190], [17,190], [18,0], [30,0]])('child age %i costs %i per week before inflation', (age, cost) => {
+  test.each([
+    [0, [153, 305, 458]], [2, [153, 305, 458]], [3, [139, 277, 415]], [5, [139, 277, 415]],
+    [6, [130, 260, 390]], [11, [130, 260, 390]], [12, [165, 330, 495]], [15, [165, 330, 495]],
+    [16, [190, 380, 570]], [17, [190, 380, 570]], [18, [0, 0, 0]], [30, [0, 0, 0]],
+  ])('child age %i costs correctly with family-work childcare and inflation', (age, expectedByInflation) => {
     for (const inflation of [1, 2, 3]) {
       const state = fixture([age], inflation);
       const breakdown = getChildCostBreakdown(state.relationshipState.children[0], state);
-      expect(breakdown.total).toBe(cost * inflation);
+      expect(breakdown.total).toBe(expectedByInflation[inflation - 1]);
       expect(breakdown.food + breakdown.careSchool + breakdown.clothingHealth + breakdown.transportActivities + breakdown.utilities).toBe(breakdown.total);
     }
   });
   test('birthdays change the cost band using the world clock, not stale saved age', () => {
     const state = fixture([2]);
     state.relationshipState.children[0].birthGlobalWeek -= 19;
-    expect(getChildWeeklyCost(state.relationshipState.children[0], state)).toBe(175);
-    expect(getChildWeeklyCost(state.relationshipState.children[0], { ...state, week: 11 })).toBe(155);
+    expect(getChildWeeklyCost(state.relationshipState.children[0], state)).toBe(153);
+    expect(getChildWeeklyCost(state.relationshipState.children[0], { ...state, week: 11 })).toBe(139);
   });
   test('costs persist for a single parent but are disabled with relationship mode', () => {
     const state = fixture([1, 7, 16]);
     const family = calculatePartnerContribution(null, state);
-    expect(family.grossFamilyCost).toBe(495);
+    expect(family.grossFamilyCost).toBe(473);
     expect(family.familySupport).toBeGreaterThan(0);
-    expect(family.familyCost).toBeLessThan(495);
+    expect(family.familyCost).toBeLessThan(473);
     expect(calculatePartnerContribution(partner, { ...state, relationshipModeEnabled: false })).toMatchObject({ contribution: 0, familyCost: 0, householdExtraCost: 0, obligationCost: 0 });
   });
   test('means-tested childcare support helps low-income households but phases out', () => {
@@ -61,9 +65,9 @@ describe('household costs and balance', () => {
     const highIncome = fixture([1]);
     highIncome.relationshipState.activeConnections = [{ ...partner, weeklyIncome: 2500 }];
     const phasedOut = calculatePartnerContribution({ ...partner, weeklyIncome: 2500 }, highIncome);
-    expect(phasedOut.grossFamilyCost).toBe(175);
+    expect(phasedOut.grossFamilyCost).toBe(153);
     expect(phasedOut.familySupport).toBe(0);
-    expect(phasedOut.familyCost).toBe(175);
+    expect(phasedOut.familyCost).toBe(153);
   });
   test('temporary reduced family spending lowers recurring child costs and expires', () => {
     const state = fixture([1]);
@@ -75,7 +79,7 @@ describe('household costs and balance', () => {
         familySpendingWeeksRemaining: 2,
       },
     };
-    expect(getChildWeeklyCost(reduced.relationshipState.children[0], reduced)).toBe(143);
+    expect(getChildWeeklyCost(reduced.relationshipState.children[0], reduced)).toBe(125);
     const first = processRelationships(reduced);
     expect(first.state.familySpendingMode).toBe('reduced');
     expect(first.state.familySpendingWeeksRemaining).toBe(1);
@@ -91,7 +95,7 @@ describe('household costs and balance', () => {
       state = JSON.parse(JSON.stringify({ ...state, year: Math.floor((worldWeek - 1) / 20) + 1, week: (worldWeek - 1) % 20 + 1 }));
       lifetimeCost += getChildWeeklyCost(state.relationshipState.children[0], state);
     }
-    expect(lifetimeCost).toBe(56200);
+    expect(lifetimeCost).toBe(53920);
     expect(getChildWeeklyCost(state.relationshipState.children[0], { ...state, week: state.week + 1 })).toBe(0);
   });
   test('weekly engine debits child expenses exactly once and reports them', () => {

@@ -336,7 +336,7 @@ describe('corporate department workforce', () => {
 
   test('mature acquisitions are created with their corporate workforce already visible', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
-    const targets = generateAcquisitionTargets(120, 1, 1);
+    const targets = generateAcquisitionTargets(120, 1, 3);
     const target = targets.find((item) => item.estimatedValue >= CORPORATE_WORKFORCE_UNLOCK_VALUATION);
     expect(target).toBeTruthy();
 

@@ -9,6 +9,7 @@ import {
   OwnedBusiness,
 } from '../types/game';
 import { getCorporateWorkforceEffects } from './businessWorkforceEngine';
+import { normalizeBusinessInsurancePolicies } from './businessInsuranceEngine';
 
 export const BOARD_GOVERNANCE_UNLOCK_VALUATION = 25_000_000;
 
@@ -348,7 +349,7 @@ export function tickBusinessGovernance(
   const workforceEffects = getCorporateWorkforceEffects(business);
   const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
   const debtToValue = debt / Math.max(1, business.valuation ?? 1);
-  const policies = business.insurancePolicies ?? {};
+  const policies = normalizeBusinessInsurancePolicies(business.insurancePolicies);
   const budgetReviewed = (business.budgetPlan?.reviewYear ?? business.foundedYear ?? currentYear) >= currentYear;
   const timelineEntries: Array<{ week: number; year: number; title: string; icon: string; kind: 'event' }> = [];
   const executives: BusinessExecutive[] = [];

@@ -231,8 +231,8 @@ export function applyBusinessBudgetWeek(args: {
 
   const positiveProfit = Math.max(0, profit);
   const protectedBeforeDebt = targets.operatingReserveTarget
-    + Math.min(targets.reinvestmentReserveTarget, existingReserves.reinvestment)
-    + Math.min(targets.growthReserveTarget, existingReserves.growth);
+    + existingReserves.reinvestment
+    + existingReserves.growth;
   const discretionaryCashBeforeDebt = Math.max(0, balance - protectedBeforeDebt);
   const desiredDebtPaydown = positiveProfit * plan.debtPaydownPct;
   const debtResult = applyExtraDebtPayment(
@@ -243,14 +243,8 @@ export function applyBusinessBudgetWeek(args: {
   balance -= debtResult.paid;
 
   const cashAboveOperatingReserve = Math.max(0, balance - targets.operatingReserveTarget);
-  let reinvestmentReserve = Math.min(
-    targets.reinvestmentReserveTarget,
-    existingReserves.reinvestment,
-  );
-  let growthReserve = Math.min(
-    targets.growthReserveTarget,
-    existingReserves.growth,
-  );
+  let reinvestmentReserve = existingReserves.reinvestment;
+  let growthReserve = existingReserves.growth;
 
   const desiredReinvestment = positiveProfit * plan.reinvestmentPct;
   const reinvestmentRoom = Math.max(0, targets.reinvestmentReserveTarget - reinvestmentReserve);

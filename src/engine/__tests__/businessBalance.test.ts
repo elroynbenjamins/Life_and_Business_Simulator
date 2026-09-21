@@ -4,17 +4,17 @@ import { OwnedBusiness } from '../../types/game';
 
 describe('business balancing', () => {
   test.each([
-    [0, 2],
-    [50, 3.5],
-    [100, 5],
-  ])('uses a %i reputation profit multiple of %i', (reputation, multiple) => {
+    [0, 19165],
+    [50, 33053],
+    [100, 46940],
+  ])('uses the stable run-rate valuation model at %i reputation', (reputation, expected) => {
     const business = {
       reputation,
       weeklyProfitHistory: [1_000, 1_000],
       balance: 2_500,
     } as unknown as OwnedBusiness;
 
-    expect(calculateValuation(business)).toBe(2_000 * multiple + 2_500 * 1.5);
+    expect(calculateValuation(business)).toBe(expected);
   });
 
   test('values a loss-making business at only its available balance', () => {

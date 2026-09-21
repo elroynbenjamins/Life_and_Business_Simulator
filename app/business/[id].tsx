@@ -257,6 +257,18 @@ export default function BusinessDetailScreen() {
     );
   }
 
+  const handleTransfer = () => {
+    const amount = Math.floor(Number(transferAmount));
+    if (!Number.isFinite(amount) || amount <= 0 || !showTransferModal) return;
+    if (showTransferModal === 'inject') {
+      injectCashIntoBusiness(biz.id, amount);
+    } else {
+      withdrawFromBusiness(biz.id, amount);
+    }
+    setTransferAmount('');
+    setShowTransferModal(null);
+  };
+
   const type = getBusinessType(biz.typeId);
   const automation = getAutomationScore(biz);
   const maxEmployees = type?.maxEmployees ?? 1;
