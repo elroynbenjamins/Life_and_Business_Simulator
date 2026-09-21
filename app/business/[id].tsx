@@ -15,7 +15,7 @@ import {
   TIER_CONFIG, getProjectDifficulty, getProjectOdds,
   BUSINESS_LEVEL_REPUTATION_REQUIREMENTS, getAllBusinessLocationTemplates, getScaledLocationCosts, canStartBusinessExpansion,
   getBusinessHealthScore, BUSINESS_STRATEGIES, BUSINESS_DELEGATION_POLICIES,
-  getPlayerOwnershipPct,
+  getBusinessDecisionChoiceCost, getPlayerOwnershipPct,
 } from '../../src/engine/businessEngine';
 import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
@@ -533,11 +533,7 @@ export default function BusinessDetailScreen() {
               </View>
             </View>
             {(pendingDecision.choices ?? []).map((choice) => {
-              const scaledCost = Math.round(
-                choice.cashCostScale === 'absolute'
-                  ? (choice.businessCashCost ?? 0)
-                  : (choice.businessCashCost ?? 0) * inflationMultiplier
-              );
+              const scaledCost = getBusinessDecisionChoiceCost(choice, inflationMultiplier);
               const affordable = (biz.balance ?? 0) >= scaledCost;
               return (
                 <Pressable
