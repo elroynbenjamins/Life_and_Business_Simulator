@@ -28,6 +28,7 @@ import {
   tickBusinessGovernance,
 } from './businessGovernanceEngine';
 import {
+  CORPORATE_WORKFORCE_UNLOCK_VALUATION,
   createCorporateWorkforce,
   tickCorporateWorkforce,
 } from './businessWorkforceEngine';
@@ -1093,8 +1094,6 @@ export function processBusinessWeek(
     }
     acquisition.referenceStaffCost ??=
       (biz.employees ?? []).reduce((sum, employee) => sum + employee.weeklySalary, 0)
-      + (biz.familyRoles ?? []).reduce((sum, role) => sum + (role.weeklySalary ?? 0), 0)
-      + governanceEffects.executiveWeeklySalary
       + workforceTick.weeklyPayroll;
     acquisition.workforceBaselineVersion ??= 1;
     acquisition.referenceExpenseMultiplier ??= buffAgg.expenseMult;
@@ -1750,7 +1749,7 @@ export function processBusinessWeek(
     totalPlayerDistributions: (biz.totalPlayerDistributions ?? 0) + playerDividend,
   };
   updatedBusiness.valuation = calculateValuation(updatedBusiness);
-  if (!updatedBusiness.corporateWorkforce && updatedBusiness.valuation >= 25_000_000) {
+  if (!updatedBusiness.corporateWorkforce && updatedBusiness.valuation >= CORPORATE_WORKFORCE_UNLOCK_VALUATION) {
     updatedBusiness.corporateWorkforce = createCorporateWorkforce(
       updatedBusiness,
       globalWeek,
