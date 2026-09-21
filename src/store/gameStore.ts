@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessReinvestmentArea, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -55,6 +55,12 @@ import {
   getProjectFinanceQuote,
   getRevolverDrawQuote,
 } from '../engine/corporateFinanceEngine';
+import {
+  BUSINESS_REINVESTMENT_AREAS,
+  canStartBusinessReinvestment,
+  getBusinessReinvestmentCost,
+  normalizeBusinessReinvestmentState,
+} from '../engine/businessReinvestmentEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
@@ -229,6 +235,7 @@ interface GameStore extends GameState {
   applyMoraleActionToBusiness: (businessId: string, actionId: string) => void;
   startEmployeeTraining: (businessId: string, employeeId: string, trainingId: string) => void;
   startBusinessProject: (businessId: string, projectId: string) => void;
+  startBusinessReinvestment: (businessId: string, area: BusinessReinvestmentArea) => void;
   startCorporateCapex: (businessId: string, projectId: string, financingMode?: 'cash' | 'project_finance') => void;
   drawCorporateRevolver: (businessId: string, amount: number) => void;
   issueCorporateBond: (businessId: string, amount: number) => void;
@@ -341,6 +348,11 @@ const useGameStore = create<GameStore>((set, get) => ({
           portfolioIntent: business.portfolioIntent ?? 'active',
           activeCorporateCapex: business.activeCorporateCapex ?? null,
           completedCorporateCapex: business.completedCorporateCapex ?? [],
+          reinvestment: normalizeBusinessReinvestmentState(
+            business.reinvestment,
+            (((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1),
+          ),
+          activeReinvestment: business.activeReinvestment ?? null,
           capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           delegationPolicy: business.delegationPolicy ?? 'manual',
@@ -534,6 +546,11 @@ const useGameStore = create<GameStore>((set, get) => ({
           portfolioIntent: business.portfolioIntent ?? 'active',
           activeCorporateCapex: business.activeCorporateCapex ?? null,
           completedCorporateCapex: business.completedCorporateCapex ?? [],
+          reinvestment: normalizeBusinessReinvestmentState(
+            business.reinvestment,
+            (((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1),
+          ),
+          activeReinvestment: business.activeReinvestment ?? null,
           capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           delegationPolicy: business.delegationPolicy ?? 'manual',
@@ -3779,6 +3796,48 @@ const useGameStore = create<GameStore>((set, get) => ({
     if ((updatedBiz.balance ?? 0) < result.cost) return;
     updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
     businesses[idx] = updatedBiz;
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  startBusinessReinvestment: (businessId: string, area: BusinessReinvestmentArea) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const businesses = [...(state.businesses ?? [])];
+    const index = businesses.findIndex((business) => business.id === businessId);
+    if (index < 0) return;
+    const business = businesses[index];
+    const definition = BUSINESS_REINVESTMENT_AREAS[area];
+    const eligibility = canStartBusinessReinvestment(business, area);
+    if (!definition || !eligibility.allowed) return;
+    const cost = getBusinessReinvestmentCost(business, area, state.inflationMultiplier ?? 1);
+    if ((business.balance ?? 0) < cost) return;
+
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const updated = {
+      ...business,
+      balance: Math.max(0, (business.balance ?? 0) - cost),
+      activeReinvestment: {
+        area,
+        projectName: definition.name,
+        costPaid: cost,
+        startedGlobalWeek: globalWeek,
+        weeksRemaining: definition.weeks,
+        totalWeeks: definition.weeks,
+      },
+      timeline: [
+        ...(business.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: definition.icon + ' Started required reinvestment: ' + definition.name,
+          icon: definition.icon,
+          kind: 'event' as const,
+        },
+      ].slice(-50),
+    };
+    updated.valuation = calculateValuation(updated);
+    businesses[index] = updated;
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
