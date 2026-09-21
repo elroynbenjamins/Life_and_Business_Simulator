@@ -9,7 +9,7 @@ import {
   OwnedBusiness,
 } from '../types/game';
 import businessTypesData from '../data/business_types.json';
-import { aggregateEmployeeBuffs, candidateToEmployee, createBusiness, generateCandidates, getBusinessType, getBusinessRevenueCapacity } from './businessEngine';
+import { aggregateEmployeeBuffs, candidateToEmployee, createBusiness, generateCandidates, getAllBusinessLocationTemplates, getBusinessType, getBusinessRevenueCapacity, getScaledLocationCosts } from './businessEngine';
 
 export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
@@ -207,7 +207,9 @@ export function generateAcquisitionTargets(
     const weeklyRevenue = Math.round(weeklyProfit / margin);
     const diligenceScore = Math.round(randomBetween(50, 94));
     const risk = riskFromDiligence(diligenceScore);
-    const premium = randomBetween(0.91, 1.16);
+    // Established companies should normally command a control premium rather than
+    // spawning as instant below-fair-value arbitrage opportunities.
+    const premium = randomBetween(1.10, 1.30);
     const askingPrice = Math.round(estimatedValue * premium);
     const prefix = COMPANY_PREFIXES[Math.floor(Math.random() * COMPANY_PREFIXES.length)];
     const suffix = COMPANY_SUFFIXES[Math.floor(Math.random() * COMPANY_SUFFIXES.length)];
@@ -278,8 +280,32 @@ export function createAcquiredBusiness(
 
   const financing = getAcquisitionFinancingQuote(purchasePrice, fundingMode, loanRateReduction);
   const employees = createAcquisitionEmployees(target, state.inflationMultiplier);
-  const upgradeCount = target.tier === 'enterprise' ? 4 : target.tier === 'national' ? 3 : 2;
-  const purchasedUpgrades = (type.upgrades ?? []).slice(0, upgradeCount);
+  const level = target.tier === 'enterprise' ? 7 : target.tier === 'national' ? 6 : 5;
+  const currentGlobalWeek = ((state.year - 1) * 20) + state.week;
+
+  // Acquisitions represent mature operating companies, not fresh startups.
+  // Carry in every upgrade already available to the business type and every
+  // expansion its current level/reputation supports. This prevents cheap
+  // startup-priced improvements from multiplying an acquisition-scale revenue base.
+  const purchasedUpgrades = [...new Set(type.upgrades ?? [])];
+  const locations = getAllBusinessLocationTemplates()
+    .filter((template) =>
+      level >= (template.requiredLevel ?? 0)
+      && target.reputation >= (template.requiredReputation ?? 0)
+    )
+    .map((template, index) => {
+      const scaledCosts = getScaledLocationCosts(base, template.id, state.inflationMultiplier);
+      return {
+        id: `acq_location_${target.id}_${template.id}`,
+        templateId: template.id,
+        name: template.name,
+        region: template.region,
+        revenueBoost: template.revenueBoost ?? 0,
+        weeklyOperatingCost: scaledCosts?.weeklyOperatingCost ?? template.weeklyOperatingCost ?? 0,
+        openedWeek: Math.max(1, currentGlobalWeek - ((index + 1) * 10)),
+      };
+    });
+
   const profitHistory = Array.from({ length: 20 }, () =>
     Math.max(0, Math.round(target.weeklyProfit * randomBetween(0.82, 1.18)))
   );
@@ -289,7 +315,6 @@ export function createAcquiredBusiness(
   const baseWeeklyRevenue = Math.max(1, (type.baseWeeklyRevenue ?? 1) * Math.max(0.5, state.inflationMultiplier) * 1.121);
   const operatingScaleMultiplier = clamp(target.weeklyRevenue / (baseWeeklyRevenue * 2.25), 1, 1000);
   const businessBalance = Math.round(Math.min(7_500_000, target.estimatedValue * 0.025));
-  const currentGlobalWeek = ((state.year - 1) * 20) + state.week;
   const acquisitionLoan = financing.debtPrincipal > 0
     ? [{
         id: `acquisition_${currentGlobalWeek}_${Math.random().toString(36).slice(2, 7)}`,
@@ -311,10 +336,13 @@ export function createAcquiredBusiness(
     lastWeekExpenses: Math.max(0, target.weeklyRevenue - target.weeklyProfit),
     lastWeekProfit: target.weeklyProfit,
     reputation: target.reputation,
-    level: target.tier === 'enterprise' ? 7 : target.tier === 'national' ? 6 : 5,
+    level,
     valuation: target.estimatedValue,
     employees,
     purchasedUpgrades,
+    activeUpgrade: null,
+    locations,
+    activeExpansion: null,
     businessLoans: acquisitionLoan,
     weeklyProfitHistory: profitHistory,
     weeklyRevenueHistory: revenueHistory,
