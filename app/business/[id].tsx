@@ -79,7 +79,7 @@ export default function BusinessDetailScreen() {
   const gameYear = useGameStore((s) => s.year ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
-    sellBusiness, designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, resolveBusinessDecision,
+    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, resolveBusinessDecision,
     setAcquisitionIntegrationStrategy,
     appointChildToBusiness, transferBusinessShares, buyBackInvestorShares, investFamilyTrustCashInBusiness,
     openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
@@ -88,7 +88,6 @@ export default function BusinessDetailScreen() {
     injectCashIntoBusiness, withdrawFromBusiness,
     applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, resolveBusinessRetention,
   } = useGameStore(useShallow((s) => ({
-    sellBusiness: s.sellBusiness,
     designateFamilyBusiness: s.designateFamilyBusiness,
     toggleLongTermFamilyAsset: s.toggleLongTermFamilyAsset,
     setBusinessStrategicFocus: s.setBusinessStrategicFocus,
@@ -222,28 +221,7 @@ export default function BusinessDetailScreen() {
       );
       return;
     }
-    const doSell = () => {
-      sellBusiness(biz.id);
-      router.replace('/tabs');
-    };
-    const destination = biz.holdingCompanyId ? 'the holding company reserve' : 'personal cash';
-    confirmAction(
-      'Sell Business',
-      `Sell ${biz.name}? Gross value ${formatCurrency(biz.valuation ?? 0)}, debt settlement ${formatCurrency(totalBusinessDebt)}, net proceeds ${formatCurrency(netSaleProceeds)} to ${destination}.`,
-      doSell
-    );
-  };
-
-  const handleTransfer = () => {
-    const amt = parseInt(transferAmount, 10);
-    if (isNaN(amt) || amt <= 0) return;
-    if (showTransferModal === 'inject') {
-      injectCashIntoBusiness(biz.id, amt);
-    } else {
-      withdrawFromBusiness(biz.id, amt);
-    }
-    setShowTransferModal(null);
-    setTransferAmount('');
+    router.push({ pathname: '/business/sell', params: { id: biz.id } });
   };
 
   return (
