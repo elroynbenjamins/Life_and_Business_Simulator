@@ -319,7 +319,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             purpose: loan.purpose ?? 'operating',
           })),
           portfolioIntent: business.portfolioIntent ?? 'active',
-          initialCapitalInvested: business.initialCapitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? null) : null),
+          capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? null) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           acquisition: business.acquisition
             ? {
@@ -484,7 +484,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             purpose: loan.purpose ?? 'operating',
           })),
           portfolioIntent: business.portfolioIntent ?? 'active',
-          initialCapitalInvested: business.initialCapitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? null) : null),
+          capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? null) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           acquisition: business.acquisition
             ? {
@@ -2721,7 +2721,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         percent: 100,
         votingPercent: 100,
       }],
-      initialCapitalInvested: cost,
+      capitalInvested: cost,
       totalPlayerDistributions: 0,
     };
     const updates = {
