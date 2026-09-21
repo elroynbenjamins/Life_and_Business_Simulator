@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, CorporateDepartmentId, CorporateCompensationPolicy, CorporateTrainingPolicy, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, BusinessManagementTargetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, FamilyWorkArrangement, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, CorporateDepartmentId, CorporateCompensationPolicy, CorporateTrainingPolicy, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, BusinessManagementTargetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -190,6 +190,7 @@ interface GameStore extends GameState {
   proposeToPartner: (ring: 'simple' | 'classic' | 'luxury') => void;
   marryPartner: (wedding: 'courthouse' | 'standard' | 'luxury', agreement: MarriageAgreement) => void;
   setFamilyPlan: (plan: Exclude<FamilyPlan, 'not_discussed'>) => void;
+  setFamilyWorkArrangement: (arrangement: FamilyWorkArrangement) => void;
   reduceFamilySpending: () => void;
   fundChildEducation: (childId: string, amount: number) => void;
   spendTimeWithChild: (childId: string) => void;
@@ -1814,6 +1815,47 @@ const useGameStore = create<GameStore>((set, get) => ({
         : { title: 'Family Plans', message: partner.familyGoal === 'no_children' ? `${partner.name} does not want children.` : `It did not work out this time. You can try again later.${planningNote}`, positive: false })
       : { title: 'Family Plans', message: 'You discussed what you both want for the future.', positive: relationshipDelta >= 0 };
     set({ ...updates, relationshipFeedback: familyFeedback });
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  setFamilyWorkArrangement: (arrangement) => {
+    if (!get().relationshipModeEnabled) return;
+    const state = get();
+    const children = state.relationshipState?.children ?? [];
+    const hasYoungChild = children.some((child) => {
+      const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+      return Math.max(0, Math.floor((gw - (child.birthGlobalWeek ?? gw)) / 20)) < 6;
+    });
+    const partner = (state.relationshipState?.activeConnections ?? []).find(
+      (item) => item.id === state.relationshipState?.partnerId,
+    );
+    const sharedHousehold = !!partner
+      && (partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married');
+    if (!hasYoungChild || !sharedHousehold) return;
+
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const relationshipState = {
+      ...state.relationshipState,
+      familyWorkArrangement: arrangement,
+      familyWorkArrangementChangedWeek: gw,
+      timeline: [
+        ...(state.relationshipState?.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: 'Family work arrangement: ' + arrangement.replace(/_/g, ' '),
+        },
+      ],
+    };
+    const updates = { relationshipState };
+    set({
+      ...updates,
+      relationshipFeedback: {
+        title: 'Family Work Schedule',
+        message: 'Your household work schedule has been updated. Salaries and young-child care costs will adjust from the next weekly settlement.',
+        positive: true,
+      },
+    });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
