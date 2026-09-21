@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessReinvestmentArea, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -61,6 +61,10 @@ import {
   getBusinessReinvestmentCost,
   normalizeBusinessReinvestmentState,
 } from '../engine/businessReinvestmentEngine';
+import {
+  normalizeBusinessInsurancePolicies,
+  resolveBusinessInsuranceLoss,
+} from '../engine/businessInsuranceEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
@@ -236,6 +240,7 @@ interface GameStore extends GameState {
   startEmployeeTraining: (businessId: string, employeeId: string, trainingId: string) => void;
   startBusinessProject: (businessId: string, projectId: string) => void;
   startBusinessReinvestment: (businessId: string, area: BusinessReinvestmentArea) => void;
+  setBusinessInsurancePolicy: (businessId: string, area: BusinessInsuranceArea, tier: BusinessInsuranceTier) => void;
   startCorporateCapex: (businessId: string, projectId: string, financingMode?: 'cash' | 'project_finance') => void;
   drawCorporateRevolver: (businessId: string, amount: number) => void;
   issueCorporateBond: (businessId: string, amount: number) => void;
@@ -353,6 +358,8 @@ const useGameStore = create<GameStore>((set, get) => ({
             (((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1),
           ),
           activeReinvestment: business.activeReinvestment ?? null,
+          insurancePolicies: normalizeBusinessInsurancePolicies(business.insurancePolicies),
+          insuranceClaims: business.insuranceClaims ?? [],
           capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           delegationPolicy: business.delegationPolicy ?? 'manual',
@@ -551,6 +558,8 @@ const useGameStore = create<GameStore>((set, get) => ({
             (((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1),
           ),
           activeReinvestment: business.activeReinvestment ?? null,
+          insurancePolicies: normalizeBusinessInsurancePolicies(business.insurancePolicies),
+          insuranceClaims: business.insuranceClaims ?? [],
           capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           delegationPolicy: business.delegationPolicy ?? 'manual',
@@ -3300,7 +3309,20 @@ const useGameStore = create<GameStore>((set, get) => ({
     const decision = business?.pendingDecision;
     const choice = decision?.choices?.find((item) => item.id === choiceId);
     if (!business || !decision || !choice) return;
-    const cost = getBusinessDecisionChoiceCost(choice, state.inflationMultiplier ?? 1);
+
+    const grossCost = getBusinessDecisionChoiceCost(choice, state.inflationMultiplier ?? 1);
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const insuranceResult = decision.insuranceArea && grossCost > 0
+      ? resolveBusinessInsuranceLoss(
+          business,
+          decision.insuranceArea,
+          decision.insuranceTierAtCreation ?? 'none',
+          grossCost,
+          decision.title,
+          globalWeek,
+        )
+      : { netLoss: grossCost, payout: 0, deductible: grossCost, claim: null };
+    const cost = insuranceResult.netLoss;
     if ((business.balance ?? 0) < cost) return;
 
     const modifier = (choice.durationWeeks ?? 0) > 1
@@ -3319,6 +3341,15 @@ const useGameStore = create<GameStore>((set, get) => ({
       ...employee,
       morale: Math.max(10, Math.min(100, (employee.morale ?? 50) + (choice.moraleDelta ?? 0))),
     }));
+    const claimTimeline = insuranceResult.claim
+      ? [{
+          week: state.week,
+          year: state.year,
+          title: `🛡️ Insurance claim paid ${formatCurrencySafe(insuranceResult.payout)} on ${decision.title}`,
+          icon: '🛡️',
+          kind: 'event' as const,
+        }]
+      : [];
     const updated = {
       ...business,
       balance: (business.balance ?? 0) - cost,
@@ -3326,9 +3357,13 @@ const useGameStore = create<GameStore>((set, get) => ({
       marketShareModifier: Math.max(-30, Math.min(30, (business.marketShareModifier ?? 0) + (choice.marketShareDelta ?? 0))),
       employees,
       strategyModifiers: modifier ? [...(business.strategyModifiers ?? []), modifier] : (business.strategyModifiers ?? []),
+      insuranceClaims: insuranceResult.claim
+        ? [insuranceResult.claim, ...(business.insuranceClaims ?? [])].slice(0, 40)
+        : (business.insuranceClaims ?? []),
       pendingDecision: null,
       timeline: [
         ...(business.timeline ?? []),
+        ...claimTimeline,
         { week: state.week, year: state.year, title: `${decision.kind === 'crisis' ? '⚠️' : '🧭'} ${decision.title}: ${choice.text}`, icon: decision.icon, kind: 'event' as const },
       ].slice(-50),
     };
@@ -3796,6 +3831,31 @@ const useGameStore = create<GameStore>((set, get) => ({
     if ((updatedBiz.balance ?? 0) < result.cost) return;
     updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
     businesses[idx] = updatedBiz;
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  setBusinessInsurancePolicy: (businessId: string, area: BusinessInsuranceArea, tier: BusinessInsuranceTier) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const businesses = (state.businesses ?? []).map((business) => {
+      if (business.id !== businessId) return business;
+      const policies = normalizeBusinessInsurancePolicies(business.insurancePolicies);
+      return {
+        ...business,
+        insurancePolicies: { ...policies, [area]: tier },
+        timeline: [
+          ...(business.timeline ?? []),
+          {
+            week: state.week,
+            year: state.year,
+            title: '🛡️ ' + area + ' insurance changed to ' + tier,
+            icon: '🛡️',
+            kind: 'event' as const,
+          },
+        ].slice(-50),
+      };
+    });
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
