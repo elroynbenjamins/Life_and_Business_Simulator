@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, CorporateDepartmentId, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, CorporateDepartmentId, CorporateCompensationPolicy, CorporateTrainingPolicy, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -80,8 +80,11 @@ import {
   hireExecutiveCandidate as buildExecutiveHire,
 } from '../engine/businessGovernanceEngine';
 import {
+  applyCorporateHrDecisionChoice,
+  getCorporateHrPolicyCooldownWeeks,
   normalizeCorporateWorkforce,
   setCorporateDepartmentTarget as buildCorporateDepartmentTarget,
+  setCorporateHrPolicy,
 } from '../engine/businessWorkforceEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
@@ -252,6 +255,8 @@ interface GameStore extends GameState {
   dismissBusinessExecutive: (businessId: string, executiveId: string) => void;
   setBusinessBoardMandate: (businessId: string, mandate: BusinessBoardMandate) => void;
   setCorporateDepartmentTarget: (businessId: string, departmentId: CorporateDepartmentId, targetHeadcount: number) => void;
+  setCorporateCompensationPolicy: (businessId: string, policy: CorporateCompensationPolicy) => void;
+  setCorporateTrainingPolicy: (businessId: string, policy: CorporateTrainingPolicy) => void;
   resolveBusinessDecision: (businessId: string, choiceId: string) => void;
   appointChildToBusiness: (businessId: string, childId: string, role: BusinessGovernanceRole) => void;
   transferBusinessShares: (businessId: string, targetType: 'child' | 'family_trust' | 'investor', targetId: string | null, percent: number) => void;
@@ -3585,6 +3590,80 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
+  setCorporateCompensationPolicy: (businessId, policy) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business?.corporateWorkforce) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if (getCorporateHrPolicyCooldownWeeks(business, globalWeek) > 0) return;
+    const workforce = setCorporateHrPolicy(
+      business,
+      'compensation',
+      policy,
+      globalWeek,
+      state.inflationMultiplier ?? 1,
+    );
+    if (!workforce) return;
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            corporateWorkforce: workforce,
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: '💶 Compensation policy: ' + policy,
+                icon: '💶',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  setCorporateTrainingPolicy: (businessId, policy) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business?.corporateWorkforce) return;
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    if (getCorporateHrPolicyCooldownWeeks(business, globalWeek) > 0) return;
+    const workforce = setCorporateHrPolicy(
+      business,
+      'training',
+      policy,
+      globalWeek,
+      state.inflationMultiplier ?? 1,
+    );
+    if (!workforce) return;
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            corporateWorkforce: workforce,
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: '🎓 Training policy: ' + policy,
+                icon: '🎓',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
   resolveBusinessDecision: (businessId, choiceId) => {
     const state = get();
     if (state.lifecycle?.isDead) return;
@@ -3633,9 +3712,25 @@ const useGameStore = create<GameStore>((set, get) => ({
           kind: 'event' as const,
         }]
       : [];
+    const nextCorporateWorkforce = business.corporateWorkforce
+      && (
+        choice.workforceCompensationPolicy
+        || choice.workforceTrainingPolicy
+        || choice.workforceRelationsDelta
+        || choice.workforceTargetMultiplier
+      )
+      ? applyCorporateHrDecisionChoice(
+          business,
+          business.corporateWorkforce,
+          choice,
+          globalWeek,
+          state.inflationMultiplier ?? 1,
+        )
+      : business.corporateWorkforce ?? null;
     const updated = {
       ...business,
       balance: (business.balance ?? 0) - cost,
+      corporateWorkforce: nextCorporateWorkforce,
       reputation: Math.max(0, Math.min(100, (business.reputation ?? 0) + (choice.reputationDelta ?? 0))),
       marketShareModifier: Math.max(-30, Math.min(30, (business.marketShareModifier ?? 0) + (choice.marketShareDelta ?? 0))),
       employees,
