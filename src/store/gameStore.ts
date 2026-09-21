@@ -372,6 +372,7 @@ const useGameStore = create<GameStore>((set, get) => ({
               ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 20),
           })),
           pendingExecutiveSearch: business.pendingExecutiveSearch ?? null,
+          executiveSearchCooldowns: business.executiveSearchCooldowns ?? {},
           boardGovernance: business.boardGovernance
             ? {
                 ...business.boardGovernance,
@@ -592,6 +593,7 @@ const useGameStore = create<GameStore>((set, get) => ({
               ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 20),
           })),
           pendingExecutiveSearch: business.pendingExecutiveSearch ?? null,
+          executiveSearchCooldowns: business.executiveSearchCooldowns ?? {},
           boardGovernance: business.boardGovernance
             ? {
                 ...business.boardGovernance,
@@ -3395,10 +3397,21 @@ const useGameStore = create<GameStore>((set, get) => ({
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business || !getExecutiveRoleEligibility(business, role).allowed) return;
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const lastSearchWeek = business.executiveSearchCooldowns?.[role] ?? -100;
+    if (globalWeek - lastSearchWeek < 10) return;
     const search = generateExecutiveSearch(business, role, globalWeek);
     if (!search) return;
     const businesses = (state.businesses ?? []).map((item) =>
-      item.id === businessId ? { ...item, pendingExecutiveSearch: search } : item
+      item.id === businessId
+        ? {
+            ...item,
+            pendingExecutiveSearch: search,
+            executiveSearchCooldowns: {
+              ...(item.executiveSearchCooldowns ?? {}),
+              [role]: globalWeek,
+            },
+          }
+        : item
     );
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
