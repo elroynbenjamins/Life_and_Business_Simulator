@@ -21,7 +21,7 @@ import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { businessTypeImages, employeeRoleImages } from '../../src/assets/progressionImages';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
-import { AcquisitionIntegrationStrategy, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus } from '../../src/types/game';
+import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutiveRole, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus } from '../../src/types/game';
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
@@ -64,6 +64,13 @@ import {
   normalizeBusinessBudgetPlan,
   normalizeBusinessBudgetReserves,
 } from '../../src/engine/businessBudgetEngine';
+import {
+  BOARD_GOVERNANCE_UNLOCK_VALUATION,
+  BUSINESS_BOARD_MANDATES,
+  BUSINESS_EXECUTIVE_ROLES,
+  getBusinessGovernanceEffects,
+  getExecutiveRoleEligibility,
+} from '../../src/engine/businessGovernanceEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -122,7 +129,9 @@ export default function BusinessDetailScreen() {
   const gameYear = useGameStore((s) => s.year ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
-    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessBudgetProfile, resolveBusinessDecision,
+    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessBudgetProfile,
+    openExecutiveSearch, hireExecutiveCandidate, cancelExecutiveSearch, dismissBusinessExecutive, setBusinessBoardMandate,
+    resolveBusinessDecision,
     setAcquisitionIntegrationStrategy,
     appointChildToBusiness, transferBusinessShares, buyBackInvestorShares, investFamilyTrustCashInBusiness,
     openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
@@ -136,6 +145,11 @@ export default function BusinessDetailScreen() {
     toggleLongTermFamilyAsset: s.toggleLongTermFamilyAsset,
     setBusinessStrategicFocus: s.setBusinessStrategicFocus,
     setBusinessBudgetProfile: s.setBusinessBudgetProfile,
+    openExecutiveSearch: s.openExecutiveSearch,
+    hireExecutiveCandidate: s.hireExecutiveCandidate,
+    cancelExecutiveSearch: s.cancelExecutiveSearch,
+    dismissBusinessExecutive: s.dismissBusinessExecutive,
+    setBusinessBoardMandate: s.setBusinessBoardMandate,
     resolveBusinessDecision: s.resolveBusinessDecision,
     setAcquisitionIntegrationStrategy: s.setAcquisitionIntegrationStrategy,
     appointChildToBusiness: s.appointChildToBusiness,
@@ -238,6 +252,10 @@ export default function BusinessDetailScreen() {
   const budgetReserves = normalizeBusinessBudgetReserves(biz.budgetReserves);
   const budgetTargets = getBusinessBudgetReserveTargets(biz, biz.lastWeekExpenses ?? 0, inflationMultiplier);
   const budgetReviewDue = isBusinessBudgetReviewDue(biz, gameYear);
+  const governanceEffects = getBusinessGovernanceEffects(biz);
+  const boardMandateCooldown = biz.boardGovernance
+    ? Math.max(0, 10 - (globalGameWeek - (biz.boardGovernance.lastMandateChangeGlobalWeek ?? 0)))
+    : 0;
   const decisionWeeksLeft = pendingDecision
     ? Math.max(0, (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4) - globalGameWeek)
     : 0;
