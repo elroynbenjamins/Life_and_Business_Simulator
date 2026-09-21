@@ -230,9 +230,8 @@ describe('corporate management reporting', () => {
     expect(report.varianceDrivers.map((driver) => driver.id)).toEqual(expect.arrayContaining([
       'productivity-change',
       'headcount-change',
+      'payroll-change',
       'maintenance-change',
-      'morale-change',
-      'reputation-change',
     ]));
     expect(report.varianceDrivers[0].direction).toBe('negative');
     expect(report.varianceDrivers).toHaveLength(4);
