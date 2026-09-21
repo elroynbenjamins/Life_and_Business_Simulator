@@ -1,5 +1,14 @@
 import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany } from '../types/game';
 import { getHoldingSharedServiceEffects } from './holdingCompanyEngine';
+import {
+  appendCompletedCorporateCapex,
+  getCorporateCapexBookValue,
+  getCorporateCapexOperatingEffects,
+  getCorporateCapexProject,
+  getCorporateCrisisBaseChance,
+  getCorporateScaleTier,
+  makeCorporateScaleCrisis,
+} from './corporateScaleEngine';
 
 // -----------------------------------------------------------------------------
 // D&D-style tier system for employees
@@ -545,8 +554,9 @@ export function calculateValuation(biz: OwnedBusiness): number {
   const profitMultiple = 2 + (reputation / 100) * 3;
   const twentyWeekProfit = (biz.weeklyProfitHistory ?? []).slice(-20).reduce((total, profit) => total + (profit ?? 0), 0);
   const availableBalance = Math.max(0, biz.balance ?? 0);
-  if (twentyWeekProfit <= 0) return Math.round(availableBalance);
-  return Math.round(availableBalance * 1.5 + twentyWeekProfit * profitMultiple);
+  const corporateAssetValue = getCorporateCapexBookValue(biz);
+  if (twentyWeekProfit <= 0) return Math.round(availableBalance + corporateAssetValue);
+  return Math.round(availableBalance * 1.5 + twentyWeekProfit * profitMultiple + corporateAssetValue);
 }
 
 export function getBusinessMarketStrength(biz: OwnedBusiness): number {
@@ -670,6 +680,8 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     purchasedUpgrades: [],
     locations: [],
     activeExpansion: null,
+    activeCorporateCapex: null,
+    completedCorporateCapex: [],
     businessLoans: [],
     activeEvents: [],
     weeklyProfitHistory: [],
@@ -858,6 +870,11 @@ export function processBusinessWeek(
     eventRevenueMultiplier *= 1 + Math.max(-0.05, Math.min(0.05, acquisition.persistentRevenueModifier ?? 0));
     eventExpenseMultiplier *= 1 + Math.max(-0.05, Math.min(0.05, acquisition.persistentExpenseModifier ?? 0));
   }
+  const corporateCapexEffects = getCorporateCapexOperatingEffects(biz);
+  eventRevenueMultiplier *= 1 + corporateCapexEffects.revenueBonus;
+  eventExpenseMultiplier *= 1 - corporateCapexEffects.expenseReduction;
+  eventRevenueMultiplier *= 1 - corporateCapexEffects.constructionRevenuePenalty;
+  eventExpenseMultiplier *= 1 + corporateCapexEffects.constructionExpensePenalty;
   eventRevenueMultiplier *= 1 + Math.max(0, Math.min(0.05, modifiers.holdingRevenueBonus ?? 0));
   for (const ae of biz.activeEvents ?? []) {
     eventRevenueMultiplier *= ae.revenueMultiplier ?? 1;
@@ -1296,6 +1313,37 @@ export function processBusinessWeek(
     }
   }
 
+  // Long-horizon corporate capex. Only one investment can be under construction.
+  let activeCorporateCapex = biz.activeCorporateCapex ? { ...biz.activeCorporateCapex } : null;
+  let completedCorporateCapex = [...(biz.completedCorporateCapex ?? [])];
+  if (activeCorporateCapex) {
+    if ((activeCorporateCapex.weeksRemaining ?? 0) <= 1) {
+      const completedDefinition = getCorporateCapexProject(activeCorporateCapex.projectId);
+      completedCorporateCapex = appendCompletedCorporateCapex(completedCorporateCapex, {
+        projectId: activeCorporateCapex.projectId,
+        projectName: activeCorporateCapex.projectName,
+        costPaid: activeCorporateCapex.costPaid,
+        completedGlobalWeek: globalWeek,
+      });
+      if (completedDefinition) {
+        newReputation = Math.min(100, newReputation + (completedDefinition.reputationBonus ?? 0));
+      }
+      timelineAdds.push({
+        week: currentWeek,
+        year: currentYear,
+        title: `Corporate investment completed: ${activeCorporateCapex.projectName}`,
+        icon: completedDefinition?.icon ?? '🏢',
+        kind: 'corporate_capex',
+      });
+      activeCorporateCapex = null;
+    } else {
+      activeCorporateCapex = {
+        ...activeCorporateCapex,
+        weeksRemaining: Math.max(0, activeCorporateCapex.weeksRemaining - 1),
+      };
+    }
+  }
+
   // Level-up timeline entry
   if (newLevel > (biz.level ?? 0)) {
     timelineAdds.push({ week: currentWeek, year: currentYear, title: `Reached level ${newLevel + 1}`, icon: '⭐', kind: 'level' });
@@ -1376,11 +1424,20 @@ export function processBusinessWeek(
     pendingDecision = makeStrategicDecision(biz, globalWeek);
     nextStrategicDecisionWeek = globalWeek + 6 + Math.floor(Math.random() * 7);
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextCrisisCheckWeek) {
-    const baseCrisisChance = Math.max(0.10, 0.24 - (biz.reputation ?? 0) * 0.001);
-    const combinedCrisisReduction = 1 - (1 - Math.max(0, Math.min(0.8, modifiers.businessCrisisReduction ?? 0))) * (1 - Math.max(0, Math.min(0.25, modifiers.holdingCrisisReduction ?? 0)));
+    const corporateTier = getCorporateScaleTier(biz);
+    const baseCrisisChance = corporateTier === 'local'
+      ? Math.max(0.10, 0.24 - (biz.reputation ?? 0) * 0.001)
+      : getCorporateCrisisBaseChance(biz);
+    const capexCrisisReduction = getCorporateCapexOperatingEffects(biz).crisisReduction;
+    const combinedCrisisReduction = 1
+      - (1 - Math.max(0, Math.min(0.8, modifiers.businessCrisisReduction ?? 0)))
+      * (1 - Math.max(0, Math.min(0.25, modifiers.holdingCrisisReduction ?? 0)))
+      * (1 - Math.max(0, Math.min(0.12, capexCrisisReduction)));
     const crisisChance = Math.max(0.04, baseCrisisChance * (1 - combinedCrisisReduction));
     if (Math.random() < crisisChance) {
-      pendingDecision = makeBusinessCrisis(biz, globalWeek);
+      pendingDecision = corporateTier === 'local'
+        ? makeBusinessCrisis(biz, globalWeek)
+        : makeCorporateScaleCrisis(biz, globalWeek);
     }
     nextCrisisCheckWeek = globalWeek + 8 + Math.floor(Math.random() * 10);
   }
@@ -1413,6 +1470,8 @@ export function processBusinessWeek(
     timeline,
     activeUpgrade,
     activeExpansion,
+    activeCorporateCapex,
+    completedCorporateCapex,
     locations,
     purchasedUpgrades: [...new Set([
       ...(biz.purchasedUpgrades ?? []),
