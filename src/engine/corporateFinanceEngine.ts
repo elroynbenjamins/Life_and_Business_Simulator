@@ -5,6 +5,7 @@ import {
   OwnedBusiness,
 } from '../types/game';
 import { getCorporateScaleTier } from './corporateScaleEngine';
+import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
 
 export interface CorporateCreditProfile {
   rating: CorporateCreditRating;
@@ -103,7 +104,13 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
         : interestCoverage >= 1 ? 2
           : 0;
 
-  const score = Math.round(clamp(scaleScore + reputationScore + profitabilityScore + leverageScore + coverageScore, 0, 100));
+  const governance = getBusinessGovernanceEffects(business);
+  const governanceScore = Math.round(governance.financingRateReduction * 250);
+  const score = Math.round(clamp(
+    scaleScore + reputationScore + profitabilityScore + leverageScore + coverageScore + governanceScore,
+    0,
+    100,
+  ));
   const rating = ratingFromScore(score);
 
   // Corporate debt is capped at 45% of enterprise value. Lower-rated firms
@@ -156,7 +163,14 @@ function buildDebtQuote(
 ): CorporateFinancingQuote {
   const profile = getCorporateCreditProfile(business);
   const requested = Math.max(0, Math.round(amount));
-  const rate = Math.max(0.03, getCorporateBaseRate(profile.rating) + ratePremium - clamp(loanRateReduction, 0, 0.05));
+  const governance = getBusinessGovernanceEffects(business);
+  const rate = Math.max(
+    0.03,
+    getCorporateBaseRate(profile.rating)
+      + ratePremium
+      - clamp(loanRateReduction, 0, 0.05)
+      - governance.financingRateReduction,
+  );
   const arrangementFee = Math.round(requested * arrangementFeeRate);
   const totalRepayment = Math.round(requested * (1 + rate));
   const weeklyPayment = durationWeeks > 0 ? Math.ceil(totalRepayment / durationWeeks) : 0;
@@ -247,7 +261,14 @@ export function getProjectFinanceQuote(
   const profile = getCorporateCreditProfile(business);
   const debtPrincipal = Math.round(Math.max(0, projectCost) * 0.60);
   const equityContribution = Math.max(0, Math.round(projectCost) - debtPrincipal);
-  const rate = Math.max(0.03, getCorporateBaseRate(profile.rating) + 0.015 - clamp(loanRateReduction, 0, 0.05));
+  const governance = getBusinessGovernanceEffects(business);
+  const rate = Math.max(
+    0.03,
+    getCorporateBaseRate(profile.rating)
+      + 0.015
+      - clamp(loanRateReduction, 0, 0.05)
+      - governance.financingRateReduction,
+  );
   const arrangementFee = Math.round(debtPrincipal * 0.01);
   const durationWeeks = 120;
   const totalRepayment = Math.round(debtPrincipal * (1 + rate));
