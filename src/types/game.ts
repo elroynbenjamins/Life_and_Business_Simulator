@@ -1183,7 +1183,7 @@ export interface OwnedBusiness {
   acquisition?: BusinessAcquisitionState | null;
   portfolioIntent?: BusinessPortfolioIntent;
   /** Equity/founding cash committed by the player or holding company. */
-  initialCapitalInvested?: number | null;
+  capitalInvested?: number | null;
   /** Lifetime distributions paid specifically to the player from this business. */
   totalPlayerDistributions?: number;
 }
