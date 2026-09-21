@@ -334,11 +334,34 @@ describe('business management targets', () => {
     expect(year.revenueChangePct).toBeCloseTo(0.30, 4);
   });
 
+  test('Q4 closes into the old year before Year 2 Q1 begins', () => {
+    let business = makeCorporateBusiness();
+    business.corporateKpiHistory = [
+      ...Array.from({ length: 5 }, (_, index) => point(11 + index)),
+      ...Array.from({ length: 5 }, (_, index) => point(16 + index, {
+        revenue: 1_250_000,
+        profit: 300_000,
+        debtBalance: 9_500_000 - index * 100_000,
+      })),
+    ];
+    business.managementTargets = ensureBusinessManagementTargetPlan(business, 16, 'balanced');
+
+    business = closeCompletedBusinessManagementQuarter(business, 21);
+    const nextPlan = ensureBusinessManagementTargetPlan(business, 21)!;
+
+    expect(business.managementReviewHistory).toHaveLength(1);
+    expect(business.managementReviewHistory?.[0].year).toBe(1);
+    expect(business.managementReviewHistory?.[0].quarter).toBe(4);
+    expect(nextPlan.year).toBe(2);
+    expect(nextPlan.quarter).toBe(1);
+    expect(nextPlan.periodStartGlobalWeek).toBe(21);
+  });
+
   test('history retention keeps the latest five game years', () => {
     let business = makeCorporateBusiness();
     business.managementReviewHistory = Array.from({ length: 5 }, (_, yearIndex) =>
       [1, 2, 3, 4].map((quarter) => quarterReview(yearIndex + 1, quarter))
-    ).flat();
+    ).reduce((all, reviews) => all.concat(reviews), [] as BusinessManagementQuarterReview[]);
     business.corporateKpiHistory = [
       ...Array.from({ length: 5 }, (_, index) => point(96 + index)),
       ...Array.from({ length: 5 }, (_, index) => point(101 + index, {
