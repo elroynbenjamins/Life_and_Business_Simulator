@@ -163,6 +163,7 @@ export function buildSoldBusinessRecord(
     lifetimeReturnPct: quote.lifetimeReturnPct,
     wasAcquisition: Boolean(business.acquisition),
     acquisitionPurchasePrice: business.acquisition?.purchasePrice ?? null,
+    acquisitionTransactionCost: business.acquisition?.acquisitionTransactionCost ?? null,
     holdingCompanyName,
   };
 }
