@@ -3061,6 +3061,61 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, businesses, holdingCompanies }), state.activeSlot);
   },
 
+  setBusinessDelegation: (businessId, policy, managerEmployeeId = null) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business || !business.holdingCompanyId) return;
+
+    if (policy === 'manual') {
+      const businesses = (state.businesses ?? []).map((item) =>
+        item.id === businessId
+          ? {
+              ...item,
+              delegationPolicy: 'manual' as const,
+              delegatedManagerEmployeeId: null,
+              delegatedManagerName: null,
+              lastDelegationSummary: 'Routine management returned to manual control.',
+            }
+          : item
+      );
+      set({ businesses });
+      saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+      return;
+    }
+
+    const manager = (business.employees ?? []).find((employee) =>
+      employee.id === managerEmployeeId
+      && (employee.roleId === 'manager' || employee.roleId === 'supervisor')
+    );
+    if (!manager) return;
+
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            delegationPolicy: policy,
+            delegatedManagerEmployeeId: manager.id,
+            delegatedManagerName: manager.name,
+            lastDelegationReviewWeek: 0,
+            lastDelegationSummary: manager.name + ' appointed under the ' + policy + ' management policy.',
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: '🧑‍💼 ' + manager.name + ' delegated routine management (' + policy + ')',
+                icon: '🧑‍💼',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
   appointChildToHolding: (holdingCompanyId, childId, role) => {
     const state = get();
     if (state.lifecycle?.isDead) return;
