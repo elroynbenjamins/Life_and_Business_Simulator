@@ -44,6 +44,11 @@ import { AD_CONFIG } from '../services/adConfig';
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
 import { getHoldingSharedServiceUpgradeCost, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
+import {
+  canStartCorporateCapex,
+  getCorporateCapexCost,
+  getCorporateCapexProject,
+} from '../engine/corporateScaleEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
@@ -218,6 +223,7 @@ interface GameStore extends GameState {
   applyMoraleActionToBusiness: (businessId: string, actionId: string) => void;
   startEmployeeTraining: (businessId: string, employeeId: string, trainingId: string) => void;
   startBusinessProject: (businessId: string, projectId: string) => void;
+  startCorporateCapex: (businessId: string, projectId: string) => void;
   resolveBusinessRetention: (businessId: string, choice: 'accept' | 'match_salary' | 'increase_salary' | 'promote' | 'let_go' | 'training' | 'deny') => void;
   setBusinessPricing: (businessId: string, strategy: OwnedBusiness['pricingStrategy']) => void;
   setBusinessAdvertising: (businessId: string, level: OwnedBusiness['advertisingLevel']) => void;
@@ -324,6 +330,8 @@ const useGameStore = create<GameStore>((set, get) => ({
             purpose: loan.purpose ?? 'operating',
           })),
           portfolioIntent: business.portfolioIntent ?? 'active',
+          activeCorporateCapex: business.activeCorporateCapex ?? null,
+          completedCorporateCapex: business.completedCorporateCapex ?? [],
           capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           delegationPolicy: business.delegationPolicy ?? 'manual',
@@ -515,6 +523,8 @@ const useGameStore = create<GameStore>((set, get) => ({
             purpose: loan.purpose ?? 'operating',
           })),
           portfolioIntent: business.portfolioIntent ?? 'active',
+          activeCorporateCapex: business.activeCorporateCapex ?? null,
+          completedCorporateCapex: business.completedCorporateCapex ?? [],
           capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           delegationPolicy: business.delegationPolicy ?? 'manual',
@@ -3264,7 +3274,11 @@ const useGameStore = create<GameStore>((set, get) => ({
     const decision = business?.pendingDecision;
     const choice = decision?.choices?.find((item) => item.id === choiceId);
     if (!business || !decision || !choice) return;
-    const cost = Math.max(0, Math.round((choice.businessCashCost ?? 0) * (state.inflationMultiplier ?? 1)));
+    const cost = Math.max(0, Math.round(
+      choice.cashCostScale === 'absolute'
+        ? (choice.businessCashCost ?? 0)
+        : (choice.businessCashCost ?? 0) * (state.inflationMultiplier ?? 1)
+    ));
     if ((business.balance ?? 0) < cost) return;
 
     const modifier = (choice.durationWeeks ?? 0) > 1
@@ -3760,6 +3774,49 @@ const useGameStore = create<GameStore>((set, get) => ({
     if ((updatedBiz.balance ?? 0) < result.cost) return;
     updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
     businesses[idx] = updatedBiz;
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  startCorporateCapex: (businessId: string, projectId: string) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const businesses = [...(state.businesses ?? [])];
+    const index = businesses.findIndex((business) => business.id === businessId);
+    if (index < 0) return;
+    const business = businesses[index];
+    const project = getCorporateCapexProject(projectId);
+    if (!project) return;
+    const eligibility = canStartCorporateCapex(business, project);
+    if (!eligibility.allowed) return;
+    const cost = getCorporateCapexCost(project, state.inflationMultiplier ?? 1);
+    if ((business.balance ?? 0) < cost) return;
+
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const updated = {
+      ...business,
+      balance: Math.max(0, (business.balance ?? 0) - cost),
+      activeCorporateCapex: {
+        projectId: project.id,
+        projectName: project.name,
+        costPaid: cost,
+        startedGlobalWeek: globalWeek,
+        weeksRemaining: project.weeks,
+        totalWeeks: project.weeks,
+      },
+      timeline: [
+        ...(business.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: project.icon + ' Started corporate investment: ' + project.name,
+          icon: project.icon,
+          kind: 'corporate_capex' as const,
+        },
+      ].slice(-50),
+    };
+    updated.valuation = calculateValuation(updated);
+    businesses[index] = updated;
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
