@@ -1042,7 +1042,7 @@ export function processBusinessWeek(
   }
   const corporateCapexEffects = getCorporateCapexOperatingEffects(biz);
   const reinvestmentEffects = getBusinessReinvestmentEffects(workforceBiz);
-  const governanceEffects = getBusinessGovernanceEffects(biz);
+  const governanceEffects = getBusinessGovernanceEffects(workforceBiz);
   const workforceEffects = workforceTick.effects;
   eventRevenueMultiplier *= 1 + corporateCapexEffects.revenueBonus;
   eventRevenueMultiplier *= 1 + governanceEffects.revenueBonus;
@@ -1153,7 +1153,7 @@ export function processBusinessWeek(
   let cogs = Math.round(Math.max(baseExp * 0.45, revenue * 0.17) * eventExpenseMultiplier * buffAgg.expenseMult);
   // Utilities/maintenance/misc scale moderately, insurance is mostly fixed
   let utilities = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
-  const explicitInsurancePremium = getBusinessInsuranceTotalWeeklyPremium(biz, globalWeek);
+  const explicitInsurancePremium = getBusinessInsuranceTotalWeeklyPremium(workforceBiz, globalWeek);
   let baseInsurance = Math.round(baseExp * 0.10 * (0.8 + 0.2 * variableScale) * eventExpenseMultiplier * buffAgg.expenseMult);
   let insurance = baseInsurance + explicitInsurancePremium;
   let maintenance = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
@@ -1606,7 +1606,7 @@ export function processBusinessWeek(
     performance: Math.max(0, Math.min(100, (role.performance ?? 50) + ((role.performance ?? 50) >= 50 ? 0.05 : -0.02))),
   }));
   const governanceTick = tickBusinessGovernance(
-    biz,
+    workforceBiz,
     revenue,
     profit,
     currentWeek,
