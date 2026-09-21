@@ -942,6 +942,9 @@ export interface BusinessExpenseBreakdown {
   misc: number;
 }
 
+export type CorporateCreditRating = 'AAA' | 'AA' | 'A' | 'BBB' | 'BB' | 'B';
+export type CorporateFinancingType = 'revolver' | 'project_finance' | 'bond';
+
 /** Business loan (separate from personal loans) */
 export interface BusinessLoan {
   id: string;
@@ -950,7 +953,10 @@ export interface BusinessLoan {
   weeklyPayment: number;
   weeksRemaining: number;
   interestRate: number;
-  purpose?: 'operating' | 'acquisition';
+  purpose?: 'operating' | 'acquisition' | 'corporate_revolver' | 'project_finance' | 'corporate_bond';
+  financingType?: CorporateFinancingType;
+  projectId?: string | null;
+  issuedGlobalWeek?: number;
 }
 
 /** Active business event effect */
