@@ -96,6 +96,9 @@ export default function HoldingCompaniesScreen() {
       annualManagementReport,
     };
   }), [holdings, businesses, globalGameWeek, inflationMultiplier]);
+  const hasManagementReports = summaries.some(
+    (summary) => !!summary.quarterlyManagementReport && !!summary.annualManagementReport,
+  );
 
   const createHolding = () => {
     const cleanName = name.trim();
@@ -168,6 +171,29 @@ export default function HoldingCompaniesScreen() {
                 </Pressable>
               </View>
             </GameCard>
+
+            {hasManagementReports && (
+              <View style={styles.reportingToolbar}>
+                <View>
+                  <Text style={styles.reportingToolbarTitle}>Group reporting period</Text>
+                  <Text style={styles.reportingToolbarMeta}>Applied to every holding-company management report.</Text>
+                </View>
+                <View style={styles.reportingTabs}>
+                  <Pressable
+                    onPress={() => setManagementReportPeriod('quarter')}
+                    style={[styles.reportingTab, managementReportPeriod === 'quarter' && styles.reportingTabActive]}
+                  >
+                    <Text style={[styles.reportingTabText, managementReportPeriod === 'quarter' && { color: Colors.info }]}>Quarter</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setManagementReportPeriod('annual')}
+                    style={[styles.reportingTab, managementReportPeriod === 'annual' && styles.reportingTabActive]}
+                  >
+                    <Text style={[styles.reportingTabText, managementReportPeriod === 'annual' && { color: Colors.info }]}>Annual</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
 
             {summaries.length === 0 ? (
               <GameCard>
@@ -253,6 +279,7 @@ export default function HoldingCompaniesScreen() {
                       annualReport={annualManagementReport}
                       period={managementReportPeriod}
                       onPeriodChange={setManagementReportPeriod}
+                      showPeriodToggle={false}
                     />
                   </View>
                 )}
@@ -537,6 +564,13 @@ const styles = StyleSheet.create({
   lockedText: { color: Colors.textSecondary, fontSize: 12 },
   sectionTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   sectionSub: { color: Colors.textMuted, fontSize: 11, marginTop: 4 },
+  reportingToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 11, padding: 10 },
+  reportingToolbarTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900' },
+  reportingToolbarMeta: { color: Colors.textMuted, fontSize: 8, marginTop: 2 },
+  reportingTabs: { flexDirection: 'row', padding: 2, backgroundColor: Colors.elevated, borderRadius: 9 },
+  reportingTab: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 7 },
+  reportingTabActive: { backgroundColor: Colors.card, borderWidth: 1, borderColor: `${Colors.info}55` },
+  reportingTabText: { color: Colors.textMuted, fontSize: 8, fontWeight: '900' },
   createRow: { flexDirection: 'row', gap: 9, marginTop: 12 },
   input: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, paddingHorizontal: 12, color: Colors.textPrimary, backgroundColor: Colors.elevated },
   createButton: { width: 46, minHeight: 44, borderRadius: 10, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
