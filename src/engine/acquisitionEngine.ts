@@ -354,7 +354,7 @@ export function createAcquiredBusiness(
     operatingScaleMultiplier,
     holdingCompanyId,
     portfolioIntent: 'active',
-    initialCapitalInvested: financing.cashContribution,
+    capitalInvested: financing.cashContribution,
     totalPlayerDistributions: 0,
     acquisition: {
       assetBaselineVersion: 1,
