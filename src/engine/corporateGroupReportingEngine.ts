@@ -300,7 +300,7 @@ export function getCorporateGroupManagementReport(
   const expensesChangePct = comparisonPairs.length > 0 && previousComparableWeeklyExpenses > 0
     ? (currentComparableWeeklyExpenses - previousComparableWeeklyExpenses) / previousComparableWeeklyExpenses
     : null;
-  const profitMargin = periodRevenue > 0 ? periodProfit / periodRevenue : 0;
+  const profitMargin = periodRevenue > 0 ? (periodRevenue - periodExpenses) / periodRevenue : 0;
   const comparableCurrentProfitMargin = currentComparableWeeklyRevenue > 0
     ? currentComparableWeeklyProfit / currentComparableWeeklyRevenue
     : 0;
