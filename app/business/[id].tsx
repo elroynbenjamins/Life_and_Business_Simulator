@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, useWindowDimensions, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, useWindowDimensions, Image, LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -89,6 +89,11 @@ import {
   CorporateReportPeriod,
   getCorporateManagementReport,
 } from '../../src/engine/corporateReportingEngine';
+import {
+  CorporateManagementAction,
+  CorporateManagementActionTarget,
+  getCorporateManagementActions,
+} from '../../src/engine/corporateManagementActionsEngine';
 
 const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; label: string; desc: string }[] = [
   { key: 'budget', label: 'Budget', desc: 'Low prices, high demand' },
@@ -213,6 +218,17 @@ export default function BusinessDetailScreen() {
   const [showProjectsModal, setShowProjectsModal] = useState(false);
   const [showFundingNotice, setShowFundingNotice] = useState(newBusiness === '1');
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
+  const detailScrollRef = useRef<ScrollView>(null);
+  const managementSectionOffsets = useRef<Partial<Record<CorporateManagementActionTarget, number>>>({});
+
+  const recordManagementSection = (target: CorporateManagementActionTarget, event: LayoutChangeEvent) => {
+    managementSectionOffsets.current[target] = event.nativeEvent.layout.y;
+  };
+  const scrollToManagementSection = (target: CorporateManagementActionTarget) => {
+    const y = managementSectionOffsets.current[target];
+    if (y == null) return;
+    detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+  };
 
   const biz = businesses.find((b) => b?.id === id);
   useEffect(() => {
@@ -321,6 +337,12 @@ export default function BusinessDetailScreen() {
     'annual',
     inflationMultiplier,
   );
+  const quarterlyManagementActions = quarterlyManagementReport
+    ? getCorporateManagementActions(reportingBusiness, quarterlyManagementReport, inflationMultiplier)
+    : [];
+  const annualManagementActions = annualManagementReport
+    ? getCorporateManagementActions(reportingBusiness, annualManagementReport, inflationMultiplier)
+    : [];
   const boardMandateCooldown = biz.boardGovernance
     ? Math.max(0, 10 - (globalGameWeek - (biz.boardGovernance.lastMandateChangeGlobalWeek ?? 0)))
     : 0;
@@ -383,7 +405,7 @@ export default function BusinessDetailScreen() {
         </Pressable>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={detailScrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Understaffed Warning */}
         {isUnderStaffed && (
           <View style={styles.warningBanner}>
@@ -1352,6 +1374,9 @@ export default function BusinessDetailScreen() {
               annualReport={annualManagementReport}
               period={managementReportPeriod}
               onPeriodChange={setManagementReportPeriod}
+              quarterlyActions={quarterlyManagementActions}
+              annualActions={annualManagementActions}
+              onActionPress={scrollToManagementSection}
             />
           </GameCard>
         )}
