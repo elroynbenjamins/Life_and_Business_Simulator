@@ -184,10 +184,6 @@ export default function BusinessDetailScreen() {
   const childShareGiftTax = calculateChildInheritanceTax(fivePctStakeValue);
   const trustShareTransferTax = Math.round(fivePctStakeValue * 0.075);
   const acquisitionReturn = getAcquisitionReturn(biz);
-  const totalBusinessDebt = (biz.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
-  const netSaleProceeds = Math.max(0, (biz.valuation ?? 0) - totalBusinessDebt);
-
-
   // Market share pie chart data. Keep these as plain calculations rather than
   // hooks because selling the current business removes it from the store
   // synchronously and this screen then takes the early "not found" return.
