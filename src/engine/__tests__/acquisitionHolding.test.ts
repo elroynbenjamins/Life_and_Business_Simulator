@@ -8,6 +8,7 @@ import {
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
   getAcquisitionReturn,
+  getAcquisitionTransactionCost,
   getHoldingCompanySummary,
   migrateAcquiredBusinessAssets,
 } from '../acquisitionEngine';
@@ -74,6 +75,70 @@ describe('business acquisitions and holding companies', () => {
       expect(priceToValue).toBeGreaterThanOrEqual(1.10);
       expect(priceToValue).toBeLessThanOrEqual(1.30);
     }
+  });
+
+  test('targets have persistent history, traits, diligence findings, and bounded operating modifiers', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const target = generateAcquisitionTargets(120, 1, 1)[0];
+
+    expect(target.companyAgeYears).toBeGreaterThanOrEqual(5);
+    expect(target.sellerReason).toBeTruthy();
+    expect(target.traits?.length).toBeGreaterThanOrEqual(1);
+    expect(target.traits?.length).toBeLessThanOrEqual(2);
+    expect(target.diligenceFindings?.length).toBeGreaterThanOrEqual(2);
+    expect(Math.abs(target.persistentRevenueModifier ?? 0)).toBeLessThanOrEqual(0.05);
+    expect(Math.abs(target.persistentExpenseModifier ?? 0)).toBeLessThanOrEqual(0.05);
+    expect(target.acquisitionTransactionCostRate).toBeGreaterThanOrEqual(0.015);
+    expect(target.acquisitionTransactionCostRate).toBeLessThanOrEqual(0.02);
+  });
+
+  test('acquisition closing costs are paid in cash and included in tracked capital', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const target = generateAcquisitionTargets(120, 1, 1)[0];
+    const acquired = createAcquiredBusiness(
+      target,
+      { ...INITIAL_GAME_STATE, week: 8, year: 7, inflationMultiplier: 1 },
+      null,
+      target.askingPrice,
+      'balanced',
+      0,
+    )!;
+    const financing = getAcquisitionFinancingQuote(target.askingPrice, 'balanced', 0);
+    const transactionCost = getAcquisitionTransactionCost(target, target.askingPrice);
+
+    expect(acquired.acquisition?.acquisitionTransactionCost).toBe(transactionCost);
+    expect(acquired.capitalInvested).toBe(financing.cashContribution + transactionCost);
+  });
+
+  test('persistent acquisition traits change operating performance after integration', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const target = generateAcquisitionTargets(120, 1, 1)[0];
+    const acquired = createAcquiredBusiness(target, { ...INITIAL_GAME_STATE, week: 8, year: 7, inflationMultiplier: 1 })!;
+    const neutral = {
+      ...acquired,
+      acquisition: {
+        ...acquired.acquisition!,
+        integrationStrategy: 'independent' as const,
+        integrationOutcome: 'success' as const,
+        integrationWeeksRemaining: 0,
+        postIntegrationRevenueBonus: 0,
+        postIntegrationExpenseReduction: 0,
+        persistentRevenueModifier: 0,
+        persistentExpenseModifier: 0,
+      },
+    };
+    const stronger = {
+      ...neutral,
+      acquisition: {
+        ...neutral.acquisition!,
+        persistentRevenueModifier: 0.05,
+      },
+    };
+
+    const neutralWeek = processBusinessWeek(neutral, 1, 9, 7);
+    const strongerWeek = processBusinessWeek(stronger, 1, 9, 7);
+
+    expect(strongerWeek.weeklyRevenue).toBeGreaterThan(neutralWeek.weeklyRevenue);
   });
 
   test('acquired companies inherit completed mature upgrades and eligible expansions', () => {
