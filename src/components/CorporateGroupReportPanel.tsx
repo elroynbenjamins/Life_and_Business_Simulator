@@ -91,7 +91,7 @@ export default function CorporateGroupReportPanel({
             </Pressable>
           </View>
         ) : (
-          <Text style={styles.period}>{report.label}</Text>
+          <Text style={styles.period}>Consolidated</Text>
         )}
         <View style={styles.status}>
           <View style={[styles.statusDot, { backgroundColor: color }]} />
