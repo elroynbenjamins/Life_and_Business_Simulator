@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
 import useGameStore from '../../src/store/gameStore';
@@ -13,6 +13,8 @@ import { ACQUISITION_UNLOCK_NET_WORTH } from '../../src/engine/acquisitionEngine
 
 export default function BusinessPortfolioScreen() {
   const router = useRouter();
+  const pathname = usePathname();
+  const isBusinessTab = pathname === '/tabs/business';
   const businesses = useGameStore((s) => s?.businesses ?? []);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const holdingCompanies = useGameStore((s) => s?.holdingCompanies ?? []);
@@ -26,9 +28,13 @@ export default function BusinessPortfolioScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
+        {isBusinessTab ? (
+          <View style={{ width: 24 }} />
+        ) : (
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+          </Pressable>
+        )}
         <Text style={styles.headerTitle}>My Businesses</Text>
         <View style={{ width: 24 }} />
       </View>
