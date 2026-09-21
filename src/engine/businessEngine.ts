@@ -827,6 +827,12 @@ export function processBusinessWeek(
     eventRevenueMultiplier *= 1 + Math.max(-0.05, Math.min(0.08, acquisition.postIntegrationRevenueBonus ?? 0));
     eventExpenseMultiplier *= 1 - Math.max(-0.05, Math.min(0.08, acquisition.postIntegrationExpenseReduction ?? 0));
   }
+  if (acquisition) {
+    // Acquired-company traits are deliberately modest and persistent. They make
+    // targets feel structurally different without overwhelming player choices.
+    eventRevenueMultiplier *= 1 + Math.max(-0.05, Math.min(0.05, acquisition.persistentRevenueModifier ?? 0));
+    eventExpenseMultiplier *= 1 + Math.max(-0.05, Math.min(0.05, acquisition.persistentExpenseModifier ?? 0));
+  }
   eventRevenueMultiplier *= 1 + Math.max(0, Math.min(0.05, modifiers.holdingRevenueBonus ?? 0));
   for (const ae of biz.activeEvents ?? []) {
     eventRevenueMultiplier *= ae.revenueMultiplier ?? 1;
