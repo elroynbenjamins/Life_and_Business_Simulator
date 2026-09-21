@@ -678,6 +678,8 @@ export function createBusiness(typeId: string, customName: string | null, week: 
       votingPercent: 100,
     }],
     familyRoles: [],
+    initialCapitalInvested: null,
+    totalPlayerDistributions: 0,
   };
 }
 
@@ -1402,6 +1404,7 @@ export function processBusinessWeek(
     nextCrisisCheckWeek,
     operatingScaleMultiplier: acquisitionOperatingScale,
     acquisition: updatedAcquisition,
+    totalPlayerDistributions: (biz.totalPlayerDistributions ?? 0) + playerDividend,
   };
   updatedBusiness.valuation = calculateValuation(updatedBusiness);
   updatedBusiness.level = getBusinessLevelForMetrics(thresholds, updatedBusiness.valuation, updatedBusiness.reputation);
