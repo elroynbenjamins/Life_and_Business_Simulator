@@ -112,6 +112,50 @@ function average(values: number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+function averageOptional(values: Array<number | null | undefined>): number | null {
+  const usable = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  return usable.length > 0 ? average(usable) : null;
+}
+
+function pctChange(current: number, previous: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || Math.abs(previous) < 1e-9) return null;
+  return (current - previous) / Math.abs(previous);
+}
+
+function getAcquisitionReportingModifiers(business: OwnedBusiness) {
+  const acquisition = business.acquisition;
+  if (!acquisition) {
+    return { revenueModifier: 0, expenseModifier: 0, integrationWeeksRemaining: 0 };
+  }
+
+  let revenueMultiplier = 1;
+  let expenseMultiplier = 1;
+  if (acquisition.integrationStrategy === 'pending') {
+    const penalty = Math.max(
+      0.01,
+      Math.min(0.05, (acquisition.baseIntegrationPenalty ?? acquisition.integrationPenalty ?? 0.08) * 0.35),
+    );
+    revenueMultiplier *= 1 - penalty;
+    expenseMultiplier *= 1 + penalty * 0.50;
+  } else if ((acquisition.integrationWeeksRemaining ?? 0) > 0) {
+    const penalty = Math.max(0, Math.min(0.25, acquisition.integrationPenalty ?? 0));
+    revenueMultiplier *= 1 - penalty;
+    expenseMultiplier *= 1 + penalty * 0.75;
+  } else if (acquisition.integrationOutcome !== 'pending') {
+    revenueMultiplier *= 1 + Math.max(-0.05, Math.min(0.08, acquisition.postIntegrationRevenueBonus ?? 0));
+    expenseMultiplier *= 1 - Math.max(-0.05, Math.min(0.08, acquisition.postIntegrationExpenseReduction ?? 0));
+  }
+
+  revenueMultiplier *= 1 + Math.max(-0.05, Math.min(0.05, acquisition.persistentRevenueModifier ?? 0));
+  expenseMultiplier *= 1 + Math.max(-0.05, Math.min(0.05, acquisition.persistentExpenseModifier ?? 0));
+
+  return {
+    revenueModifier: revenueMultiplier - 1,
+    expenseModifier: expenseMultiplier - 1,
+    integrationWeeksRemaining: Math.max(0, acquisition.integrationWeeksRemaining ?? 0),
+  };
+}
+
 function getPeriodBounds(globalWeek: number, period: CorporateReportPeriod) {
   const safeGlobalWeek = Math.max(1, Math.round(globalWeek || 1));
   const weekInYear = ((safeGlobalWeek - 1) % 20) + 1;
@@ -177,19 +221,26 @@ export function buildCorporateKpiSnapshot(
   const effects = getCorporateWorkforceEffects(business, workforce);
   const departmentProductivity = {} as Record<CorporateDepartmentId, number>;
   let weightedProductivity = 0;
+  let weightedSkill = 0;
+  let weightedMorale = 0;
   let headcount = 0;
 
   for (const id of DEPARTMENT_IDS) {
-    const departmentHeadcount = Math.max(0, workforce.departments[id]?.headcount ?? 0);
+    const department = workforce.departments[id];
+    const departmentHeadcount = Math.max(0, department?.headcount ?? 0);
     const productivity = Math.round((effects.departmentRatios[id] ?? 1) * 1000) / 10;
     departmentProductivity[id] = productivity;
     headcount += departmentHeadcount;
     weightedProductivity += productivity * departmentHeadcount;
+    weightedSkill += Math.max(0, department?.averageSkill ?? 0) * departmentHeadcount;
+    weightedMorale += Math.max(0, department?.morale ?? 0) * departmentHeadcount;
   }
 
   const productivityIndex = headcount > 0
     ? weightedProductivity / headcount
     : average(DEPARTMENT_IDS.map((id) => departmentProductivity[id]));
+  const averageDepartmentSkill = headcount > 0 ? weightedSkill / headcount : 0;
+  const averageDepartmentMorale = headcount > 0 ? weightedMorale / headcount : 0;
 
   const reinvestment = normalizeBusinessReinvestmentState(business.reinvestment, globalWeek);
   const averageMaintenanceCondition = (
@@ -197,6 +248,8 @@ export function buildCorporateKpiSnapshot(
     + reinvestment.premises.condition
     + reinvestment.equipment.condition
   ) / 3;
+  const reinvestmentEffects = getBusinessReinvestmentEffects(business);
+  const acquisitionModifiers = getAcquisitionReportingModifiers(business);
 
   return {
     globalWeek: Math.max(1, Math.round(globalWeek)),
@@ -216,6 +269,16 @@ export function buildCorporateKpiSnapshot(
       ),
     ),
     averageMaintenanceCondition: Math.round(averageMaintenanceCondition * 10) / 10,
+    averageDepartmentSkill: Math.round(averageDepartmentSkill * 10) / 10,
+    averageDepartmentMorale: Math.round(averageDepartmentMorale * 10) / 10,
+    employeeRelations: Math.round((workforce.employeeRelations ?? 70) * 10) / 10,
+    maintenanceRevenuePenalty: reinvestmentEffects.revenuePenalty,
+    maintenanceExpenseIncrease: reinvestmentEffects.expenseIncrease,
+    acquisitionRevenueModifier: acquisitionModifiers.revenueModifier,
+    acquisitionExpenseModifier: acquisitionModifiers.expenseModifier,
+    integrationWeeksRemaining: acquisitionModifiers.integrationWeeksRemaining,
+    reputation: Math.round((business.reputation ?? 0) * 10) / 10,
+    marketShareModifier: Math.round((business.marketShareModifier ?? 0) * 10) / 10,
   };
 }
 
