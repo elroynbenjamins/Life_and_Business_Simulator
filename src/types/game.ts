@@ -1010,6 +1010,7 @@ export interface SoldBusinessRecord {
   lifetimeReturnPct: number | null;
   wasAcquisition: boolean;
   acquisitionPurchasePrice?: number | null;
+  acquisitionTransactionCost?: number | null;
   holdingCompanyName?: string | null;
 }
 
