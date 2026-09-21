@@ -10,7 +10,7 @@ import {
   getAcquisitionReturn,
   getHoldingCompanySummary,
 } from '../acquisitionEngine';
-import { getHoldingSynergyProfile, processBusinessWeek } from '../businessEngine';
+import { getAllBusinessLocationTemplates, getBusinessType, getHoldingSynergyProfile, processBusinessWeek } from '../businessEngine';
 import { getNetWorth } from '../financeEngine';
 import { INITIAL_GAME_STATE } from '../../types/game';
 
@@ -62,6 +62,36 @@ describe('business acquisitions and holding companies', () => {
     expect(targets.some((target) => target.tier === 'enterprise')).toBe(true);
     expect(Math.min(...targets.map((target) => target.askingPrice))).toBeGreaterThan(5_000_000);
     expect(Math.max(...targets.map((target) => target.askingPrice))).toBeGreaterThan(100_000_000);
+  });
+
+  test('targets require a control premium instead of spawning below fair value', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const targets = generateAcquisitionTargets(120, 1);
+
+    for (const target of targets) {
+      const priceToValue = target.askingPrice / target.estimatedValue;
+      expect(priceToValue).toBeGreaterThanOrEqual(1.10);
+      expect(priceToValue).toBeLessThanOrEqual(1.30);
+    }
+  });
+
+  test('acquired companies inherit completed mature upgrades and eligible expansions', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const target = generateAcquisitionTargets(120, 1, 1)[0];
+    const acquired = createAcquiredBusiness(target, { ...INITIAL_GAME_STATE, week: 8, year: 7, inflationMultiplier: 1 })!;
+    const type = getBusinessType(target.typeId)!;
+    const templates = getAllBusinessLocationTemplates();
+
+    expect(new Set(acquired.purchasedUpgrades)).toEqual(new Set(type.upgrades ?? []));
+    expect(acquired.activeUpgrade ?? null).toBeNull();
+    expect(acquired.activeExpansion ?? null).toBeNull();
+    expect((acquired.locations ?? []).length).toBeGreaterThan(0);
+    for (const location of acquired.locations ?? []) {
+      const template = templates.find((item) => item.id === location.templateId);
+      expect(template).toBeDefined();
+      expect(acquired.level).toBeGreaterThanOrEqual(template.requiredLevel);
+      expect(acquired.reputation).toBeGreaterThanOrEqual(template.requiredReputation);
+    }
   });
 
   test('supports all-cash, balanced, and leveraged acquisition structures', () => {
