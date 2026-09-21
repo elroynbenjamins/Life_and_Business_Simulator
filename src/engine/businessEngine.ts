@@ -767,11 +767,10 @@ export function getBusinessValuationBreakdown(biz: OwnedBusiness): BusinessValua
     * (1 - maintenanceDiscount * 0.50)
     * (1 - distressDiscount);
 
-  const operatingValue = positiveOperatingValue - lossPenalty;
+  const operatingValue = positiveOperatingValue * (1 - distressDiscount) - lossPenalty;
   const rawValuation = cashValue
     + corporateAssetValue
-    + positiveOperatingValue * (1 - distressDiscount)
-    - lossPenalty;
+    + operatingValue;
 
   // A distressed company can fall sharply, but cash and a conservative
   // liquidation value for completed corporate assets prevent impossible values.
