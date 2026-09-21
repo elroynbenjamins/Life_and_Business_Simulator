@@ -20,6 +20,9 @@ import { BUSINESS_INSURANCE_AREAS, getBusinessCoverageGaps } from '../../src/eng
 import { isBusinessBudgetReviewDue } from '../../src/engine/businessBudgetEngine';
 import { getBusinessGovernanceAttentionReason } from '../../src/engine/businessGovernanceEngine';
 import { getCorporateWorkforceAttentionReason } from '../../src/engine/businessWorkforceEngine';
+import CorporateGroupReportPanel from '../../src/components/CorporateGroupReportPanel';
+import { getCorporateGroupManagementReport } from '../../src/engine/corporateGroupReportingEngine';
+import { CorporateReportPeriod } from '../../src/engine/corporateReportingEngine';
 
 type SortMode = 'attention' | 'value' | 'profit' | 'roi';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -57,8 +60,11 @@ export default function BusinessPortfolioScreen() {
   const soldBusinesses = useGameStore((state) => state.soldBusinesses ?? []);
   const holdingCompanies = useGameStore((state) => state.holdingCompanies ?? []);
   const currentYear = useGameStore((state) => state.year ?? 1);
+  const currentWeek = useGameStore((state) => state.week ?? 1);
+  const inflationMultiplier = useGameStore((state) => state.inflationMultiplier ?? 1);
   const getNetWorthValue = useGameStore((state) => state.getNetWorthValue);
   const [sortMode, setSortMode] = useState<SortMode>('attention');
+  const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
 
   const netWorth = getNetWorthValue();
   const acquisitionsUnlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
@@ -88,6 +94,15 @@ export default function BusinessPortfolioScreen() {
   }, [businesses, sortMode, currentYear]);
 
   const recentDeals = soldBusinesses.slice(0, 5);
+  const globalGameWeek = ((currentYear - 1) * 20) + currentWeek;
+  const quarterlyManagementReport = useMemo(
+    () => getCorporateGroupManagementReport(businesses, globalGameWeek, 'quarter', inflationMultiplier),
+    [businesses, globalGameWeek, inflationMultiplier],
+  );
+  const annualManagementReport = useMemo(
+    () => getCorporateGroupManagementReport(businesses, globalGameWeek, 'annual', inflationMultiplier),
+    [businesses, globalGameWeek, inflationMultiplier],
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -149,6 +164,17 @@ export default function BusinessPortfolioScreen() {
                 <Text style={styles.pulseBadgeText}>{summary.acquisitionCount} M&A</Text>
               </View>
             </View>
+          </GameCard>
+        )}
+
+        {quarterlyManagementReport && annualManagementReport && (
+          <GameCard title="Empire Management Report">
+            <CorporateGroupReportPanel
+              quarterlyReport={quarterlyManagementReport}
+              annualReport={annualManagementReport}
+              period={managementReportPeriod}
+              onPeriodChange={setManagementReportPeriod}
+            />
           </GameCard>
         )}
 
