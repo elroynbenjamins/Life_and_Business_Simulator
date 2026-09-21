@@ -54,12 +54,14 @@ export default function CorporateGroupReportPanel({
   period,
   onPeriodChange,
   showPeriodToggle = true,
+  onCompanyPress,
 }: {
   quarterlyReport: CorporateGroupManagementReport;
   annualReport: CorporateGroupManagementReport;
   period: CorporateReportPeriod;
   onPeriodChange: (period: CorporateReportPeriod) => void;
   showPeriodToggle?: boolean;
+  onCompanyPress?: (businessId: string) => void;
 }) {
   const report = period === 'quarter' ? quarterlyReport : annualReport;
   const color = statusColor(report.overallStatus);
@@ -199,6 +201,46 @@ export default function CorporateGroupReportPanel({
         </View>
       </View>
 
+      {report.priorityCompanies.length > 0 && (
+        <View style={styles.priorityBox}>
+          <View style={styles.priorityHeader}>
+            <Text style={styles.priorityTitle}>Priority companies</Text>
+            <Text style={[styles.priorityCount, { color }]}>
+              {report.priorityCompanies.length}
+            </Text>
+          </View>
+          {report.priorityCompanies.slice(0, 3).map((company) => (
+            <Pressable
+              key={company.businessId}
+              disabled={!onCompanyPress}
+              onPress={() => onCompanyPress?.(company.businessId)}
+              style={styles.priorityRow}
+            >
+              <View style={[styles.priorityBar, { backgroundColor: statusColor(company.status) }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.priorityCompany}>{company.businessName}</Text>
+                <Text style={styles.priorityReason}>
+                  {company.topWarning ?? 'Management review required'}
+                </Text>
+              </View>
+              <View style={styles.priorityMeta}>
+                <Text style={[styles.priorityStatus, { color: statusColor(company.status) }]}>
+                  {company.criticalWarningCount > 0
+                    ? `${company.criticalWarningCount} critical`
+                    : `${company.warningCount} flags`}
+                </Text>
+                {onCompanyPress && (
+                  <Text style={styles.priorityChevron}>›</Text>
+                )}
+              </View>
+            </Pressable>
+          ))}
+          {report.priorityCompanies.length > 3 && (
+            <Text style={styles.moreFlags}>+{report.priorityCompanies.length - 3} more priority companies</Text>
+          )}
+        </View>
+      )}
+
       <View style={styles.flags}>
         <View style={styles.flagsHeader}>
           <Text style={styles.flagsTitle}>Group flags</Text>
@@ -263,6 +305,17 @@ const styles = StyleSheet.create({
   riskItem: { flex: 1, backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7 },
   riskLabel: { color: Colors.textMuted, fontSize: 7 },
   riskValue: { fontSize: 11, fontWeight: '900', marginTop: 2 },
+  priorityBox: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, marginTop: 10, paddingTop: 8 },
+  priorityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  priorityTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
+  priorityCount: { fontSize: 8, fontWeight: '900' },
+  priorityRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 7 },
+  priorityBar: { width: 3, alignSelf: 'stretch', borderRadius: 2 },
+  priorityCompany: { color: Colors.textPrimary, fontSize: 8, fontWeight: '800' },
+  priorityReason: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 1 },
+  priorityMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  priorityStatus: { fontSize: 7, fontWeight: '900' },
+  priorityChevron: { color: Colors.textMuted, fontSize: 15, lineHeight: 15 },
   flags: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, marginTop: 10, paddingTop: 8 },
   flagsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   flagsTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
