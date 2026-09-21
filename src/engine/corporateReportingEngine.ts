@@ -330,6 +330,18 @@ function aggregatePeriod(points: CorporateKpiHistoryPoint[]) {
       revenuePerEmployee: 0,
       annualizedTurnoverRate: 0,
       productivityIndex: 0,
+      averageMaintenanceCondition: null as number | null,
+      averageDepartmentSkill: null as number | null,
+      averageDepartmentMorale: null as number | null,
+      employeeRelations: null as number | null,
+      maintenanceRevenuePenalty: null as number | null,
+      maintenanceExpenseIncrease: null as number | null,
+      acquisitionRevenueModifier: null as number | null,
+      acquisitionExpenseModifier: null as number | null,
+      integrationWeeksRemaining: null as number | null,
+      reputation: null as number | null,
+      marketShareModifier: null as number | null,
+      richDriverSamples: 0,
       departmentProductivity: Object.fromEntries(
         DEPARTMENT_IDS.map((id) => [id, 100]),
       ) as Record<CorporateDepartmentId, number>,
@@ -350,6 +362,24 @@ function aggregatePeriod(points: CorporateKpiHistoryPoint[]) {
     ? (turnover / averageHeadcount) * (20 / weeks)
     : 0;
   const productivityIndex = average(points.map((point) => point.productivityIndex));
+  const averageMaintenanceCondition = averageOptional(points.map((point) => point.averageMaintenanceCondition));
+  const averageDepartmentSkill = averageOptional(points.map((point) => point.averageDepartmentSkill));
+  const averageDepartmentMorale = averageOptional(points.map((point) => point.averageDepartmentMorale));
+  const employeeRelations = averageOptional(points.map((point) => point.employeeRelations));
+  const maintenanceRevenuePenalty = averageOptional(points.map((point) => point.maintenanceRevenuePenalty));
+  const maintenanceExpenseIncrease = averageOptional(points.map((point) => point.maintenanceExpenseIncrease));
+  const acquisitionRevenueModifier = averageOptional(points.map((point) => point.acquisitionRevenueModifier));
+  const acquisitionExpenseModifier = averageOptional(points.map((point) => point.acquisitionExpenseModifier));
+  const integrationWeeksRemaining = averageOptional(points.map((point) => point.integrationWeeksRemaining));
+  const reputation = averageOptional(points.map((point) => point.reputation));
+  const marketShareModifier = averageOptional(points.map((point) => point.marketShareModifier));
+  const richDriverSamples = points.filter((point) =>
+    point.averageDepartmentSkill != null
+    || point.averageDepartmentMorale != null
+    || point.maintenanceRevenuePenalty != null
+    || point.acquisitionRevenueModifier != null
+    || point.reputation != null
+  ).length;
 
   const departmentProductivity = {} as Record<CorporateDepartmentId, number>;
   for (const id of DEPARTMENT_IDS) {
@@ -370,6 +400,18 @@ function aggregatePeriod(points: CorporateKpiHistoryPoint[]) {
     revenuePerEmployee,
     annualizedTurnoverRate,
     productivityIndex,
+    averageMaintenanceCondition,
+    averageDepartmentSkill,
+    averageDepartmentMorale,
+    employeeRelations,
+    maintenanceRevenuePenalty,
+    maintenanceExpenseIncrease,
+    acquisitionRevenueModifier,
+    acquisitionExpenseModifier,
+    integrationWeeksRemaining,
+    reputation,
+    marketShareModifier,
+    richDriverSamples,
     departmentProductivity,
   };
 }
