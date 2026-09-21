@@ -1446,6 +1446,9 @@ export default function BusinessDetailScreen() {
             {eb.maintenance > 0 && <ExpRow label="Maintenance" value={eb.maintenance} />}
             {eb.taxes > 0 && <ExpRow label="Taxes" value={eb.taxes} />}
             {eb.loanInterest > 0 && <ExpRow label="Loan Interest" value={eb.loanInterest} />}
+            {(eb.boardFees ?? 0) > 0 && <ExpRow label="Board Fees" value={eb.boardFees ?? 0} />}
+            {(eb.workforceTraining ?? 0) > 0 && <ExpRow label="Workforce Training" value={eb.workforceTraining ?? 0} />}
+            {(eb.workforceTransition ?? 0) > 0 && <ExpRow label="Hiring / Severance" value={eb.workforceTransition ?? 0} />}
             {eb.misc > 0 && <ExpRow label="Misc" value={eb.misc} />}
           </GameCard>
         )}
