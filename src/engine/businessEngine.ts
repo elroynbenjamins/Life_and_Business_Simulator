@@ -1,4 +1,4 @@
-import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany } from '../types/game';
+import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany } from '../types/game';
 import { getHoldingSharedServiceEffects } from './holdingCompanyEngine';
 import {
   appendCompletedCorporateCapex,
@@ -391,6 +391,14 @@ function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPen
 
 export const MIN_EMPLOYEES_REQUIRED = 3;
 export const BUSINESS_LEVEL_REPUTATION_REQUIREMENTS = [0, 20, 30, 40, 52, 65, 78, 90];
+
+export function getBusinessDecisionChoiceCost(
+  choice: Pick<BusinessPendingDecisionChoice, 'businessCashCost' | 'cashCostScale'>,
+  inflationMultiplier = 1,
+): number {
+  const base = Math.max(0, choice.businessCashCost ?? 0);
+  return Math.round(choice.cashCostScale === 'absolute' ? base : base * Math.max(0.5, inflationMultiplier || 1));
+}
 
 /** Player-facing strategic identity for each business type. */
 export const BUSINESS_STRATEGIES: Record<string, { advantage: string; weakness: string }> = {
