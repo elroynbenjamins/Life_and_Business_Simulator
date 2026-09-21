@@ -1173,24 +1173,18 @@ export default function BusinessDetailScreen() {
                 {CORPORATE_CAPEX_PROJECTS.map((project) => {
                   const eligibility = canStartCorporateCapex(biz, project);
                   const cost = getCorporateCapexCost(project, inflationMultiplier);
+                  const projectFinance = getProjectFinanceQuote(biz, cost, loanRateReduction);
                   const completed = (biz.completedCorporateCapex ?? []).some((item) => item.projectId === project.id);
                   const active = biz.activeCorporateCapex?.projectId === project.id;
-                  const affordable = (biz.balance ?? 0) >= cost;
-                  const disabled = completed || active || !!biz.activeCorporateCapex || !eligibility.allowed || !affordable;
+                  const blocked = completed || active || !!biz.activeCorporateCapex || !eligibility.allowed;
+                  const cashAffordable = (biz.balance ?? 0) >= cost;
+                  const financedAffordable = projectFinance.allowed && (biz.balance ?? 0) >= projectFinance.cashContribution;
                   const expenseText = project.expenseReduction >= 0
                     ? `-${(project.expenseReduction * 100).toFixed(1)}% expenses`
                     : `+${Math.abs(project.expenseReduction * 100).toFixed(1)}% expenses`;
+
                   return (
-                    <Pressable
-                      key={project.id}
-                      disabled={disabled}
-                      style={[styles.corporateProjectRow, disabled && styles.disabledRow]}
-                      onPress={() => confirmAction(
-                        'Start Corporate Investment',
-                        `Invest ${formatCurrency(cost)} in ${project.name}? Construction takes ${project.weeks} weeks and temporarily disrupts operations. Once complete, the asset permanently changes the company's operating profile and contributes to company value.`,
-                        () => startCorporateCapex(biz.id, project.id),
-                      )}
-                    >
+                    <View key={project.id} style={[styles.corporateProjectRow, blocked && styles.disabledRow]}>
                       <View style={styles.corporateProjectIconWrap}>
                         <Text style={styles.corporateProjectIcon}>{project.icon}</Text>
                       </View>
@@ -1203,19 +1197,56 @@ export default function BusinessDetailScreen() {
                         <Text style={styles.corporateProjectEffect}>
                           Permanent: +{(project.revenueBonus * 100).toFixed(1)}% revenue • {expenseText} • {(project.crisisReduction * 100).toFixed(1)}% crisis protection
                         </Text>
+
                         {!completed && !active && !eligibility.allowed && (
                           <Text style={styles.corporateProjectLocked}>{eligibility.reason}</Text>
                         )}
-                        {!completed && eligibility.allowed && !affordable && (
-                          <Text style={styles.corporateProjectLocked}>Need {formatCurrency(cost - (biz.balance ?? 0))} more business cash</Text>
+                        {!blocked && (
+                          <View style={styles.capexFundingRow}>
+                            <Pressable
+                              disabled={!cashAffordable}
+                              style={[styles.capexFundingButton, cashAffordable && styles.capexFundingButtonCash, !cashAffordable && styles.disabledAction]}
+                              onPress={() => confirmAction(
+                                'Cash Fund Corporate Investment',
+                                `Invest ${formatCurrency(cost)} of company cash in ${project.name}? Construction takes ${project.weeks} weeks and temporarily disrupts operations.`,
+                                () => startCorporateCapex(biz.id, project.id, 'cash'),
+                              )}
+                            >
+                              <Text style={[styles.capexFundingTitle, cashAffordable && { color: Colors.primary }]}>Cash</Text>
+                              <Text style={styles.capexFundingMeta}>{formatCurrency(cost)}</Text>
+                            </Pressable>
+
+                            <Pressable
+                              disabled={!financedAffordable}
+                              style={[styles.capexFundingButton, financedAffordable && styles.capexFundingButtonFinance, !financedAffordable && styles.disabledAction]}
+                              onPress={() => confirmAction(
+                                'Project Finance Corporate Investment',
+                                `Fund ${project.name} with ${formatCurrency(projectFinance.cashContribution)} company cash (40% equity + fee) and ${formatCurrency(projectFinance.debtPrincipal)} project debt at ${(projectFinance.interestRate * 100).toFixed(1)}%. Scheduled payment: ${formatCurrency(projectFinance.weeklyPayment)}/wk for ${projectFinance.durationWeeks} weeks.`,
+                                () => startCorporateCapex(biz.id, project.id, 'project_finance'),
+                              )}
+                            >
+                              <Text style={[styles.capexFundingTitle, financedAffordable && { color: Colors.info }]}>Finance 60%</Text>
+                              <Text style={styles.capexFundingMeta}>
+                                {projectFinance.allowed
+                                  ? `${formatCurrency(projectFinance.cashContribution)} cash`
+                                  : projectFinance.reason ?? 'Unavailable'}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        )}
+
+                        {!blocked && !cashAffordable && !financedAffordable && (
+                          <Text style={styles.corporateProjectLocked}>
+                            Cash funding needs {formatCurrency(Math.max(0, cost - (biz.balance ?? 0)))} more. {projectFinance.reason ?? 'Project finance also requires more available business cash.'}
+                          </Text>
                         )}
                       </View>
                       <View style={styles.corporateCostWrap}>
-                        <Text style={[styles.corporateCost, disabled && { color: Colors.textMuted }]}>
+                        <Text style={[styles.corporateCost, blocked && { color: Colors.textMuted }]}>
                           {completed ? 'DONE' : active ? 'BUILDING' : formatCurrency(cost)}
                         </Text>
                       </View>
-                    </Pressable>
+                    </View>
                   );
                 })}
               </>
@@ -1805,7 +1836,13 @@ const styles = StyleSheet.create({
   corporateProjectDesc: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 2 },
   corporateProjectReq: { color: Colors.textMuted, fontSize: 8, marginTop: 4 },
   corporateProjectEffect: { color: Colors.primary, fontSize: 8, lineHeight: 12, marginTop: 3 },
-  corporateProjectLocked: { color: Colors.warning, fontSize: 8, marginTop: 3 },
+  corporateProjectLocked: { color: Colors.warning, fontSize: 8, lineHeight: 12, marginTop: 4 },
+  capexFundingRow: { flexDirection: 'row', gap: 6, marginTop: 7 },
+  capexFundingButton: { flex: 1, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 7 },
+  capexFundingButtonCash: { borderColor: `${Colors.primary}55`, backgroundColor: `${Colors.primary}0D` },
+  capexFundingButtonFinance: { borderColor: `${Colors.info}55`, backgroundColor: '#17263A' },
+  capexFundingTitle: { color: Colors.textMuted, fontSize: 8, fontWeight: '900' },
+  capexFundingMeta: { color: Colors.textSecondary, fontSize: 7, lineHeight: 10, marginTop: 2 },
   corporateCostWrap: { alignItems: 'flex-end', paddingLeft: 4 },
   corporateCost: { color: Colors.warning, fontSize: 9, fontWeight: '900' },
   upgradeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
