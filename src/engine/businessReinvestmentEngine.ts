@@ -4,6 +4,7 @@ import {
   OwnedBusiness,
 } from '../types/game';
 import businessTypesData from '../data/business_types.json';
+import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
 
 function getBusinessType(typeId: string) {
   return (businessTypesData as any[]).find((type) => type?.id === typeId);
@@ -145,7 +146,15 @@ export function tickBusinessReinvestment(
   for (const area of Object.keys(BUSINESS_REINVESTMENT_AREAS) as BusinessReinvestmentArea[]) {
     if (active?.area === area) continue;
     const definition = BUSINESS_REINVESTMENT_AREAS[area];
-    const decay = definition.baseDecayPerWeek * getWearMultiplier(business, area);
+    const governance = getBusinessGovernanceEffects(business);
+    const executiveReduction = area === 'technology'
+      ? governance.technologyWearReduction
+      : area === 'premises'
+        ? governance.premisesWearReduction
+        : governance.equipmentWearReduction;
+    const decay = definition.baseDecayPerWeek
+      * getWearMultiplier(business, area)
+      * (1 - executiveReduction);
     next[area].condition = clamp(next[area].condition - decay, 0, 100);
   }
 
