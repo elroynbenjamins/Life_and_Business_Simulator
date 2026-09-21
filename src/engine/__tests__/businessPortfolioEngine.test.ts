@@ -98,6 +98,46 @@ describe('business portfolio engine', () => {
     expect(record.holdingCompanyName).toBe('Family Holdings');
   });
 
+  test('an immediate acquisition resale cannot break even at the same enterprise value', () => {
+    const business = {
+      ...makeBusiness(),
+      valuation: 300_000,
+      businessLoans: [],
+      capitalInvested: 306_000,
+      totalPlayerDistributions: 0,
+      acquisition: {
+        purchasePrice: 300_000,
+        cashContribution: 300_000,
+        debtFinanced: 0,
+        fundingMode: 'cash' as const,
+        sellerName: 'Founder-led sale',
+        acquiredGlobalWeek: 40,
+        estimatedValueAtPurchase: 300_000,
+        baseIntegrationWeeks: 6,
+        baseIntegrationPenalty: 0.05,
+        integrationStrategy: 'pending' as const,
+        integrationOutcome: 'pending' as const,
+        integrationWeeksRemaining: 6,
+        integrationPenalty: 0.05,
+        integrationSuccessChance: 0,
+        postIntegrationRevenueBonus: 0,
+        postIntegrationExpenseReduction: 0,
+        initialRisk: 'low' as const,
+        diligenceScore: 90,
+        acquisitionTransactionCost: 6_000,
+        acquisitionTransactionCostRate: 0.02,
+        additionalCapitalInvested: 0,
+      },
+    };
+
+    const quote = getBusinessSaleQuote(business, 20, 2); // global week 40, same week as purchase
+
+    expect(quote.saleTransactionCostRate).toBeCloseTo(0.07);
+    expect(quote.netSaleProceeds).toBeLessThan(300_000);
+    expect(quote.lifetimeCashResult).toBeLessThan(0);
+    expect(quote.lifetimeReturnPct).toBeLessThan(0);
+  });
+
   test('short-hold acquisition exit friction fades to the normal sale-cost floor', () => {
     const business = {
       ...makeBusiness(),
