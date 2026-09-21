@@ -14,7 +14,15 @@ import {
   getAcquisitionReturn,
   getHoldingCompanySummary,
 } from '../../src/engine/acquisitionEngine';
-import { getHoldingSynergyProfile } from '../../src/engine/businessEngine';
+import { BUSINESS_DELEGATION_POLICIES, getDelegationManagers, getHoldingSynergyProfile } from '../../src/engine/businessEngine';
+import {
+  HOLDING_SHARED_SERVICE_DEFINITIONS,
+  HOLDING_SHARED_SERVICE_MAX_LEVEL,
+  getHoldingSharedServiceEffects,
+  getHoldingSharedServiceUpgradeCost,
+  normalizeHoldingSharedServices,
+} from '../../src/engine/holdingCompanyEngine';
+import { BusinessDelegationPolicy, HoldingSharedServiceId } from '../../src/types/game';
 
 const CAPITAL_AMOUNTS = [1_000_000, 5_000_000, 10_000_000];
 
@@ -28,11 +36,14 @@ export default function HoldingCompaniesScreen() {
   const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
   const createHoldingCompany = useGameStore((s) => s.createHoldingCompany);
   const fundHoldingCompany = useGameStore((s) => s.fundHoldingCompany);
+  const upgradeHoldingSharedService = useGameStore((s) => s.upgradeHoldingSharedService);
   const allocateHoldingCapital = useGameStore((s) => s.allocateHoldingCapital);
+  const setBusinessDelegation = useGameStore((s) => s.setBusinessDelegation);
   const appointChildToHolding = useGameStore((s) => s.appointChildToHolding);
   const assignBusinessToHolding = useGameStore((s) => s.assignBusinessToHolding);
   const toggleLongTermFamilyAsset = useGameStore((s) => s.toggleLongTermFamilyAsset);
   const [name, setName] = useState('');
+  const [managerSelections, setManagerSelections] = useState<Record<string, string>>({});
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
@@ -53,7 +64,8 @@ export default function HoldingCompaniesScreen() {
     const diversification = synergyProfiles.length
       ? Math.max(...synergyProfiles.map((profile) => profile.crisisReduction))
       : 0;
-    return { holding, subsidiaries, ...summary, avgRevenueSynergy, avgExpenseSynergy, diversification };
+    const sharedServiceEffects = getHoldingSharedServiceEffects(holding);
+    return { holding, subsidiaries, ...summary, avgRevenueSynergy, avgExpenseSynergy, diversification, sharedServiceEffects };
   }), [holdings, businesses]);
 
   const createHolding = () => {
@@ -138,6 +150,7 @@ export default function HoldingCompaniesScreen() {
             ) : summaries.map(({
               holding, subsidiaries, subsidiaryCount, totalValue, totalDebt, netGroupEquity, weeklyProfit,
               cashReserve, familyControlledPct, protectedAssets, avgRevenueSynergy, avgExpenseSynergy, diversification,
+              sharedServiceEffects,
             }) => (
               <GameCard key={holding.id}>
                 <View style={styles.holdingHeader}>
@@ -200,6 +213,52 @@ export default function HoldingCompaniesScreen() {
                   </Text>
                 </View>
 
+                <View style={styles.servicesBox}>
+                  <View style={styles.servicesHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.synergyTitle}>Shared Services</Text>
+                      <Text style={styles.servicesMeta}>
+                        {sharedServiceEffects.totalLevels}/15 levels • +{(sharedServiceEffects.revenueBonus * 100).toFixed(1)}% revenue • {(sharedServiceEffects.expenseReduction * 100).toFixed(1)}% cost reduction • {(sharedServiceEffects.crisisReduction * 100).toFixed(1)}% crisis protection
+                      </Text>
+                    </View>
+                    <Ionicons name="git-network-outline" size={18} color={Colors.info} />
+                  </View>
+                  {(Object.keys(HOLDING_SHARED_SERVICE_DEFINITIONS) as HoldingSharedServiceId[]).map((serviceId) => {
+                    const definition = HOLDING_SHARED_SERVICE_DEFINITIONS[serviceId];
+                    const levels = normalizeHoldingSharedServices(holding.sharedServices);
+                    const level = levels[serviceId];
+                    const maxed = level >= HOLDING_SHARED_SERVICE_MAX_LEVEL;
+                    const cost = getHoldingSharedServiceUpgradeCost(holding, serviceId, inflationMultiplier);
+                    const affordable = !maxed && cashReserve >= cost;
+                    return (
+                      <View key={serviceId} style={styles.serviceRow}>
+                        <View style={styles.serviceIcon}>
+                          <Ionicons name={definition.icon} size={16} color={maxed ? Colors.primary : Colors.info} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.serviceTitleRow}>
+                            <Text style={styles.serviceName}>{definition.name}</Text>
+                            <Text style={styles.serviceLevel}>Lv {level}/{HOLDING_SHARED_SERVICE_MAX_LEVEL}</Text>
+                          </View>
+                          <Text style={styles.serviceDesc}>{definition.description}</Text>
+                        </View>
+                        <Pressable
+                          disabled={!affordable}
+                          style={[styles.serviceUpgrade, !affordable && styles.disabledAction, maxed && styles.serviceMaxed]}
+                          onPress={() => showGameDialog({
+                            title: `Upgrade ${definition.name}?`,
+                            message: `Invest ${formatCurrency(cost)} from ${holding.name}'s reserve to raise ${definition.name} to level ${Math.min(HOLDING_SHARED_SERVICE_MAX_LEVEL, level + 1)}. Shared-service effects apply to every subsidiary in the group.`,
+                            confirmText: 'Upgrade',
+                            onConfirm: () => upgradeHoldingSharedService(holding.id, serviceId),
+                          })}
+                        >
+                          <Text style={styles.serviceUpgradeText}>{maxed ? 'MAX' : formatCurrency(cost)}</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+
                 <View style={styles.capitalBox}>
                   <View style={styles.capitalHeader}>
                     <View>
@@ -257,6 +316,11 @@ export default function HoldingCompaniesScreen() {
                   const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
                   const acquisitionReturn = getAcquisitionReturn(business);
                   const canAllocateMillion = cashReserve >= 1_000_000;
+                  const managers = getDelegationManagers(business);
+                  const selectedManagerId = managerSelections[business.id]
+                    ?? business.delegatedManagerEmployeeId
+                    ?? managers[0]?.id
+                    ?? '';
                   return (
                     <View key={business.id} style={styles.subsidiaryBlock}>
                       <View style={styles.subsidiaryRow}>
@@ -304,6 +368,73 @@ export default function HoldingCompaniesScreen() {
                           >
                             <Text style={styles.smallActionText}>{business.portfolioIntent === 'long_term_family' ? 'Unprotect' : 'Long-term'}</Text>
                           </Pressable>
+                        )}
+                      </View>
+
+                      <View style={styles.delegationBox}>
+                        <View style={styles.delegationHeader}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.delegationTitle}>Management Delegation</Text>
+                            <Text style={styles.delegationMeta}>
+                              {business.delegationPolicy && business.delegationPolicy !== 'manual'
+                                ? `${business.delegatedManagerName ?? 'Manager'} • ${BUSINESS_DELEGATION_POLICIES[business.delegationPolicy].label}`
+                                : 'Manual control'}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name={business.delegationPolicy && business.delegationPolicy !== 'manual' ? 'briefcase' : 'hand-left-outline'}
+                            size={16}
+                            color={business.delegationPolicy && business.delegationPolicy !== 'manual' ? Colors.primary : Colors.textMuted}
+                          />
+                        </View>
+
+                        {managers.length === 0 ? (
+                          <Text style={styles.delegationWarning}>Hire a Manager or Supervisor before delegating routine operations.</Text>
+                        ) : (
+                          <>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.managerChips}>
+                              {managers.map((manager) => {
+                                const active = selectedManagerId === manager.id;
+                                return (
+                                  <Pressable
+                                    key={manager.id}
+                                    onPress={() => setManagerSelections((current) => ({ ...current, [business.id]: manager.id }))}
+                                    style={[styles.managerChip, active && styles.managerChipActive]}
+                                  >
+                                    <Text style={[styles.managerChipText, active && styles.managerChipTextActive]}>
+                                      {manager.name} • {manager.roleId === 'manager' ? 'Manager' : 'Supervisor'}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </ScrollView>
+                            <View style={styles.policyRow}>
+                              {(Object.keys(BUSINESS_DELEGATION_POLICIES) as BusinessDelegationPolicy[]).map((policy) => {
+                                const active = (business.delegationPolicy ?? 'manual') === policy;
+                                return (
+                                  <Pressable
+                                    key={policy}
+                                    onPress={() => setBusinessDelegation(
+                                      business.id,
+                                      policy,
+                                      policy === 'manual' ? null : selectedManagerId,
+                                    )}
+                                    style={[styles.policyChip, active && styles.policyChipActive]}
+                                  >
+                                    <Text style={[styles.policyChipText, active && styles.policyChipTextActive]}>
+                                      {BUSINESS_DELEGATION_POLICIES[policy].label}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
+                          </>
+                        )}
+                        <Text style={styles.delegationHint}>
+                          Delegation reviews routine pricing, advertising and staffing every 4 weeks. Strategic decisions, crises, acquisitions, ownership and succession always remain manual.
+                        </Text>
+                        {!!business.lastDelegationSummary && (
+                          <Text style={styles.delegationSummary}>Last review: {business.lastDelegationSummary}</Text>
                         )}
                       </View>
                     </View>
@@ -382,6 +513,18 @@ const styles = StyleSheet.create({
   synergyTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
   synergyText: { color: Colors.primary, fontSize: 10, fontWeight: '700', marginTop: 5 },
   synergyHint: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 5 },
+  servicesBox: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, marginTop: 11, paddingTop: 10 },
+  servicesHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  servicesMeta: { color: Colors.info, fontSize: 8, lineHeight: 12, marginTop: 3 },
+  serviceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  serviceIcon: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#17263A', alignItems: 'center', justifyContent: 'center' },
+  serviceTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  serviceName: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  serviceLevel: { color: Colors.info, fontSize: 8, fontWeight: '800' },
+  serviceDesc: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  serviceUpgrade: { minWidth: 72, borderRadius: 7, borderWidth: 1, borderColor: Colors.primary, backgroundColor: '#10382D', paddingHorizontal: 7, paddingVertical: 7, alignItems: 'center' },
+  serviceMaxed: { borderColor: Colors.primary, opacity: 0.8 },
+  serviceUpgradeText: { color: Colors.primary, fontSize: 8, fontWeight: '900' },
   capitalBox: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, marginTop: 11, paddingTop: 10 },
   capitalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   capitalTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
@@ -406,6 +549,23 @@ const styles = StyleSheet.create({
   returnText: { fontSize: 9, fontWeight: '700', marginTop: 3 },
   integrationWarning: { color: Colors.warning, fontSize: 9, fontWeight: '800', marginTop: 3 },
   longTermText: { color: Colors.warning, fontSize: 9, marginTop: 3 },
+  delegationBox: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 9, marginTop: 9 },
+  delegationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  delegationTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  delegationMeta: { color: Colors.info, fontSize: 8, marginTop: 2 },
+  delegationWarning: { color: Colors.warning, fontSize: 8, lineHeight: 12, marginTop: 7 },
+  managerChips: { gap: 5, paddingTop: 7, paddingBottom: 2 },
+  managerChip: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 11, paddingHorizontal: 7, paddingVertical: 5 },
+  managerChipActive: { borderColor: Colors.info, backgroundColor: '#17263A' },
+  managerChipText: { color: Colors.textMuted, fontSize: 8, fontWeight: '700' },
+  managerChipTextActive: { color: Colors.info },
+  policyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
+  policyChip: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 11, paddingHorizontal: 7, paddingVertical: 5 },
+  policyChipActive: { borderColor: Colors.primary, backgroundColor: '#10382D' },
+  policyChipText: { color: Colors.textMuted, fontSize: 8, fontWeight: '800' },
+  policyChipTextActive: { color: Colors.primary },
+  delegationHint: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, marginTop: 7 },
+  delegationSummary: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 5, fontStyle: 'italic' },
   removeButton: { paddingLeft: 12, paddingVertical: 4 },
   assignmentBlock: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, paddingTop: 10, marginTop: 10 },
   assignmentName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
