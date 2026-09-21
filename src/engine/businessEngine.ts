@@ -1098,12 +1098,13 @@ export function processBusinessWeek(
       && acquisition.referenceStaffCost != null
       && workforceTick.weeklyPayroll > 0
     ) {
-      acquisition.referenceStaffCost += workforceTick.weeklyPayroll;
+      acquisition.referenceStaffCost += workforceTick.weeklyPayroll + workforceTick.trainingCost;
       acquisition.workforceBaselineVersion = 1;
     }
     acquisition.referenceStaffCost ??=
       (biz.employees ?? []).reduce((sum, employee) => sum + employee.weeklySalary, 0)
-      + workforceTick.weeklyPayroll;
+      + workforceTick.weeklyPayroll
+      + workforceTick.trainingCost;
     acquisition.workforceBaselineVersion ??= 1;
     acquisition.referenceExpenseMultiplier ??= buffAgg.expenseMult;
     acquisition.referenceRevenueCapacity ??= getBusinessRevenueCapacity(biz);
