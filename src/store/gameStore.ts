@@ -345,7 +345,13 @@ const useGameStore = create<GameStore>((set, get) => ({
           designatedSuccessorChildId: holding.designatedSuccessorChildId ?? null,
           designatedSuccessorChildName: holding.designatedSuccessorChildName ?? null,
         })),
-        acquisitionTargets: saved.acquisitionTargets ?? [],
+        acquisitionTargets: (saved.acquisitionTargets ?? []).map((target) => ({
+          ...target,
+          askingPrice: Math.max(
+            target.askingPrice ?? 0,
+            Math.round((target.estimatedValue ?? 0) * 1.10),
+          ),
+        })),
         lastAcquisitionRefreshWeek: saved.lastAcquisitionRefreshWeek ?? 0,
         skills: saved.skills ?? {},
         knowledge: saved.knowledge ?? {},
@@ -501,7 +507,13 @@ const useGameStore = create<GameStore>((set, get) => ({
           designatedSuccessorChildId: holding.designatedSuccessorChildId ?? null,
           designatedSuccessorChildName: holding.designatedSuccessorChildName ?? null,
         })),
-        acquisitionTargets: saved.acquisitionTargets ?? [],
+        acquisitionTargets: (saved.acquisitionTargets ?? []).map((target) => ({
+          ...target,
+          askingPrice: Math.max(
+            target.askingPrice ?? 0,
+            Math.round((target.estimatedValue ?? 0) * 1.10),
+          ),
+        })),
         lastAcquisitionRefreshWeek: saved.lastAcquisitionRefreshWeek ?? 0,
         skills: saved.skills ?? {},
         knowledge: saved.knowledge ?? {},
