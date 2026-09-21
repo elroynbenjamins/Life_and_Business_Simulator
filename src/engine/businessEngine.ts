@@ -35,6 +35,7 @@ import {
   scheduleNextCorporateHrEvent,
   tickCorporateWorkforce,
 } from './businessWorkforceEngine';
+import { appendCorporateKpiSnapshot } from './corporateReportingEngine';
 
 // -----------------------------------------------------------------------------
 // D&D-style tier system for employees
@@ -844,6 +845,7 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     businessLoans: [],
     activeEvents: [],
     weeklyProfitHistory: [],
+    corporateKpiHistory: [],
     pendingCandidates: null,
     pendingCandidateRoleId: null,
     activeProjects: [],
@@ -1778,7 +1780,7 @@ export function processBusinessWeek(
     executives: governanceTick.executives,
     pendingExecutiveSearch: biz.pendingExecutiveSearch ?? null,
     boardGovernance: governanceTick.boardGovernance,
-    corporateWorkforce: workforceTick.workforce,
+    corporateWorkforce,
     ownership: biz.ownership?.length ? biz.ownership : [{
       ownerType: 'player',
       ownerId: 'player',
@@ -1802,9 +1804,10 @@ export function processBusinessWeek(
     );
   }
   updatedBusiness.level = getBusinessLevelForMetrics(thresholds, updatedBusiness.valuation, updatedBusiness.reputation);
+  const reportedBusiness = appendCorporateKpiSnapshot(updatedBusiness, globalWeek);
 
   return {
-    updatedBusiness,
+    updatedBusiness: reportedBusiness,
     weeklyRevenue: revenue,
     weeklyExpenses: totalExpenses,
     weeklyProfit: profit,
