@@ -677,6 +677,10 @@ export default function BusinessDetailScreen() {
                       {choice.reputationDelta ? ` • Rep ${choice.reputationDelta > 0 ? '+' : ''}${choice.reputationDelta}` : ''}
                       {choice.marketShareDelta ? ` • Share ${choice.marketShareDelta > 0 ? '+' : ''}${choice.marketShareDelta}` : ''}
                       {choice.moraleDelta ? ` • Morale ${choice.moraleDelta > 0 ? '+' : ''}${choice.moraleDelta}` : ''}
+                      {choice.workforceCompensationPolicy ? ` • Pay: ${CORPORATE_COMPENSATION_POLICIES[choice.workforceCompensationPolicy].label}` : ''}
+                      {choice.workforceTrainingPolicy ? ` • Training: ${CORPORATE_TRAINING_POLICIES[choice.workforceTrainingPolicy].label}` : ''}
+                      {choice.workforceRelationsDelta ? ` • Relations ${choice.workforceRelationsDelta > 0 ? '+' : ''}${choice.workforceRelationsDelta}` : ''}
+                      {choice.workforceTargetMultiplier ? ` • Staffing targets ${Math.round((choice.workforceTargetMultiplier - 1) * 100)}%` : ''}
                     </Text>
                     {grossCost > 0 && insuranceQuote.payout > 0 && (
                       <Text style={styles.decisionInsurancePayout}>
@@ -1145,6 +1149,92 @@ export default function BusinessDetailScreen() {
                 <Text style={styles.workforceEffectText}>
                   Current capacity effect: {workforceEffects.revenueBonus >= 0 ? '+' : ''}{(workforceEffects.revenueBonus * 100).toFixed(1)}% revenue • {workforceEffects.expenseReduction >= 0 ? '-' : '+'}{Math.abs(workforceEffects.expenseReduction * 100).toFixed(1)}% overhead • {workforceEffects.crisisReduction >= 0 ? '-' : '+'}{Math.abs(workforceEffects.crisisReduction * 100).toFixed(1)}% risk
                 </Text>
+
+                <View style={styles.hrSummary}>
+                  <View style={styles.hrSummaryItem}>
+                    <Text style={styles.hrSummaryValue}>{Math.round(corporateWorkforce.employeeRelations ?? 70)}</Text>
+                    <Text style={styles.hrSummaryLabel}>Relations</Text>
+                  </View>
+                  <View style={styles.hrSummaryItem}>
+                    <Text style={styles.hrSummaryValue}>{Math.round(corporateWorkforce.laborMarketPressure ?? 50)}</Text>
+                    <Text style={styles.hrSummaryLabel}>Labor pressure</Text>
+                  </View>
+                  <View style={styles.hrSummaryItem}>
+                    <Text style={[styles.hrSummaryValue, (corporateWorkforce.recentTurnover ?? 0) > 0 && { color: Colors.warning }]}>
+                      {corporateWorkforce.recentTurnover ?? 0}
+                    </Text>
+                    <Text style={styles.hrSummaryLabel}>Turnover</Text>
+                  </View>
+                  <View style={styles.hrSummaryItem}>
+                    <Text style={styles.hrSummaryValue}>{formatCurrency(workforceTrainingCost)}</Text>
+                    <Text style={styles.hrSummaryLabel}>Training/wk</Text>
+                  </View>
+                </View>
+
+                <View style={styles.hrPolicySection}>
+                  <View style={styles.hrPolicyHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.hrPolicyTitle}>Compensation Policy</Text>
+                      <Text style={styles.hrPolicyDesc}>{CORPORATE_COMPENSATION_POLICIES[workforceCompensationPolicy].description}</Text>
+                    </View>
+                    <Text style={styles.hrPolicyCurrent}>{CORPORATE_COMPENSATION_POLICIES[workforceCompensationPolicy].label}</Text>
+                  </View>
+                  <View style={styles.hrPolicyChips}>
+                    {(Object.keys(CORPORATE_COMPENSATION_POLICIES) as CorporateCompensationPolicy[]).map((policy) => {
+                      const active = workforceCompensationPolicy === policy;
+                      const disabled = hrPolicyCooldown > 0 && !active;
+                      return (
+                        <Pressable
+                          key={policy}
+                          disabled={active || disabled}
+                          style={[styles.hrPolicyChip, active && styles.hrPolicyChipActive, disabled && styles.disabledAction]}
+                          onPress={() => setCorporateCompensationPolicy(biz.id, policy)}
+                        >
+                          <Text style={[styles.hrPolicyChipTitle, active && { color: Colors.primary }]}>
+                            {CORPORATE_COMPENSATION_POLICIES[policy].label}
+                          </Text>
+                          <Text style={styles.hrPolicyChipMeta}>
+                            {Math.round(CORPORATE_COMPENSATION_POLICIES[policy].wageMultiplier * 100)}% wage
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.hrPolicySection}>
+                  <View style={styles.hrPolicyHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.hrPolicyTitle}>Training Policy</Text>
+                      <Text style={styles.hrPolicyDesc}>{CORPORATE_TRAINING_POLICIES[workforceTrainingPolicy].description}</Text>
+                    </View>
+                    <Text style={styles.hrPolicyCurrent}>{CORPORATE_TRAINING_POLICIES[workforceTrainingPolicy].label}</Text>
+                  </View>
+                  <View style={styles.hrPolicyChips}>
+                    {(Object.keys(CORPORATE_TRAINING_POLICIES) as CorporateTrainingPolicy[]).map((policy) => {
+                      const active = workforceTrainingPolicy === policy;
+                      const disabled = hrPolicyCooldown > 0 && !active;
+                      return (
+                        <Pressable
+                          key={policy}
+                          disabled={active || disabled}
+                          style={[styles.hrPolicyChip, active && styles.hrPolicyChipActive, disabled && styles.disabledAction]}
+                          onPress={() => setCorporateTrainingPolicy(biz.id, policy)}
+                        >
+                          <Text style={[styles.hrPolicyChipTitle, active && { color: Colors.primary }]}>
+                            {CORPORATE_TRAINING_POLICIES[policy].label}
+                          </Text>
+                          <Text style={styles.hrPolicyChipMeta}>
+                            {(CORPORATE_TRAINING_POLICIES[policy].payrollCostPct * 100).toFixed(1)}% payroll
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {hrPolicyCooldown > 0 && (
+                    <Text style={styles.hrPolicyCooldown}>HR policy can change again in {hrPolicyCooldown} weeks.</Text>
+                  )}
+                </View>
 
                 {(Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[]).map((departmentId) => {
                   const definition = CORPORATE_DEPARTMENT_DEFINITIONS[departmentId];
@@ -2661,6 +2751,21 @@ const styles = StyleSheet.create({
   workforceSummaryLabel: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
   workforcePayrollText: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12 },
   workforceEffectText: { color: Colors.info, fontSize: 8, lineHeight: 12, marginTop: 3, marginBottom: 5 },
+  hrSummary: { flexDirection: 'row', gap: 5, marginTop: 5, marginBottom: 8 },
+  hrSummaryItem: { flex: 1, backgroundColor: Colors.elevated, borderRadius: 8, paddingVertical: 7, alignItems: 'center' },
+  hrSummaryValue: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900' },
+  hrSummaryLabel: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
+  hrPolicySection: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, paddingTop: 8, marginTop: 5 },
+  hrPolicyHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
+  hrPolicyTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '800' },
+  hrPolicyDesc: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  hrPolicyCurrent: { color: Colors.info, fontSize: 8, fontWeight: '900' },
+  hrPolicyChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
+  hrPolicyChip: { width: '48.5%', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, padding: 7 },
+  hrPolicyChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
+  hrPolicyChipTitle: { color: Colors.textSecondary, fontSize: 8, fontWeight: '800' },
+  hrPolicyChipMeta: { color: Colors.textMuted, fontSize: 7, marginTop: 2 },
+  hrPolicyCooldown: { color: Colors.warning, fontSize: 8, marginTop: 6 },
   workforceDepartment: { paddingVertical: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
   workforceDepartmentHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   workforceDepartmentIcon: { width: 31, height: 31, borderRadius: 8, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
