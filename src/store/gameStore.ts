@@ -81,7 +81,7 @@ import {
 } from '../engine/businessGovernanceEngine';
 import {
   normalizeCorporateWorkforce,
-  setCorporateDepartmentTarget,
+  setCorporateDepartmentTarget as buildCorporateDepartmentTarget,
 } from '../engine/businessWorkforceEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
@@ -3554,7 +3554,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business) return;
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
-    const workforce = setCorporateDepartmentTarget(
+    const workforce = buildCorporateDepartmentTarget(
       business,
       departmentId,
       targetHeadcount,
