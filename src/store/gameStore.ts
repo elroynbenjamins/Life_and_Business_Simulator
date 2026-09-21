@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
 import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
@@ -65,6 +65,12 @@ import {
   normalizeBusinessInsurancePolicies,
   resolveBusinessInsuranceLoss,
 } from '../engine/businessInsuranceEngine';
+import {
+  consumeBusinessBudgetReserve,
+  createBusinessBudgetPlan,
+  normalizeBusinessBudgetPlan,
+  normalizeBusinessBudgetReserves,
+} from '../engine/businessBudgetEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
@@ -227,6 +233,7 @@ interface GameStore extends GameState {
   sellBusiness: (businessId: string) => void;
   designateFamilyBusiness: (businessId: string) => void;
   setBusinessStrategicFocus: (businessId: string, focus: BusinessStrategicFocus) => void;
+  setBusinessBudgetProfile: (businessId: string, profile: BusinessBudgetProfile) => void;
   resolveBusinessDecision: (businessId: string, choiceId: string) => void;
   appointChildToBusiness: (businessId: string, childId: string, role: BusinessGovernanceRole) => void;
   transferBusinessShares: (businessId: string, targetType: 'child' | 'family_trust' | 'investor', targetId: string | null, percent: number) => void;
@@ -360,6 +367,9 @@ const useGameStore = create<GameStore>((set, get) => ({
           activeReinvestment: business.activeReinvestment ?? null,
           insurancePolicies: normalizeBusinessInsurancePolicies(business.insurancePolicies),
           insuranceClaims: business.insuranceClaims ?? [],
+          budgetPlan: normalizeBusinessBudgetPlan(business.budgetPlan, saved.year ?? 1),
+          budgetReserves: normalizeBusinessBudgetReserves(business.budgetReserves),
+          lastBudgetAllocation: business.lastBudgetAllocation ?? null,
           capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           delegationPolicy: business.delegationPolicy ?? 'manual',
@@ -560,6 +570,9 @@ const useGameStore = create<GameStore>((set, get) => ({
           activeReinvestment: business.activeReinvestment ?? null,
           insurancePolicies: normalizeBusinessInsurancePolicies(business.insurancePolicies),
           insuranceClaims: business.insuranceClaims ?? [],
+          budgetPlan: normalizeBusinessBudgetPlan(business.budgetPlan, saved.year ?? 1),
+          budgetReserves: normalizeBusinessBudgetReserves(business.budgetReserves),
+          lastBudgetAllocation: business.lastBudgetAllocation ?? null,
           capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           delegationPolicy: business.delegationPolicy ?? 'manual',
@@ -3302,6 +3315,34 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
+  setBusinessBudgetProfile: (businessId, profile) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business) return;
+    const plan = createBusinessBudgetPlan(profile, state.year);
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            budgetPlan: plan,
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: '📊 Annual budget set: ' + profile.replace(/_/g, ' '),
+                icon: '📊',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
   resolveBusinessDecision: (businessId, choiceId) => {
     const state = get();
     if (state.lifecycle?.isDead) return;
@@ -3797,7 +3838,11 @@ const useGameStore = create<GameStore>((set, get) => ({
     // Deduct only from the business account.
     let updatedBiz = result.updatedBusiness;
     if ((updatedBiz.balance ?? 0) < result.cost) return;
-    updatedBiz = { ...updatedBiz, balance: updatedBiz.balance - result.cost };
+    updatedBiz = {
+      ...updatedBiz,
+      balance: updatedBiz.balance - result.cost,
+      budgetReserves: consumeBusinessBudgetReserve(updatedBiz.budgetReserves, 'growth', result.cost),
+    };
     businesses[idx] = updatedBiz;
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
@@ -3877,6 +3922,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const updated = {
       ...business,
       balance: Math.max(0, (business.balance ?? 0) - cost),
+      budgetReserves: consumeBusinessBudgetReserve(business.budgetReserves, 'reinvestment', cost),
       activeReinvestment: {
         area,
         projectName: definition.name,
@@ -3932,6 +3978,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const updated = {
       ...business,
       balance: Math.max(0, (business.balance ?? 0) - cashRequired),
+      budgetReserves: consumeBusinessBudgetReserve(business.budgetReserves, 'growth', cashRequired),
       businessLoans: financingLoan
         ? [...(business.businessLoans ?? []), financingLoan]
         : (business.businessLoans ?? []),
@@ -4156,6 +4203,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const bizBal = biz.balance ?? 0;
     if (bizBal < cost) return;
     biz.balance = bizBal - cost;
+    biz.budgetReserves = consumeBusinessBudgetReserve(biz.budgetReserves, 'growth', cost);
     // 25% faster than the original 16–30 week timer, rounded to whole weeks.
     const weeks = getBusinessUpgradeWeeks();
     biz.activeUpgrade = { upgradeId, weeksRemaining: weeks };
@@ -4177,6 +4225,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     businesses[index] = {
       ...business,
       balance: business.balance - costs.purchaseCost,
+      budgetReserves: consumeBusinessBudgetReserve(business.budgetReserves, 'growth', costs.purchaseCost),
       activeExpansion: { templateId, weeksRemaining: template.buildWeeks },
       timeline: [...(business.timeline ?? []), { week: state.week, year: state.year, title: `Started expansion: ${template.name}`, icon: '🏗️', kind: 'expansion' as const }].slice(-50),
     };
