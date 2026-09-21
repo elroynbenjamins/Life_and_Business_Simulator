@@ -5,6 +5,7 @@ import {
 } from '../types/game';
 import businessTypesData from '../data/business_types.json';
 import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
+import { getCorporateWorkforceEffects } from './businessWorkforceEngine';
 
 function getBusinessType(typeId: string) {
   return (businessTypesData as any[]).find((type) => type?.id === typeId);
@@ -122,7 +123,14 @@ function getWearMultiplier(business: OwnedBusiness, area: BusinessReinvestmentAr
     : (business.valuation ?? 0) >= 25_000_000
       ? 1.05
       : 1;
-  return industryMultiplier * scaleMultiplier;
+  const workforce = getCorporateWorkforceEffects(business);
+  const staffingRatio = area === 'technology'
+    ? workforce.departmentRatios.technology
+    : workforce.departmentRatios.operations;
+  const workforceMultiplier = staffingRatio < 1
+    ? 1 + Math.min(0.30, (1 - staffingRatio) * 0.45)
+    : 1 - Math.min(0.10, (staffingRatio - 1) * 0.15);
+  return industryMultiplier * scaleMultiplier * workforceMultiplier;
 }
 
 export function tickBusinessReinvestment(
