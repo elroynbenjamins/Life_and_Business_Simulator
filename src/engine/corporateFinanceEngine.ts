@@ -6,6 +6,7 @@ import {
 } from '../types/game';
 import { getCorporateScaleTier } from './corporateScaleEngine';
 import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
+import { getCorporateWorkforceEffects } from './businessWorkforceEngine';
 
 export interface CorporateCreditProfile {
   rating: CorporateCreditRating;
@@ -105,9 +106,15 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
           : 0;
 
   const governance = getBusinessGovernanceEffects(business);
+  const workforce = getCorporateWorkforceEffects(business);
   const governanceScore = Math.round(governance.financingRateReduction * 250);
+  const workforceScore = Math.round(clamp(
+    (workforce.departmentRatios.finance - 1) * 20,
+    -8,
+    4,
+  ));
   const score = Math.round(clamp(
-    scaleScore + reputationScore + profitabilityScore + leverageScore + coverageScore + governanceScore,
+    scaleScore + reputationScore + profitabilityScore + leverageScore + coverageScore + governanceScore + workforceScore,
     0,
     100,
   ));
