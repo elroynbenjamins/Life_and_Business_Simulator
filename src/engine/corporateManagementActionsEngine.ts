@@ -38,6 +38,17 @@ function severityRank(severity: CorporateManagementAction['severity']): number {
   return severity === 'critical' ? 0 : 1;
 }
 
+function actionPriority(id: string): number {
+  if (id === 'repay-high-cost-debt' || id === 'renew-lowest-condition-area') return 10;
+  if (id.includes('department')) return 20;
+  if (id.includes('turnover') || id.includes('compensation') || id.includes('retention')) return 30;
+  if (id.includes('payroll') || id.includes('headcount') || id.includes('hiring')) return 40;
+  if (id.includes('employee')) return 50;
+  if (id === 'review-next-capex') return 60;
+  if (id === 'increase-debt-paydown-budget') return 90;
+  return 70;
+}
+
 function action(
   id: string,
   severity: CorporateManagementAction['severity'],
@@ -276,13 +287,32 @@ export function getCorporateManagementActions(
     }
   }
 
-  const seen = new Set<string>();
-  return actions
-    .sort((a, b) => severityRank(a.severity) - severityRank(b.severity))
+  const seenIds = new Set<string>();
+  const sorted = actions
+    .sort((a, b) =>
+      severityRank(a.severity) - severityRank(b.severity)
+      || actionPriority(a.id) - actionPriority(b.id)
+    )
     .filter((item) => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
+      if (seenIds.has(item.id)) return false;
+      seenIds.add(item.id);
       return true;
-    })
-    .slice(0, 3);
+    });
+
+  const selected: CorporateManagementAction[] = [];
+  const usedTargets = new Set<CorporateManagementActionTarget>();
+
+  for (const item of sorted) {
+    if (selected.length >= 3) break;
+    if (usedTargets.has(item.target)) continue;
+    selected.push(item);
+    usedTargets.add(item.target);
+  }
+  for (const item of sorted) {
+    if (selected.length >= 3) break;
+    if (selected.some((selectedItem) => selectedItem.id === item.id)) continue;
+    selected.push(item);
+  }
+
+  return selected;
 }
