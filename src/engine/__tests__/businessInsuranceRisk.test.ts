@@ -223,13 +223,13 @@ describe('business insurance and operational risk', () => {
       },
     });
 
-    jest.spyOn(Math, 'random').mockReturnValue(0);
+    const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0);
     const cyber = makeCorporateScaleCrisis(business, 120);
     expect(cyber.title).toBe('Cybersecurity Incident');
     expect(cyber.insuranceArea).toBe('cyber');
     expect(cyber.insuranceTierAtCreation).toBe('comprehensive');
 
-    (Math.random as jest.Mock).mockReturnValue(0.99);
+    randomSpy.mockReturnValue(0.99);
     const recall = makeCorporateScaleCrisis(business, 121);
     expect(recall.title).toBe('Product / Service Recall');
     expect(recall.insuranceArea).toBe('liability');
