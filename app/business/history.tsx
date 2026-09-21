@@ -49,7 +49,7 @@ export default function BusinessDealHistoryScreen() {
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Net Sale Proceeds</Text>
             <Text style={[styles.summaryValue, { color: Colors.primary }]}>{formatCurrency(summary.totalProceeds)}</Text>
-            <Text style={styles.summaryFoot}>After company debt payoff</Text>
+            <Text style={styles.summaryFoot}>After debt payoff and exit costs</Text>
           </View>
           <View style={styles.summaryCardWide}>
             <Text style={styles.summaryLabel}>Tracked Lifetime Result</Text>
@@ -117,6 +117,16 @@ export default function BusinessDealHistoryScreen() {
                     <Text style={styles.breakdownLabel}>Debt settled</Text>
                     <Text style={styles.breakdownValue}>{formatCurrency(deal.debtSettlement)}</Text>
                   </View>
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Sale transaction costs</Text>
+                    <Text style={styles.breakdownValue}>{formatCurrency(deal.saleTransactionCost ?? 0)}</Text>
+                  </View>
+                  {deal.wasAcquisition && (
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Acquisition closing costs</Text>
+                      <Text style={styles.breakdownValue}>{formatCurrency(deal.acquisitionTransactionCost ?? 0)}</Text>
+                    </View>
+                  )}
                   <View style={styles.breakdownRow}>
                     <Text style={styles.breakdownLabel}>Cash distributions</Text>
                     <Text style={styles.breakdownValue}>{formatCurrency(deal.totalPlayerDistributions)}</Text>
