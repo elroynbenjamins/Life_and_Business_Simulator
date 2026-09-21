@@ -40,6 +40,7 @@ import companiesData from '../data/companies.json';
 import { AD_GEM_REWARD, GEM_CASH_RATE } from '../constants/rewards';
 import { AD_CONFIG } from '../services/adConfig';
 import { showGameDialog } from '../components/GameDialog';
+import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
@@ -318,6 +319,8 @@ const useGameStore = create<GameStore>((set, get) => ({
             purpose: loan.purpose ?? 'operating',
           })),
           portfolioIntent: business.portfolioIntent ?? 'active',
+          initialCapitalInvested: business.initialCapitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? null) : null),
+          totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           acquisition: business.acquisition
             ? {
                 ...business.acquisition,
@@ -335,6 +338,7 @@ const useGameStore = create<GameStore>((set, get) => ({
               }
             : null,
         })),
+        soldBusinesses: saved.soldBusinesses ?? [],
         holdingCompanies: (saved.holdingCompanies ?? []).map((holding) => ({
           ...holding,
           cashReserve: holding.cashReserve ?? 0,
@@ -480,6 +484,8 @@ const useGameStore = create<GameStore>((set, get) => ({
             purpose: loan.purpose ?? 'operating',
           })),
           portfolioIntent: business.portfolioIntent ?? 'active',
+          initialCapitalInvested: business.initialCapitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? null) : null),
+          totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           acquisition: business.acquisition
             ? {
                 ...business.acquisition,
@@ -497,6 +503,7 @@ const useGameStore = create<GameStore>((set, get) => ({
               }
             : null,
         })),
+        soldBusinesses: saved.soldBusinesses ?? [],
         holdingCompanies: (saved.holdingCompanies ?? []).map((holding) => ({
           ...holding,
           cashReserve: holding.cashReserve ?? 0,
@@ -2714,6 +2721,8 @@ const useGameStore = create<GameStore>((set, get) => ({
         percent: 100,
         votingPercent: 100,
       }],
+      initialCapitalInvested: cost,
+      totalPlayerDistributions: 0,
     };
     const updates = {
       cash: (state?.cash ?? 0) - cost,
@@ -3450,22 +3459,25 @@ const useGameStore = create<GameStore>((set, get) => ({
     const biz = (state?.businesses ?? []).find((b) => b?.id === businessId);
     if (!biz || biz.portfolioIntent === 'long_term_family') return;
     if (getPlayerOwnershipPct(biz) < 99.9) return;
-    const grossSalePrice = Math.max(0, biz.valuation ?? 0);
-    const debtSettlement = (biz.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
-    const netSaleProceeds = Math.max(0, grossSalePrice - debtSettlement);
+
+    const holdingName = biz.holdingCompanyId
+      ? (state.holdingCompanies ?? []).find((holding) => holding.id === biz.holdingCompanyId)?.name ?? null
+      : null;
+    const soldRecord = buildSoldBusinessRecord(biz, state.week, state.year, holdingName);
     const holdingCompanies = biz.holdingCompanyId
       ? (state.holdingCompanies ?? []).map((holding) =>
           holding.id === biz.holdingCompanyId
-            ? { ...holding, cashReserve: (holding.cashReserve ?? 0) + netSaleProceeds }
+            ? { ...holding, cashReserve: (holding.cashReserve ?? 0) + soldRecord.netSaleProceeds }
             : holding
         )
       : state.holdingCompanies ?? [];
     const updates = {
-      cash: biz.holdingCompanyId ? (state.cash ?? 0) : (state.cash ?? 0) + netSaleProceeds,
+      cash: biz.holdingCompanyId ? (state.cash ?? 0) : (state.cash ?? 0) + soldRecord.netSaleProceeds,
       holdingCompanies,
+      soldBusinesses: [soldRecord, ...(state.soldBusinesses ?? [])].slice(0, 100),
       businesses: (state?.businesses ?? []).filter((b) => b?.id !== businessId),
       competitors: Object.fromEntries(Object.entries(state.competitors ?? {}).filter(([id]) => id !== businessId)),
-      currentHeadline: `Sold ${biz.name} for net proceeds of ${formatCurrencySafe(netSaleProceeds)} after debt settlement.`,
+      currentHeadline: `Sold ${biz.name} for net proceeds of ${formatCurrencySafe(soldRecord.netSaleProceeds)} after debt settlement.`,
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
@@ -3791,6 +3803,7 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     pendingInvestments: state?.pendingInvestments ?? [],
     recentEventIds: state?.recentEventIds ?? [],
     businesses: state?.businesses ?? [],
+    soldBusinesses: state?.soldBusinesses ?? [],
     holdingCompanies: state?.holdingCompanies ?? [],
     acquisitionTargets: state?.acquisitionTargets ?? [],
     lastAcquisitionRefreshWeek: state?.lastAcquisitionRefreshWeek ?? 0,
