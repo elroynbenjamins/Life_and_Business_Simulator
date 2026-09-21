@@ -225,7 +225,10 @@ export function applyBusinessBudgetWeek(args: {
   let loans = [...args.loans];
 
   const positiveProfit = Math.max(0, profit);
-  const discretionaryCashBeforeDebt = Math.max(0, balance - targets.operatingReserveTarget);
+  const protectedBeforeDebt = targets.operatingReserveTarget
+    + Math.min(targets.reinvestmentReserveTarget, existingReserves.reinvestment)
+    + Math.min(targets.growthReserveTarget, existingReserves.growth);
+  const discretionaryCashBeforeDebt = Math.max(0, balance - protectedBeforeDebt);
   const desiredDebtPaydown = positiveProfit * plan.debtPaydownPct;
   const debtResult = applyExtraDebtPayment(
     loans,
