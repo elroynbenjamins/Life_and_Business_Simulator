@@ -213,6 +213,7 @@ export function createDefaultBoardGovernance(
     confidence: 60,
     establishedYear: Math.max(1, year),
     lastReviewYear: Math.max(1, year),
+    lastMandateChangeGlobalWeek: Math.max(1, ((Math.max(1, year) - 1) * 20) + 1),
     lastReviewSummary: 'Board established. First annual review is pending.',
   };
 }
@@ -416,4 +417,25 @@ export function tickBusinessGovernance(
   }
 
   return { executives, boardGovernance, timelineEntries };
+}
+
+export function getBusinessGovernanceAttentionReason(business: OwnedBusiness): string | null {
+  if ((business.valuation ?? 0) >= 50_000_000 && !business.boardGovernance) {
+    return 'Board governance has not been established.';
+  }
+  if ((business.boardGovernance?.confidence ?? 60) < 35) {
+    return 'Board confidence is low.';
+  }
+  const unlockedRoles = (Object.keys(BUSINESS_EXECUTIVE_ROLES) as BusinessExecutiveRole[])
+    .filter((role) => {
+      const definition = BUSINESS_EXECUTIVE_ROLES[role];
+      return (business.valuation ?? 0) >= definition.minValuation
+        && (business.reputation ?? 0) >= definition.minReputation;
+    });
+  const vacancies = unlockedRoles.filter(
+    (role) => !(business.executives ?? []).some((executive) => executive.role === role),
+  );
+  return vacancies.length >= 3
+    ? `${vacancies.length} senior executive positions are vacant.`
+    : null;
 }
