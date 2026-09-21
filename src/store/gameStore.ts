@@ -24,6 +24,8 @@ import {
   generateAcquisitionTargets,
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
+  getAcquisitionTransactionCost,
+  getAcquisitionTransactionCostRate,
   migrateAcquiredBusinessAssets,
 } from '../engine/acquisitionEngine';
 import { generateRelationshipCandidates, getChildFuturePotential, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getFamilyPlanningPreview, getNormalizedDatingAgeBounds, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
@@ -319,7 +321,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             purpose: loan.purpose ?? 'operating',
           })),
           portfolioIntent: business.portfolioIntent ?? 'active',
-          capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
+          capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           acquisition: business.acquisition
             ? {
@@ -334,6 +336,14 @@ const useGameStore = create<GameStore>((set, get) => ({
                 integrationSuccessChance: business.acquisition.integrationSuccessChance ?? 0,
                 postIntegrationRevenueBonus: business.acquisition.postIntegrationRevenueBonus ?? 0,
                 postIntegrationExpenseReduction: business.acquisition.postIntegrationExpenseReduction ?? 0,
+                companyAgeYears: business.acquisition.companyAgeYears ?? 8,
+                sellerReason: business.acquisition.sellerReason ?? business.acquisition.sellerName ?? 'Established owner exit',
+                traits: business.acquisition.traits ?? [],
+                diligenceFindings: business.acquisition.diligenceFindings ?? [],
+                persistentRevenueModifier: business.acquisition.persistentRevenueModifier ?? 0,
+                persistentExpenseModifier: business.acquisition.persistentExpenseModifier ?? 0,
+                acquisitionTransactionCost: business.acquisition.acquisitionTransactionCost ?? 0,
+                acquisitionTransactionCostRate: business.acquisition.acquisitionTransactionCostRate ?? 0,
                 additionalCapitalInvested: business.acquisition.additionalCapitalInvested ?? 0,
               }
             : null,
@@ -355,6 +365,18 @@ const useGameStore = create<GameStore>((set, get) => ({
             target.askingPrice ?? 0,
             Math.round((target.estimatedValue ?? 0) * 1.10),
           ),
+          companyAgeYears: target.companyAgeYears ?? (target.tier === 'enterprise' ? 25 : target.tier === 'national' ? 18 : 10),
+          sellerReason: target.sellerReason ?? target.sellerName ?? 'Established owner exit',
+          traits: target.traits ?? [],
+          diligenceFindings: target.diligenceFindings ?? (target.diligenceNotes ?? []).map((note, index) => ({
+            id: `legacy_${index}`,
+            title: note,
+            kind: 'neutral' as const,
+            description: 'Previously recorded due-diligence observation.',
+          })),
+          persistentRevenueModifier: target.persistentRevenueModifier ?? 0,
+          persistentExpenseModifier: target.persistentExpenseModifier ?? 0,
+          acquisitionTransactionCostRate: target.acquisitionTransactionCostRate ?? getAcquisitionTransactionCostRate(target.tier),
         })),
         lastAcquisitionRefreshWeek: saved.lastAcquisitionRefreshWeek ?? 0,
         skills: saved.skills ?? {},
@@ -484,7 +506,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             purpose: loan.purpose ?? 'operating',
           })),
           portfolioIntent: business.portfolioIntent ?? 'active',
-          capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
+          capitalInvested: business.capitalInvested ?? (business.acquisition ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0) + (business.acquisition.acquisitionTransactionCost ?? 0) + (business.acquisition.additionalCapitalInvested ?? 0) : null),
           totalPlayerDistributions: business.totalPlayerDistributions ?? 0,
           acquisition: business.acquisition
             ? {
@@ -499,6 +521,14 @@ const useGameStore = create<GameStore>((set, get) => ({
                 integrationSuccessChance: business.acquisition.integrationSuccessChance ?? 0,
                 postIntegrationRevenueBonus: business.acquisition.postIntegrationRevenueBonus ?? 0,
                 postIntegrationExpenseReduction: business.acquisition.postIntegrationExpenseReduction ?? 0,
+                companyAgeYears: business.acquisition.companyAgeYears ?? 8,
+                sellerReason: business.acquisition.sellerReason ?? business.acquisition.sellerName ?? 'Established owner exit',
+                traits: business.acquisition.traits ?? [],
+                diligenceFindings: business.acquisition.diligenceFindings ?? [],
+                persistentRevenueModifier: business.acquisition.persistentRevenueModifier ?? 0,
+                persistentExpenseModifier: business.acquisition.persistentExpenseModifier ?? 0,
+                acquisitionTransactionCost: business.acquisition.acquisitionTransactionCost ?? 0,
+                acquisitionTransactionCostRate: business.acquisition.acquisitionTransactionCostRate ?? 0,
                 additionalCapitalInvested: business.acquisition.additionalCapitalInvested ?? 0,
               }
             : null,
@@ -520,6 +550,18 @@ const useGameStore = create<GameStore>((set, get) => ({
             target.askingPrice ?? 0,
             Math.round((target.estimatedValue ?? 0) * 1.10),
           ),
+          companyAgeYears: target.companyAgeYears ?? (target.tier === 'enterprise' ? 25 : target.tier === 'national' ? 18 : 10),
+          sellerReason: target.sellerReason ?? target.sellerName ?? 'Established owner exit',
+          traits: target.traits ?? [],
+          diligenceFindings: target.diligenceFindings ?? (target.diligenceNotes ?? []).map((note, index) => ({
+            id: `legacy_${index}`,
+            title: note,
+            kind: 'neutral' as const,
+            description: 'Previously recorded due-diligence observation.',
+          })),
+          persistentRevenueModifier: target.persistentRevenueModifier ?? 0,
+          persistentExpenseModifier: target.persistentExpenseModifier ?? 0,
+          acquisitionTransactionCostRate: target.acquisitionTransactionCostRate ?? getAcquisitionTransactionCostRate(target.tier),
         })),
         lastAcquisitionRefreshWeek: saved.lastAcquisitionRefreshWeek ?? 0,
         skills: saved.skills ?? {},
@@ -2789,8 +2831,10 @@ const useGameStore = create<GameStore>((set, get) => ({
     const effects = getPrestigeEffects(state.profile);
     const purchasePrice = getAcquisitionPrice(target, effects.negotiation ?? 0);
     const financing = getAcquisitionFinancingQuote(purchasePrice, fundingMode, effects.loan_rate_reduction ?? 0);
+    const acquisitionTransactionCost = getAcquisitionTransactionCost(target, purchasePrice);
+    const closingCashNeeded = financing.cashContribution + acquisitionTransactionCost;
     const sourceCash = holding ? (holding.cashReserve ?? 0) : (state.cash ?? 0);
-    if (sourceCash < financing.cashContribution) return;
+    if (sourceCash < closingCashNeeded) return;
     // Do not allow debt service that would consume nearly all target profit.
     if (financing.weeklyPayment > 0 && financing.weeklyPayment > Math.max(1, target.weeklyProfit) * 0.80) return;
 
@@ -2810,14 +2854,14 @@ const useGameStore = create<GameStore>((set, get) => ({
           item.id === holding.id
             ? {
                 ...item,
-                cashReserve: Math.max(0, (item.cashReserve ?? 0) - financing.cashContribution),
-                totalCapitalDeployed: (item.totalCapitalDeployed ?? 0) + financing.cashContribution,
+                cashReserve: Math.max(0, (item.cashReserve ?? 0) - closingCashNeeded),
+                totalCapitalDeployed: (item.totalCapitalDeployed ?? 0) + closingCashNeeded,
               }
             : item
         )
       : state.holdingCompanies ?? [];
     const updates = {
-      cash: holding ? (state.cash ?? 0) : (state.cash ?? 0) - financing.cashContribution,
+      cash: holding ? (state.cash ?? 0) : (state.cash ?? 0) - closingCashNeeded,
       holdingCompanies,
       businesses: [...(state.businesses ?? []), acquired],
       acquisitionTargets: (state.acquisitionTargets ?? []).filter((item) => item.id !== targetId),
@@ -2826,8 +2870,8 @@ const useGameStore = create<GameStore>((set, get) => ({
         [acquired.id]: createInitialCompetitors(acquired, globalWeek),
       },
       currentHeadline: financing.debtPrincipal > 0
-        ? `Acquired ${acquired.name}: ${formatCurrencySafe(financing.cashContribution)} cash + ${formatCurrencySafe(financing.debtPrincipal)} financing.`
-        : `Acquired ${acquired.name} for ${formatCurrencySafe(purchasePrice)} cash.`,
+        ? `Acquired ${acquired.name}: ${formatCurrencySafe(financing.cashContribution)} equity + ${formatCurrencySafe(financing.debtPrincipal)} financing + ${formatCurrencySafe(acquisitionTransactionCost)} closing costs.`
+        : `Acquired ${acquired.name} for ${formatCurrencySafe(purchasePrice)} + ${formatCurrencySafe(acquisitionTransactionCost)} closing costs.`,
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
