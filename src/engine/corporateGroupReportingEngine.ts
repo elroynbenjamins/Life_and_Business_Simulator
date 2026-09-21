@@ -5,6 +5,9 @@ import {
   CorporateKpiWarning,
   CorporateManagementReport,
   CorporateReportPeriod,
+  CorporateVarianceArea,
+  CorporateVarianceDirection,
+  CorporateVarianceDriver,
   getCorporateManagementReport,
 } from './corporateReportingEngine';
 
@@ -26,6 +29,12 @@ export interface CorporateGroupManagementReport {
   reportingValueCoverage: number;
   weeksTracked: number;
   expectedWeeks: number;
+  revenueChangePct: number | null;
+  expensesChangePct: number | null;
+  profitMargin: number;
+  profitMarginChangePctPoints: number | null;
+  varianceDrivers: CorporateVarianceDriver[];
+  varianceHistoryCoverage: 'baseline' | 'partial' | 'full';
   overallStatus: CorporateKpiStatus;
   criticalCompanyCount: number;
   watchCompanyCount: number;
@@ -134,6 +143,66 @@ function debtForBusiness(business: OwnedBusiness): number {
   );
 }
 
+function groupVarianceTitle(
+  area: CorporateVarianceArea,
+  direction: CorporateVarianceDirection,
+  companyCount: number,
+): string {
+  const subject = companyCount === 1 ? 'company' : 'companies';
+  const verb = direction === 'positive' ? 'improved' : direction === 'negative' ? 'weakened' : 'changed';
+  if (area === 'productivity') return `Productivity ${verb} in ${companyCount} ${subject}`;
+  if (area === 'headcount') return `Headcount shifted in ${companyCount} ${subject}`;
+  if (area === 'skill') return `Department skill ${verb} in ${companyCount} ${subject}`;
+  if (area === 'morale') return `Morale ${verb} in ${companyCount} ${subject}`;
+  if (area === 'payroll') return `Payroll pressure changed in ${companyCount} ${subject}`;
+  if (area === 'maintenance') return `Upkeep conditions ${verb} in ${companyCount} ${subject}`;
+  if (area === 'debt') return `Debt-service pressure changed in ${companyCount} ${subject}`;
+  if (area === 'integration') return `Acquisition integration ${verb} in ${companyCount} ${subject}`;
+  if (area === 'reputation') return `Reputation ${verb} in ${companyCount} ${subject}`;
+  if (area === 'market_share') return `Market-share position ${verb} in ${companyCount} ${subject}`;
+  return `Other market effects remain in ${companyCount} ${subject}`;
+}
+
+function aggregateVarianceDrivers(
+  reportPairs: Array<{ business: OwnedBusiness; report: CorporateManagementReport }>,
+): CorporateVarianceDriver[] {
+  const buckets = new Map<string, {
+    area: CorporateVarianceArea;
+    direction: CorporateVarianceDirection;
+    companyNames: string[];
+    impactScore: number;
+  }>();
+
+  for (const { business, report } of reportPairs) {
+    for (const driver of report.varianceDrivers) {
+      const key = `${driver.area}:${driver.direction}`;
+      const bucket = buckets.get(key) ?? {
+        area: driver.area,
+        direction: driver.direction,
+        companyNames: [],
+        impactScore: 0,
+      };
+      if (!bucket.companyNames.includes(business.name)) bucket.companyNames.push(business.name);
+      bucket.impactScore += driver.impactScore;
+      buckets.set(key, bucket);
+    }
+  }
+
+  return [...buckets.values()]
+    .map((bucket) => ({
+      id: `group-${bucket.area}-${bucket.direction}`,
+      area: bucket.area,
+      direction: bucket.direction,
+      title: groupVarianceTitle(bucket.area, bucket.direction, bucket.companyNames.length),
+      detail: bucket.companyNames.length <= 3
+        ? bucket.companyNames.join(' • ')
+        : `${bucket.companyNames.slice(0, 3).join(' • ')} • +${bucket.companyNames.length - 3} more`,
+      impactScore: bucket.impactScore + bucket.companyNames.length * 2,
+    }))
+    .sort((a, b) => b.impactScore - a.impactScore)
+    .slice(0, 4);
+}
+
 function weightedAverage(
   items: Array<{ value: number; weight: number }>,
   fallback = 0,
@@ -168,6 +237,54 @@ export function getCorporateGroupManagementReport(
   if (reportPairs.length === 0) return null;
 
   const reports = reportPairs.map((pair) => pair.report);
+  const comparisonPairs = reportPairs.filter(({ report }) => report.previousWeeksTracked > 0);
+  const currentComparableWeeklyRevenue = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.periodRevenue / Math.max(1, report.weeksTracked),
+    0,
+  );
+  const previousComparableWeeklyRevenue = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.previousPeriodRevenue / Math.max(1, report.previousWeeksTracked),
+    0,
+  );
+  const currentComparableWeeklyExpenses = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.periodExpenses / Math.max(1, report.weeksTracked),
+    0,
+  );
+  const previousComparableWeeklyExpenses = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.previousPeriodExpenses / Math.max(1, report.previousWeeksTracked),
+    0,
+  );
+  const currentComparableWeeklyProfit = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.periodProfit / Math.max(1, report.weeksTracked),
+    0,
+  );
+  const previousComparableWeeklyProfit = comparisonPairs.reduce(
+    (sum, { report }) => sum + report.previousPeriodProfit / Math.max(1, report.previousWeeksTracked),
+    0,
+  );
+  const revenueChangePct = comparisonPairs.length > 0 && previousComparableWeeklyRevenue > 0
+    ? (currentComparableWeeklyRevenue - previousComparableWeeklyRevenue) / previousComparableWeeklyRevenue
+    : null;
+  const expensesChangePct = comparisonPairs.length > 0 && previousComparableWeeklyExpenses > 0
+    ? (currentComparableWeeklyExpenses - previousComparableWeeklyExpenses) / previousComparableWeeklyExpenses
+    : null;
+  const profitMargin = currentComparableWeeklyRevenue > 0
+    ? currentComparableWeeklyProfit / currentComparableWeeklyRevenue
+    : 0;
+  const previousProfitMargin = previousComparableWeeklyRevenue > 0
+    ? previousComparableWeeklyProfit / previousComparableWeeklyRevenue
+    : 0;
+  const profitMarginChangePctPoints = comparisonPairs.length > 0
+    ? (profitMargin - previousProfitMargin) * 100
+    : null;
+  const varianceDrivers = aggregateVarianceDrivers(comparisonPairs);
+  const varianceHistoryCoverage: CorporateGroupManagementReport['varianceHistoryCoverage'] = comparisonPairs.length === 0
+    ? 'baseline'
+    : comparisonPairs.length === reportPairs.length
+      && comparisonPairs.every(({ report }) => report.varianceHistoryCoverage === 'full')
+      ? 'full'
+      : 'partial';
+
   const totalValue = companies.reduce((sum, business) => sum + Math.max(0, business.valuation ?? 0), 0);
   const reportingValue = reportPairs.reduce(
     (sum, pair) => sum + Math.max(0, pair.business.valuation ?? 0),
@@ -446,6 +563,12 @@ export function getCorporateGroupManagementReport(
     reportingValueCoverage,
     weeksTracked: Math.min(...reports.map((report) => report.weeksTracked)),
     expectedWeeks: reports[0].expectedWeeks,
+    revenueChangePct,
+    expensesChangePct,
+    profitMargin,
+    profitMarginChangePctPoints,
+    varianceDrivers,
+    varianceHistoryCoverage,
     overallStatus: overallStatus(warnings),
     criticalCompanyCount,
     watchCompanyCount,
