@@ -355,6 +355,7 @@ export function createAcquiredBusiness(
     holdingCompanyId,
     portfolioIntent: 'active',
     acquisition: {
+      assetBaselineVersion: 1,
       purchasePrice: financing.purchasePrice,
       cashContribution: financing.cashContribution,
       debtFinanced: financing.debtPrincipal,
@@ -409,7 +410,7 @@ export function migrateAcquiredBusinessAssets(
   inflationMultiplier = 1,
   currentGlobalWeek = 1,
 ): OwnedBusiness {
-  if (!business.acquisition) return business;
+  if (!business.acquisition || (business.acquisition.assetBaselineVersion ?? 0) >= 1) return business;
   const type = getBusinessType(business.typeId);
   if (!type) return business;
 
@@ -451,6 +452,7 @@ export function migrateAcquiredBusinessAssets(
     ...migrated,
     acquisition: {
       ...business.acquisition,
+      assetBaselineVersion: 1,
       // Rebase old saves to the mature asset footprint so inherited branches and
       // upgrades do not become an instant revenue multiplier after migration.
       referenceRevenueCapacity: getBusinessRevenueCapacity(migrated),
