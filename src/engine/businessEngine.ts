@@ -1169,10 +1169,10 @@ export function processBusinessWeek(
   const locationOperatingCosts = Math.round((biz.locations ?? []).reduce((total, location) => total + (location.weeklyOperatingCost ?? 0), 0) * inflationMultiplier * prestigeCostMultiplier);
   let baseMisc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult)
     + locationOperatingCosts;
-  let misc = baseMisc
-    + governanceEffects.boardWeeklyCost
-    + workforceTick.transitionCost
-    + workforceTick.trainingCost;
+  const boardFees = governanceEffects.boardWeeklyCost;
+  const workforceTraining = workforceTick.trainingCost;
+  const workforceTransition = workforceTick.transitionCost;
+  let misc = baseMisc;
   if (acquisition) {
     const quotedRevenue = Math.max(1, acquisition.quotedWeeklyRevenue!);
     const inflationRatio = inflationMultiplier / Math.max(0.01, acquisition.quoteInflation!);
@@ -1190,10 +1190,7 @@ export function processBusinessWeek(
     insurance = baseInsurance + explicitInsurancePremium;
     maintenance = Math.round(maintenance * scale);
     baseMisc = Math.max(0, overhead - rent - cogs - utilities - baseInsurance - maintenance) + locationOperatingCosts;
-    misc = baseMisc
-      + governanceEffects.boardWeeklyCost
-      + workforceTick.transitionCost
-      + workforceTick.trainingCost;
+    misc = baseMisc;
   }
 
   let loanInterest = 0;
@@ -1209,7 +1206,8 @@ export function processBusinessWeek(
     }
   }
 
-  const expensesBeforeTax = rent + salaries + adCost + cogs + utilities + insurance + maintenance + misc;
+  const expensesBeforeTax = rent + salaries + adCost + cogs + utilities + insurance + maintenance
+    + boardFees + workforceTraining + workforceTransition + misc;
   const preTaxProfit = revenue - (expensesBeforeTax + loanInterest);
   // Corporate tax: 20% of positive weekly profit
   const businessTax = preTaxProfit > 0 ? Math.round(preTaxProfit * 0.20) : 0;
@@ -1220,7 +1218,11 @@ export function processBusinessWeek(
     rent, salaries, cogs, utilities,
     marketing: adCost,
     insurance, maintenance, taxes: businessTax,
-    loanInterest, misc,
+    loanInterest,
+    boardFees,
+    workforceTraining,
+    workforceTransition,
+    misc,
   };
 
   // Tick down active events
