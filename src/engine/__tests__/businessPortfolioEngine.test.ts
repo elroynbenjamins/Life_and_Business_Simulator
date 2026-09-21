@@ -52,10 +52,10 @@ describe('business portfolio engine', () => {
     expect(result.returnPct).toBeCloseTo(170);
   });
 
-  test('acquisition basis uses shareholder cash contribution plus later capital', () => {
+  test('legacy acquisition basis falls back to shareholder cash contribution plus later capital', () => {
     const business = {
       ...makeBusiness(),
-      capitalInvested: 999_999,
+      capitalInvested: null,
       acquisition: {
         purchasePrice: 400_000,
         cashContribution: 120_000,
