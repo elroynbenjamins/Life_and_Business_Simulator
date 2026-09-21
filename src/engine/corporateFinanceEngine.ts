@@ -174,6 +174,19 @@ function buildDebtQuote(
     reason = 'This would exceed the company’s credit capacity after scheduled interest.';
   }
 
+  const operatingCashFlowBeforeDebt = Math.max(
+    0,
+    (business.lastWeekProfit ?? 0) + profile.weeklyDebtService,
+  );
+  const projectedDebtService = profile.weeklyDebtService + weeklyPayment;
+  if (allowed && operatingCashFlowBeforeDebt <= 0) {
+    allowed = false;
+    reason = 'The company needs positive operating cash flow before taking new corporate debt.';
+  } else if (allowed && projectedDebtService > operatingCashFlowBeforeDebt * 0.65) {
+    allowed = false;
+    reason = 'Projected debt service would consume too much current operating cash flow.';
+  }
+
   return {
     type,
     amount: requested,
