@@ -21,6 +21,8 @@ export default function BusinessSaleScreen() {
   const { id = '' } = useLocalSearchParams<{ id?: string }>();
   const businesses = useGameStore((state) => state.businesses ?? []);
   const holdingCompanies = useGameStore((state) => state.holdingCompanies ?? []);
+  const gameWeek = useGameStore((state) => state.week ?? 1);
+  const gameYear = useGameStore((state) => state.year ?? 1);
   const sellBusiness = useGameStore((state) => state.sellBusiness);
 
   const business = businesses.find((item) => item.id === id);
@@ -46,7 +48,7 @@ export default function BusinessSaleScreen() {
   }
 
   const type = getBusinessType(business.typeId);
-  const quote = getBusinessSaleQuote(business);
+  const quote = getBusinessSaleQuote(business, gameWeek, gameYear);
   const holding = business.holdingCompanyId
     ? holdingCompanies.find((item) => item.id === business.holdingCompanyId) ?? null
     : null;
@@ -60,7 +62,7 @@ export default function BusinessSaleScreen() {
     if (!canSell) return;
     showGameDialog({
       title: 'Confirm Business Sale',
-      message: `Sell ${business.name} for ${formatCurrency(quote.netSaleProceeds)} net proceeds after repaying ${formatCurrency(quote.debtSettlement)} of business debt? The company will move to Deal History.`,
+      message: `Sell ${business.name} for ${formatCurrency(quote.netSaleProceeds)} net proceeds after repaying ${formatCurrency(quote.debtSettlement)} of business debt and ${formatCurrency(quote.saleTransactionCost)} of transaction costs? The company will move to Deal History.`,
       confirmText: 'Sell Business',
       cancelText: 'Keep Business',
       destructive: true,
@@ -110,7 +112,7 @@ export default function BusinessSaleScreen() {
 
         <GameCard>
           <Text style={styles.sectionTitle}>Sale Breakdown</Text>
-          <Text style={styles.sectionSub}>Debt is settled automatically at closing.</Text>
+          <Text style={styles.sectionSub}>Debt and transaction costs are settled automatically at closing.</Text>
           <View style={styles.rows}>
             <View style={styles.row}>
               <Text style={styles.rowLabel}>Gross company value</Text>
@@ -120,6 +122,14 @@ export default function BusinessSaleScreen() {
               <Text style={styles.rowLabel}>Business debt repaid</Text>
               <Text style={[styles.rowValue, quote.debtSettlement > 0 && { color: Colors.negative }]}>
                 {quote.debtSettlement > 0 ? '-' : ''}{formatCurrency(quote.debtSettlement)}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>
+                Sale transaction costs ({(quote.saleTransactionCostRate * 100).toFixed(1)}%)
+              </Text>
+              <Text style={[styles.rowValue, { color: Colors.negative }]}>
+                -{formatCurrency(quote.saleTransactionCost)}
               </Text>
             </View>
             <View style={styles.divider} />
@@ -177,6 +187,14 @@ export default function BusinessSaleScreen() {
               <View style={styles.row}>
                 <Text style={styles.rowLabel}>Funding</Text>
                 <Text style={styles.rowValue}>{business.acquisition.fundingMode.toUpperCase()}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Acquisition closing costs</Text>
+                <Text style={styles.rowValue}>{formatCurrency(business.acquisition.acquisitionTransactionCost ?? 0)}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Ownership period</Text>
+                <Text style={styles.rowValue}>{quote.heldWeeks ?? 0} weeks</Text>
               </View>
               <View style={styles.row}>
                 <Text style={styles.rowLabel}>Integration</Text>
