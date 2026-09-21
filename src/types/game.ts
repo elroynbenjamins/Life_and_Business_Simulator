@@ -1059,6 +1059,51 @@ export type BusinessDecisionKind = 'strategy' | 'crisis';
 export type BusinessGovernanceRole = 'manager' | 'executive' | 'board' | 'successor';
 export type BusinessOwnerType = 'player' | 'child' | 'family_trust' | 'investor';
 
+export type BusinessExecutiveRole = 'cfo' | 'coo' | 'cto' | 'cmo' | 'general_counsel';
+export type BusinessExecutiveTrait =
+  | 'capital_allocator'
+  | 'conservative_financier'
+  | 'scale_operator'
+  | 'efficiency_expert'
+  | 'technologist'
+  | 'cyber_specialist'
+  | 'brand_builder'
+  | 'growth_marketer'
+  | 'regulatory_specialist'
+  | 'negotiator';
+
+export interface BusinessExecutiveCandidate {
+  id: string;
+  role: BusinessExecutiveRole;
+  name: string;
+  performance: number;
+  weeklySalary: number;
+  signingFee: number;
+  trait: BusinessExecutiveTrait;
+}
+
+export interface BusinessExecutive extends BusinessExecutiveCandidate {
+  appointedGlobalWeek: number;
+  tenureWeeks: number;
+  nextReviewGlobalWeek: number;
+}
+
+export interface BusinessExecutiveSearch {
+  role: BusinessExecutiveRole;
+  candidates: BusinessExecutiveCandidate[];
+  generatedGlobalWeek: number;
+}
+
+export type BusinessBoardMandate = 'founder_led' | 'balanced_oversight' | 'growth_mandate' | 'risk_committee';
+
+export interface BusinessBoardGovernance {
+  mandate: BusinessBoardMandate;
+  confidence: number;
+  establishedYear: number;
+  lastReviewYear: number;
+  lastReviewSummary: string;
+}
+
 export type AcquisitionRisk = 'low' | 'medium' | 'high';
 export type AcquisitionTier = 'regional' | 'national' | 'enterprise';
 export type AcquisitionFundingMode = 'cash' | 'balanced' | 'leveraged';
@@ -1343,6 +1388,9 @@ export interface OwnedBusiness {
   nextCrisisCheckWeek?: number;
   ownership?: BusinessOwnershipStake[];
   familyRoles?: BusinessFamilyRole[];
+  executives?: BusinessExecutive[];
+  pendingExecutiveSearch?: BusinessExecutiveSearch | null;
+  boardGovernance?: BusinessBoardGovernance | null;
   /** Optional organizational parent for portfolio-level capital allocation. */
   holdingCompanyId?: string | null;
   /** Scales mature acquired companies beyond startup-size base economics. */
