@@ -10,9 +10,11 @@ import { useShallow } from 'zustand/react/shallow';
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const notificationState = useGameStore(useShallow((state) => ({
-    career: state.career,
     completedCourses: state.completedCourses ?? [],
     currentCourseId: state.currentCourseId,
+    weeksEmployed: state.statistics?.weeksEmployed ?? 0,
+    cash: state.cash ?? 0,
+    inflationMultiplier: state.inflationMultiplier ?? 1,
   })));
   const educationNotice = getEducationAvailabilityNotice(notificationState);
   const notificationBadgeStyle = { minWidth: 10, width: 10, height: 10, borderRadius: 5, fontSize: 0, top: 4 };
