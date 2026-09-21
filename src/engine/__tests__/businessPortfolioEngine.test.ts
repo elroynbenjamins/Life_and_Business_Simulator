@@ -4,6 +4,7 @@ import {
   getBusinessEmpireSummary,
   getBusinessEquityReturn,
   getBusinessSaleQuote,
+  getBusinessSaleTransactionCostRate,
 } from '../businessPortfolioEngine';
 import { OwnedBusiness } from '../../types/game';
 
@@ -36,11 +37,13 @@ describe('business portfolio engine', () => {
 
     expect(quote.grossSalePrice).toBe(300_000);
     expect(quote.debtSettlement).toBe(50_000);
-    expect(quote.netSaleProceeds).toBe(250_000);
+    expect(quote.saleTransactionCostRate).toBeCloseTo(0.025);
+    expect(quote.saleTransactionCost).toBe(7_500);
+    expect(quote.netSaleProceeds).toBe(242_500);
     expect(quote.investmentBasis).toBe(100_000);
     expect(quote.totalPlayerDistributions).toBe(20_000);
-    expect(quote.lifetimeCashResult).toBe(170_000);
-    expect(quote.lifetimeReturnPct).toBeCloseTo(170);
+    expect(quote.lifetimeCashResult).toBe(162_500);
+    expect(quote.lifetimeReturnPct).toBeCloseTo(162.5);
   });
 
   test('current portfolio ROI values debt-adjusted equity plus distributions', () => {
@@ -75,11 +78,12 @@ describe('business portfolio engine', () => {
         postIntegrationExpenseReduction: 0,
         initialRisk: 'low' as const,
         diligenceScore: 90,
+        acquisitionTransactionCost: 6_000,
         additionalCapitalInvested: 30_000,
       },
     };
 
-    expect(getBusinessEquityReturn(business).investmentBasis).toBe(150_000);
+    expect(getBusinessEquityReturn(business).investmentBasis).toBe(156_000);
   });
 
   test('archives sold companies with hold period and closing result', () => {
@@ -88,9 +92,45 @@ describe('business portfolio engine', () => {
     expect(record.name).toBe('Ledger Coffee');
     expect(record.soldGlobalWeek).toBe(46);
     expect(record.heldWeeks).toBe(25);
-    expect(record.netSaleProceeds).toBe(250_000);
-    expect(record.lifetimeCashResult).toBe(170_000);
+    expect(record.saleTransactionCost).toBe(7_500);
+    expect(record.netSaleProceeds).toBe(242_500);
+    expect(record.lifetimeCashResult).toBe(162_500);
     expect(record.holdingCompanyName).toBe('Family Holdings');
+  });
+
+  test('short-hold acquisition exit friction fades to the normal sale-cost floor', () => {
+    const business = {
+      ...makeBusiness(),
+      acquisition: {
+        purchasePrice: 300_000,
+        cashContribution: 100_000,
+        debtFinanced: 200_000,
+        fundingMode: 'leveraged' as const,
+        sellerName: 'Private shareholders',
+        acquiredGlobalWeek: 40,
+        estimatedValueAtPurchase: 300_000,
+        baseIntegrationWeeks: 6,
+        baseIntegrationPenalty: 0.05,
+        integrationStrategy: 'independent' as const,
+        integrationOutcome: 'success' as const,
+        integrationWeeksRemaining: 0,
+        integrationPenalty: 0,
+        integrationSuccessChance: 1,
+        postIntegrationRevenueBonus: 0,
+        postIntegrationExpenseReduction: 0,
+        initialRisk: 'low' as const,
+        diligenceScore: 90,
+        additionalCapitalInvested: 0,
+      },
+    };
+
+    const shortHoldRate = getBusinessSaleTransactionCostRate(business, 5, 3); // global week 45
+    const seasonedRate = getBusinessSaleTransactionCostRate(business, 20, 4); // global week 80
+
+    expect(shortHoldRate).toBeGreaterThan(0.06);
+    expect(seasonedRate).toBeCloseTo(0.025);
+    expect(getBusinessSaleQuote(business, 5, 3).netSaleProceeds)
+      .toBeLessThan(getBusinessSaleQuote(business, 20, 4).netSaleProceeds);
   });
 
   test('summarizes empire debt, cash and attention without double counting', () => {
