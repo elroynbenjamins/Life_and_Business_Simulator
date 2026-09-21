@@ -456,7 +456,9 @@ export function tickCorporateWorkforce(
 ): {
   workforce: CorporateWorkforceState | null;
   weeklyPayroll: number;
+  trainingCost: number;
   transitionCost: number;
+  turnoverCount: number;
   effects: ReturnType<typeof getCorporateWorkforceEffects>;
 } {
   const workforce = normalizeCorporateWorkforce(
@@ -469,14 +471,32 @@ export function tickCorporateWorkforce(
     return {
       workforce: null,
       weeklyPayroll: 0,
+      trainingCost: 0,
       transitionCost: 0,
+      turnoverCount: 0,
       effects: getCorporateWorkforceEffects(business, null),
     };
   }
 
+  const compensationPolicy = workforce.compensationPolicy ?? 'market';
+  const trainingPolicy = workforce.trainingPolicy ?? 'standard';
+  const compensation = CORPORATE_COMPENSATION_POLICIES[compensationPolicy];
+  const training = CORPORATE_TRAINING_POLICIES[trainingPolicy];
+  const laborMarketPressure = clamp(
+    (workforce.laborMarketPressure ?? 50) + (Math.random() - 0.5) * 4,
+    20,
+    90,
+  );
+  const laborHiringMultiplier = clamp(1 - (laborMarketPressure - 50) * 0.008, 0.55, 1.20);
+  const laborTurnoverMultiplier = clamp(1 + (laborMarketPressure - 50) * 0.012, 0.65, 1.55);
+  const relations = clamp(workforce.employeeRelations ?? 70, 0, 100);
+  const relationsTurnoverMultiplier = clamp(1 + (65 - relations) * 0.012, 0.65, 1.60);
+
   const recommended = getRecommendedDepartmentHeadcounts({ ...business, corporateWorkforce: workforce });
   const nextDepartments = {} as Record<CorporateDepartmentId, CorporateDepartmentState>;
   let transitionCost = 0;
+  let turnoverCount = 0;
+  let layoffsThisWeek = 0;
   let transitionCashAvailable = Math.max(
     0,
     (business.balance ?? 0) - Math.max(0, business.lastWeekExpenses ?? 0) * 3,
@@ -485,43 +505,94 @@ export function tickCorporateWorkforce(
 
   for (const id of Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[]) {
     const department = workforce.departments[id];
+    const policyWage = getDepartmentWeeklyWage(id, inflationMultiplier, compensationPolicy);
     const difference = department.targetHeadcount - department.headcount;
-    const maxWeeklyChange = Math.max(
+    const rawMaxWeeklyChange = Math.max(
       2,
       Math.ceil(Math.max(department.headcount, department.targetHeadcount) * 0.06),
     );
+    const maxWeeklyChange = difference > 0
+      ? Math.max(1, Math.floor(rawMaxWeeklyChange * compensation.hiringSpeedMultiplier * laborHiringMultiplier))
+      : rawMaxWeeklyChange;
     const desiredChange = difference === 0
       ? 0
       : Math.sign(difference) * Math.min(Math.abs(difference), maxWeeklyChange);
     const perPersonTransitionCost = desiredChange > 0
-      ? department.weeklyWage * 2
+      ? policyWage * 2
       : desiredChange < 0
-        ? department.weeklyWage * 1.5
+        ? policyWage * 1.5
         : 0;
     const affordableCount = perPersonTransitionCost > 0
       ? Math.floor(transitionCashAvailable / perPersonTransitionCost)
       : Math.abs(desiredChange);
-    const change = desiredChange === 0
+    const plannedChange = desiredChange === 0
       ? 0
       : Math.sign(desiredChange) * Math.min(Math.abs(desiredChange), Math.max(0, affordableCount));
-    const nextHeadcount = Math.max(1, department.headcount + change);
+    let nextHeadcount = Math.max(1, department.headcount + plannedChange);
 
-    if (change !== 0) {
-      const cost = Math.round(Math.abs(change) * perPersonTransitionCost);
+    if (plannedChange !== 0) {
+      const cost = Math.round(Math.abs(plannedChange) * perPersonTransitionCost);
       transitionCost += cost;
       transitionCashAvailable = Math.max(0, transitionCashAvailable - cost);
-      changes.push(`${change > 0 ? '+' : ''}${change} ${CORPORATE_DEPARTMENT_DEFINITIONS[id].name}`);
+      if (plannedChange < 0) layoffsThisWeek += Math.abs(plannedChange);
+      changes.push(`${plannedChange > 0 ? '+' : ''}${plannedChange} ${CORPORATE_DEPARTMENT_DEFINITIONS[id].name}`);
     }
 
-    const hiringSkill = clamp(60 + (business.reputation ?? 50) * 0.10, 58, 72);
-    const averageSkill = change > 0
-      ? ((department.averageSkill * department.headcount) + (hiringSkill * change)) / Math.max(1, nextHeadcount)
-      : clamp(department.averageSkill + (change === 0 ? 0.03 : 0), 45, 92);
+    const moraleTurnoverMultiplier = clamp(
+      1 + (65 - department.morale) * 0.012,
+      0.65,
+      1.55,
+    );
+    const expectedTurnover = nextHeadcount
+      * 0.003
+      * compensation.turnoverMultiplier
+      * training.turnoverMultiplier
+      * laborTurnoverMultiplier
+      * relationsTurnoverMultiplier
+      * moraleTurnoverMultiplier;
+    let turnoverAccumulator = Math.max(0, department.turnoverAccumulator ?? 0) + expectedTurnover;
+    const maxTurnover = Math.max(1, Math.ceil(nextHeadcount * 0.03));
+    const voluntaryTurnover = Math.min(
+      Math.floor(turnoverAccumulator),
+      maxTurnover,
+      Math.max(0, nextHeadcount - 1),
+    );
+    turnoverAccumulator = Math.max(0, turnoverAccumulator - voluntaryTurnover);
+    if (voluntaryTurnover > 0) {
+      nextHeadcount = Math.max(1, nextHeadcount - voluntaryTurnover);
+      turnoverCount += voluntaryTurnover;
+      changes.push(`-${voluntaryTurnover} turnover in ${CORPORATE_DEPARTMENT_DEFINITIONS[id].name}`);
+    }
+
+    const hiringSkill = clamp(
+      60
+      + (business.reputation ?? 50) * 0.10
+      + compensation.hiringSkillBonus
+      - Math.max(0, laborMarketPressure - 60) * 0.08,
+      55,
+      78,
+    );
+    const hires = Math.max(0, plannedChange);
+    const skillAfterHiring = hires > 0
+      ? ((department.averageSkill * department.headcount) + (hiringSkill * hires)) / Math.max(1, department.headcount + hires)
+      : department.averageSkill;
+    const averageSkill = clamp(
+      skillAfterHiring + training.skillGainPerWeek,
+      45,
+      95,
+    );
     const staffingPressure = nextHeadcount < recommended[id] * 0.80 ? -0.20 : 0;
     const profitMorale = (business.lastWeekProfit ?? 0) >= 0 ? 0.10 : -0.30;
-    const changeMorale = change < 0 ? -1.75 : change > 0 ? -0.15 : 0;
+    const changeMorale = plannedChange < 0 ? -1.75 : plannedChange > 0 ? -0.15 : 0;
+    const turnoverMorale = voluntaryTurnover > 0 ? -Math.min(1.5, voluntaryTurnover * 0.20) : 0;
     const morale = clamp(
-      department.morale + staffingPressure + profitMorale + changeMorale,
+      department.morale
+      + staffingPressure
+      + profitMorale
+      + changeMorale
+      + turnoverMorale
+      + compensation.moralePerWeek
+      + training.moralePerWeek,
       35,
       92,
     );
@@ -531,22 +602,39 @@ export function tickCorporateWorkforce(
       headcount: nextHeadcount,
       averageSkill,
       morale,
-      weeklyWage: getDepartmentWeeklyWage(id, inflationMultiplier),
-      lastHeadcountChangeWeek: change !== 0 ? globalWeek : department.lastHeadcountChangeWeek,
+      weeklyWage: policyWage,
+      lastHeadcountChangeWeek: plannedChange !== 0 ? globalWeek : department.lastHeadcountChangeWeek,
+      turnoverAccumulator,
     };
   }
 
-  const nextWorkforce: CorporateWorkforceState = {
+  const nextWorkforceBase: CorporateWorkforceState = {
     ...workforce,
     departments: nextDepartments,
+    laborMarketPressure,
+    recentTurnover: turnoverCount,
     lastChangeSummary: changes.length > 0 ? changes.join(' • ') : 'No department headcount changes this week.',
+  };
+  const weeklyPayroll = getCorporateWorkforceWeeklyPayroll(nextWorkforceBase);
+  const trainingCost = Math.round(weeklyPayroll * training.payrollCostPct);
+  const relationsRecovery = layoffsThisWeek === 0 && turnoverCount === 0 ? 0.12 : 0;
+  const relationsChange = relationsRecovery
+    + compensation.moralePerWeek * 0.8
+    + training.moralePerWeek * 0.8
+    - Math.min(8, layoffsThisWeek * 0.35)
+    - Math.min(4, turnoverCount * 0.12);
+  const nextWorkforce: CorporateWorkforceState = {
+    ...nextWorkforceBase,
+    employeeRelations: clamp(relations + relationsChange, 0, 100),
   };
   const workforceBusiness = { ...business, corporateWorkforce: nextWorkforce };
 
   return {
     workforce: nextWorkforce,
-    weeklyPayroll: getCorporateWorkforceWeeklyPayroll(nextWorkforce),
+    weeklyPayroll,
+    trainingCost,
     transitionCost,
+    turnoverCount,
     effects: getCorporateWorkforceEffects(workforceBusiness, nextWorkforce),
   };
 }
