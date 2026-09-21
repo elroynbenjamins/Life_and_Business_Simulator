@@ -1265,7 +1265,7 @@ export interface GameState {
   recentEventIds: string[]; // last 10 event IDs to avoid repeats
   // Business
   businesses: OwnedBusiness[];
-  soldBusinesses: SoldBusinessRecord[];
+  soldBusinesses?: SoldBusinessRecord[];
   holdingCompanies: HoldingCompany[];
   acquisitionTargets: BusinessAcquisitionTarget[];
   lastAcquisitionRefreshWeek: number;
