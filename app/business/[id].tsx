@@ -2683,6 +2683,36 @@ function formatManagementTargetValue(id: string, value: number): string {
   return value.toFixed(1);
 }
 
+function managementYearComparisonColor(
+  value: number | null,
+  lowerIsBetter = false,
+): string {
+  if (value == null || Math.abs(value) < 0.0001) return Colors.textMuted;
+  const improved = lowerIsBetter ? value < 0 : value > 0;
+  return improved ? Colors.primary : Colors.negative;
+}
+
+function formatManagementYearComparison(
+  value: number | null,
+  unit: 'percent' | 'points',
+): string {
+  if (value == null) return '—';
+  const suffix = unit === 'percent' ? '%' : ' pts';
+  const scaled = unit === 'percent' ? value * 100 : value;
+  return `${scaled >= 0 ? '+' : ''}${scaled.toFixed(1)}${suffix}`;
+}
+
+function managementQuarterScopeLabel(quarters: number[]): string {
+  if (quarters.length === 0) return 'No comparable quarters';
+  const sorted = [...quarters].sort((a, b) => a - b);
+  const sequential = sorted.every((quarter, index) =>
+    index === 0 || quarter === sorted[index - 1] + 1
+  );
+  return sequential && sorted.length > 1
+    ? `Q${sorted[0]}–Q${sorted[sorted.length - 1]}`
+    : sorted.map((quarter) => `Q${quarter}`).join(' + ');
+}
+
 function CorporateKpiCell({
   label,
   value,
@@ -3040,6 +3070,75 @@ function CorporateManagementReportPanel({
                   : ''}
               </Text>
 
+              {selectedHistoryYear.yearOverYear && (
+                <View style={styles.managementYearCompareBox}>
+                  <View style={styles.managementYearCompareHeader}>
+                    <Text style={styles.managementYearCompareTitle}>
+                      vs Year {selectedHistoryYear.yearOverYear.comparisonYear}
+                    </Text>
+                    <Text style={styles.managementYearCompareScope}>
+                      Same {managementQuarterScopeLabel(selectedHistoryYear.yearOverYear.quartersCompared)}
+                    </Text>
+                  </View>
+                  <View style={styles.managementYearCompareGrid}>
+                    {[
+                      {
+                        key: 'revenue',
+                        label: 'Revenue / wk',
+                        value: selectedHistoryYear.yearOverYear.averageWeeklyRevenueChangePct,
+                        unit: 'percent' as const,
+                        lower: false,
+                      },
+                      {
+                        key: 'margin',
+                        label: 'Profit margin',
+                        value: selectedHistoryYear.yearOverYear.profitMarginChangePctPoints,
+                        unit: 'points' as const,
+                        lower: false,
+                      },
+                      {
+                        key: 'payroll',
+                        label: 'Payroll / revenue',
+                        value: selectedHistoryYear.yearOverYear.payrollToRevenueChangePctPoints,
+                        unit: 'points' as const,
+                        lower: true,
+                      },
+                      {
+                        key: 'debt',
+                        label: 'Debt balance',
+                        value: selectedHistoryYear.yearOverYear.endingDebtChangePct,
+                        unit: 'percent' as const,
+                        lower: true,
+                      },
+                      {
+                        key: 'maintenance',
+                        label: 'Upkeep condition',
+                        value: selectedHistoryYear.yearOverYear.maintenanceConditionChangePoints,
+                        unit: 'points' as const,
+                        lower: false,
+                      },
+                      {
+                        key: 'targets',
+                        label: 'Target hit rate',
+                        value: selectedHistoryYear.yearOverYear.targetHitRateChangePctPoints,
+                        unit: 'points' as const,
+                        lower: false,
+                      },
+                    ].map((item) => (
+                      <View key={item.key} style={styles.managementYearCompareMetric}>
+                        <Text style={styles.managementYearCompareLabel}>{item.label}</Text>
+                        <Text style={[
+                          styles.managementYearCompareValue,
+                          { color: managementYearComparisonColor(item.value, item.lower) },
+                        ]}>
+                          {formatManagementYearComparison(item.value, item.unit)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
               <View style={styles.managementHistoryQuarterList}>
                 {[1, 2, 3, 4].map((quarterNumber) => {
                   const quarter = selectedHistoryYear.quarters.find((item) => item.quarter === quarterNumber);
@@ -3319,6 +3418,14 @@ const styles = StyleSheet.create({
   managementHistorySummaryValue: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900' },
   managementHistorySummaryLabel: { color: Colors.textMuted, fontSize: 6, marginTop: 2, textAlign: 'center' },
   managementHistoryAnnualMeta: { color: Colors.textSecondary, fontSize: 7, lineHeight: 11, marginTop: 7 },
+  managementYearCompareBox: { marginTop: 8, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  managementYearCompareHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  managementYearCompareTitle: { color: Colors.textPrimary, fontSize: 8, fontWeight: '900' },
+  managementYearCompareScope: { color: Colors.textMuted, fontSize: 7, fontWeight: '700' },
+  managementYearCompareGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 },
+  managementYearCompareMetric: { width: '48.8%', minHeight: 40, backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 6 },
+  managementYearCompareLabel: { color: Colors.textMuted, fontSize: 7 },
+  managementYearCompareValue: { fontSize: 9, fontWeight: '900', marginTop: 2 },
   managementHistoryQuarterList: { marginTop: 6 },
   managementHistoryQuarterRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 7, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
   managementHistoryQuarterBadge: { width: 29, height: 25, borderRadius: 7, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
