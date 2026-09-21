@@ -2925,17 +2925,25 @@ const useGameStore = create<GameStore>((set, get) => ({
         // Capital moved from the holding reserve is still part of group equity;
         // reflect it immediately so portfolio net worth does not dip until the next tick.
         valuation: (business.valuation ?? 0) + requested,
-        acquisition: business.acquisition
-          ? {
-              ...business.acquisition,
-              additionalCapitalInvested: (business.acquisition.additionalCapitalInvested ?? 0) + requested,
-            }
-          : business.acquisition,
       };
     }
 
+    const trackedBasis = typeof business.capitalInvested === 'number'
+      ? business.capitalInvested + used
+      : business.acquisition
+        ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
+          + (business.acquisition.additionalCapitalInvested ?? 0)
+          + used
+        : null;
     updatedBusiness = {
       ...updatedBusiness,
+      capitalInvested: trackedBasis,
+      acquisition: business.acquisition
+        ? {
+            ...(updatedBusiness.acquisition ?? business.acquisition),
+            additionalCapitalInvested: (business.acquisition.additionalCapitalInvested ?? 0) + used,
+          }
+        : updatedBusiness.acquisition,
       timeline: [
         ...(updatedBusiness.timeline ?? []),
         {
@@ -3731,9 +3739,27 @@ const useGameStore = create<GameStore>((set, get) => ({
   injectCashIntoBusiness: (businessId: string, amount: number) => {
     const state = get();
     if (amount <= 0 || (state?.cash ?? 0) < amount) return;
-    const businesses = (state?.businesses ?? []).map((b) =>
-      b?.id === businessId ? { ...b, balance: (b?.balance ?? 0) + amount } : b
-    );
+    const businesses = (state?.businesses ?? []).map((business) => {
+      if (business?.id !== businessId) return business;
+      const trackedBasis = typeof business.capitalInvested === 'number'
+        ? business.capitalInvested + amount
+        : business.acquisition
+          ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
+            + (business.acquisition.additionalCapitalInvested ?? 0)
+            + amount
+          : null;
+      return {
+        ...business,
+        balance: (business.balance ?? 0) + amount,
+        capitalInvested: trackedBasis,
+        acquisition: business.acquisition
+          ? {
+              ...business.acquisition,
+              additionalCapitalInvested: (business.acquisition.additionalCapitalInvested ?? 0) + amount,
+            }
+          : business.acquisition,
+      };
+    });
     const updates = { cash: (state?.cash ?? 0) - amount, businesses };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
@@ -3741,10 +3767,16 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   withdrawFromBusiness: (businessId: string, amount: number) => {
     const state = get();
-    const biz = (state?.businesses ?? []).find((b) => b?.id === businessId);
+    const biz = (state?.businesses ?? []).find((business) => business?.id === businessId);
     if (!biz || amount <= 0 || (biz?.balance ?? 0) < amount) return;
-    const businesses = (state?.businesses ?? []).map((b) =>
-      b?.id === businessId ? { ...b, balance: (b?.balance ?? 0) - amount } : b
+    const businesses = (state?.businesses ?? []).map((business) =>
+      business?.id === businessId
+        ? {
+            ...business,
+            balance: (business.balance ?? 0) - amount,
+            totalPlayerDistributions: (business.totalPlayerDistributions ?? 0) + amount,
+          }
+        : business
     );
     const updates = { cash: (state?.cash ?? 0) + amount, businesses };
     set(updates);
