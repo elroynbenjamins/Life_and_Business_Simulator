@@ -535,7 +535,8 @@ export function getAutomationScore(biz: OwnedBusiness): number {
   const empRatio = Math.min((biz.employees?.length ?? 0) / maxEmp, 1);
   const hasManager = (biz.employees ?? []).some((e) => e.roleId === 'manager' || e.roleId === 'supervisor');
   const upgradeRatio = Math.min(new Set(biz.purchasedUpgrades ?? []).size / (type.upgrades?.length ?? 1), 1);
-  let score = empRatio * 40 + upgradeRatio * 30 + (hasManager ? 20 : 0) + (biz.level >= 3 ? 10 : 0);
+  const delegationBonus = (biz.delegationPolicy ?? 'manual') !== 'manual' && !!biz.delegatedManagerEmployeeId ? 10 : 0;
+  let score = empRatio * 40 + upgradeRatio * 30 + (hasManager ? 20 : 0) + (biz.level >= 3 ? 10 : 0) + delegationBonus;
   return Math.min(100, Math.round(score));
 }
 
