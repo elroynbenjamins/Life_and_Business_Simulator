@@ -102,6 +102,7 @@ describe('business management targets', () => {
     expect(updated.profile).toBe('margin');
     expect(updated.baselineWeeklyRevenue).toBe(original.baselineWeeklyRevenue);
     expect(updated.baselineDebt).toBe(original.baselineDebt);
+    expect(updated.createdGlobalWeek).toBe(original.createdGlobalWeek);
     expect(updated.targetWeeklyRevenue).toBe(1_030_000);
     expect(updated.targetProfitMargin).toBeCloseTo(0.25, 4);
     expect(updated.maxPayrollToRevenueRatio).toBeCloseTo(0.28, 4);
@@ -171,6 +172,38 @@ describe('business management targets', () => {
     const lateDebt = finalWeek.results.find((result) => result.id === 'debt')!;
     expect(lateDebt.scheduleBenchmark).toBe(8_500_000);
     expect(lateDebt.status).toBe('missed');
+  });
+
+  test('late first-time setup does not demand a full-quarter debt reduction immediately', () => {
+    let business = makeCorporateBusiness();
+    business.corporateKpiHistory = Array.from({ length: 5 }, (_, index) => point(16 + index));
+    business.businessLoans = [{
+      ...business.businessLoans[0],
+      remainingAmount: 10_000_000,
+    }];
+
+    business.managementTargets = ensureBusinessManagementTargetPlan(
+      business,
+      25,
+      'deleveraging',
+    );
+
+    const progress = getBusinessManagementTargetProgress(
+      business,
+      {
+        weeksTracked: 5,
+        periodRevenue: 5_000_000,
+        profitMargin: 0.20,
+        payrollToRevenueRatio: 0.30,
+        averageMaintenanceCondition: 80,
+      },
+      25,
+    )!;
+    const debt = progress.results.find((result) => result.id === 'debt')!;
+
+    expect(debt.target).toBe(8_500_000);
+    expect(debt.scheduleBenchmark).toBe(10_000_000);
+    expect(debt.status).toBe('met');
   });
 
   test('progress evaluates revenue, margin, payroll, debt and maintenance together', () => {
