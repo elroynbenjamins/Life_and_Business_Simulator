@@ -192,6 +192,75 @@ export default function CorporateGroupReportPanel({
         })}
       </View>
 
+      {period === 'quarter' && report.targetCompanyCount > 0 && (
+        <View style={styles.targetBox}>
+          <View style={styles.targetHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.targetTitle}>Quarter target attainment</Text>
+              <Text style={styles.targetMeta}>
+                {report.targetMetricsMet}/{report.targetMetricsTotal} KPI targets met • {report.targetCompaniesFullyMet}/{report.targetCompanyCount} companies fully on target
+              </Text>
+            </View>
+            <View style={[
+              styles.targetScore,
+              {
+                borderColor: report.targetCompaniesAtRisk > 0
+                  ? `${Colors.warning}55`
+                  : `${Colors.primary}55`,
+              },
+            ]}>
+              <Text style={[
+                styles.targetScoreText,
+                { color: report.targetCompaniesAtRisk > 0 ? Colors.warning : Colors.primary },
+              ]}>
+                {report.targetMetricsTotal > 0
+                  ? Math.round(report.targetMetricsMet / report.targetMetricsTotal * 100)
+                  : 100}%
+              </Text>
+            </View>
+          </View>
+
+          {report.targetPriorityCompanies.length === 0 ? (
+            <Text style={styles.targetAllClear}>Every reporting company is currently on its quarterly target path.</Text>
+          ) : (
+            <>
+              {report.targetPriorityCompanies.slice(0, 3).map((company) => (
+                <Pressable
+                  key={company.businessId}
+                  disabled={!onCompanyPress}
+                  onPress={() => onCompanyPress?.(company.businessId)}
+                  style={styles.targetCompanyRow}
+                >
+                  <View style={[
+                    styles.targetCompanyDot,
+                    {
+                      backgroundColor: company.missedCount > 0 ? Colors.negative : Colors.warning,
+                    },
+                  ]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.targetCompanyName}>{company.businessName}</Text>
+                    <Text style={styles.targetCompanyMeta}>
+                      {company.metCount}/{company.totalCount} met
+                      {company.nearCount > 0 ? ` • ${company.nearCount} near` : ''}
+                      {company.missedCount > 0 ? ` • ${company.missedCount} missed` : ''}
+                    </Text>
+                    {company.missedLabels.length > 0 && (
+                      <Text style={styles.targetCompanyMissed}>
+                        Off target: {company.missedLabels.slice(0, 3).join(' • ')}
+                      </Text>
+                    )}
+                  </View>
+                  {onCompanyPress && <Text style={styles.priorityChevron}>›</Text>}
+                </Pressable>
+              ))}
+              {report.targetPriorityCompanies.length > 3 && (
+                <Text style={styles.moreFlags}>+{report.targetPriorityCompanies.length - 3} more companies off the ideal target path</Text>
+              )}
+            </>
+          )}
+        </View>
+      )}
+
       <View style={styles.grid}>
         <Metric
           label="Productivity"
@@ -383,6 +452,18 @@ const styles = StyleSheet.create({
   varianceDot: { width: 7, height: 7, borderRadius: 4, marginTop: 2 },
   varianceDriverTitle: { fontSize: 8, fontWeight: '900' },
   varianceDriverDetail: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 1 },
+  targetBox: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, marginTop: 9, paddingTop: 8 },
+  targetHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  targetTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
+  targetMeta: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 2 },
+  targetScore: { minWidth: 40, borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 6, alignItems: 'center' },
+  targetScoreText: { fontSize: 10, fontWeight: '900' },
+  targetAllClear: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 6 },
+  targetCompanyRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 7 },
+  targetCompanyDot: { width: 7, height: 7, borderRadius: 4 },
+  targetCompanyName: { color: Colors.textPrimary, fontSize: 8, fontWeight: '800' },
+  targetCompanyMeta: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
+  targetCompanyMissed: { color: Colors.warning, fontSize: 7, lineHeight: 10, marginTop: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
   metric: { width: '48.8%', minHeight: 65, borderRadius: 9, backgroundColor: Colors.elevated, paddingHorizontal: 8, paddingVertical: 8 },
   metricLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
