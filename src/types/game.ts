@@ -968,6 +968,29 @@ export type AcquisitionIntegrationOutcome = 'pending' | 'success' | 'mixed' | 'f
 export type HoldingCapitalPurpose = 'capital' | 'debt';
 export type BusinessPortfolioIntent = 'active' | 'long_term_family';
 
+export interface SoldBusinessRecord {
+  id: string;
+  businessId: string;
+  name: string;
+  typeId: string;
+  soldWeek: number;
+  soldYear: number;
+  soldGlobalWeek: number;
+  foundedWeek: number;
+  foundedYear: number;
+  heldWeeks: number;
+  grossSalePrice: number;
+  debtSettlement: number;
+  netSaleProceeds: number;
+  investmentBasis: number | null;
+  totalPlayerDistributions: number;
+  lifetimeCashResult: number | null;
+  lifetimeReturnPct: number | null;
+  wasAcquisition: boolean;
+  acquisitionPurchasePrice?: number | null;
+  holdingCompanyName?: string | null;
+}
+
 export interface BusinessAcquisitionTarget {
   id: string;
   name: string;
@@ -1159,6 +1182,10 @@ export interface OwnedBusiness {
   operatingScaleMultiplier?: number;
   acquisition?: BusinessAcquisitionState | null;
   portfolioIntent?: BusinessPortfolioIntent;
+  /** Equity/founding cash committed by the player or holding company. */
+  initialCapitalInvested?: number | null;
+  /** Lifetime distributions paid specifically to the player from this business. */
+  totalPlayerDistributions?: number;
 }
 
 export interface BusinessLocation {
@@ -1238,6 +1265,7 @@ export interface GameState {
   recentEventIds: string[]; // last 10 event IDs to avoid repeats
   // Business
   businesses: OwnedBusiness[];
+  soldBusinesses: SoldBusinessRecord[];
   holdingCompanies: HoldingCompany[];
   acquisitionTargets: BusinessAcquisitionTarget[];
   lastAcquisitionRefreshWeek: number;
@@ -1310,6 +1338,7 @@ export const INITIAL_GAME_STATE: GameState = {
   pendingInvestments: [],
   recentEventIds: [],
   businesses: [],
+  soldBusinesses: [],
   holdingCompanies: [],
   acquisitionTargets: [],
   lastAcquisitionRefreshWeek: 0,
