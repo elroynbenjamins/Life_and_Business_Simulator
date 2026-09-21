@@ -8,6 +8,16 @@ import {
   getCorporateManagementReport,
 } from './corporateReportingEngine';
 
+export interface CorporateGroupPriorityCompany {
+  businessId: string;
+  businessName: string;
+  valuation: number;
+  status: CorporateKpiStatus;
+  warningCount: number;
+  criticalWarningCount: number;
+  topWarning: string | null;
+}
+
 export interface CorporateGroupManagementReport {
   period: CorporateReportPeriod;
   label: string;
@@ -55,6 +65,7 @@ export interface CorporateGroupManagementReport {
   valueConcentration: number;
   revenueConcentration: number;
   lossMakingCompanies: number;
+  priorityCompanies: CorporateGroupPriorityCompany[];
 
   warnings: CorporateKpiWarning[];
 }
@@ -282,6 +293,25 @@ export function getCorporateGroupManagementReport(
   const criticalCompanyCount = reports.filter((report) => report.overallStatus === 'critical').length;
   const watchCompanyCount = reports.filter((report) => report.overallStatus === 'watch').length;
 
+  const priorityCompanies = reportPairs
+    .map(({ business, report }) => ({
+      businessId: business.id,
+      businessName: business.name,
+      valuation: Math.max(0, business.valuation ?? 0),
+      status: report.overallStatus,
+      warningCount: report.warnings.length,
+      criticalWarningCount: report.warnings.filter((warning) => warning.severity === 'critical').length,
+      topWarning: report.warnings[0]?.title ?? null,
+    }))
+    .filter((company) => company.status === 'critical' || company.status === 'watch')
+    .sort((a, b) => {
+      const rank = (status: CorporateKpiStatus) => status === 'critical' ? 0 : status === 'watch' ? 1 : 2;
+      return rank(a.status) - rank(b.status)
+        || b.criticalWarningCount - a.criticalWarningCount
+        || b.warningCount - a.warningCount
+        || b.valuation - a.valuation;
+    });
+
   const warnings: CorporateKpiWarning[] = [];
 
   if (criticalCompanyCount > 0) {
@@ -447,6 +477,7 @@ export function getCorporateGroupManagementReport(
     valueConcentration,
     revenueConcentration,
     lossMakingCompanies,
+    priorityCompanies,
     warnings,
   };
 }
