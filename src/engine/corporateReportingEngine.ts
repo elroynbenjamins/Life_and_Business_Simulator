@@ -336,6 +336,20 @@ function formatPct(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+export function getCorporateManagementAttentionReason(
+  business: OwnedBusiness,
+  globalWeek: number,
+  inflationMultiplier = 1,
+): string | null {
+  const report = getCorporateManagementReport(
+    business,
+    globalWeek,
+    'quarter',
+    inflationMultiplier,
+  );
+  return report?.warnings[0]?.title ?? null;
+}
+
 export function getCorporateManagementReport(
   business: OwnedBusiness,
   globalWeek: number,
