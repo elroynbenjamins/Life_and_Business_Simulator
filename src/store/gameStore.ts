@@ -2951,6 +2951,36 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
+  upgradeHoldingSharedService: (holdingCompanyId, serviceId) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const holding = (state.holdingCompanies ?? []).find((item) => item.id === holdingCompanyId);
+    if (!holding) return;
+    const cost = getHoldingSharedServiceUpgradeCost(holding, serviceId, state.inflationMultiplier ?? 1);
+    if (cost <= 0 || (holding.cashReserve ?? 0) < cost) return;
+
+    const sharedServices = normalizeHoldingSharedServices(holding.sharedServices);
+    const holdingCompanies = (state.holdingCompanies ?? []).map((item) =>
+      item.id === holdingCompanyId
+        ? {
+            ...item,
+            cashReserve: Math.max(0, (item.cashReserve ?? 0) - cost),
+            totalCapitalDeployed: (item.totalCapitalDeployed ?? 0) + cost,
+            sharedServices: {
+              ...sharedServices,
+              [serviceId]: Math.min(3, (sharedServices[serviceId] ?? 0) + 1),
+            },
+          }
+        : item
+    );
+    const updates = {
+      holdingCompanies,
+      currentHeadline: holding.name + ' expanded its ' + serviceId + ' shared-service team for ' + formatCurrencySafe(cost) + '.',
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
   allocateHoldingCapital: (holdingCompanyId, businessId, amount, purpose) => {
     const state = get();
     if (state.lifecycle?.isDead || !Number.isFinite(amount) || amount <= 0) return;
