@@ -3,8 +3,13 @@ import { getHoldingSharedServiceEffects } from './holdingCompanyEngine';
 import {
   createDefaultBusinessReinvestmentState,
   getBusinessReinvestmentEffects,
+  getBusinessReinvestmentUrgency,
   tickBusinessReinvestment,
 } from './businessReinvestmentEngine';
+import {
+  getBusinessInsuranceTier,
+  getBusinessInsuranceTotalWeeklyPremium,
+} from './businessInsuranceEngine';
 import {
   appendCompletedCorporateCapex,
   getCorporateCapexBookValue,
@@ -329,7 +334,24 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
 }
 
 function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPendingDecision {
-  const candidates: BusinessPendingDecision[] = [
+  const absoluteCost = (pct: number, minimum: number, maximum: number) =>
+    Math.round(Math.max(minimum, Math.min(maximum, Math.max(0, biz.valuation ?? 0) * pct)));
+
+  const equipmentReplacement = absoluteCost(0.015, 5_000, 500_000);
+  const equipmentRepair = absoluteCost(0.006, 3_000, 200_000);
+  const propertyRestore = absoluteCost(0.020, 10_000, 750_000);
+  const propertyPatch = absoluteCost(0.008, 5_000, 300_000);
+  const cyberResponse = absoluteCost(0.012, 7_500, 500_000);
+  const cyberOverhaul = absoluteCost(0.020, 12_000, 850_000);
+  const liabilitySettle = absoluteCost(0.015, 7_500, 750_000);
+  const liabilityDefense = absoluteCost(0.007, 5_000, 300_000);
+
+  const propertyTier = getBusinessInsuranceTier(biz, 'property');
+  const equipmentTier = getBusinessInsuranceTier(biz, 'equipment');
+  const cyberTier = getBusinessInsuranceTier(biz, 'cyber');
+  const liabilityTier = getBusinessInsuranceTier(biz, 'liability');
+
+  const generic: BusinessPendingDecision[] = [
     {
       id: `crisis_supplier_${biz.id}_${globalWeek}`,
       kind: 'crisis',
@@ -391,7 +413,93 @@ function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPen
       ],
     },
   ];
-  return candidates[Math.floor(Math.random() * candidates.length)];
+
+  const operational: BusinessPendingDecision[] = [
+    {
+      id: `crisis_equipment_${biz.id}_${globalWeek}`,
+      kind: 'crisis',
+      title: 'Major Equipment Failure',
+      description: `Critical equipment at ${biz.name} has failed, disrupting normal operations.`,
+      icon: '🛠️',
+      insuranceArea: 'equipment',
+      insuranceTierAtCreation: equipmentTier,
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'limp_along',
+      choices: [
+        { id: 'replace', text: 'Replace Immediately', description: 'Restore dependable capacity quickly.', businessCashCost: equipmentReplacement, cashCostScale: 'absolute', revenueMultiplier: 0.99, reputationDelta: 1, durationWeeks: 3 },
+        { id: 'repair', text: 'Emergency Repair', description: 'Cheaper fix with some continuing disruption.', businessCashCost: equipmentRepair, cashCostScale: 'absolute', revenueMultiplier: 0.94, expenseMultiplier: 1.03, durationWeeks: 5 },
+        { id: 'limp_along', text: 'Keep Operating', description: 'Avoid the immediate bill and accept severe disruption.', revenueMultiplier: 0.82, expenseMultiplier: 1.08, reputationDelta: -2, durationWeeks: 6 },
+      ],
+    },
+    {
+      id: `crisis_property_${biz.id}_${globalWeek}`,
+      kind: 'crisis',
+      title: 'Premises Damage',
+      description: `Part of ${biz.name}'s premises has suffered serious damage and requires remediation.`,
+      icon: '🏚️',
+      insuranceArea: 'property',
+      insuranceTierAtCreation: propertyTier,
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'restrict_area',
+      choices: [
+        { id: 'full_restore', text: 'Restore Properly', description: 'Repair the premises quickly and protect long-term standards.', businessCashCost: propertyRestore, cashCostScale: 'absolute', revenueMultiplier: 0.99, reputationDelta: 1, durationWeeks: 4 },
+        { id: 'temporary_patch', text: 'Temporary Repairs', description: 'Spend less now, but operate around continuing limitations.', businessCashCost: propertyPatch, cashCostScale: 'absolute', revenueMultiplier: 0.93, expenseMultiplier: 1.03, durationWeeks: 6 },
+        { id: 'restrict_area', text: 'Restrict Operations', description: 'Delay repairs and accept reduced capacity and customer experience.', revenueMultiplier: 0.84, reputationDelta: -3, durationWeeks: 6 },
+      ],
+    },
+    {
+      id: `crisis_cyber_${biz.id}_${globalWeek}`,
+      kind: 'crisis',
+      title: 'Payment / Systems Breach',
+      description: `${biz.name} has suffered a digital-security or payment-system incident.`,
+      icon: '🔐',
+      insuranceArea: 'cyber',
+      insuranceTierAtCreation: cyberTier,
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'internal_fix',
+      choices: [
+        { id: 'specialist_response', text: 'Hire Incident Specialists', description: 'Contain the breach and restore systems professionally.', businessCashCost: cyberResponse, cashCostScale: 'absolute', revenueMultiplier: 0.98, reputationDelta: 1, durationWeeks: 4 },
+        { id: 'security_overhaul', text: 'Full Security Overhaul', description: 'Spend more now to restore trust and reduce immediate disruption.', businessCashCost: cyberOverhaul, cashCostScale: 'absolute', revenueMultiplier: 0.99, expenseMultiplier: 1.01, reputationDelta: 2, durationWeeks: 5 },
+        { id: 'internal_fix', text: 'Handle Internally', description: 'Preserve cash but accept a longer outage and confidence hit.', revenueMultiplier: 0.84, reputationDelta: -4, durationWeeks: 6 },
+      ],
+    },
+    {
+      id: `crisis_liability_${biz.id}_${globalWeek}`,
+      kind: 'crisis',
+      title: 'Customer Liability Claim',
+      description: `A customer, client or third party has brought a material claim against ${biz.name}.`,
+      icon: '⚖️',
+      insuranceArea: 'liability',
+      insuranceTierAtCreation: liabilityTier,
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 3,
+      defaultChoiceId: 'deny_claim',
+      choices: [
+        { id: 'settle', text: 'Settle Responsibly', description: 'Resolve the claim and protect long-term reputation.', businessCashCost: liabilitySettle, cashCostScale: 'absolute', reputationDelta: 1, durationWeeks: 3 },
+        { id: 'legal_defense', text: 'Defend the Claim', description: 'Spend on legal defense with some continuing uncertainty.', businessCashCost: liabilityDefense, cashCostScale: 'absolute', revenueMultiplier: 0.97, expenseMultiplier: 1.02, durationWeeks: 5 },
+        { id: 'deny_claim', text: 'Deny and Delay', description: 'Avoid an immediate payment but accept brand and operating pressure.', revenueMultiplier: 0.92, expenseMultiplier: 1.04, reputationDelta: -4, durationWeeks: 7 },
+      ],
+    },
+  ];
+
+  const urgency = getBusinessReinvestmentUrgency(biz);
+  const weighted = [...generic, ...operational];
+  const preferredTitle = urgency === 'technology'
+    ? 'Payment / Systems Breach'
+    : urgency === 'premises'
+      ? 'Premises Damage'
+      : urgency === 'equipment'
+        ? 'Major Equipment Failure'
+        : null;
+  if (preferredTitle) {
+    const preferred = operational.find((candidate) => candidate.title === preferredTitle);
+    if (preferred) weighted.push(preferred, preferred);
+  }
+
+  return weighted[Math.floor(Math.random() * weighted.length)];
 }
 
 export const MIN_EMPLOYEES_REQUIRED = 3;
@@ -707,6 +815,8 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     completedCorporateCapex: [],
     reinvestment: createDefaultBusinessReinvestmentState(((year - 1) * 20) + week),
     activeReinvestment: null,
+    insurancePolicies: { property: 'none', equipment: 'none', cyber: 'none', liability: 'none' },
+    insuranceClaims: [],
     businessLoans: [],
     activeEvents: [],
     weeklyProfitHistory: [],
@@ -993,7 +1103,9 @@ export function processBusinessWeek(
   let cogs = Math.round(Math.max(baseExp * 0.45, revenue * 0.17) * eventExpenseMultiplier * buffAgg.expenseMult);
   // Utilities/maintenance/misc scale moderately, insurance is mostly fixed
   let utilities = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
-  let insurance = Math.round(baseExp * 0.10 * (0.8 + 0.2 * variableScale) * eventExpenseMultiplier * buffAgg.expenseMult);
+  const explicitInsurancePremium = getBusinessInsuranceTotalWeeklyPremium(biz, globalWeek);
+  let insurance = Math.round(baseExp * 0.10 * (0.8 + 0.2 * variableScale) * eventExpenseMultiplier * buffAgg.expenseMult)
+    + explicitInsurancePremium;
   let maintenance = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
   const locationOperatingCosts = Math.round((biz.locations ?? []).reduce((total, location) => total + (location.weeklyOperatingCost ?? 0), 0) * inflationMultiplier * prestigeCostMultiplier);
   let misc = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult) + locationOperatingCosts;
