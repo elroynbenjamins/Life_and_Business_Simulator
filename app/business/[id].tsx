@@ -21,7 +21,7 @@ import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { businessTypeImages, employeeRoleImages } from '../../src/assets/progressionImages';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
-import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutiveRole, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus, CorporateDepartmentId } from '../../src/types/game';
+import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutiveRole, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus, CorporateCompensationPolicy, CorporateDepartmentId, CorporateTrainingPolicy } from '../../src/types/game';
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
@@ -73,8 +73,11 @@ import {
   getExecutiveSearchCooldownWeeks,
 } from '../../src/engine/businessGovernanceEngine';
 import {
+  CORPORATE_COMPENSATION_POLICIES,
   CORPORATE_DEPARTMENT_DEFINITIONS,
+  CORPORATE_TRAINING_POLICIES,
   CORPORATE_WORKFORCE_UNLOCK_VALUATION,
+  getCorporateHrPolicyCooldownWeeks,
   getCorporateWorkforceEffects,
   getCorporateWorkforceWeeklyPayroll,
   getRecommendedDepartmentHeadcounts,
@@ -140,7 +143,7 @@ export default function BusinessDetailScreen() {
   const {
     designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessBudgetProfile,
     openExecutiveSearch, hireExecutiveCandidate, cancelExecutiveSearch, dismissBusinessExecutive, setBusinessBoardMandate,
-    setCorporateDepartmentTarget, resolveBusinessDecision,
+    setCorporateDepartmentTarget, setCorporateCompensationPolicy, setCorporateTrainingPolicy, resolveBusinessDecision,
     setAcquisitionIntegrationStrategy,
     appointChildToBusiness, transferBusinessShares, buyBackInvestorShares, investFamilyTrustCashInBusiness,
     openCandidatePool, hireCandidate, cancelCandidatePool, fireEmployee,
@@ -160,6 +163,8 @@ export default function BusinessDetailScreen() {
     dismissBusinessExecutive: s.dismissBusinessExecutive,
     setBusinessBoardMandate: s.setBusinessBoardMandate,
     setCorporateDepartmentTarget: s.setCorporateDepartmentTarget,
+    setCorporateCompensationPolicy: s.setCorporateCompensationPolicy,
+    setCorporateTrainingPolicy: s.setCorporateTrainingPolicy,
     resolveBusinessDecision: s.resolveBusinessDecision,
     setAcquisitionIntegrationStrategy: s.setAcquisitionIntegrationStrategy,
     appointChildToBusiness: s.appointChildToBusiness,
@@ -277,6 +282,15 @@ export default function BusinessDetailScreen() {
     corporateWorkforce ? { ...biz, corporateWorkforce } : biz,
   );
   const workforcePayroll = getCorporateWorkforceWeeklyPayroll(corporateWorkforce);
+  const workforceCompensationPolicy = corporateWorkforce?.compensationPolicy ?? 'market';
+  const workforceTrainingPolicy = corporateWorkforce?.trainingPolicy ?? 'standard';
+  const workforceTrainingCost = Math.round(
+    workforcePayroll * CORPORATE_TRAINING_POLICIES[workforceTrainingPolicy].payrollCostPct
+  );
+  const hrPolicyCooldown = getCorporateHrPolicyCooldownWeeks(
+    corporateWorkforce ? { ...biz, corporateWorkforce } : biz,
+    globalGameWeek,
+  );
   const workforceHeadcount = corporateWorkforce
     ? (Object.keys(CORPORATE_DEPARTMENT_DEFINITIONS) as CorporateDepartmentId[])
         .reduce((sum, departmentId) => sum + corporateWorkforce.departments[departmentId].headcount, 0)
