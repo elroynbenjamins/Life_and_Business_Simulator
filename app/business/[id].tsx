@@ -1792,13 +1792,13 @@ export default function BusinessDetailScreen() {
           <Text style={{ color: Colors.textMuted, fontSize: 12, marginBottom: 8 }}>
             Skill boosts productivity (0.4x-1.2x). Potential caps how high skill can grow. Morale multiplies output (0.5x-1.2x).
           </Text>
-          {(biz.employees ?? []).map((emp) => {
+          {(biz.employees ?? []).map((emp, index) => {
             const role = getEmployeeRole(emp.roleId);
             const inTraining = !!emp.inTrainingId;
             const tier = emp.tier ?? 'common';
             const tierCfg = TIER_CONFIG[tier];
             return (
-              <View key={emp.id} style={styles.empRow}>
+              <View key={`${emp.id}_${index}`} style={styles.empRow}>
                 <Image source={employeeRoleImages[emp.roleId]} style={styles.employeeArtwork} resizeMode="contain" accessibilityLabel={`${role?.name ?? 'Employee'} pixel art`} />
                 <View style={styles.empInfo}>
                   <Text style={[styles.empName, { color: tierCfg.color }]}>
