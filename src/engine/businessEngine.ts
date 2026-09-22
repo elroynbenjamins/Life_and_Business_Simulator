@@ -592,6 +592,22 @@ const ADVERTISING_COSTS: Record<string, { weeklyCost: number; demandBoost: numbe
   aggressive: { weeklyCost: 1200, demandBoost: 0.36, reputationBoost: 0.70 },
 };
 
+const BUSINESS_BALANCE_TUNING: Record<string, {
+  highRepRevenueBonus: number;
+  highRepExpenseRelief: number;
+  highRepVariableRelief: number;
+}> = {
+  coffee_shop: { highRepRevenueBonus: 0.15, highRepExpenseRelief: 0.14, highRepVariableRelief: 0.08 },
+  food_truck: { highRepRevenueBonus: 0.22, highRepExpenseRelief: 0.16, highRepVariableRelief: 0.09 },
+  clothing_store: { highRepRevenueBonus: 0.07, highRepExpenseRelief: 0.08, highRepVariableRelief: 0.04 },
+  tech_startup: { highRepRevenueBonus: 0.08, highRepExpenseRelief: 0.06, highRepVariableRelief: 0.03 },
+  digital_agency: { highRepRevenueBonus: 0.30, highRepExpenseRelief: 0.22, highRepVariableRelief: 0.10 },
+  auto_repair: { highRepRevenueBonus: 0.20, highRepExpenseRelief: 0.16, highRepVariableRelief: 0.08 },
+  real_estate_agency: { highRepRevenueBonus: 0.15, highRepExpenseRelief: 0.12, highRepVariableRelief: 0.07 },
+  bakery: { highRepRevenueBonus: 0.10, highRepExpenseRelief: 0.09, highRepVariableRelief: 0.05 },
+  fitness_gym: { highRepRevenueBonus: 0.04, highRepExpenseRelief: 0.03, highRepVariableRelief: 0.02 },
+};
+
 const LEVEL_NAMES = [
   'Startup', 'Small Business', 'Growing Company', 'Regional',
   'National', 'International', 'Corporation', 'Global Enterprise',
@@ -623,10 +639,26 @@ export function getBusinessUpgradeWeeks(randomRoll = Math.random()): number {
   return Math.max(1, Math.round((16 + Math.floor(Math.max(0, Math.min(0.999999, randomRoll)) * 15)) * 0.75));
 }
 
+function getBusinessBalanceTuning(typeId: string, reputation: number) {
+  const tuning = BUSINESS_BALANCE_TUNING[typeId];
+  const highRepWeight = Math.max(0, Math.min(1, (reputation - 25) / 75));
+  if (!tuning) {
+    return { revenueMultiplier: 1, expenseMultiplier: 1, variableExpenseMultiplier: 1 };
+  }
+  return {
+    revenueMultiplier: 1 + tuning.highRepRevenueBonus * highRepWeight,
+    expenseMultiplier: 1 - tuning.highRepExpenseRelief * highRepWeight,
+    variableExpenseMultiplier: 1 - tuning.highRepVariableRelief * highRepWeight,
+  };
+}
+
 /** Lean premises and overhead gradually expand with customer reputation. Wages are contractual. */
-export function getBusinessOperatingScale(reputation: number) {
+export function getBusinessOperatingScale(reputation: number, maxEmployees = 999) {
   const maturity = Math.max(0, Math.min(1, reputation / 70));
-  return { overhead: 0.25 + 0.75 * maturity, premises: 0.65 + 0.35 * maturity };
+  const compactRelief = maxEmployees <= 5 ? 0.10 : maxEmployees <= 8 ? 0.06 : 0;
+  const overhead = 0.25 + (0.75 - compactRelief) * maturity;
+  const premises = 0.65 + (0.35 - compactRelief * 0.45) * maturity;
+  return { overhead, premises };
 }
 
 export function getEmployeeRole(roleId: string) {
@@ -1167,10 +1199,13 @@ export function processBusinessWeek(
   const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121 * compactBusinessRevenueBoost * acquisitionOperatingScale;
   const businessAge = globalWeek - (((biz.foundedYear ?? currentYear) - 1) * 20 + (biz.foundedWeek ?? currentWeek));
   const startupSupport = !acquisition && businessAge > 0 && businessAge <= 75;
+  const balanceTuning = !acquisition
+    ? getBusinessBalanceTuning(type.id, biz.reputation ?? 25)
+    : { revenueMultiplier: 1, expenseMultiplier: 1, variableExpenseMultiplier: 1 };
   const levelBonus = 1 + biz.level * 0.1;
   let revenue = Math.round(
     baseRev * demand * pricingMod.revenue * productivityMultiplier *
-    (1 + upgradeRevenueBoost + locationRevenueBoost) * levelBonus * eventRevenueMultiplier * buffAgg.revenueMult
+    (1 + upgradeRevenueBoost + locationRevenueBoost) * levelBonus * eventRevenueMultiplier * buffAgg.revenueMult * balanceTuning.revenueMultiplier
   );
   if (acquisition) {
     // Persist the purchase baseline: improvements change output, but the large
@@ -1199,15 +1234,15 @@ export function processBusinessWeek(
   // Expenses (detailed breakdown) — variable costs SCALE with actual revenue.
   const combinedCostReduction = 1 - (1 - Math.max(0, Math.min(0.5, modifiers.businessCostReduction ?? 0))) * (1 - Math.max(0, Math.min(0.10, modifiers.holdingExpenseReduction ?? 0)));
   const prestigeCostMultiplier = 1 - Math.max(0, Math.min(0.55, combinedCostReduction));
-  const reputationOperatingScale = getBusinessOperatingScale(biz.reputation ?? 25);
-  const fullBaseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier * acquisitionOperatingScale;
+  const reputationOperatingScale = getBusinessOperatingScale(biz.reputation ?? 25, type.maxEmployees ?? 8);
+  const fullBaseExp = (type.baseWeeklyExpenses ?? 0) * inflationMultiplier * 0.95 * prestigeCostMultiplier * acquisitionOperatingScale * balanceTuning.expenseMultiplier;
   const baseExp = fullBaseExp * reputationOperatingScale.overhead;
   // Revenue scaling factor: if revenue is 5x the expected base, variable costs go up ~4x
   let revScale = baseRev > 0 ? revenue / baseRev : 1;
   // Variable-cost scaling: 60% fixed baseline + 40% × revScale (dampened)
   let variableScale = 0.6 + 0.4 * Math.min(6, revScale);
   // Rent scales with revenue: base rent + 2% of revenue above baseline
-  const fullBaseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier * prestigeCostMultiplier * Math.sqrt(acquisitionOperatingScale);
+  const fullBaseRent = (type.baseWeeklyRent ?? 0) * inflationMultiplier * prestigeCostMultiplier * Math.sqrt(acquisitionOperatingScale) * balanceTuning.expenseMultiplier;
   const baseRent = fullBaseRent * reputationOperatingScale.premises;
   let rentScale = revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent;
   let rent = Math.round(rentScale);
@@ -1245,7 +1280,7 @@ export function processBusinessWeek(
   rent = Math.round(revenue > baseRev ? baseRent + (revenue - baseRev) * 0.02 : baseRent);
   // COGS and delivery costs rise with scale, preventing unrealistically large
   // margins once employee and upgrade multipliers compound.
-  let cogs = Math.round(Math.max(baseExp * 0.45, revenue * 0.17) * eventExpenseMultiplier * buffAgg.expenseMult);
+  let cogs = Math.round(Math.max(baseExp * 0.45, revenue * 0.17 * balanceTuning.variableExpenseMultiplier) * eventExpenseMultiplier * buffAgg.expenseMult);
   // Utilities/maintenance/misc scale moderately, insurance is mostly fixed
   let utilities = Math.round(baseExp * 0.15 * variableScale * eventExpenseMultiplier * buffAgg.expenseMult);
   const explicitInsurancePremium = getBusinessInsuranceTotalWeeklyPremium(workforceBiz, globalWeek);
