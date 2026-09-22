@@ -35,7 +35,7 @@
     "id": "sports_car",
     "name": "Sports Car",
     "purchaseCost": 40000,
-    "weeklyCost": 300,
+    "weeklyCost": 500,
     "happiness": 12,
     "description": "Turn heads everywhere you go. Speed and style."
   },
@@ -43,7 +43,7 @@
     "id": "luxury_car",
     "name": "Luxury Car",
     "purchaseCost": 85000,
-    "weeklyCost": 1000,
+    "weeklyCost": 1750,
     "happiness": 18,
     "description": "The pinnacle of automotive luxury and performance."
   }

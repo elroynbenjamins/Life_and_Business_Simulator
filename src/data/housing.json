@@ -23,21 +23,21 @@
   {
     "id": "family_house",
     "name": "Family House",
-    "weeklyRent": 1400,
+    "weeklyRent": 1600,
     "happiness": 12,
     "description": "A spacious family home with multiple rooms and a nice yard."
   },
   {
     "id": "luxury_villa",
     "name": "Luxury Villa",
-    "weeklyRent": 3000,
+    "weeklyRent": 4750,
     "happiness": 20,
     "description": "An upscale villa with a pool, gym and stunning views."
   },
   {
     "id": "mansion",
     "name": "Mansion",
-    "weeklyRent": 8000,
+    "weeklyRent": 13000,
     "happiness": 30,
     "description": "The ultimate estate. Staff, grounds, and prestige."
   }

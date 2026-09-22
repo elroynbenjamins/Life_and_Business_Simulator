@@ -19,6 +19,12 @@ import { meetsPositionRequirements } from './skillEngine';
 import { getPrestigeEffects } from './prestigeEngine';
 import { FULL_TIME_BASE_SALARY_INCREASE } from '../constants/balance';
 
+function getCareerLifestyleSalaryAdjustment(level: number): number {
+  if (level >= 7) return 1.08;
+  if (level >= 6) return 1.06;
+  return level <= 2 ? 1.03 : level === 3 ? 1.02 : level === 4 ? 1.01 : 1;
+}
+
 export interface CareerTickResult {
   updatedCareer: CareerState;
   salary: number;
@@ -30,7 +36,7 @@ export interface CareerTickResult {
 
 /** Compute min/max salary for a position (defaults ±20% around baseSalary). */
 export function getPositionSalaryRange(position: any): { min: number; max: number } {
-  const factor = position?.level <= 2 ? 1.03 : position?.level === 3 ? 1.02 : position?.level === 4 ? 1.01 : 1;
+  const factor = getCareerLifestyleSalaryAdjustment(position?.level ?? 0);
   const base = ((position?.baseSalary ?? 0) + FULL_TIME_BASE_SALARY_INCREASE) * factor;
   const min = position?.minSalary != null
     ? Math.round((position.minSalary + FULL_TIME_BASE_SALARY_INCREASE) * factor)
@@ -54,7 +60,7 @@ export function getCareerSalary(career: CareerState, inflationMultiplier: number
   const position = (path.positions as any[]).find((p: any) => p?.level === career.positionLevel);
   if (!position) return 0;
 
-  const salaryAdjustment = career.positionLevel <= 2 ? 1.03 : career.positionLevel === 3 ? 1.02 : career.positionLevel === 4 ? 1.01 : 1;
+  const salaryAdjustment = getCareerLifestyleSalaryAdjustment(career.positionLevel);
   const base = ((position.baseSalary ?? 0) + FULL_TIME_BASE_SALARY_INCREASE) * salaryAdjustment;
   const companySalaryMult = company.salaryMultiplier ?? 1.0;
   const inferredRaises = Math.round(((career.salaryBonus ?? 1) - 1) / 0.03);
