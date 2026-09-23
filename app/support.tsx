@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
-import GameStatusBar from '../src/components/StatusBar';
+import ScreenHeader from '../src/components/ScreenHeader';
 import GameCard from '../src/components/GameCard';
+import StatusPill from '../src/components/StatusPill';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { AD_CONFIG } from '../src/services/adConfig';
@@ -132,7 +133,7 @@ export default function SupportScreen() {
 
   const handlePurchase = async (productId: string) => {
     if (!storeAvailable) {
-      setPurchaseMessage('Purchases require a Google Play development or testing build; they are unavailable in Expo Go and web.');
+      setPurchaseMessage('Purchases require the installed Google Play app; they are unavailable in Expo Go and web.');
       return;
     }
     try {
@@ -193,25 +194,31 @@ export default function SupportScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Support</Text>
-      </View>
-      <GameStatusBar />
+      <ScreenHeader
+        title="Support"
+        subtitle="Rewards, Gems, purchases and privacy"
+        showBack
+        onBack={() => router.back()}
+        accentColor={Colors.premium}
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Gem Balance */}
-        <GameCard>
+        <GameCard
+          variant="hero"
+          eyebrow="ACCOUNT REWARDS"
+          title="Support & Gems"
+          accentColor={Colors.premium}
+          titleAccessory={<StatusPill compact icon={adsRemoved ? 'shield-checkmark-outline' : 'diamond-outline'} label={adsRemoved ? 'Ads removed' : 'Standard'} color={adsRemoved ? Colors.primary : Colors.premium} />}
+        >
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
-              <Ionicons name="diamond" size={28} color="#8B5CF6" />
+              <Ionicons name="diamond" size={25} color={Colors.premium} />
               <Text style={styles.balanceValue}>{gems}</Text>
               <Text style={styles.balanceLabel}>Gems</Text>
             </View>
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
-              <Ionicons name="cash" size={28} color={Colors.primary} />
+              <Ionicons name="cash" size={25} color={Colors.primary} />
               <Text style={styles.balanceValue}>{formatCurrency(cash)}</Text>
               <Text style={styles.balanceLabel}>Cash</Text>
             </View>
@@ -242,7 +249,7 @@ export default function SupportScreen() {
             </Text>
           </View>}
           {!adsRemoved && AD_CONFIG.USE_TEST_ADS && !useSimulatedAd && (
-            <Text style={styles.testAdLabel}>Closed testing: Google test advertisement</Text>
+            <Text style={styles.testAdLabel}>Test build: Google test advertisement</Text>
           )}
           <Pressable
             style={[styles.adBtn, (adState === 'loading' || adState === 'showing' || adUsage.limitReached) && styles.disabledBtn]}
@@ -316,7 +323,7 @@ export default function SupportScreen() {
           {GEM_PRODUCTS.map((pack) => (
             <Pressable key={pack.id} disabled={purchasing} style={[styles.packRow, purchasing && styles.disabledBtn]} onPress={() => handlePurchase(pack.id)}>
               <View style={styles.packLeft}>
-                <Ionicons name="diamond" size={20} color="#8B5CF6" />
+                <Ionicons name="diamond" size={20} color={Colors.premium} />
                 <Text style={styles.packGems}>{pack.gems} Gems</Text>
               </View>
               <View style={styles.packPriceBtn}>
@@ -351,8 +358,6 @@ export default function SupportScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   balanceRow: { flexDirection: 'row', alignItems: 'center' },
@@ -361,7 +366,7 @@ const styles = StyleSheet.create({
   balanceLabel: { color: Colors.textMuted, fontSize: 12 },
   balanceDivider: { width: 1, height: 50, backgroundColor: Colors.cardBorder },
   desc: { color: Colors.textSecondary, fontSize: 14, marginBottom: 12 },
-  adBtn: { backgroundColor: '#8B5CF6', borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  adBtn: { backgroundColor: Colors.premium, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   adBtnText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
   adSupportNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.elevated, borderRadius: 10, padding: 12, marginBottom: 12 },
   adSupportText: { flex: 1, color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
