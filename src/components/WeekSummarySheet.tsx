@@ -218,26 +218,32 @@ export default function WeekSummarySheet() {
             {(summary?.marketCompanyEvents ?? []).map((event, index) => {
               const color = event.kind === 'delisted'
                 ? Colors.negative
-                : event.kind === 'matured'
+                : event.kind === 'matured' || event.kind === 'acquired'
                   ? Colors.primary
                   : Colors.info;
+              const heading = event.kind === 'ipo' ? '🚀 New IPO'
+                : event.kind === 'matured' ? '🏢 Company Matures'
+                  : event.kind === 'company_event' ? `📰 ${event.title ?? 'Company News'}`
+                    : event.kind === 'acquired' ? '🤝 Public Company Acquisition'
+                      : '📉 Company Delisted';
               return (
                 <View
                   key={`${event.ticker}_${event.kind}_${index}`}
                   style={[styles.eventBox, { backgroundColor: `${color}12`, borderColor: `${color}44` }]}
                 >
-                  <Text style={styles.eventTitle}>
-                    {event.kind === 'ipo' ? '🚀 New IPO'
-                      : event.kind === 'matured' ? '🏢 Company Matures'
-                        : '📉 Company Delisted'}
-                  </Text>
+                  <Text style={styles.eventTitle}>{heading}</Text>
                   <Text style={styles.eventDesc}>{event.description}</Text>
-                  {event.kind === 'delisted' && (event.settlementCash ?? 0) > 0 && (
-                    <Text style={[styles.eventEffect, { color: Colors.warning }]}>
-                      Recovery paid: {formatCurrency(event.settlementCash ?? 0)}
+                  {typeof event.impactPercent === 'number' && event.kind === 'company_event' && (
+                    <Text style={[styles.eventEffect, { color: event.impactPercent >= 0 ? Colors.primary : Colors.negative }]}>
+                      Immediate move: {event.impactPercent >= 0 ? '+' : ''}{event.impactPercent.toFixed(1)}%
                     </Text>
                   )}
-                  {event.kind === 'delisted' && (event.realizedProfitLoss ?? 0) !== 0 && (
+                  {(event.kind === 'delisted' || event.kind === 'acquired') && (event.settlementCash ?? 0) > 0 && (
+                    <Text style={[styles.eventEffect, { color: event.kind === 'acquired' ? Colors.primary : Colors.warning }]}>
+                      {event.kind === 'acquired' ? 'Takeover payout' : 'Recovery paid'}: {formatCurrency(event.settlementCash ?? 0)}
+                    </Text>
+                  )}
+                  {(event.kind === 'delisted' || event.kind === 'acquired') && (event.realizedProfitLoss ?? 0) !== 0 && (
                     <Text style={[styles.eventEffect, { color: (event.realizedProfitLoss ?? 0) >= 0 ? Colors.primary : Colors.negative }]}>
                       Position result: {(event.realizedProfitLoss ?? 0) >= 0 ? '+' : ''}{formatCurrency(event.realizedProfitLoss ?? 0)}
                     </Text>
