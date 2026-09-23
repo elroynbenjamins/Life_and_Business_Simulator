@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
+import ScreenHeader from '../src/components/ScreenHeader';
+import StatusPill from '../src/components/StatusPill';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { inflated } from '../src/engine/economyEngine';
@@ -46,20 +48,25 @@ export default function PropertiesScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Real Estate</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <ScreenHeader
+        title="Real Estate"
+        subtitle="Property portfolio, listings and auctions"
+        showBack
+        onBack={() => router.back()}
+        accentColor={Colors.business}
+      />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Portfolio Summary */}
-        <GameCard style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Portfolio Value</Text>
+        <GameCard
+          variant="hero"
+          eyebrow="PROPERTY PORTFOLIO"
+          title="Real estate value"
+          accentColor={Colors.business}
+          titleAccessory={<StatusPill compact icon="home-outline" label={`${properties.length} owned`} color={Colors.business} />}
+        >
           <Text style={styles.summaryValue}>{formatCurrency(totalValue)}</Text>
-          <Text style={styles.summaryCaption}>{properties.length} properties | {formatCurrency(weeklyIncome)}/week income</Text>
+          <Text style={styles.summaryCaption}>Rental income {formatCurrency(weeklyIncome)}/week</Text>
         </GameCard>
 
         <View style={styles.tabs}>
@@ -226,8 +233,6 @@ export default function PropertiesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 40 },
   summaryCard: { marginBottom: 16 },
