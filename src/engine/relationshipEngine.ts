@@ -429,16 +429,18 @@ function getChildMilestoneEvent(
   celebrated: string[],
 ): RelationshipEvent | null {
   const ages = [18, 16, 10, 5];
-  for (const age of ages) {
-    const child = children.find((item) => getChildAge(item, globalWeek(state)) >= age && !celebrated.includes(`child_${item.id}_${age}y`));
-    if (!child) continue;
+  for (const child of children) {
+    const currentAge = getChildAge(child, globalWeek(state));
+    const age = ages.find((value) => currentAge >= value);
+    if (!age) continue;
+    const milestoneKey = `child_${child.id}_${age}y`;
+    if (celebrated.includes(milestoneKey)) continue;
 
     const inflation = state.inflationMultiplier ?? 1;
     const base = age >= 18 ? 5000 : age >= 16 ? 2500 : age >= 10 ? 1000 : 500;
     const familyCost = Math.round(base * inflation);
     const partyCost = Math.round(base * 4 * inflation);
     const experienceCost = Math.round(base * 2.5 * inflation);
-    const milestoneKey = `child_${child.id}_${age}y`;
     const title = age === 18 ? `${child.name} Turns 18`
       : age === 16 ? `${child.name}'s Sweet Sixteen`
         : `${child.name} Turns ${age}`;
