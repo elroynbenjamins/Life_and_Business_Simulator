@@ -751,6 +751,7 @@ export interface StockState {
   companyStage?: MarketCompanyStage;
   companyQuality?: number;
   lastCompanyEventWeek?: number;
+  companyEventHistory?: string[];
   activeCompanyEvent?: {
     id: string;
     title: string;
