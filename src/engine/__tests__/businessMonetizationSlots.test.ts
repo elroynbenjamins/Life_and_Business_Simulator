@@ -23,8 +23,8 @@ describe('business monetization slots', () => {
 
   test('permanent slot prices and limits are capped at two', () => {
     const business = makeBusiness();
-    expect(BUSINESS_PROJECT_SLOT_2_GEM_COST).toBe(50);
-    expect(BUSINESS_UPGRADE_SLOT_2_GEM_COST).toBe(75);
+    expect(BUSINESS_PROJECT_SLOT_2_GEM_COST).toBe(25);
+    expect(BUSINESS_UPGRADE_SLOT_2_GEM_COST).toBe(50);
     expect(getBusinessProjectSlotLimit(business)).toBe(1);
     expect(getBusinessUpgradeSlotLimit(business)).toBe(1);
     expect(getBusinessProjectSlotLimit({ ...business, projectSlot2Unlocked: true })).toBe(2);
