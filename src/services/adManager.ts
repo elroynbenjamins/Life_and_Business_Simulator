@@ -42,7 +42,7 @@ export async function loadRewardedAd(placement: RewardedAdPlacement): Promise<bo
         : placement === 'business_upgrade_slot'
           ? AD_CONFIG.BUSINESS_UPGRADE_SLOT_REWARDED_AD_UNIT_ID_ANDROID
           : placement === 'business_company_slot'
-            ? AD_CONFIG.BUSINESS_PROJECT_SLOT_REWARDED_AD_UNIT_ID_ANDROID
+            ? AD_CONFIG.BUSINESS_COMPANY_SLOT_REWARDED_AD_UNIT_ID_ANDROID
             : AD_CONFIG.GEM_REWARDED_AD_UNIT_ID_ANDROID;
     const adUnitId = AD_CONFIG.USE_TEST_ADS
       ? (Platform.OS === 'ios' ? AD_CONFIG.REWARDED_TEST_AD_UNIT_ID_IOS : AD_CONFIG.REWARDED_TEST_AD_UNIT_ID_ANDROID)
