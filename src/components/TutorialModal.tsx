@@ -17,7 +17,7 @@ const STEPS = [
     color: Colors.info,
     title: 'Education opens your first career',
     text: 'Choose a Basic course, decide whether you want part-time income while studying, finish the course and prepare the vehicle requirements for your first career.',
-    tip: 'Part-time work helps with living costs but makes Basic education take 25% longer.',
+    tip: 'Choose Flexible Part-Time for €275–425/week and +25% study time, or High-Hours Part-Time for €650–800/week and +60% study time. Both are tax-free.',
   },
   {
     icon: 'wallet-outline' as const,
