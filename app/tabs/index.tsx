@@ -71,6 +71,7 @@ export default function DashboardScreen() {
   const weeklyExpenses = getWeeklyRent(state) + getWeeklyUtilityCost(state) + getWeeklyCarCost(state) + getWeeklyFoodCost(state) + getWeeklyCourseCost(state) + loanPayments + household.householdExtraCost + household.familyCost + household.obligationCost;
 
   const isEmployed = hasCareerV2 || !!currentJobId;
+  const coupleTripActive = (state.relationshipState?.coupleTripWeeksRemaining ?? 0) > 0;
   const hasIncome = isEmployed || partTimeJob;
   const jobTitle = hasCareerV2
     ? (() => {
@@ -82,7 +83,7 @@ export default function DashboardScreen() {
     : (currentJobId
         ? require('../../src/data/jobs.json')?.find((j: any) => j?.id === currentJobId)?.title
         : (partTimeJob ? (studentWork?.shortName ?? 'Part-Time') : null));
-  const displayIncome = isEmployed ? weeklyIncome : (partTimeJob ? averageStudentWorkIncome(studentWork?.id ?? null) : 0);
+  const displayIncome = coupleTripActive ? 0 : (isEmployed ? weeklyIncome : (partTimeJob ? averageStudentWorkIncome(studentWork?.id ?? null) : 0));
   const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
   const weeksUntilTax = 20 - (globalWeek % 20);
 
@@ -132,9 +133,9 @@ export default function DashboardScreen() {
           <View style={styles.statCardWrap}><GameCard style={styles.statCard} onPress={() => router.push('/tabs/career')}>
             <Text style={styles.statLabel}>Weekly Income</Text>
             <Text style={[styles.statValue, { color: hasIncome ? Colors.primary : Colors.warning }]}>
-              {hasIncome ? (isEmployed ? formatCurrency(weeklyIncome) : '~' + formatCurrency(displayIncome)) : 'Unemployed'}
+              {hasIncome ? (coupleTripActive ? formatCurrency(0) : isEmployed ? formatCurrency(weeklyIncome) : '~' + formatCurrency(displayIncome)) : 'Unemployed'}
             </Text>
-            <Text style={styles.statCaption}>{jobTitle ?? 'No job'}</Text>
+            <Text style={styles.statCaption}>{coupleTripActive ? `World trip • ${state.relationshipState?.coupleTripWeeksRemaining ?? 0}w unpaid leave` : (jobTitle ?? 'No job')}</Text>
           </GameCard></View>
           <View style={styles.statCardWrap}><GameCard style={styles.statCard} onPress={() => router.push('/tabs/statistics')}>
             <Text style={styles.statLabel}>Weekly Expenses</Text>
