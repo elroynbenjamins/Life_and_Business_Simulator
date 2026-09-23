@@ -112,7 +112,7 @@ export default function RelationshipsScreen() {
   ]);
   const familySpendingActive = (relationship?.familySpendingWeeksRemaining ?? 0) > 0;
   const coupleTripWeeksRemaining = relationship?.coupleTripWeeksRemaining ?? 0;
-  const sharedMemories = relationship?.memories ?? [];
+  const sharedMemories = (relationship?.memories ?? []).filter((memory) => !!partner && memory.partnerId === partner.id);
   const careerFirstCount = sharedMemories.filter((memory) => memory.tag === 'career_first').length;
   const familyFirstCount = sharedMemories.filter((memory) => memory.tag === 'showed_up_for_family').length;
   const dependentChildrenCount = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) < 18).length;
