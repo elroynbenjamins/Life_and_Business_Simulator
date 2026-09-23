@@ -45,10 +45,12 @@ import {
   getAdFreeEducationRewardUsage as getProfileAdFreeEducationRewardUsage,
   getAdFreeSlotRewardUsage as getProfileAdFreeSlotRewardUsage,
   getGemRewardUsage,
+  getBusinessCapacityAdUnlockUsage,
   getLocalDayKey,
 } from '../services/adRewardEntitlements';
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
+import { getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity, unlockBusinessCapacity } from '../engine/businessCapacityEngine';
 import { getHoldingSharedServiceUpgradeCost, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
 import {
   canStartCorporateCapex,
@@ -245,6 +247,8 @@ interface GameStore extends GameState {
   unlockPrestigeBonus: (bonusId: string) => void;
 
   // Business
+  purchaseBusinessCapacitySlot: () => boolean;
+  grantBusinessCapacityAdUnlock: () => boolean;
   foundBusiness: (typeId: string, customName: string | null) => void;
   ensureAcquisitionMarket: () => void;
   refreshAcquisitionMarket: () => void;
@@ -378,6 +382,8 @@ const useGameStore = create<GameStore>((set, get) => ({
           ...business,
           purchasedUpgrades: [...new Set(business.purchasedUpgrades ?? [])],
           marketShareModifier: business.marketShareModifier ?? 0,
+          identityTraits: business.identityTraits ?? [],
+          identityProgress: business.identityProgress ?? {},
           strategicFocus: business.strategicFocus ?? 'balanced',
           strategyModifiers: business.strategyModifiers ?? [],
           pendingDecision: business.pendingDecision ?? null,
@@ -579,7 +585,12 @@ const useGameStore = create<GameStore>((set, get) => ({
         (profile as any).prestigePoints = profile.totalXp ?? 0;
         (profile as any).unlockedPrestige = (profile as any).unlockedPrestige ?? [];
       }
-      set({ ...merged, isLoading: false, showNameModal: false, showMainMenu: true, showRelationshipEventModal: false, showContentUpdateModal: false, relationshipFeedback: null, profile, slotMeta, activeSlot });
+      const grandfatheredCapacity = Math.min(MAX_BUSINESS_CAPACITY, Math.max(getBusinessCapacity(profile), merged.businesses.length));
+      const migratedProfile = grandfatheredCapacity !== getBusinessCapacity(profile)
+        ? { ...profile, businessCapacity: grandfatheredCapacity }
+        : profile;
+      if (migratedProfile !== profile) await saveProfile(migratedProfile);
+      set({ ...merged, isLoading: false, showNameModal: false, showMainMenu: true, showRelationshipEventModal: false, showContentUpdateModal: false, relationshipFeedback: null, profile: migratedProfile, slotMeta, activeSlot });
     } else {
       set({ isLoading: false, showMainMenu: true, showSlotPicker: false, profile, slotMeta, activeSlot });
     }
@@ -614,6 +625,8 @@ const useGameStore = create<GameStore>((set, get) => ({
           ...business,
           purchasedUpgrades: [...new Set(business.purchasedUpgrades ?? [])],
           marketShareModifier: business.marketShareModifier ?? 0,
+          identityTraits: business.identityTraits ?? [],
+          identityProgress: business.identityProgress ?? {},
           strategicFocus: business.strategicFocus ?? 'balanced',
           strategyModifiers: business.strategyModifiers ?? [],
           pendingDecision: business.pendingDecision ?? null,
@@ -811,7 +824,13 @@ const useGameStore = create<GameStore>((set, get) => ({
       merged.activeAuctions = ensureAuctions(merged.activeAuctions, ((merged.year - 1) * 20) + merged.week, merged.inflationMultiplier, getNetWorth(merged));
       merged.familyTree = syncFamilyTree(merged);
       const slotMeta = await loadAllSlotMeta();
-      set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, showContentUpdateModal: (saved.contentUpdateSeenId ?? '') !== CURRENT_CONTENT_UPDATE_ID, relationshipFeedback: null, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
+      const currentProfile = get().profile;
+      const grandfatheredCapacity = Math.min(MAX_BUSINESS_CAPACITY, Math.max(getBusinessCapacity(currentProfile), merged.businesses.length));
+      const migratedProfile = grandfatheredCapacity !== getBusinessCapacity(currentProfile)
+        ? { ...currentProfile, businessCapacity: grandfatheredCapacity }
+        : currentProfile;
+      if (migratedProfile !== currentProfile) await saveProfile(migratedProfile);
+      set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, showContentUpdateModal: (saved.contentUpdateSeenId ?? '') !== CURRENT_CONTENT_UPDATE_ID, relationshipFeedback: null, profile: migratedProfile, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
     } else {
       // Empty slot — start new game here
       set({ activeSlot: slot, showSlotPicker: false, showMainMenu: false, showNameModal: true, slotPickerMode: 'load' });
@@ -3125,8 +3144,37 @@ const useGameStore = create<GameStore>((set, get) => ({
   },
 
   // ---- Business Actions ----
+  purchaseBusinessCapacitySlot: () => {
+    const state = get();
+    const next = purchaseBusinessCapacity(state.profile);
+    if (!next) return false;
+    set({ profile: next });
+    saveProfile(next);
+    return true;
+  },
+
+  grantBusinessCapacityAdUnlock: () => {
+    const state = get();
+    if (getBusinessCapacity(state.profile) >= MAX_BUSINESS_CAPACITY) return false;
+    const usage = getBusinessCapacityAdUnlockUsage(state.profile);
+    if (!usage.available) return false;
+    const unlocked = unlockBusinessCapacity(state.profile);
+    if (!unlocked) return false;
+    const profile = {
+      ...unlocked,
+      businessCapacityAdClaimDate: getLocalDayKey(),
+    };
+    set({ profile });
+    saveProfile(profile);
+    return true;
+  },
+
   foundBusiness: (typeId: string, customName: string | null) => {
     const state = get();
+    if ((state.businesses ?? []).length >= getBusinessCapacity(state.profile)) {
+      showGameDialog({ title: 'Company capacity reached', message: 'Unlock another permanent company slot before starting a new business.' });
+      return;
+    }
     const type = getBusinessType(typeId);
     if (!type) return;
     const cost = inflated(type.startupCost ?? 0, state?.inflationMultiplier ?? 1);
@@ -3200,6 +3248,10 @@ const useGameStore = create<GameStore>((set, get) => ({
   acquireBusiness: (targetId, holdingCompanyId = null, fundingMode = 'cash') => {
     const state = get();
     if (state.lifecycle?.isDead || getNetWorth(state) < ACQUISITION_UNLOCK_NET_WORTH) return;
+    if ((state.businesses ?? []).length >= getBusinessCapacity(state.profile)) {
+      showGameDialog({ title: 'Company capacity reached', message: 'Unlock another permanent company slot before acquiring another company.' });
+      return;
+    }
     const target = (state.acquisitionTargets ?? []).find((item) => item.id === targetId);
     if (!target) return;
     const holding = holdingCompanyId
