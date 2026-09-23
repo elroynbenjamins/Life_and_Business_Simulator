@@ -1775,6 +1775,11 @@ export interface PlayerProfile {
   unlockedPrestige: string[];
   lastLoginClaimDate: string;
   loginStreak: number;
+  /** Account-wide rewarded-gem usage shared by all save slots. */
+  rewardedGemClaimDate: string;
+  rewardedGemClaimsToday: number;
+  /** Remove Ads owners receive one ad-free temporary business Slot 2 claim per day. */
+  adFreeSlotRewardClaimDate: string;
 }
 
 export const INITIAL_PROFILE: PlayerProfile = {
@@ -1786,6 +1791,9 @@ export const INITIAL_PROFILE: PlayerProfile = {
   unlockedPrestige: [],
   lastLoginClaimDate: '',
   loginStreak: 0,
+  rewardedGemClaimDate: '',
+  rewardedGemClaimsToday: 0,
+  adFreeSlotRewardClaimDate: '',
 };
 
 /** Save slot metadata */
