@@ -405,8 +405,10 @@ function lifePathLabel(path: ChildLifePath): string {
   return path;
 }
 
-function countMemoryTag(state: GameState, tag: string): number {
-  return (state.relationshipState?.memories ?? []).filter((memory) => memory.tag === tag).length;
+function countMemoryTag(state: GameState, tag: string, partnerId?: string | null): number {
+  return (state.relationshipState?.memories ?? []).filter((memory) =>
+    memory.tag === tag && (partnerId == null || memory.partnerId === partnerId)
+  ).length;
 }
 
 export function createWorkFamilyConflictEvent(
@@ -423,8 +425,8 @@ export function createWorkFamilyConflictEvent(
   const child = dependentChildren.length > 0
     ? [...dependentChildren].sort((a, b) => getChildAge(b, globalWeek(state)) - getChildAge(a, globalWeek(state)))[0]
     : null;
-  const careerFirstCount = countMemoryTag(state, 'career_first');
-  const familyFirstCount = countMemoryTag(state, 'showed_up_for_family');
+  const careerFirstCount = countMemoryTag(state, 'career_first', partner.id);
+  const familyFirstCount = countMemoryTag(state, 'showed_up_for_family', partner.id);
   const patternNote = careerFirstCount >= 2
     ? ` ${partner.name} points out that choosing work has started to become a pattern.`
     : familyFirstCount >= 2
@@ -510,9 +512,9 @@ function getMarriageMilestoneEvent(
   const partyCost = Math.round(4500 * scale * inflation);
   const tripCost = Math.round(7000 * scale * inflation);
   const tripWeeks = milestone >= 20 ? 2 : 1;
-  const intimateWeddingMemory = countMemoryTag(state, 'intimate_wedding') > 0;
-  const standardWeddingMemory = countMemoryTag(state, 'standard_wedding') > 0;
-  const luxuryWeddingMemory = countMemoryTag(state, 'luxury_wedding') > 0;
+  const intimateWeddingMemory = countMemoryTag(state, 'intimate_wedding', partner.id) > 0;
+  const standardWeddingMemory = countMemoryTag(state, 'standard_wedding', partner.id) > 0;
+  const luxuryWeddingMemory = countMemoryTag(state, 'luxury_wedding', partner.id) > 0;
   const intimateGain = anniversaryRelationshipGain(partner, 'intimate') + (intimateWeddingMemory ? 2 : 0);
   const partyGain = anniversaryRelationshipGain(partner, 'party') + (standardWeddingMemory || luxuryWeddingMemory ? 2 : 0);
   const tripGain = anniversaryRelationshipGain(partner, 'trip') + (luxuryWeddingMemory ? 1 : 0);
@@ -1302,7 +1304,7 @@ function createRelationshipEvent(
   ) {
     const shortCost = Math.round(12000 * inflation);
     const longCost = Math.round(30000 * inflation);
-    const travelHistoryBonus = Math.min(3, countMemoryTag(state, 'world_travellers'));
+    const travelHistoryBonus = Math.min(3, countMemoryTag(state, 'world_travellers', partner.id));
     const shortGain = Math.max(4, Math.min(14,
       8 + travelHistoryBonus
       + (partner.financialStyle === 'luxury' ? 2 : partner.financialStyle === 'frugal' ? -1 : 0)
