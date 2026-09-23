@@ -527,9 +527,14 @@ const useGameStore = create<GameStore>((set, get) => ({
             debt: child.debt ?? 0,
             failureCount: child.failureCount ?? 0,
             businessValue: child.businessValue ?? 0,
+            lifePath: child.lifePath,
+            developmentScore: child.developmentScore ?? 0,
+            lastLifeArcEventAge: child.lastLifeArcEventAge ?? 0,
           })),
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
           celebratedMilestones: saved.relationshipState?.celebratedMilestones ?? [],
+          memories: saved.relationshipState?.memories ?? [],
+          lastWorkFamilyConflictWeek: saved.relationshipState?.lastWorkFamilyConflictWeek ?? 0,
           coupleTripWeeksRemaining: saved.relationshipState?.coupleTripWeeksRemaining ?? 0,
           lastCoupleTripWeek: saved.relationshipState?.lastCoupleTripWeek ?? 0,
           pendingEvent: saved.relationshipState?.pendingEvent ?? null,
@@ -757,9 +762,14 @@ const useGameStore = create<GameStore>((set, get) => ({
             debt: child.debt ?? 0,
             failureCount: child.failureCount ?? 0,
             businessValue: child.businessValue ?? 0,
+            lifePath: child.lifePath,
+            developmentScore: child.developmentScore ?? 0,
+            lastLifeArcEventAge: child.lastLifeArcEventAge ?? 0,
           })),
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
           celebratedMilestones: saved.relationshipState?.celebratedMilestones ?? [],
+          memories: saved.relationshipState?.memories ?? [],
+          lastWorkFamilyConflictWeek: saved.relationshipState?.lastWorkFamilyConflictWeek ?? 0,
           coupleTripWeeksRemaining: saved.relationshipState?.coupleTripWeeksRemaining ?? 0,
           lastCoupleTripWeek: saved.relationshipState?.lastCoupleTripWeek ?? 0,
           pendingEvent: saved.relationshipState?.pendingEvent ?? null,
@@ -1776,9 +1786,27 @@ const useGameStore = create<GameStore>((set, get) => ({
       };
     });
 
+    const weddingMemoryTag = wedding === 'courthouse'
+      ? 'intimate_wedding' as const
+      : wedding === 'standard'
+        ? 'standard_wedding' as const
+        : 'luxury_wedding' as const;
+    const memories = [
+      ...(state.relationshipState?.memories ?? []),
+      {
+        id: `wedding_${partner.id}_${gw}`,
+        tag: weddingMemoryTag,
+        label: `${wedding === 'courthouse' ? 'Chose an intimate wedding' : wedding === 'standard' ? 'Celebrated with a traditional wedding' : 'Celebrated with a luxury wedding'} with ${partner.name}`,
+        sentiment: 'positive' as const,
+        globalWeek: gw,
+        partnerId: partner.id,
+        sourceEventId: 'wedding',
+      },
+    ].slice(-24);
     const relationshipState = {
       ...state.relationshipState,
       activeConnections: connections,
+      memories,
       timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Married ${partner.name}` }],
     };
     const tempHappinessEffects = [...(state.tempHappinessEffects ?? []), { amount: 10, weeksRemaining: 4, source: 'Wedding' }];
@@ -2704,6 +2732,12 @@ const useGameStore = create<GameStore>((set, get) => ({
             ? {
                 ...child,
                 savings: Math.max(0, (child.savings ?? 0) + (choice.childSavings ?? 0)),
+                educationFund: Math.max(0, (child.educationFund ?? 0) + (choice.childEducationFund ?? 0)),
+                lifePath: choice.childLifePath ?? child.lifePath,
+                developmentScore: Math.max(0, Math.min(100, (child.developmentScore ?? 0) + (choice.childDevelopment ?? 0))),
+                lastLifeArcEventAge: choice.childLifePath || choice.childDevelopment
+                  ? Math.max(child.lastLifeArcEventAge ?? 0, child.age ?? 0)
+                  : (child.lastLifeArcEventAge ?? 0),
                 parentRelationship: Math.max(
                   0,
                   Math.min(100, (child.parentRelationship ?? 75) + (choice.childRelationship ?? 0)),
@@ -2722,11 +2756,27 @@ const useGameStore = create<GameStore>((set, get) => ({
       ...(state.relationshipState.timeline ?? []),
       { week: state.week, year: state.year, title: `${event.title}: ${choice.text}` },
     ].slice(-80);
+    const memories = choice.memoryTag && choice.memoryLabel
+      ? [
+          ...(state.relationshipState.memories ?? []),
+          {
+            id: `${choice.memoryTag}_${event.id}_${gw}`,
+            tag: choice.memoryTag,
+            label: choice.memoryLabel,
+            sentiment: choice.memorySentiment ?? 'mixed',
+            globalWeek: gw,
+            partnerId: partnerId ?? null,
+            childId: choice.childId ?? null,
+            sourceEventId: event.id,
+          },
+        ].slice(-24)
+      : (state.relationshipState.memories ?? []);
     const relationshipState = {
       ...state.relationshipState,
       activeConnections,
       children,
       celebratedMilestones,
+      memories,
       coupleTripWeeksRemaining: travelWeeks > 0
         ? Math.max(state.relationshipState.coupleTripWeeksRemaining ?? 0, travelWeeks)
         : (state.relationshipState.coupleTripWeeksRemaining ?? 0),
@@ -2734,6 +2784,38 @@ const useGameStore = create<GameStore>((set, get) => ({
       timeline,
       pendingEvent: null,
     };
+    const career = choice.careerPerformanceDelta && state.career?.companyId
+      ? {
+          ...state.career,
+          performance: Math.max(0, Math.min(100, (state.career.performance ?? 50) + choice.careerPerformanceDelta)),
+        }
+      : state.career;
+    const businesses = choice.businessId
+      ? (state.businesses ?? []).map((business) => {
+          if (business.id !== choice.businessId) return business;
+          const reputationDelta = choice.businessReputationDelta ?? 0;
+          const moraleDelta = choice.businessMoraleDelta ?? 0;
+          return {
+            ...business,
+            reputation: Math.max(0, Math.min(100, (business.reputation ?? 50) + reputationDelta)),
+            employees: (business.employees ?? []).map((employee) => ({
+              ...employee,
+              morale: Math.max(1, Math.min(100, (employee.morale ?? 50) + moraleDelta)),
+            })),
+            timeline: [
+              ...(business.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: `⚖️ ${event.title}: ${choice.text}`,
+                icon: '⚖️',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          };
+        })
+      : state.businesses;
+
     const tempHappinessEffects = choice.happiness
       ? [...(state.tempHappinessEffects ?? []), {
           amount: choice.happiness,
@@ -2747,6 +2829,8 @@ const useGameStore = create<GameStore>((set, get) => ({
       cash: (state.cash ?? 0) - cost + cashReward,
       relationshipState,
       tempHappinessEffects,
+      career,
+      businesses,
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
