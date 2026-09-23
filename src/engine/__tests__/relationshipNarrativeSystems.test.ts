@@ -185,6 +185,7 @@ describe('relationship narrative systems', () => {
             label: 'Put work first',
             sentiment: 'mixed',
             globalWeek: 80,
+            partnerId: currentPartner.id,
           },
           {
             id: 'm2',
@@ -192,6 +193,7 @@ describe('relationship narrative systems', () => {
             label: 'Put work first again',
             sentiment: 'negative',
             globalWeek: 120,
+            partnerId: currentPartner.id,
           },
         ],
       },
@@ -202,6 +204,43 @@ describe('relationship narrative systems', () => {
     expect(firstWorkChoice?.careerPerformanceDelta).toBeGreaterThan(0);
     expect((repeatedWorkChoice?.relationship ?? 0)).toBeLessThan(firstWorkChoice?.relationship ?? 0);
     expect(repeatedConflict?.description).toContain('pattern');
+  });
+
+  test('former-partner memories do not affect a new relationship', () => {
+    const currentPartner = partner({ id: 'new_partner', name: 'Morgan' });
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      year: 8,
+      week: 1,
+      career: {
+        ...INITIAL_CAREER_STATE,
+        companyId: 'career_company',
+        careerPathId: 'marketing',
+        positionLevel: 3,
+        performance: 70,
+      },
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        partnerId: currentPartner.id,
+        activeConnections: [currentPartner],
+        memories: [
+          {
+            id: 'former-memory',
+            tag: 'career_first',
+            label: 'Old relationship work conflict',
+            sentiment: 'negative',
+            globalWeek: 80,
+            partnerId: 'former_partner',
+          },
+        ],
+      },
+    };
+
+    const conflict = createWorkFamilyConflictEvent(state, currentPartner, []);
+    expect(conflict?.description).not.toContain('pattern');
+    const workChoice = conflict?.choices.find((choice) => choice.memoryTag === 'career_first');
+    expect(workChoice?.relationship).toBe(-6);
   });
 
   test('family-first conflict choices trade career performance for relationship gains', () => {
