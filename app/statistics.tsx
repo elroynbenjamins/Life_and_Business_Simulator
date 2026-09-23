@@ -1,11 +1,13 @@
 import React from 'react';
-import { ScrollView, View, Text, StyleSheet, Pressable, SafeAreaView, useWindowDimensions } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LineChart } from 'react-native-chart-kit';
 import useGameStore from '../src/store/gameStore';
 import { useShallow } from 'zustand/react/shallow';
 import { Colors, resolveThemeColor } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
+import ScreenHeader from '../src/components/ScreenHeader';
 import { formatCurrency } from '../src/utils/format';
 import { getWeeklySalary, processExpenses } from '../src/engine/financeEngine';
 import { getCareerSalary } from '../src/engine/careerEngine';
@@ -57,10 +59,13 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        {showBack && <Pressable onPress={() => router.back()} style={styles.back}><Text style={styles.backText}>← Back</Text></Pressable>}
-        <Text style={styles.title}>Life Statistics</Text>
-      </View>
+      <ScreenHeader
+        title="Life Statistics"
+        subtitle="Cash flow, progress and lifetime records"
+        showBack={showBack}
+        onBack={() => router.back()}
+        accentColor={Colors.primary}
+      />
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <GameCard title="Weekly Income & Expenses">
           <Row label="Job income" value={formatCurrency(careerIncome)} tone={careerIncome > 0 ? 'positive' : undefined} />
