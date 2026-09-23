@@ -11,7 +11,6 @@ import {
   getNextBusinessCapacityCost,
   MAX_BUSINESS_CAPACITY,
 } from '../engine/businessCapacityEngine';
-import { getBusinessCapacityAdUnlockUsage } from '../services/adRewardEntitlements';
 import { loadRewardedAd, showRewardedAd } from '../services/adManager';
 import { shouldSimulateNativeFeatures } from '../services/runtimeEnvironment';
 
@@ -25,7 +24,6 @@ export default function BusinessCapacityPanel({ compact = false }: { compact?: b
 
   const capacity = getBusinessCapacity(profile);
   const nextCost = getNextBusinessCapacityCost(profile);
-  const adUsage = getBusinessCapacityAdUnlockUsage(profile);
   const isFull = capacity >= MAX_BUSINESS_CAPACITY;
   const currencyAffordable = !!nextCost
     && (profile.prestigePoints ?? 0) >= nextCost.prestigePoints
@@ -37,7 +35,7 @@ export default function BusinessCapacityPanel({ compact = false }: { compact?: b
   };
 
   const unlockWithAd = async () => {
-    if (isFull || !adUsage.available || loadingAd) return;
+    if (isFull || loadingAd) return;
     if (profile.adsRemoved || shouldSimulateNativeFeatures()) {
       const success = grantAdSlot();
       setMessage(success
@@ -124,18 +122,16 @@ export default function BusinessCapacityPanel({ compact = false }: { compact?: b
             accentColor={Colors.info}
             icon={profile.adsRemoved ? 'gift-outline' : 'play-circle-outline'}
             label={
-              !adUsage.available
-                ? 'Daily Ad Slot Unlock Used'
-                : loadingAd
-                  ? 'Loading Ad...'
-                  : profile.adsRemoved
-                    ? 'Claim Ad-Free +1 Company Slot'
-                    : 'Watch Ad • +1 Company Slot'
+              loadingAd
+                ? 'Loading Ad...'
+                : profile.adsRemoved
+                  ? 'Claim Ad-Free +1 Company Slot'
+                  : 'Watch Ad • +1 Company Slot'
             }
             onPress={unlockWithAd}
-            disabled={!adUsage.available || loadingAd}
+            disabled={loadingAd}
           />
-          <Text style={styles.adHelper}>Permanent unlock • maximum one ad-route company slot per day</Text>
+          <Text style={styles.adHelper}>Each completed rewarded ad permanently unlocks +1 slot, up to 10 companies.</Text>
         </>
       )}
 
