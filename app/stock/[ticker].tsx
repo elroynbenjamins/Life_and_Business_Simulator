@@ -13,6 +13,7 @@ import stocksData from '../../src/data/stocks.json';
 import { LineChart } from 'react-native-chart-kit';
 import { showGameDialog } from '../../src/components/GameDialog';
 import RepeatStepperButton from '../../src/components/RepeatStepperButton';
+import StatusPill from '../../src/components/StatusPill';
 
 export default function StockDetailScreen() {
   const { width: screenWidth } = useWindowDimensions();
@@ -54,6 +55,9 @@ export default function StockDetailScreen() {
   const price = stock?.currentPrice ?? 0;
   const assetMeta = sd as any;
   const isCrypto = sd?.type === 'crypto';
+  const isEmergingCompany = assetMeta.marketRole === 'emerging';
+  const isDelisted = stock.marketStatus === 'delisted';
+  const marketStage = stock.companyStage ?? (isEmergingCompany ? 'emerging' : 'established');
   const unitLabel = isCrypto ? 'coins' : 'shares';
   const singularUnit = isCrypto ? 'coin' : 'share';
   const unitsFor = (count: number) => count === 1 ? singularUnit : unitLabel;
@@ -64,7 +68,7 @@ export default function StockDetailScreen() {
   const chartWidth = Math.min(screenWidth - 64, 500);
 
   const totalCost = qty * price;
-  const maxBuy = price > 0 ? Math.floor(cash / price) : 0;
+  const maxBuy = !isDelisted && price > 0 ? Math.floor(cash / price) : 0;
   const maxSell = holding?.shares ?? 0;
 
   const holdingValue = (holding?.shares ?? 0) * price;
@@ -82,7 +86,7 @@ export default function StockDetailScreen() {
   const historyHigh = Math.max(...history.map((value) => value ?? 0));
 
   const handleBuy = () => {
-    if (qty <= 0 || totalCost > cash) return;
+    if (isDelisted || qty <= 0 || totalCost > cash) return;
     const message = `Buy ${qty} ${unitsFor(qty)} of ${sd?.ticker} for ${formatCurrency(totalCost, 2)}?`;
     showGameDialog({ title: 'Confirm Purchase', message, confirmText: 'Buy', onConfirm: () => { buyStock?.(ticker, qty); setQty(0); } });
   };
@@ -119,6 +123,31 @@ export default function StockDetailScreen() {
           </Text>
           <SectorPill sector={sd?.sector ?? ''} />
         </View>
+
+        {isEmergingCompany && (
+          <GameCard
+            variant={isDelisted ? 'danger' : marketStage === 'mature' ? 'subtle' : 'attention'}
+            eyebrow="COMPANY LIFECYCLE"
+            title={isDelisted ? 'Delisted' : marketStage === 'mature' ? 'Established Listing' : marketStage === 'growth' ? 'Growth Company' : 'Emerging Listing'}
+            accentColor={isDelisted ? Colors.negative : marketStage === 'mature' ? Colors.primary : Colors.info}
+            titleAccessory={(
+              <StatusPill
+                compact
+                icon={isDelisted ? 'close-circle-outline' : marketStage === 'mature' ? 'shield-checkmark-outline' : 'rocket-outline'}
+                label={isDelisted ? 'FAILED' : marketStage === 'mature' ? 'MATURED' : 'HIGHER RISK'}
+                color={isDelisted ? Colors.negative : marketStage === 'mature' ? Colors.primary : Colors.warning}
+              />
+            )}
+          >
+            <Text style={styles.lifecycleText}>
+              {isDelisted
+                ? 'This company failed during its early public years. Trading is closed and any player position was settled automatically at the recovery value.'
+                : marketStage === 'mature'
+                  ? 'This former emerging company survived its risky early years. It now trades with a more established risk profile.'
+                  : 'Young public companies can outperform quickly, stagnate, or fail and delist. Their early price swings are intentionally wider than established stocks.'}
+            </Text>
+          </GameCard>
+        )}
 
         {isCrypto && (
           <GameCard title="Crypto Profile">
@@ -227,81 +256,87 @@ export default function StockDetailScreen() {
         ) : null}
 
         {/* Buy/Sell */}
-        <GameCard title="Trade">
-          <View style={styles.qtyRow}>
-            <RepeatStepperButton
-              style={styles.stepperBtn}
-              accessibilityLabel={`Decrease ${unitLabel}`}
-              disabled={qty <= 0}
-              onStep={(amount) => setQty(current => Math.max(0, current - amount))}
-            >
-              <Text style={styles.stepperText}>−</Text>
-            </RepeatStepperButton>
-            <TextInput
-              ref={quantityRef}
-              accessibilityLabel={`Number of ${unitLabel}`}
-              style={styles.qtyInput}
-              value={qty > 0 ? String(qty) : ''}
-              placeholder="0"
-              placeholderTextColor={Colors.textMuted}
-              onChangeText={(t) => {
-                if (t === '') { setQty(0); return; }
-                const n = parseInt(t, 10);
-                setQty(isNaN(n) ? 0 : Math.max(0, n));
-              }}
-              keyboardType="number-pad"
-              inputMode="numeric"
-              disableFullscreenUI
-              selectTextOnFocus
-              maxLength={10}
-              returnKeyType="done"
-              onSubmitEditing={finishQuantity}
-              onFocus={() => { setEditingQuantity(true); scrollRef.current?.scrollToEnd({ animated: true }); }}
-              onBlur={() => setEditingQuantity(false)}
-            />
-            <RepeatStepperButton
-              style={styles.stepperBtn}
-              accessibilityLabel={`Increase ${unitLabel}`}
-              disabled={qty >= Math.max(maxBuy, maxSell)}
-              onStep={(amount) => setQty(current => Math.min(Math.max(maxBuy, maxSell), current + amount))}
-            >
-              <Text style={styles.stepperText}>+</Text>
-            </RepeatStepperButton>
-            <Pressable
-              style={styles.maxBtn}
-              onPress={() => setQty(maxBuy > 0 ? maxBuy : 0)}
-            >
-              <Text style={styles.maxText}>Max</Text>
-            </Pressable>
-          </View>
-
-          {editingQuantity && <Pressable style={styles.doneButton} onPress={finishQuantity} accessibilityRole="button"><Text style={styles.doneText}>Done entering quantity</Text></Pressable>}
-          {!editingQuantity && <Text style={styles.cashText}>Tap + / − for 1 {singularUnit}. Hold to change faster.</Text>}
-          <Text style={styles.totalText}>Total: {formatCurrency(totalCost, 2)}</Text>
-          <Text style={styles.cashText}>Cash: {formatCurrency(cash)}</Text>
-
-          <View style={styles.actionRow}>
-            <Pressable
-              style={[styles.buyBtn, (totalCost > cash || qty <= 0) && styles.disabledBtn]}
-              onPress={() => { finishQuantity(); handleBuy(); }}
-              disabled={totalCost > cash || qty <= 0}
-            >
-              <Text style={styles.buyText}>Buy</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.sellBtn, (qty > maxSell || qty <= 0) && styles.disabledBtn]}
-              onPress={() => { finishQuantity(); handleSell(); }}
-              disabled={qty > maxSell || maxSell === 0 || qty <= 0}
-            >
-              <Text style={styles.sellText}>Sell</Text>
-            </Pressable>
-          </View>
-          {maxSell > 0 && (
-            <Pressable style={styles.sellAllBtn} onPress={handleSellAll}>
-              <Text style={styles.sellAllText}>Sell All ({maxSell} {unitsFor(maxSell)})</Text>
-            </Pressable>
-          )}
-        </GameCard>
+        {isDelisted ? (
+          <GameCard variant="subtle" title="Trading Closed">
+            <Text style={styles.lifecycleText}>This ticker is retained only as market history. It can no longer be bought or sold.</Text>
+          </GameCard>
+        ) : (
+          <GameCard title="Trade">
+            <View style={styles.qtyRow}>
+              <RepeatStepperButton
+                style={styles.stepperBtn}
+                accessibilityLabel={`Decrease ${unitLabel}`}
+                disabled={qty <= 0}
+                onStep={(amount) => setQty(current => Math.max(0, current - amount))}
+              >
+                <Text style={styles.stepperText}>−</Text>
+              </RepeatStepperButton>
+              <TextInput
+                ref={quantityRef}
+                accessibilityLabel={`Number of ${unitLabel}`}
+                style={styles.qtyInput}
+                value={qty > 0 ? String(qty) : ''}
+                placeholder="0"
+                placeholderTextColor={Colors.textMuted}
+                onChangeText={(t) => {
+                  if (t === '') { setQty(0); return; }
+                  const n = parseInt(t, 10);
+                  setQty(isNaN(n) ? 0 : Math.max(0, n));
+                }}
+                keyboardType="number-pad"
+                inputMode="numeric"
+                disableFullscreenUI
+                selectTextOnFocus
+                maxLength={10}
+                returnKeyType="done"
+                onSubmitEditing={finishQuantity}
+                onFocus={() => { setEditingQuantity(true); scrollRef.current?.scrollToEnd({ animated: true }); }}
+                onBlur={() => setEditingQuantity(false)}
+              />
+              <RepeatStepperButton
+                style={styles.stepperBtn}
+                accessibilityLabel={`Increase ${unitLabel}`}
+                disabled={qty >= Math.max(maxBuy, maxSell)}
+                onStep={(amount) => setQty(current => Math.min(Math.max(maxBuy, maxSell), current + amount))}
+              >
+                <Text style={styles.stepperText}>+</Text>
+              </RepeatStepperButton>
+              <Pressable
+                style={styles.maxBtn}
+                onPress={() => setQty(maxBuy > 0 ? maxBuy : 0)}
+              >
+                <Text style={styles.maxText}>Max</Text>
+              </Pressable>
+            </View>
+  
+            {editingQuantity && <Pressable style={styles.doneButton} onPress={finishQuantity} accessibilityRole="button"><Text style={styles.doneText}>Done entering quantity</Text></Pressable>}
+            {!editingQuantity && <Text style={styles.cashText}>Tap + / − for 1 {singularUnit}. Hold to change faster.</Text>}
+            <Text style={styles.totalText}>Total: {formatCurrency(totalCost, 2)}</Text>
+            <Text style={styles.cashText}>Cash: {formatCurrency(cash)}</Text>
+  
+            <View style={styles.actionRow}>
+              <Pressable
+                style={[styles.buyBtn, (totalCost > cash || qty <= 0) && styles.disabledBtn]}
+                onPress={() => { finishQuantity(); handleBuy(); }}
+                disabled={totalCost > cash || qty <= 0}
+              >
+                <Text style={styles.buyText}>Buy</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.sellBtn, (qty > maxSell || qty <= 0) && styles.disabledBtn]}
+                onPress={() => { finishQuantity(); handleSell(); }}
+                disabled={qty > maxSell || maxSell === 0 || qty <= 0}
+              >
+                <Text style={styles.sellText}>Sell</Text>
+              </Pressable>
+            </View>
+            {maxSell > 0 && (
+              <Pressable style={styles.sellAllBtn} onPress={handleSellAll}>
+                <Text style={styles.sellAllText}>Sell All ({maxSell} {unitsFor(maxSell)})</Text>
+              </Pressable>
+            )}
+          </GameCard>
+        )}
       </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -320,6 +355,7 @@ const styles = StyleSheet.create({
   doneText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   cryptoDescription: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
+  lifecycleText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
   cryptoMechanicBox: { backgroundColor: `${Colors.info}12`, borderRadius: 8, padding: 10, marginVertical: 10, borderWidth: 1, borderColor: `${Colors.info}28` },
   cryptoMechanicTitle: { color: Colors.info, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
   cryptoMechanicText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 3 },
