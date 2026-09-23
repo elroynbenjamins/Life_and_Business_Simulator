@@ -188,6 +188,7 @@ export default function BusinessDetailScreen() {
     injectCashIntoBusiness, withdrawFromBusiness,
     applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject,
     unlockBusinessProjectSlot, grantTemporaryBusinessProjectSlot, unlockBusinessUpgradeSlot, grantTemporaryBusinessUpgradeSlot,
+    getAdFreeSlotRewardUsage, claimAdFreeBusinessSlotReward,
     startBusinessReinvestment, setBusinessInsurancePolicy, startCorporateCapex, resolveBusinessRetention,
   } = useGameStore(useShallow((s) => ({
     designateFamilyBusiness: s.designateFamilyBusiness,
@@ -230,6 +231,8 @@ export default function BusinessDetailScreen() {
     grantTemporaryBusinessProjectSlot: s.grantTemporaryBusinessProjectSlot,
     unlockBusinessUpgradeSlot: s.unlockBusinessUpgradeSlot,
     grantTemporaryBusinessUpgradeSlot: s.grantTemporaryBusinessUpgradeSlot,
+    getAdFreeSlotRewardUsage: s.getAdFreeSlotRewardUsage,
+    claimAdFreeBusinessSlotReward: s.claimAdFreeBusinessSlotReward,
     startBusinessReinvestment: s.startBusinessReinvestment,
     setBusinessInsurancePolicy: s.setBusinessInsurancePolicy,
     startCorporateCapex: s.startCorporateCapex,
@@ -296,6 +299,18 @@ export default function BusinessDetailScreen() {
     if (slotAdLoading) return;
     setSlotAdLoading(kind);
     setSlotAdMessage(null);
+
+    if (profile.adsRemoved) {
+      const claimed = claimAdFreeBusinessSlotReward(biz.id, kind);
+      setSlotAdLoading(null);
+      setSlotAdMessage({
+        kind,
+        text: claimed
+          ? 'Daily ad-free Slot 2 reward claimed.'
+          : 'Today’s ad-free Slot 2 reward is already used or this slot is unavailable.',
+      });
+      return;
+    }
 
     const grantSlot = () => {
       if (kind === 'project') grantTemporaryBusinessProjectSlot(biz.id);
@@ -365,6 +380,7 @@ export default function BusinessDetailScreen() {
   const activeProjects = (biz.activeProjects ?? []).filter((project) => !project.resolved);
   const activeProjectCount = activeProjects.length;
   const projectSlotLimit = getBusinessProjectSlotLimit(biz);
+  const adFreeSlotReward = getAdFreeSlotRewardUsage();
   const isUnderStaffed = !meetsMinStaffing(biz);
   const allMoraleActions = getAllMoraleActions();
   const allTraining = getAllTraining();
@@ -2123,12 +2139,14 @@ export default function BusinessDetailScreen() {
             </View>
             {!biz.projectSlot2Unlocked && !biz.temporaryProjectSlot2 && activeProjectCount === 1 && (
               <Pressable
-                style={[styles.slotMiniButton, slotAdLoading === 'project' && styles.disabledRow]}
-                disabled={slotAdLoading !== null}
+                style={[styles.slotMiniButton, (slotAdLoading === 'project' || (profile.adsRemoved && !adFreeSlotReward.available)) && styles.disabledRow]}
+                disabled={slotAdLoading !== null || (profile.adsRemoved && !adFreeSlotReward.available)}
                 onPress={() => handleSlotRewardedAd('project')}
               >
-                <Ionicons name="play-circle-outline" size={12} color={Colors.info} />
-                <Text style={styles.slotMiniButtonText}>{slotAdLoading === 'project' ? 'Loading…' : 'Ad Slot 2'}</Text>
+                <Ionicons name={profile.adsRemoved ? "gift-outline" : "play-circle-outline"} size={12} color={Colors.info} />
+                <Text style={styles.slotMiniButtonText}>
+                  {slotAdLoading === 'project' ? 'Loading…' : profile.adsRemoved ? (adFreeSlotReward.available ? 'Daily Slot 2' : 'Daily used') : 'Ad Slot 2'}
+                </Text>
               </Pressable>
             )}
             {!biz.projectSlot2Unlocked && (
@@ -2386,12 +2404,14 @@ export default function BusinessDetailScreen() {
               </View>
               {!biz.upgradeSlot2Unlocked && !biz.temporaryUpgradeSlot2 && activeUpgradeCount === 1 && (
                 <Pressable
-                  style={[styles.slotMiniButton, slotAdLoading === 'upgrade' && styles.disabledRow]}
-                  disabled={slotAdLoading !== null}
+                  style={[styles.slotMiniButton, (slotAdLoading === 'upgrade' || (profile.adsRemoved && !adFreeSlotReward.available)) && styles.disabledRow]}
+                  disabled={slotAdLoading !== null || (profile.adsRemoved && !adFreeSlotReward.available)}
                   onPress={() => handleSlotRewardedAd('upgrade')}
                 >
-                  <Ionicons name="play-circle-outline" size={12} color={Colors.info} />
-                  <Text style={styles.slotMiniButtonText}>{slotAdLoading === 'upgrade' ? 'Loading…' : 'Ad Slot 2'}</Text>
+                  <Ionicons name={profile.adsRemoved ? "gift-outline" : "play-circle-outline"} size={12} color={Colors.info} />
+                  <Text style={styles.slotMiniButtonText}>
+                    {slotAdLoading === 'upgrade' ? 'Loading…' : profile.adsRemoved ? (adFreeSlotReward.available ? 'Daily Slot 2' : 'Daily used') : 'Ad Slot 2'}
+                  </Text>
                 </Pressable>
               )}
               {!biz.upgradeSlot2Unlocked && (
