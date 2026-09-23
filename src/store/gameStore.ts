@@ -167,6 +167,7 @@ interface GameStore extends GameState {
   changeCar: (carId: string) => void;
   changeFoodLevel: (level: string) => void;
   togglePartTimeJob: () => void;
+  setStudentWorkTier: (tier: import('../types/game').StudentWorkTier | null) => void;
   grantAdReward: () => void;
   getAdUsage: () => { watchedToday: number; remaining: number; limitReached: boolean };
   getDailyLoginStatus: () => { available: boolean; streak: number; reward: number };
@@ -1315,9 +1316,22 @@ const useGameStore = create<GameStore>((set, get) => ({
   togglePartTimeJob: () => {
     const state = get();
     if (state.currentJobId || state.career?.companyId) return;
-    const newVal = !(state.partTimeJob ?? false);
-    set({ partTimeJob: newVal } as any);
-    saveGame(extractGameState({ ...state, partTimeJob: newVal }), state.activeSlot);
+    const active = !!state.partTimeJob;
+    const updates = active
+      ? { partTimeJob: false,
+      studentWorkTier: null, studentWorkTier: null }
+      : { partTimeJob: true, studentWorkTier: 'flexible' as const };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  setStudentWorkTier: (tier) => {
+    const state = get();
+    if (state.currentJobId || state.career?.companyId) return;
+    if (tier !== null && tier !== 'flexible' && tier !== 'high_hours') return;
+    const updates = { partTimeJob: tier !== null, studentWorkTier: tier };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
   grantAdReward: () => {
@@ -2558,6 +2572,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       totalRealizedProfitLoss: 0,
       newsHistory: [...(state.newsHistory ?? [])].slice(-20),
       partTimeJob: false,
+      studentWorkTier: null,
       adWatchedToday: state.adWatchedToday ?? 0,
       adLastWatchDate: state.adLastWatchDate ?? '',
       relationshipModeEnabled: state.relationshipModeEnabled,
@@ -2834,6 +2849,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       statistics: { ...prevStats, jobsWorked: prevStats.jobsWorked + 1 },
       periodJobChanges: (state.periodJobChanges ?? 0) + 1,
       partTimeJob: false,
+      studentWorkTier: null,
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
@@ -4793,6 +4809,7 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     totalRealizedProfitLoss: state?.totalRealizedProfitLoss ?? 0,
     newsHistory: (state as any)?.newsHistory ?? [],
     partTimeJob: (state as any)?.partTimeJob ?? false,
+    studentWorkTier: (state as any)?.studentWorkTier ?? ((state as any)?.partTimeJob ? 'flexible' : null),
     adWatchedToday: (state as any)?.adWatchedToday ?? 0,
     adLastWatchDate: (state as any)?.adLastWatchDate ?? '',
     relationshipModeEnabled: state?.relationshipModeEnabled ?? false,
