@@ -222,7 +222,7 @@ export default function DashboardScreen() {
             {partner ? (
               <>
                 <Text style={[styles.statValue, { color: Colors.happiness }]}>{partner.name} • {partner.stage === 'married' ? 'Married' : partner.stage === 'engaged' ? 'Engaged' : (partner.isCohabiting || partner.stage === 'living_together') ? 'Living Together' : 'Partner'}</Text>
-                <Text style={styles.statCaption}>Relationship: {Math.round(partner.relationship ?? 0)}%{household.contribution > 0 ? ` • +${formatCurrency(household.contribution)}/wk shared costs` : ''}</Text>
+                <Text style={styles.statCaption}>Relationship: {Math.round(partner.relationship ?? 0)}%{effectivePartnerContribution > 0 ? ` • +${formatCurrency(effectivePartnerContribution)}/wk shared costs` : ''}</Text>
               </>
             ) : (
               <>
@@ -288,7 +288,7 @@ export default function DashboardScreen() {
           <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} />
           <QuickLink icon="pie-chart" label="Portfolio" onPress={() => router.push('/portfolio')} />
           <QuickLink icon="business" label="Business" onPress={() => router.push('/business')} color={Colors.business} notification={businessAttentionCount > 0} />
-          <QuickLink icon="home-outline" label="Properties" onPress={() => router.push('/properties')} color="#06B6D4" />
+          <QuickLink icon="home-outline" label="Properties" onPress={() => router.push('/properties')} color={Colors.business} />
           <QuickLink icon="ribbon" label="Prestige" onPress={() => router.push('/prestige')} color={Colors.family} />
           <QuickLink icon="diamond" label="Support" onPress={() => router.push('/support')} color={Colors.premium} notification={loginRewardAvailable} />
           <QuickLink icon="information-circle" label="Info" onPress={() => router.push('/info')} color={Colors.info} />
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   headerTitle: { color: Colors.textPrimary, fontSize: 24, fontWeight: '700' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  gemsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#8B5CF620', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  gemsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.premium}20`, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   gemsText: { color: Colors.premium, fontSize: 14, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 28 },
