@@ -14,6 +14,7 @@ import { loadRewardedAd, showRewardedAd } from '../../src/services/adManager';
 import { shouldSimulateNativeFeatures } from '../../src/services/runtimeEnvironment';
 import { disciplineImages } from '../../src/assets/progressionImages';
 import { getEducationAvailabilityNotice } from '../../src/engine/playerNotificationEngine';
+import { getStudentStudyDuration, getStudentWorkOption, getStudentWorkTier } from '../../src/engine/studentWork';
 
 const CATEGORIES = ['Sales', 'Administration', 'Finance', 'Marketing', 'Technology', 'Healthcare', 'Legal', 'Logistics', 'Hospitality'];
 const CATEGORY_ICONS: Record<string, string> = {
@@ -41,7 +42,9 @@ export default function EducationScreen() {
   const [simulatedAdPlaying, setSimulatedAdPlaying] = useState(false);
   const [courseLevel, setCourseLevel] = useState<1 | 2 | 3>(1);
   const weeksEmployed = useGameStore((s) => s?.statistics?.weeksEmployed ?? 0);
-  const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
+  const partTimeJob = useGameStore((s) => s?.partTimeJob ?? false);
+  const studentWorkTier = useGameStore((s) => s?.studentWorkTier ?? null);
+  const studentWork = getStudentWorkOption(getStudentWorkTier({ partTimeJob, studentWorkTier }));
   const adsRemoved = useGameStore((s) => s.profile?.adsRemoved ?? false);
   const educationNotice = getEducationAvailabilityNotice({
     currentCourseId: currentCourseId ?? null,
@@ -109,10 +112,10 @@ export default function EducationScreen() {
             <Text style={styles.currentTitle}>{currentCourse.name}</Text>
             <Text style={styles.currentCategory}>{currentCourse.category} • Level {currentCourse.level}</Text>
             {(() => {
-              const adjDur = partTimeJob ? Math.ceil((currentCourse.duration ?? 1) * 1.25) : (currentCourse.duration ?? 1);
+              const adjDur = getStudentStudyDuration((currentCourse.duration ?? 1), studentWork?.id ?? null);
               return (<>
                 <ProgressBar progress={courseWeeksCompleted / adjDur} />
-                <Text style={styles.progressText}>Week {courseWeeksCompleted}/{adjDur}{partTimeJob ? ' (slower — part-time)' : ''}</Text>
+                <Text style={styles.progressText}>Week {courseWeeksCompleted}/{adjDur}{studentWork ? ` (${studentWork.shortName} · +${Math.round((studentWork.studyDurationMultiplier - 1) * 100)}%)` : ''}</Text>
                 {!adsRemoved && <Pressable style={[styles.adButton, simulatedAdPlaying && { opacity: 0.55 }]} onPress={speedUp} disabled={simulatedAdPlaying}>
                   <Ionicons name="play-circle" size={18} color={Colors.white} />
                   <Text style={styles.enrollBtnText}>{simulatedAdReady ? 'Claim reward: complete education' : simulatedAdPlaying ? 'Watching ad...' : 'Watch ad: complete education'}</Text>
