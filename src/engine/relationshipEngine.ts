@@ -344,6 +344,158 @@ export function getWeddingPersonalityFit(
   return { relationshipBonus, label, note };
 }
 
+type AnniversaryCelebrationKind = 'intimate' | 'party' | 'trip';
+type ChildCelebrationKind = 'family' | 'party' | 'experience';
+
+function anniversaryRelationshipGain(partner: RelationshipConnection, kind: AnniversaryCelebrationKind): number {
+  let gain = kind === 'intimate' ? 5 : kind === 'party' ? 7 : 8;
+  if (partner.financialStyle === 'frugal') gain += kind === 'intimate' ? 4 : kind === 'party' ? -2 : -1;
+  if (partner.financialStyle === 'luxury') gain += kind === 'party' ? 3 : kind === 'trip' ? 3 : -1;
+  if (partner.riskTolerance === 'cautious') gain += kind === 'intimate' ? 2 : kind === 'trip' ? -1 : 0;
+  if (partner.riskTolerance === 'risk_taking' && kind === 'trip') gain += 3;
+  if (partner.ambition === 'driven') gain += kind === 'intimate' ? 2 : kind === 'trip' ? -2 : 0;
+  if (partner.ambition === 'relaxed') gain += kind === 'trip' ? 2 : kind === 'party' ? 1 : 0;
+  return Math.max(2, Math.min(14, gain));
+}
+
+function childCelebrationGain(child: RelationshipChild, kind: ChildCelebrationKind): number {
+  const personality = child.personality ?? getChildPersonality(child.id);
+  let gain = kind === 'family' ? 4 : kind === 'party' ? 6 : 7;
+  if (personality.financialStyle === 'frugal') gain += kind === 'family' ? 3 : kind === 'party' ? -2 : 1;
+  if (personality.financialStyle === 'luxury' && kind === 'party') gain += 3;
+  if (personality.riskTolerance === 'risk_taking' && kind === 'experience') gain += 3;
+  if (personality.riskTolerance === 'cautious' && kind === 'family') gain += 2;
+  if (personality.independence === 'independent') gain += kind === 'experience' ? 3 : kind === 'party' ? -1 : 0;
+  if (personality.independence === 'close' && kind === 'family') gain += 3;
+  if (personality.ambition === 'driven' && kind === 'experience') gain += 2;
+  return Math.max(2, Math.min(14, gain));
+}
+
+function getMarriageMilestoneEvent(
+  state: GameState,
+  partner: RelationshipConnection,
+  celebrated: string[],
+): RelationshipEvent | null {
+  if (partner.stage !== 'married' || !partner.marriedWeek) return null;
+  const years = Math.floor(Math.max(0, globalWeek(state) - partner.marriedWeek) / 20);
+  const milestone = [50, 40, 30, 20, 10, 5].find((value) => years >= value);
+  if (!milestone) return null;
+  const milestoneKey = `marriage_${partner.id}_${milestone}y`;
+  if (celebrated.includes(milestoneKey)) return null;
+
+  const inflation = state.inflationMultiplier ?? 1;
+  const scale = 1 + milestone / 10;
+  const intimateCost = Math.round(1000 * scale * inflation);
+  const partyCost = Math.round(4500 * scale * inflation);
+  const tripCost = Math.round(7000 * scale * inflation);
+  const tripWeeks = milestone >= 20 ? 2 : 1;
+
+  return {
+    id: `marriage_anniversary_${milestone}`,
+    milestoneKey,
+    icon: '💍',
+    title: `${milestone}-Year Anniversary`,
+    description: `You and ${partner.name} have been married for ${milestone} years. It feels like a moment worth marking in a way that fits the life you built together.`,
+    choices: [
+      {
+        text: `Meaningful celebration (€${intimateCost.toLocaleString()})`,
+        cost: intimateCost,
+        relationship: anniversaryRelationshipGain(partner, 'intimate'),
+        happiness: 5,
+        happinessDuration: 4,
+      },
+      {
+        text: `Host a big anniversary party (€${partyCost.toLocaleString()})`,
+        cost: partyCost,
+        relationship: anniversaryRelationshipGain(partner, 'party'),
+        happiness: 9,
+        happinessDuration: 5,
+      },
+      {
+        text: `Take an anniversary trip (€${tripCost.toLocaleString()})`,
+        cost: tripCost,
+        relationship: anniversaryRelationshipGain(partner, 'trip'),
+        happiness: 11,
+        happinessDuration: 6,
+        travelWeeks: tripWeeks,
+      },
+    ],
+  };
+}
+
+function getChildMilestoneEvent(
+  state: GameState,
+  children: RelationshipChild[],
+  celebrated: string[],
+): RelationshipEvent | null {
+  const ages = [18, 16, 10, 5];
+  for (const age of ages) {
+    const child = children.find((item) => getChildAge(item, globalWeek(state)) >= age && !celebrated.includes(`child_${item.id}_${age}y`));
+    if (!child) continue;
+
+    const inflation = state.inflationMultiplier ?? 1;
+    const base = age >= 18 ? 5000 : age >= 16 ? 2500 : age >= 10 ? 1000 : 500;
+    const familyCost = Math.round(base * inflation);
+    const partyCost = Math.round(base * 4 * inflation);
+    const experienceCost = Math.round(base * 2.5 * inflation);
+    const milestoneKey = `child_${child.id}_${age}y`;
+    const title = age === 18 ? `${child.name} Turns 18`
+      : age === 16 ? `${child.name}'s Sweet Sixteen`
+        : `${child.name} Turns ${age}`;
+
+    return {
+      id: `child_milestone_${age}`,
+      milestoneKey,
+      icon: age >= 18 ? '🎓' : '🎂',
+      title,
+      description: `${child.name} has reached a major family milestone. Their personality shapes whether they value a close family moment, a large party, or a memorable experience most.`,
+      choices: [
+        {
+          text: `Family celebration (€${familyCost.toLocaleString()})`,
+          cost: familyCost,
+          childId: child.id,
+          childRelationship: childCelebrationGain(child, 'family'),
+          happiness: 4,
+          happinessDuration: 3,
+        },
+        {
+          text: `Throw a big party (€${partyCost.toLocaleString()})`,
+          cost: partyCost,
+          childId: child.id,
+          childRelationship: childCelebrationGain(child, 'party'),
+          happiness: 7,
+          happinessDuration: 4,
+        },
+        {
+          text: age >= 18
+            ? `Fund their next step (€${experienceCost.toLocaleString()})`
+            : `Plan a special experience (€${experienceCost.toLocaleString()})`,
+          cost: experienceCost,
+          childId: child.id,
+          childSavings: age >= 18 ? experienceCost : undefined,
+          childRelationship: childCelebrationGain(child, 'experience'),
+          happiness: 6,
+          happinessDuration: 4,
+        },
+      ],
+    };
+  }
+  return null;
+}
+
+export function createFamilyMilestoneEvent(
+  state: GameState,
+  partner: RelationshipConnection | null,
+  children: RelationshipChild[],
+): RelationshipEvent | null {
+  const celebrated = state.relationshipState?.celebratedMilestones ?? [];
+  if (partner) {
+    const marriage = getMarriageMilestoneEvent(state, partner, celebrated);
+    if (marriage) return marriage;
+  }
+  return getChildMilestoneEvent(state, children, celebrated);
+}
+
 export function getDateConnectionGain(
   connection: RelationshipConnection | RelationshipCandidate,
   kind: 'coffee' | 'dinner' | 'activity'
