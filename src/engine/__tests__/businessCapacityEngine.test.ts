@@ -56,4 +56,15 @@ describe('businessCapacityEngine', () => {
     expect(unlockBusinessCapacity(nine)?.businessCapacity).toBe(10);
     expect(unlockBusinessCapacity({ ...nine, businessCapacity: 10 })).toBeNull();
   });
+
+  test('repeated rewarded unlocks can progress from two slots all the way to ten', () => {
+    let profile = { ...INITIAL_PROFILE, businessCapacity: 2 };
+    for (let expected = 3; expected <= 10; expected++) {
+      const unlocked = unlockBusinessCapacity(profile);
+      expect(unlocked?.businessCapacity).toBe(expected);
+      if (!unlocked) throw new Error('capacity unlock unexpectedly failed');
+      profile = unlocked;
+    }
+    expect(unlockBusinessCapacity(profile)).toBeNull();
+  });
 });
