@@ -14,6 +14,7 @@ interface Props {
   disabled?: boolean;
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
+  accentColor?: string;
 }
 
 export default function GameButton({
@@ -25,13 +26,14 @@ export default function GameButton({
   disabled = false,
   compact = false,
   style,
+  accentColor = Colors.primary,
 }: Props) {
   const foreground = variant === 'primary' || variant === 'danger' ? Colors.white
     : variant === 'secondary' ? Colors.textPrimary
       : Colors.textSecondary;
   const iconColor = variant === 'danger' ? Colors.white
     : variant === 'primary' ? Colors.white
-      : variant === 'secondary' ? Colors.primary
+      : variant === 'secondary' ? accentColor
         : Colors.textSecondary;
 
   return (
@@ -43,6 +45,7 @@ export default function GameButton({
         styles.button,
         compact && styles.compact,
         variant === 'primary' && styles.primary,
+        variant === 'primary' && { backgroundColor: accentColor, borderColor: accentColor },
         variant === 'secondary' && styles.secondary,
         variant === 'danger' && styles.danger,
         variant === 'ghost' && styles.ghost,
