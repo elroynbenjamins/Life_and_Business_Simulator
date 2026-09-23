@@ -261,6 +261,10 @@ describe('achievement and Prestige expansion', () => {
     }
   });
 
+  test('achievements no longer award Gems', () => {
+    expect((achievementsData as any[]).every((achievement) => (achievement.gemReward ?? 0) === 0)).toBe(true);
+  });
+
   test('achievement data contains all new milestone IDs', () => {
     const ids = new Set((achievementsData as any[]).map((achievement) => achievement.id));
     expect(ids.size).toBeGreaterThanOrEqual(69);
