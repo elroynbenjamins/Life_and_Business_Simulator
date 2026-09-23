@@ -64,6 +64,7 @@ export interface RelationshipConnection extends RelationshipCandidate {
 
 export type ChildIndependence = 'close' | 'balanced' | 'independent';
 export type ChildResilience = 'fragile' | 'balanced' | 'resilient';
+export type ChildLifePath = 'balanced' | 'academic' | 'creative' | 'athletic' | 'entrepreneurial' | 'practical';
 export type AdultChildStatus = 'employed' | 'unemployed' | 'entrepreneur';
 
 export interface ChildPersonality {
@@ -109,6 +110,9 @@ export interface RelationshipChild {
   failureCount?: number;
   businessValue?: number;
   lastAdultEventYear?: number;
+  lifePath?: ChildLifePath;
+  developmentScore?: number;
+  lastLifeArcEventAge?: number;
 }
 
 export type RelationshipObligationType = 'divorce_settlement' | 'legal_fees';
@@ -228,6 +232,30 @@ export interface RelationshipTimelineEntry {
   title: string;
 }
 
+export type RelationshipMemoryTag =
+  | 'intimate_wedding'
+  | 'standard_wedding'
+  | 'luxury_wedding'
+  | 'world_travellers'
+  | 'big_family_celebration'
+  | 'simple_family_tradition'
+  | 'showed_up_for_family'
+  | 'balanced_work_family'
+  | 'career_first'
+  | 'supported_child_path'
+  | 'child_independence';
+
+export interface RelationshipMemory {
+  id: string;
+  tag: RelationshipMemoryTag;
+  label: string;
+  sentiment: 'positive' | 'mixed' | 'negative';
+  globalWeek: number;
+  partnerId?: string | null;
+  childId?: string | null;
+  sourceEventId?: string | null;
+}
+
 export interface RelationshipFinancialSnapshot {
   globalWeek: number;
   netWorth: number;
@@ -252,6 +280,16 @@ export interface RelationshipEventChoice {
   childRelationship?: number;
   /** Starts unpaid couple travel for this many weekly ticks. */
   travelWeeks?: number;
+  memoryTag?: RelationshipMemoryTag;
+  memoryLabel?: string;
+  memorySentiment?: RelationshipMemory['sentiment'];
+  childLifePath?: ChildLifePath;
+  childDevelopment?: number;
+  careerPerformanceDelta?: number;
+  businessId?: string;
+  businessReputationDelta?: number;
+  businessMoraleDelta?: number;
+  businessCashCost?: number;
 }
 
 export interface RelationshipEvent {
@@ -294,6 +332,8 @@ export interface RelationshipState {
   lastRelationshipEventWeek: number;
   recentRelationshipEventIds: string[];
   celebratedMilestones?: string[];
+  memories?: RelationshipMemory[];
+  lastWorkFamilyConflictWeek?: number;
   coupleTripWeeksRemaining?: number;
   lastCoupleTripWeek?: number;
   pendingEvent: RelationshipEvent | null;
@@ -331,6 +371,8 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   lastRelationshipEventWeek: 0,
   recentRelationshipEventIds: [],
   celebratedMilestones: [],
+  memories: [],
+  lastWorkFamilyConflictWeek: 0,
   coupleTripWeeksRemaining: 0,
   lastCoupleTripWeek: 0,
   pendingEvent: null,
