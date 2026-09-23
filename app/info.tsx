@@ -31,7 +31,7 @@ const sections = [
   {
     title: 'Education',
     icon: '📚',
-    content: 'Courses unlock career paths and award skills and knowledge. Basic courses are available immediately; advanced courses require 75 worked weeks and expert courses require 150. Advanced and expert courses also require their preceding course. A part-time job slows study progress by 25%.',
+    content: 'Courses unlock career paths and award skills and knowledge. Basic courses are available immediately; advanced courses require 75 worked weeks and expert courses require 150. Advanced and expert courses also require their preceding course. Flexible Part-Time pays €275–425/week tax-free and adds 25% to study duration. High-Hours Part-Time pays €650–800/week tax-free and adds 60%, trading slower education for enough starter income to cover normal bills and build savings.',
   },
   {
     title: 'Stock Market',
