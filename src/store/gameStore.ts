@@ -40,7 +40,11 @@ import relationshipNamesData from '../data/relationship_names.json';
 import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
 import { AD_GEM_REWARD, GEM_CASH_RATE } from '../constants/rewards';
-import { AD_CONFIG } from '../services/adConfig';
+import {
+  getAdFreeSlotRewardUsage as getProfileAdFreeSlotRewardUsage,
+  getGemRewardUsage,
+  getLocalDayKey,
+} from '../services/adRewardEntitlements';
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
 import { getHoldingSharedServiceUpgradeCost, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
@@ -168,8 +172,10 @@ interface GameStore extends GameState {
   changeFoodLevel: (level: string) => void;
   togglePartTimeJob: () => void;
   setStudentWorkTier: (tier: import('../types/game').StudentWorkTier | null) => void;
-  grantAdReward: () => void;
-  getAdUsage: () => { watchedToday: number; remaining: number; limitReached: boolean };
+  grantAdReward: () => boolean;
+  getAdUsage: () => { watchedToday: number; remaining: number; limit: number; limitReached: boolean };
+  getAdFreeSlotRewardUsage: () => { claimedToday: number; remaining: number; limit: number; available: boolean };
+  claimAdFreeBusinessSlotReward: (businessId: string, kind: 'project' | 'upgrade') => boolean;
   getDailyLoginStatus: () => { available: boolean; streak: number; reward: number };
   claimDailyLoginReward: () => number;
   buyHouseUpgrade: (upgradeId: string) => void;
@@ -846,22 +852,20 @@ const useGameStore = create<GameStore>((set, get) => ({
 
     const { newState, summary } = weeklyTick(gameState, getPrestigeEffects(state.profile));
 
-    // Award XP + prestige points + gems for new achievements
+    // Achievements award XP + Prestige Points only. Premium currency is
+    // intentionally excluded so the Gem economy stays controlled.
     let profileUpdated = false;
     let newProfile = { ...state.profile };
     if ((summary.newAchievements?.length ?? 0) > 0) {
       let xpGained = 0;
-      let gemsGained = 0;
       for (const id of summary.newAchievements) {
         const ach = (achievementsData ?? []).find((a) => a?.id === id);
         xpGained += ach?.xpReward ?? 0;
-        gemsGained += (ach as any)?.gemReward ?? 0;
       }
       newProfile = {
         ...newProfile,
         totalXp: (newProfile.totalXp ?? 0) + xpGained,
         prestigePoints: (newProfile.prestigePoints ?? 0) + xpGained,
-        gems: (newProfile.gems ?? 0) + gemsGained,
       };
       profileUpdated = true;
     }
@@ -963,7 +967,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     const summary = state.lastSummary;
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
-    const scheduledAd = globalWeek > 0 && globalWeek % 100 === 0;
+    const scheduledAd = !state.profile.adsRemoved && globalWeek > 0 && globalWeek % 100 === 0;
     // If there's a choice/opportunity event, show event modal first
     if (summary?.lifeEvent && (summary.lifeEvent.type === 'choice' || summary.lifeEvent.type === 'opportunity')) {
       set({ showSummary: false, showEventModal: true, pendingEvent: summary.lifeEvent, showScheduledAd: scheduledAd });
@@ -1345,27 +1349,49 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   grantAdReward: () => {
     const state = get();
-    const today = new Date().toISOString().slice(0, 10);
-    const lastDate = (state as any).adLastWatchDate ?? '';
-    const watchedToday = lastDate === today ? ((state as any).adWatchedToday ?? 0) : 0;
-    const newProfile = { ...state.profile, gems: (state.profile.gems ?? 0) + AD_GEM_REWARD };
-    const updates: any = {
-      profile: newProfile,
-      adWatchedToday: watchedToday + 1,
-      adLastWatchDate: today,
+    const usage = getGemRewardUsage(state.profile);
+    if (usage.limitReached) return false;
+
+    const profile = {
+      ...state.profile,
+      gems: (state.profile.gems ?? 0) + AD_GEM_REWARD,
+      rewardedGemClaimDate: getLocalDayKey(),
+      rewardedGemClaimsToday: usage.watchedToday + 1,
     };
-    set(updates);
-    saveProfile(newProfile);
-    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+    set({ profile });
+    saveProfile(profile);
+    return true;
   },
 
-  getAdUsage: () => {
+  getAdUsage: () => getGemRewardUsage(get().profile),
+
+  getAdFreeSlotRewardUsage: () => getProfileAdFreeSlotRewardUsage(get().profile),
+
+  claimAdFreeBusinessSlotReward: (businessId: string, kind: 'project' | 'upgrade') => {
     const state = get();
-    const today = new Date().toISOString().slice(0, 10);
-    const lastDate = (state as any).adLastWatchDate ?? '';
-    const watchedToday = lastDate === today ? ((state as any).adWatchedToday ?? 0) : 0;
-    const remaining = Math.max(0, AD_CONFIG.DAILY_AD_LIMIT - watchedToday);
-    return { watchedToday, remaining, limitReached: remaining <= 0 };
+    const usage = getProfileAdFreeSlotRewardUsage(state.profile);
+    if (!state.profile.adsRemoved || !usage.available) return false;
+
+    const businesses = [...(state.businesses ?? [])];
+    const idx = businesses.findIndex((business) => business.id === businessId);
+    if (idx < 0) return false;
+    const business = businesses[idx];
+
+    if (kind === 'project') {
+      const activeCount = (business.activeProjects ?? []).filter((project) => !project.resolved).length;
+      if (business.projectSlot2Unlocked || business.temporaryProjectSlot2 || activeCount !== 1) return false;
+      businesses[idx] = { ...business, temporaryProjectSlot2: true };
+    } else {
+      const activeCount = Number(!!business.activeUpgrade) + Number(!!business.secondaryActiveUpgrade);
+      if (business.upgradeSlot2Unlocked || business.temporaryUpgradeSlot2 || activeCount !== 1) return false;
+      businesses[idx] = { ...business, temporaryUpgradeSlot2: true };
+    }
+
+    const profile = { ...state.profile, adFreeSlotRewardClaimDate: getLocalDayKey() };
+    set({ businesses, profile });
+    saveProfile(profile);
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+    return true;
   },
 
   getDailyLoginStatus: () => {
