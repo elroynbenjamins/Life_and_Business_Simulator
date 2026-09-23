@@ -15,7 +15,7 @@
     },
     "play-internal": {
       "env": {
-        "EXPO_PUBLIC_AD_MODE": "test"
+        "EXPO_PUBLIC_AD_MODE": "production"
       },
       "autoIncrement": true,
       "android": {
@@ -56,7 +56,7 @@
     },
     "production": {
       "android": {
-        "track": "internal",
+        "track": "production",
         "releaseStatus": "draft"
       }
     }
