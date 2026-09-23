@@ -117,6 +117,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   );
 
   // ---------- Step 7.5: Personal Life ----------
+  const coupleTripActive = (stateWithInflation.relationshipState?.coupleTripWeeksRemaining ?? 0) > 0;
   const relationshipTick = processRelationships(stateWithInflation);
 
   // ---------- Step 8: Income ----------
@@ -128,8 +129,8 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const legacyIncome = processIncome(stateWithInflation);
   const hasCareerV2 = !!careerTick.updatedCareer.companyId;
   const fullTimeSalary = hasCareerV2 ? careerTick.salary : legacyIncome.salary;
-  const salary = Math.round(fullTimeSalary * playerFamilyWorkFraction);
-  const salaryReduced = isSalaryReduced(stateWithInflation) || playerFamilyWorkFraction < 1;
+  const salary = coupleTripActive ? 0 : Math.round(fullTimeSalary * playerFamilyWorkFraction);
+  const salaryReduced = coupleTripActive || isSalaryReduced(stateWithInflation) || playerFamilyWorkFraction < 1;
 
   // ---------- Step 9: Expenses ----------
   const expenses = processExpenses(stateWithInflation);
@@ -141,7 +142,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const taxes = processTaxes({ ...stateWithInflation, career: careerTick.updatedCareer }, salary, globalWeek);
 
   // ---------- Step 11.5: Part-Time Income ----------
-  const partTimeIncome = partTimeActive ? rollStudentWorkIncome(studentWorkTier) : 0;
+  const partTimeIncome = partTimeActive && !coupleTripActive ? rollStudentWorkIncome(studentWorkTier) : 0;
 
   // ---------- Step 11.6: Mature fixed-term bank deposits ----------
   let bankDepositMaturityIncome = 0;
