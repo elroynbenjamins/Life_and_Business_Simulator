@@ -9,6 +9,11 @@ import useGameStore from '../src/store/gameStore';
 
 const sections = [
   {
+    title: 'Your First Steps',
+    icon: '🧭',
+    content: 'During Year 1, Home shows a guidance-only First Life Journey. It follows your real progress through education, student income, a basic cash buffer, graduation, career transport and your first career. It never locks other systems and automatically retires when Year 2 begins.',
+  },
+  {
     title: 'Time System',
     icon: '⏰',
     content: 'Tap "Advance to Next Week" to process income, expenses, careers, education, investments, businesses, properties and events. Every 20 weeks equals one in-game year; your age increases and inflation is updated.',
