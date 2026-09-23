@@ -112,6 +112,9 @@ export default function RelationshipsScreen() {
   ]);
   const familySpendingActive = (relationship?.familySpendingWeeksRemaining ?? 0) > 0;
   const coupleTripWeeksRemaining = relationship?.coupleTripWeeksRemaining ?? 0;
+  const sharedMemories = relationship?.memories ?? [];
+  const careerFirstCount = sharedMemories.filter((memory) => memory.tag === 'career_first').length;
+  const familyFirstCount = sharedMemories.filter((memory) => memory.tag === 'showed_up_for_family').length;
   const dependentChildrenCount = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) < 18).length;
   const familyWorkPreview = getFamilyWorkIncomePreview(state, partner);
   const familyWorkAvailable = !!partner
@@ -559,6 +562,45 @@ export default function RelationshipsScreen() {
           </>
         )}
 
+        {partner && sharedMemories.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Shared History</Text>
+            <GameCard>
+              <Text style={styles.helper}>
+                Major choices become part of your relationship story and can change how later events are interpreted.
+              </Text>
+              {(careerFirstCount > 0 || familyFirstCount > 0) && (
+                <View style={styles.memoryPatternRow}>
+                  {familyFirstCount > 0 && <TraitChip label={`Family-first ×${familyFirstCount}`} />}
+                  {careerFirstCount > 0 && <TraitChip label={`Career-first ×${careerFirstCount}`} />}
+                </View>
+              )}
+              {[...sharedMemories].slice(-6).reverse().map((memory) => {
+                const memoryYear = Math.floor(Math.max(0, memory.globalWeek - 1) / 20) + 1;
+                const memoryWeek = ((Math.max(1, memory.globalWeek) - 1) % 20) + 1;
+                return (
+                  <View key={memory.id} style={styles.memoryRow}>
+                    <View style={[
+                      styles.memoryDot,
+                      {
+                        backgroundColor: memory.sentiment === 'positive'
+                          ? Colors.primary
+                          : memory.sentiment === 'negative'
+                            ? Colors.negative
+                            : Colors.warning,
+                      },
+                    ]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.historyText}>{memory.label}</Text>
+                      <Text style={styles.historyDate}>Y{memoryYear} W{memoryWeek}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </GameCard>
+          </>
+        )}
+
         {partner && cohabiting && (
           <>
             <Text style={styles.sectionTitle}>Shared Goals</Text>
@@ -761,6 +803,22 @@ export default function RelationshipsScreen() {
                       <TraitChip label={capitalize(personality.riskTolerance.replace('_', ' '))} />
                       <TraitChip label={capitalize(personality.independence)} />
                       <TraitChip label={capitalize(personality.resilience)} />
+                    </View>
+                  )}
+
+                  {(child.lifePath || (child.developmentScore ?? 0) > 0) && (
+                    <View style={styles.childPathBox}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.compactTitle}>Life direction</Text>
+                        <Text style={styles.meta}>
+                          {child.lifePath ? capitalize(child.lifePath) : 'Still exploring'}
+                          {age < 18 ? ' • shaped by milestone choices' : ' • carried into adult life'}
+                        </Text>
+                      </View>
+                      <View style={styles.developmentBadge}>
+                        <Text style={styles.developmentValue}>{Math.round(child.developmentScore ?? 0)}</Text>
+                        <Text style={styles.developmentLabel}>DEV</Text>
+                      </View>
                     </View>
                   )}
 
@@ -1086,6 +1144,14 @@ const styles = StyleSheet.create({
   heroText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 6 },
   sectionTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 12, marginBottom: 10 },
   sectionLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 12, marginBottom: 8 },
+  memoryPatternRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10, marginBottom: 4 },
+  memoryRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  memoryDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
+  childPathBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.elevated, borderRadius: 10, padding: 10, marginTop: 10 },
+  developmentBadge: { minWidth: 46, alignItems: 'center', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, paddingVertical: 5, paddingHorizontal: 7 },
+  developmentValue: { color: Colors.info, fontSize: 16, fontWeight: '800' },
+  developmentLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
+
   subheading: { color: Colors.textSecondary, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7, marginTop: 14, marginBottom: 7 },
   choiceRow: { flexDirection: 'row', gap: 8 },
   choice: { flex: 1, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 6, alignItems: 'center' },
