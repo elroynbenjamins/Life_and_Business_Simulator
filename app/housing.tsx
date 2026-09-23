@@ -7,6 +7,7 @@ import { Colors } from '../src/theme/colors';
 import ScreenHeader from '../src/components/ScreenHeader';
 import GameCard from '../src/components/GameCard';
 import StatusPill from '../src/components/StatusPill';
+import GameButton from '../src/components/GameButton';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { inflated } from '../src/engine/economyEngine';
@@ -32,6 +33,13 @@ export default function LifestyleScreen() {
   // buyHouseUpgrade removed
 
   const currentHIdx = (housingData ?? []).findIndex((h) => h?.id === currentHousingId);
+
+  const currentHousing = (housingData ?? []).find((h) => h?.id === currentHousingId) ?? null;
+  const currentCar = (carsData ?? []).find((car) => car?.id === currentCarId) ?? null;
+  const currentHousingRent = currentHousing ? inflated(currentHousing.weeklyRent ?? 0, inflationMultiplier) : 0;
+  const currentUtilities = Math.round(currentHousingRent * 0.15);
+  const currentCarCost = currentCar ? inflated(currentCar.weeklyCost ?? 0, inflationMultiplier) : 0;
+  const currentLifestyleCost = currentHousingRent + currentUtilities + currentCarCost;
 
   const handleHousing = (h: (typeof housingData)[0]) => {
     const idx = (housingData ?? []).findIndex((hh) => hh?.id === h?.id);
@@ -63,82 +71,183 @@ export default function LifestyleScreen() {
         accentColor={Colors.happiness}
       />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <GameCard
+          variant="hero"
+          eyebrow="CURRENT LIFESTYLE"
+          title="Weekly lifestyle cost"
+          accentColor={Colors.happiness}
+          titleAccessory={<StatusPill compact icon="wallet-outline" label={`${formatCurrency(currentLifestyleCost)}/wk`} color={Colors.happiness} />}
+        >
+          <View style={styles.currentLifestyleGrid}>
+            <View style={styles.currentLifestyleItem}>
+              <Ionicons name="home-outline" size={16} color={Colors.business} />
+              <View style={styles.currentLifestyleCopy}>
+                <Text style={styles.currentLifestyleLabel}>Home</Text>
+                <Text style={styles.currentLifestyleValue} numberOfLines={1}>{currentHousing?.name ?? 'None'}</Text>
+              </View>
+            </View>
+            <View style={styles.currentLifestyleItem}>
+              <Ionicons name="car-outline" size={16} color={Colors.info} />
+              <View style={styles.currentLifestyleCopy}>
+                <Text style={styles.currentLifestyleLabel}>Vehicle</Text>
+                <Text style={styles.currentLifestyleValue} numberOfLines={1}>{currentCar?.name ?? 'None'}</Text>
+              </View>
+            </View>
+          </View>
+        </GameCard>
+
         {/* HOUSING */}
-        <Text style={styles.sectionHeader}>🏠 Housing</Text>
+        <View style={styles.sectionHeading}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="home-outline" size={17} color={Colors.business} />
+            <Text style={styles.sectionHeader}>Housing</Text>
+          </View>
+          <Text style={styles.sectionSub}>Compare total weekly cost and household capacity.</Text>
+        </View>
         <View style={styles.pixelArtCard}>
           <Image source={require('../assets/pixel-art/housing.png')} style={styles.housingArt} resizeMode="contain" accessibilityLabel="Pixel art showing apartment, house, and villa upgrades" />
         </View>
         {(housingData ?? []).map((h, idx) => {
           const isCurrent = h?.id === currentHousingId;
           const isUpgrade = idx > currentHIdx;
-          const utilCost = Math.round(inflated(h?.weeklyRent ?? 0, inflationMultiplier) * 0.15);
+          const rent = inflated(h?.weeklyRent ?? 0, inflationMultiplier);
+          const utilCost = Math.round(rent * 0.15);
+          const totalWeekly = rent + utilCost;
+          const delta = totalWeekly - (currentHousingRent + currentUtilities);
+          const capacity = getHousingCapacity(h.id);
+          const crowded = relationshipModeEnabled && householdSize > capacity;
+
           return (
-            <GameCard key={h?.id}>
+            <GameCard key={h?.id} compact variant={isCurrent ? 'subtle' : 'standard'}>
               <View style={styles.row}>
                 <Image source={housingItemImages[h.id]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${h.name} pixel art`} />
                 <View style={styles.info}>
-                  <Text style={styles.name}>{h?.name}</Text>
-                  <Text style={styles.cost}>{formatCurrency(inflated(h?.weeklyRent, inflationMultiplier))}/week rent</Text>
-                  <Text style={styles.utilityCost}>⚡ Utilities: {formatCurrency(utilCost)}/week</Text>
+                  <View style={styles.nameLine}>
+                    <Text style={styles.name} numberOfLines={1}>{h?.name}</Text>
+                    {isCurrent && <StatusPill compact label="Current" icon="checkmark-circle-outline" color={Colors.info} />}
+                  </View>
+                  <View style={styles.comparisonRow}>
+                    <StatusPill compact icon="cash-outline" label={`${formatCurrency(totalWeekly)}/wk total`} color={Colors.primary} />
+                    {!isCurrent && (
+                      <StatusPill
+                        compact
+                        icon={delta > 0 ? 'arrow-up-outline' : delta < 0 ? 'arrow-down-outline' : 'remove-outline'}
+                        label={delta === 0 ? 'Same weekly cost' : `${delta > 0 ? '+' : ''}${formatCurrency(delta)}/wk`}
+                        color={delta > 0 ? Colors.warning : delta < 0 ? Colors.primary : Colors.textSecondary}
+                      />
+                    )}
+                  </View>
                   {relationshipModeEnabled && (
-                    <>
-                      <Text style={styles.capacityText}>👥 Comfortable household: {getHousingCapacity(h.id)} • Yours: {householdSize}</Text>
-                      {householdSize > getHousingCapacity(h.id) && <Text style={styles.crowdedText}>Too small for your current household</Text>}
-                    </>
+                    <View style={styles.comparisonRow}>
+                      <StatusPill compact icon="people-outline" label={`Comfortable for ${capacity}`} color={crowded ? Colors.negative : Colors.business} />
+                      {crowded && <StatusPill compact icon="warning-outline" label="Too small" color={Colors.negative} />}
+                    </View>
                   )}
-                  {/* happiness hidden */}
                 </View>
-                {isCurrent ? <StatusPill label="Current" color={Colors.info} /> : null}
               </View>
+
+              <View style={styles.costBreakdown}>
+                <View style={styles.costCell}>
+                  <Text style={styles.costLabel}>Rent</Text>
+                  <Text style={styles.costValue}>{formatCurrency(rent)}/wk</Text>
+                </View>
+                <View style={styles.costCell}>
+                  <Text style={styles.costLabel}>Utilities</Text>
+                  <Text style={styles.costValue}>{formatCurrency(utilCost)}/wk</Text>
+                </View>
+              </View>
+
               {!isCurrent && (
-                <Pressable style={[styles.actionBtn, { borderColor: isUpgrade ? Colors.primary : Colors.warning }]} onPress={() => handleHousing(h)}>
-                  <Text style={[styles.actionText, { color: isUpgrade ? Colors.primary : Colors.warning }]}>{isUpgrade ? 'Upgrade' : 'Downgrade'}</Text>
-                </Pressable>
+                <GameButton
+                  compact
+                  variant={isUpgrade ? 'primary' : 'secondary'}
+                  accentColor={isUpgrade ? Colors.business : Colors.warning}
+                  icon={isUpgrade ? 'arrow-up-circle-outline' : 'arrow-down-circle-outline'}
+                  label={isUpgrade ? 'Upgrade Home' : 'Downgrade Home'}
+                  onPress={() => handleHousing(h)}
+                />
               )}
             </GameCard>
           );
         })}
 
         {/* CARS */}
-        <Text style={styles.sectionHeader}>🚗 Vehicle</Text>
+        <View style={styles.sectionHeading}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="car-outline" size={17} color={Colors.info} />
+            <Text style={styles.sectionHeader}>Vehicle</Text>
+          </View>
+          <Text style={styles.sectionSub}>Compare purchase cost, trade-in value and weekly running cost.</Text>
+        </View>
         <View style={styles.pixelArtCard}>
           <Image source={require('../assets/pixel-art/cars.png')} style={styles.carArt} resizeMode="contain" accessibilityLabel="Pixel art showing used car, sedan, and SUV progression" />
         </View>
         {pendingCarDelivery && (
-          <GameCard>
-            <Text style={styles.deliveryTitle}>Vehicle delivery pending</Text>
-            <Text style={styles.desc}>{carsData.find((car) => car.id === pendingCarDelivery.carId)?.name ?? 'Your vehicle'} arrives after advancing one week.</Text>
+          <GameCard variant="attention" compact eyebrow="DELIVERY PENDING" title={carsData.find((car) => car.id === pendingCarDelivery.carId)?.name ?? 'Your vehicle'} accentColor={Colors.warning}>
+            <Text style={styles.desc}>Arrives after advancing one week.</Text>
           </GameCard>
         )}
-        {(carsData ?? []).map((c) => {
-          const isCurrent = c?.id === currentCarId;
-          const oldCar = (carsData ?? []).find((cc) => cc?.id === currentCarId);
-          const tradeIn = Math.round(((oldCar?.purchaseCost ?? 0) * 0.4));
-          const inflatedPurchase = inflated(c?.purchaseCost ?? 0, inflationMultiplier);
-          const netCost = inflatedPurchase - tradeIn;
+        {(carsData ?? []).map((vehicle) => {
+          const isCurrent = vehicle?.id === currentCarId;
+          const tradeIn = Math.round(((currentCar?.purchaseCost ?? 0) * 0.4));
+          const inflatedPurchase = inflated(vehicle?.purchaseCost ?? 0, inflationMultiplier);
+          const netCost = Math.max(0, inflatedPurchase - tradeIn);
+          const weeklyCost = inflated(vehicle?.weeklyCost ?? 0, inflationMultiplier);
+          const weeklyDelta = weeklyCost - currentCarCost;
           const canAfford = cash >= netCost;
+
           return (
-            <GameCard key={c?.id}>
+            <GameCard key={vehicle?.id} compact variant={isCurrent ? 'subtle' : 'standard'}>
               <View style={styles.row}>
-                {carItemImages[c.id] ? <Image source={carItemImages[c.id]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${c.name} pixel art`} /> : null}
+                {carItemImages[vehicle.id] ? <Image source={carItemImages[vehicle.id]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${vehicle.name} pixel art`} /> : null}
                 <View style={styles.info}>
-                  <Text style={styles.name}>{c?.name}</Text>
-                  <Text style={styles.desc}>{c?.description}</Text>
-                  <Text style={styles.cost}>{(c?.weeklyCost ?? 0) > 0 ? `${formatCurrency(inflated(c?.weeklyCost ?? 0, inflationMultiplier))}/week` : 'Free'}</Text>
-                  {(c?.purchaseCost ?? 0) > 0 && <Text style={styles.happinessText}>Buy: {formatCurrency(inflatedPurchase)}</Text>}
+                  <View style={styles.nameLine}>
+                    <Text style={styles.name} numberOfLines={1}>{vehicle?.name}</Text>
+                    {isCurrent && <StatusPill compact label="Current" icon="checkmark-circle-outline" color={Colors.info} />}
+                  </View>
+                  <Text style={styles.desc} numberOfLines={2}>{vehicle?.description}</Text>
+                  <View style={styles.comparisonRow}>
+                    <StatusPill compact icon="speedometer-outline" label={weeklyCost > 0 ? `${formatCurrency(weeklyCost)}/wk` : 'No running cost'} color={Colors.info} />
+                    {!isCurrent && vehicle.id !== 'none' && (
+                      <StatusPill
+                        compact
+                        icon={weeklyDelta > 0 ? 'arrow-up-outline' : weeklyDelta < 0 ? 'arrow-down-outline' : 'remove-outline'}
+                        label={weeklyDelta === 0 ? 'Same running cost' : `${weeklyDelta > 0 ? '+' : ''}${formatCurrency(weeklyDelta)}/wk`}
+                        color={weeklyDelta > 0 ? Colors.warning : weeklyDelta < 0 ? Colors.primary : Colors.textSecondary}
+                      />
+                    )}
+                  </View>
                 </View>
-                {isCurrent ? <StatusPill label="Current" color={Colors.info} /> : null}
               </View>
-              {!pendingCarDelivery && !isCurrent && c?.id !== 'none' && canAfford && (
-                <Pressable style={[styles.actionBtn, { borderColor: Colors.primary }]} onPress={() => handleCar(c)}>
-                  <Text style={[styles.actionText, { color: Colors.primary }]}>Buy{tradeIn > 0 ? ` (Net: ${formatCurrency(netCost)})` : ''}</Text>
-                </Pressable>
+
+              {!isCurrent && vehicle?.id !== 'none' && (
+                <View style={styles.purchaseSummary}>
+                  <View>
+                    <Text style={styles.costLabel}>Purchase</Text>
+                    <Text style={styles.purchaseValue}>{formatCurrency(inflatedPurchase)}</Text>
+                  </View>
+                  {tradeIn > 0 && (
+                    <View style={styles.purchaseRight}>
+                      <Text style={styles.costLabel}>After trade-in</Text>
+                      <Text style={[styles.purchaseValue, { color: canAfford ? Colors.primary : Colors.negative }]}>{formatCurrency(netCost)}</Text>
+                    </View>
+                  )}
+                </View>
               )}
-              {!pendingCarDelivery && !isCurrent && c?.id !== 'none' && !canAfford && <Text style={styles.cantAfford}>Can't afford</Text>}
-              {!pendingCarDelivery && !isCurrent && c?.id === 'none' && currentCarId !== 'none' && (
-                <Pressable style={[styles.actionBtn, { borderColor: Colors.warning }]} onPress={() => changeCar?.('none')}>
-                  <Text style={[styles.actionText, { color: Colors.warning }]}>Sell Car</Text>
-                </Pressable>
+
+              {!pendingCarDelivery && !isCurrent && vehicle?.id !== 'none' && (
+                <GameButton
+                  compact
+                  accentColor={Colors.info}
+                  icon="car-sport-outline"
+                  label={canAfford ? (tradeIn > 0 ? `Buy • Net ${formatCurrency(netCost)}` : `Buy • ${formatCurrency(inflatedPurchase)}`) : `Need ${formatCurrency(Math.max(0, netCost - cash))} more`}
+                  onPress={() => handleCar(vehicle)}
+                  disabled={!canAfford}
+                />
+              )}
+
+              {!pendingCarDelivery && !isCurrent && vehicle?.id === 'none' && currentCarId !== 'none' && (
+                <GameButton compact variant="secondary" accentColor={Colors.warning} icon="cash-outline" label="Sell Current Vehicle" onPress={() => changeCar?.('none')} />
               )}
             </GameCard>
           );
@@ -152,23 +261,31 @@ export default function LifestyleScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scroll: { flex: 1 },
-  scrollContent: { padding: 16 },
-  sectionHeader: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', marginTop: 16, marginBottom: 12 },
-  pixelArtCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 14, marginBottom: 12, overflow: 'hidden' },
-  housingArt: { width: '100%', height: 180 },
-  carArt: { width: '100%', height: 150 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  scrollContent: { padding: 16, paddingBottom: 36 },
+  currentLifestyleGrid: { flexDirection: 'row', gap: 8 },
+  currentLifestyleItem: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 9 },
+  currentLifestyleCopy: { flex: 1, minWidth: 0 },
+  currentLifestyleLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', textTransform: 'uppercase' },
+  currentLifestyleValue: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', marginTop: 2 },
+  sectionHeading: { marginTop: 10, marginBottom: 8 },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sectionHeader: { color: Colors.textPrimary, fontSize: 17, fontWeight: '900' },
+  sectionSub: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
+  pixelArtCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 12, marginBottom: 9, overflow: 'hidden' },
+  housingArt: { width: '100%', height: 118 },
+  carArt: { width: '100%', height: 106 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   info: { flex: 1, minWidth: 0 },
-  itemIcon: { width: 76, height: 76, marginRight: 12, alignSelf: 'center' },
-  name: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
-  cost: { color: Colors.primary, fontSize: 14, fontWeight: '600', marginTop: 4 },
-  utilityCost: { color: Colors.info, fontSize: 13, marginTop: 2 },
+  itemIcon: { width: 58, height: 58, flexShrink: 0, alignSelf: 'center' },
+  nameLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
+  name: { flex: 1, minWidth: 0, color: Colors.textPrimary, fontSize: 14, fontWeight: '800' },
+  comparisonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 },
   desc: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
-  happinessText: { color: Colors.happiness, fontSize: 12, marginTop: 2 },
-  capacityText: { color: Colors.textSecondary, fontSize: 12, marginTop: 3 },
-  crowdedText: { color: Colors.negative, fontSize: 11, fontWeight: '700', marginTop: 2 },
-  actionBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginTop: 10 },
-  actionText: { fontWeight: '600', fontSize: 14 },
-  cantAfford: { color: Colors.textMuted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
-  deliveryTitle: { color: Colors.warning, fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  costBreakdown: { flexDirection: 'row', gap: 6, marginTop: 8, marginBottom: 8 },
+  costCell: { flex: 1, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, padding: 7 },
+  costLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', textTransform: 'uppercase' },
+  costValue: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', marginTop: 2 },
+  purchaseSummary: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8, marginTop: 8, marginBottom: 8 },
+  purchaseRight: { alignItems: 'flex-end' },
+  purchaseValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', marginTop: 2 },
 });
