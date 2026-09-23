@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/theme/colors';
-import GameStatusBar from '../../src/components/StatusBar';
+import ScreenHeader from '../../src/components/ScreenHeader';
 import SectorPill from '../../src/components/SectorPill';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency, formatPercent } from '../../src/utils/format';
@@ -22,17 +22,17 @@ export default function MarketScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.headerTitle}>Markets</Text>
-          <Text style={styles.headerSub}>Prices update weekly</Text>
-        </View>
-        <Pressable style={styles.portfolioBtn} onPress={() => router.push('/portfolio')}>
-          <Ionicons name="pie-chart-outline" size={18} color={Colors.primary} />
-          <Text style={styles.portfolioBtnText}>Portfolio</Text>
-        </Pressable>
-      </View>
-      <GameStatusBar />
+      <ScreenHeader
+        title="Markets"
+        subtitle="Prices update weekly"
+        accentColor={Colors.info}
+        right={(
+          <Pressable style={styles.portfolioBtn} onPress={() => router.push('/portfolio')}>
+            <Ionicons name="pie-chart-outline" size={17} color={Colors.primary} />
+            <Text style={styles.portfolioBtnText}>Portfolio</Text>
+          </Pressable>
+        )}
+      />
 
       {/* Filter Tabs */}
       <ScrollView
