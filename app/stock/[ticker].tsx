@@ -129,16 +129,28 @@ export default function StockDetailScreen() {
 
         {isEmergingCompany && (
           <GameCard
-            variant={isDelisted ? 'danger' : marketStage === 'mature' ? 'subtle' : 'attention'}
+            variant={isDelisted && stock.delistingReason !== 'acquisition' ? 'danger' : marketStage === 'mature' || stock.delistingReason === 'acquisition' ? 'subtle' : 'attention'}
             eyebrow="COMPANY LIFECYCLE"
-            title={isDelisted ? 'Delisted' : marketStage === 'mature' ? 'Established Listing' : marketStage === 'growth' ? 'Growth Company' : 'Emerging Listing'}
-            accentColor={isDelisted ? Colors.negative : marketStage === 'mature' ? Colors.primary : Colors.info}
+            title={isDelisted
+              ? stock.delistingReason === 'acquisition' ? 'Acquired' : 'Delisted'
+              : marketStage === 'mature' ? 'Established Listing'
+                : marketStage === 'growth' ? 'Growth Company'
+                  : 'Emerging Listing'}
+            accentColor={isDelisted
+              ? stock.delistingReason === 'acquisition' ? Colors.primary : Colors.negative
+              : marketStage === 'mature' ? Colors.primary : Colors.info}
             titleAccessory={(
               <StatusPill
                 compact
-                icon={isDelisted ? 'close-circle-outline' : marketStage === 'mature' ? 'shield-checkmark-outline' : 'rocket-outline'}
-                label={isDelisted ? 'FAILED' : marketStage === 'mature' ? 'MATURED' : 'HIGHER RISK'}
-                color={isDelisted ? Colors.negative : marketStage === 'mature' ? Colors.primary : Colors.warning}
+                icon={isDelisted
+                  ? stock.delistingReason === 'acquisition' ? 'git-merge-outline' : 'close-circle-outline'
+                  : marketStage === 'mature' ? 'shield-checkmark-outline' : 'rocket-outline'}
+                label={isDelisted
+                  ? stock.delistingReason === 'acquisition' ? 'ACQUIRED' : 'FAILED'
+                  : marketStage === 'mature' ? 'MATURED' : 'HIGHER RISK'}
+                color={isDelisted
+                  ? stock.delistingReason === 'acquisition' ? Colors.primary : Colors.negative
+                  : marketStage === 'mature' ? Colors.primary : Colors.warning}
               />
             )}
           >
@@ -232,9 +244,9 @@ export default function StockDetailScreen() {
               <View style={styles.chartSummaryItem}><Text style={styles.chartSummaryLabel}>Low / High</Text><Text style={styles.chartSummaryValue}>{formatCurrency(historyLow, 2)} / {formatCurrency(historyHigh, 2)}</Text></View>
               <View style={styles.chartSummaryItem}><Text style={styles.chartSummaryLabel}>Now</Text><Text style={[styles.chartSummaryValue, { color: lineColor }]}>{formatCurrency(price, 2)}</Text></View>
             </View>
-            {assetMeta.dividendYield ? (
-              <Text style={{ color: '#10B981', fontSize: 13, marginTop: 8, textAlign: 'center', fontWeight: '600' }}>
-                💵 Dividend Yield: {(assetMeta.dividendYield * 100).toFixed(2)}% annual
+            {(stock.dividendYieldOverride ?? assetMeta.dividendYield) ? (
+              <Text style={{ color: Colors.primary, fontSize: 13, marginTop: 8, textAlign: 'center', fontWeight: '600' }}>
+                💵 Dividend Yield: {((stock.dividendYieldOverride ?? assetMeta.dividendYield) * 100).toFixed(2)}% annual
               </Text>
             ) : assetMeta.stakingYield ? (
               <Text style={{ color: '#10B981', fontSize: 13, marginTop: 8, textAlign: 'center', fontWeight: '600' }}>
