@@ -1186,7 +1186,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const prevStats = state?.statistics ?? { ...INITIAL_STATISTICS };
     const newStats: LifetimeStatistics = { ...prevStats, jobsWorked: prevStats.jobsWorked + 1 };
 
-    const updates = { currentJobId: jobId, careerHistory: newHistory, statistics: newStats, periodJobChanges: (state.periodJobChanges ?? 0) + 1, partTimeJob: false };
+    const updates = { currentJobId: jobId, careerHistory: newHistory, statistics: newStats, periodJobChanges: (state.periodJobChanges ?? 0) + 1, partTimeJob: false, studentWorkTier: null };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
@@ -1318,8 +1318,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (state.currentJobId || state.career?.companyId) return;
     const active = !!state.partTimeJob;
     const updates = active
-      ? { partTimeJob: false,
-      studentWorkTier: null, studentWorkTier: null }
+      ? { partTimeJob: false, studentWorkTier: null }
       : { partTimeJob: true, studentWorkTier: 'flexible' as const };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
