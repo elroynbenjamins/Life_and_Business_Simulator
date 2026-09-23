@@ -405,8 +405,10 @@ export function processPublicCompanyEvents(
   const definition = stockDefinitions().find((item) => item.ticker === pickedStock.ticker);
   if (!definition) return { stocks, holdings, settlementCash, realizedProfitLoss, events };
 
+  const previousEventIds = new Set(pickedStock.companyEventHistory ?? []);
   const eligibleEvents = (marketCompanyEventsData as any[]).filter((event) =>
-    !(event.sectors?.length) || event.sectors.includes(definition.sector)
+    (!event.sectors?.length || event.sectors.includes(definition.sector))
+    && !previousEventIds.has(event.id)
   );
   const pickedEvent = weightedCompanyEventPick(eligibleEvents, pickedStock, randomFn());
   if (!pickedEvent) return { stocks, holdings, settlementCash, realizedProfitLoss, events };
@@ -418,6 +420,7 @@ export function processPublicCompanyEvents(
     return {
       ...replaceLatestHistoryPrice(stock, (stock.currentPrice ?? definition.startPrice ?? 1) * (1 + impact)),
       lastCompanyEventWeek: globalWeek,
+      companyEventHistory: [...(stock.companyEventHistory ?? []), pickedEvent.id].slice(-12),
       activeCompanyEvent: Math.abs(Number(pickedEvent.weeklyEffect ?? 0)) > 0
         ? {
             id: pickedEvent.id,
