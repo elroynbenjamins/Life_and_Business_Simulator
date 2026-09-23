@@ -1,4 +1,5 @@
-import { GameState, CompletedCourse } from '../types/game';
+import { GameState, CompletedCourse, StudentWorkTier } from '../types/game';
+import { getStudentStudyDuration } from './studentWork';
 import coursesData from '../data/courses.json';
 
 /**
@@ -25,7 +26,7 @@ export function meetsExperienceRequirement(courseLevel: number, totalWeeksWorked
   return true;
 }
 
-export function processEducation(state: GameState, currentWeek: number, partTimeJob?: boolean): EducationResult {
+export function processEducation(state: GameState, currentWeek: number, studentWorkTier?: StudentWorkTier | null): EducationResult {
   let courseId = state?.currentCourseId ?? null;
   let weeksCompleted = state?.courseWeeksCompleted ?? 0;
   let completed = [...(state?.completedCourses ?? [])];
@@ -37,8 +38,7 @@ export function processEducation(state: GameState, currentWeek: number, partTime
     weeksCompleted += 1;
     const courseData = (coursesData as any[]).find((c) => c?.id === courseId);
     const baseDuration = courseData?.duration ?? 1;
-    // Part-time work increases study time by 25%.
-    const duration = partTimeJob ? Math.ceil(baseDuration * 1.25) : baseDuration;
+    const duration = getStudentStudyDuration(baseDuration, studentWorkTier ?? null);
     const courseName = courseData?.name ?? 'Course';
 
     if (weeksCompleted >= duration) {
