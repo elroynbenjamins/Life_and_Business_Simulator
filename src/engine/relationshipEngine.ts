@@ -509,19 +509,32 @@ function getMarriageMilestoneEvent(
   const partyCost = Math.round(4500 * scale * inflation);
   const tripCost = Math.round(7000 * scale * inflation);
   const tripWeeks = milestone >= 20 ? 2 : 1;
+  const intimateWeddingMemory = countMemoryTag(state, 'intimate_wedding') > 0;
+  const standardWeddingMemory = countMemoryTag(state, 'standard_wedding') > 0;
+  const luxuryWeddingMemory = countMemoryTag(state, 'luxury_wedding') > 0;
+  const intimateGain = anniversaryRelationshipGain(partner, 'intimate') + (intimateWeddingMemory ? 2 : 0);
+  const partyGain = anniversaryRelationshipGain(partner, 'party') + (standardWeddingMemory || luxuryWeddingMemory ? 2 : 0);
+  const tripGain = anniversaryRelationshipGain(partner, 'trip') + (luxuryWeddingMemory ? 1 : 0);
+  const weddingEcho = intimateWeddingMemory
+    ? ' Your intimate wedding still shapes how you tend to celebrate together.'
+    : luxuryWeddingMemory
+      ? ' Your wedding set a tradition of making major moments memorable.'
+      : standardWeddingMemory
+        ? ' You have usually marked major moments with a proper celebration.'
+        : '';
 
   return {
     id: `marriage_anniversary_${milestone}`,
     milestoneKey,
     icon: '💍',
     title: `${milestone}-Year Anniversary`,
-    description: `You and ${partner.name} have been married for ${milestone} years. It feels like a moment worth marking in a way that fits the life you built together.`,
+    description: `You and ${partner.name} have been married for ${milestone} years. It feels like a moment worth marking in a way that fits the life you built together.${weddingEcho}`,
     choices: [
       {
         text: `Meaningful celebration (€${intimateCost.toLocaleString()})`,
         cost: intimateCost,
-        relationship: anniversaryRelationshipGain(partner, 'intimate'),
-        personalityHint: personalityFitHint(anniversaryRelationshipGain(partner, 'intimate')),
+        relationship: intimateGain,
+        personalityHint: personalityFitHint(intimateGain),
         memoryTag: 'simple_family_tradition',
         memoryLabel: `Marked the ${milestone}-year anniversary meaningfully`,
         memorySentiment: 'positive',
@@ -531,8 +544,8 @@ function getMarriageMilestoneEvent(
       {
         text: `Host a big anniversary party (€${partyCost.toLocaleString()})`,
         cost: partyCost,
-        relationship: anniversaryRelationshipGain(partner, 'party'),
-        personalityHint: personalityFitHint(anniversaryRelationshipGain(partner, 'party')),
+        relationship: partyGain,
+        personalityHint: personalityFitHint(partyGain),
         memoryTag: 'big_family_celebration',
         memoryLabel: `Hosted a big ${milestone}-year anniversary party`,
         memorySentiment: 'positive',
@@ -542,8 +555,8 @@ function getMarriageMilestoneEvent(
       {
         text: `Take an anniversary trip (€${tripCost.toLocaleString()})`,
         cost: tripCost,
-        relationship: anniversaryRelationshipGain(partner, 'trip'),
-        personalityHint: personalityFitHint(anniversaryRelationshipGain(partner, 'trip')),
+        relationship: tripGain,
+        personalityHint: personalityFitHint(tripGain),
         memoryTag: 'world_travellers',
         memoryLabel: `Travelled together for the ${milestone}-year anniversary`,
         memorySentiment: 'positive',
