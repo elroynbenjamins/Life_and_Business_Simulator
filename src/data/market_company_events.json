@@ -1,0 +1,135 @@
+[
+  {
+    "id": "breakthrough_product",
+    "title": "Breakthrough Product",
+    "description": "A major product breakthrough sharply improves investor expectations.",
+    "priceImpact": 0.11,
+    "weeklyEffect": 0.006,
+    "durationWeeks": 5,
+    "weight": 1,
+    "positive": true
+  },
+  {
+    "id": "major_contract",
+    "title": "Major Contract Win",
+    "description": "The company secures a large multi-year customer contract.",
+    "priceImpact": 0.075,
+    "weeklyEffect": 0.004,
+    "durationWeeks": 4,
+    "weight": 1.1,
+    "positive": true
+  },
+  {
+    "id": "international_expansion",
+    "title": "International Expansion",
+    "description": "A successful overseas launch opens a meaningful new growth market.",
+    "priceImpact": 0.065,
+    "weeklyEffect": 0.0045,
+    "durationWeeks": 6,
+    "weight": 0.9,
+    "positive": true
+  },
+  {
+    "id": "star_ceo",
+    "title": "Star CEO Appointment",
+    "description": "A highly regarded executive takes over and investors price in better execution.",
+    "priceImpact": 0.055,
+    "weeklyEffect": 0.003,
+    "durationWeeks": 6,
+    "weight": 0.75,
+    "positive": true
+  },
+  {
+    "id": "buyback",
+    "title": "Share Buyback",
+    "description": "Management announces a meaningful share-buyback program.",
+    "priceImpact": 0.05,
+    "weeklyEffect": 0.002,
+    "durationWeeks": 4,
+    "weight": 0.8,
+    "positive": true
+  },
+  {
+    "id": "dividend_launch",
+    "title": "Dividend Initiated",
+    "description": "The company begins returning cash to shareholders with a modest annual dividend.",
+    "priceImpact": 0.045,
+    "weeklyEffect": 0.0015,
+    "durationWeeks": 4,
+    "weight": 0.65,
+    "positive": true,
+    "dividendYield": 0.018
+  },
+  {
+    "id": "regulatory_approval",
+    "title": "Regulatory Approval",
+    "description": "A key product clears an important regulatory hurdle.",
+    "priceImpact": 0.12,
+    "weeklyEffect": 0.006,
+    "durationWeeks": 5,
+    "weight": 0.7,
+    "positive": true,
+    "sectors": [
+      "Healthcare",
+      "Pharma"
+    ]
+  },
+  {
+    "id": "product_recall",
+    "title": "Product Recall",
+    "description": "A costly recall damages near-term sales and investor confidence.",
+    "priceImpact": -0.1,
+    "weeklyEffect": -0.006,
+    "durationWeeks": 5,
+    "weight": 0.9,
+    "positive": false
+  },
+  {
+    "id": "major_lawsuit",
+    "title": "Major Lawsuit",
+    "description": "A major legal dispute creates financial and reputational uncertainty.",
+    "priceImpact": -0.085,
+    "weeklyEffect": -0.0045,
+    "durationWeeks": 6,
+    "weight": 0.85,
+    "positive": false
+  },
+  {
+    "id": "accounting_probe",
+    "title": "Accounting Probe",
+    "description": "Regulators open an accounting investigation and investors reassess reported performance.",
+    "priceImpact": -0.14,
+    "weeklyEffect": -0.008,
+    "durationWeeks": 6,
+    "weight": 0.55,
+    "positive": false
+  },
+  {
+    "id": "cyber_incident",
+    "title": "Cybersecurity Incident",
+    "description": "A serious systems breach disrupts operations and hurts customer trust.",
+    "priceImpact": -0.09,
+    "weeklyEffect": -0.005,
+    "durationWeeks": 4,
+    "weight": 0.8,
+    "positive": false,
+    "sectors": [
+      "Tech",
+      "E-Commerce",
+      "Finance",
+      "Banking",
+      "Social Media",
+      "Telecom"
+    ]
+  },
+  {
+    "id": "earnings_miss",
+    "title": "Earnings Miss",
+    "description": "Results fall materially short of market expectations.",
+    "priceImpact": -0.075,
+    "weeklyEffect": -0.003,
+    "durationWeeks": 4,
+    "weight": 1.2,
+    "positive": false
+  }
+]
