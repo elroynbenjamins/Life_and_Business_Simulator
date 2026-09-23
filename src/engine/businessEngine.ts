@@ -623,8 +623,8 @@ export function getBusinessUpgradeWeeks(randomRoll = Math.random()): number {
   return Math.max(1, Math.round((16 + Math.floor(Math.max(0, Math.min(0.999999, randomRoll)) * 15)) * 0.75));
 }
 
-export const BUSINESS_PROJECT_SLOT_2_GEM_COST = 50;
-export const BUSINESS_UPGRADE_SLOT_2_GEM_COST = 75;
+export const BUSINESS_PROJECT_SLOT_2_GEM_COST = 25;
+export const BUSINESS_UPGRADE_SLOT_2_GEM_COST = 50;
 
 export function getBusinessProjectSlotLimit(biz: OwnedBusiness): 1 | 2 {
   return biz.projectSlot2Unlocked || biz.temporaryProjectSlot2 ? 2 : 1;
