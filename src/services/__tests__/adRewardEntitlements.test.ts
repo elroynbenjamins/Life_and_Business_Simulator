@@ -1,6 +1,7 @@
 import { INITIAL_PROFILE } from '../../types/game';
 import {
   REMOVE_ADS_DAILY_EDUCATION_REWARD_LIMIT,
+  REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT,
   REMOVE_ADS_DAILY_GEM_REWARD_LIMIT,
   REMOVE_ADS_DAILY_SLOT_REWARD_LIMIT,
   getAdFreeEducationRewardUsage,
@@ -18,20 +19,20 @@ describe('rewarded ad account entitlements', () => {
     expect(usage.remaining).toBe(AD_CONFIG.DAILY_AD_LIMIT);
   });
 
-  test('Remove Ads owners receive exactly two ad-free gem claims per day', () => {
-    const profile = {
+  test('Remove Ads owners receive one 20-Gem ad-free claim per day', () => {
+    expect(REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT).toBe(20);
+    const available = getGemRewardUsage({ ...INITIAL_PROFILE, adsRemoved: true }, today);
+    expect(REMOVE_ADS_DAILY_GEM_REWARD_LIMIT).toBe(1);
+    expect(available.watchedToday).toBe(0);
+    expect(available.remaining).toBe(1);
+    expect(available.limitReached).toBe(false);
+
+    const exhausted = getGemRewardUsage({
       ...INITIAL_PROFILE,
       adsRemoved: true,
       rewardedGemClaimDate: today,
       rewardedGemClaimsToday: 1,
-    };
-    const usage = getGemRewardUsage(profile, today);
-    expect(REMOVE_ADS_DAILY_GEM_REWARD_LIMIT).toBe(2);
-    expect(usage.watchedToday).toBe(1);
-    expect(usage.remaining).toBe(1);
-    expect(usage.limitReached).toBe(false);
-
-    const exhausted = getGemRewardUsage({ ...profile, rewardedGemClaimsToday: 2 }, today);
+    }, today);
     expect(exhausted.remaining).toBe(0);
     expect(exhausted.limitReached).toBe(true);
   });
@@ -71,11 +72,11 @@ describe('rewarded ad account entitlements', () => {
       ...INITIAL_PROFILE,
       adsRemoved: true,
       rewardedGemClaimDate: '2026-09-22',
-      rewardedGemClaimsToday: 2,
+      rewardedGemClaimsToday: 1,
       adFreeSlotRewardClaimDate: '2026-09-22',
       adFreeEducationRewardClaimDate: '2026-09-22',
     };
-    expect(getGemRewardUsage(profile, today).remaining).toBe(2);
+    expect(getGemRewardUsage(profile, today).remaining).toBe(1);
     expect(getAdFreeSlotRewardUsage(profile, today).available).toBe(true);
     expect(getAdFreeEducationRewardUsage(profile, today).available).toBe(true);
   });
