@@ -405,6 +405,15 @@ function lifePathLabel(path: ChildLifePath): string {
   return path;
 }
 
+function preferredOccupationIdsForLifePath(path: ChildLifePath): string[] {
+  if (path === 'academic') return ['researcher', 'teacher', 'accounting', 'developer', 'engineer', 'doctor', 'consultant'];
+  if (path === 'creative') return ['designer', 'content_creator', 'marketing'];
+  if (path === 'athletic') return ['personal_trainer', 'sports_coach'];
+  if (path === 'practical') return ['technician', 'logistics_specialist', 'nurse', 'admin'];
+  if (path === 'entrepreneurial') return ['marketing', 'consultant', 'manager', 'accounting'];
+  return [];
+}
+
 function countMemoryTag(state: GameState, tag: string, partnerId?: string | null): number {
   return (state.relationshipState?.memories ?? []).filter((memory) =>
     memory.tag === tag && (partnerId == null || memory.partnerId === partnerId)
@@ -1545,7 +1554,17 @@ function launchAdultChild(child: RelationshipChild, state: GameState, gw: number
       : outcome === 'solid'
         ? occupations.filter((item) => (item.baseWeeklyIncome ?? 0) >= 620)
         : occupations.filter((item) => (item.baseWeeklyIncome ?? 0) <= 820);
-  const occupation = randomOf(eligible.length > 0 ? eligible : occupations);
+  const preferredIds = new Set(preferredOccupationIdsForLifePath(lifePath));
+  const pathEligible = preferredIds.size > 0 ? eligible.filter((item) => preferredIds.has(item.id)) : [];
+  const fallbackPathPool = preferredIds.size > 0 ? occupations.filter((item) => preferredIds.has(item.id)) : [];
+  const occupationPool = pathEligible.length > 0
+    ? pathEligible
+    : fallbackPathPool.length > 0
+      ? fallbackPathPool
+      : eligible.length > 0
+        ? eligible
+        : occupations;
+  const occupation = randomOf(occupationPool);
   const educationMultiplier = outcome === 'elite' ? 1.12 : outcome === 'strong' ? 1.05 : outcome === 'solid' ? 0.98 : 0.88;
   const pathMultiplier = lifePath === 'academic' ? 1.08
     : lifePath === 'practical' ? 1.06
