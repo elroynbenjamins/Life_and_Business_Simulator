@@ -94,7 +94,7 @@ function hasInnovationSignals(business: OwnedBusiness): boolean {
   if (business.strategicFocus === 'rd') return true;
   const projects = business.activeProjects ?? [];
   if (projects.some((project) =>
-    ['research_development', 'product_improvement', 'process_optimization'].includes(project.projectId)
+    ['research_development', 'product_improvement', 'process_optimization'].includes(project.projectType)
     && (project.resolved || project.succeeded)
   )) return true;
   return (business.completedCorporateCapex ?? []).some((project) =>
