@@ -1,4 +1,4 @@
-import { getLatestStockChanges, initializeMarketCompanyPool, initializeStocks, mergeStocks, processDividends, processMarketCompanyLifecycle, processStocks } from '../stockEngine';
+import { getLatestStockChanges, initializeMarketCompanyPool, initializeStocks, mergeStocks, processDividends, processMarketCompanyLifecycle, processPublicCompanyEvents, processStocks } from '../stockEngine';
 import { GameState, INITIAL_GAME_STATE } from '../../types/game';
 import marketSectorEvents from '../../data/market_sector_events.json';
 import stocksData from '../../data/stocks.json';
@@ -147,6 +147,71 @@ describe('stockEngine market reporting and type events', () => {
     expect(result.events).toEqual(expect.arrayContaining([
       expect.objectContaining({ ticker: 'QNTM', kind: 'delisted' }),
     ]));
+  });
+
+  test('company-specific stories can move one ticker and create a temporary company effect', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [{
+        ticker: 'MCRS',
+        currentPrice: 100,
+        priceHistory: [95, 100],
+        marketStatus: 'listed',
+        listedWeek: 1,
+        companyStage: 'established',
+      }],
+      holdings: [],
+    };
+
+    const result = processPublicCompanyEvents(state, 10, () => 0);
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ticker: 'MCRS', kind: 'company_event', title: 'Breakthrough Product' }),
+    ]));
+    expect(result.stocks[0].currentPrice).toBeGreaterThan(100);
+    expect(result.stocks[0].activeCompanyEvent?.title).toBe('Breakthrough Product');
+  });
+
+  test('rare public acquisition cashes out target shareholders at a premium and delists the target', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [
+        {
+          ticker: 'MCRS',
+          currentPrice: 300,
+          priceHistory: [295, 300],
+          marketStatus: 'listed',
+          listedWeek: 1,
+          companyStage: 'established',
+        },
+        {
+          ticker: 'QNTM',
+          currentPrice: 40,
+          priceHistory: [35, 40],
+          marketStatus: 'listed',
+          listedWeek: 1,
+          companyStage: 'growth',
+          companyQuality: 0.75,
+        },
+      ],
+      holdings: [{ ticker: 'QNTM', shares: 10, avgBuyPrice: 30 }],
+      marketCompanyPool: ['QNTM'],
+    };
+
+    const result = processPublicCompanyEvents(state, 40, () => 0);
+    const target = result.stocks.find((stock) => stock.ticker === 'QNTM');
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        ticker: 'QNTM',
+        kind: 'acquired',
+        acquirerTicker: 'MCRS',
+      }),
+    ]));
+    expect(target?.marketStatus).toBe('delisted');
+    expect(target?.delistingReason).toBe('acquisition');
+    expect(target?.acquiredByTicker).toBe('MCRS');
+    expect(result.holdings.some((holding) => holding.ticker === 'QNTM')).toBe(false);
+    expect(result.settlementCash).toBeCloseTo(472, 4);
+    expect(result.realizedProfitLoss).toBeCloseTo(172, 4);
   });
 
   test('merges all three new cryptocurrencies into existing saves', () => {
