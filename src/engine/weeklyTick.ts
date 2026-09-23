@@ -99,7 +99,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   );
   const combinedMarketCompanyEvents = [...marketLifecycle.events, ...publicCompanyEvents.events];
   const marketSettlementCash = marketLifecycle.settlementCash + publicCompanyEvents.settlementCash;
-  const marketRealizedProfitLoss = marketRealizedProfitLoss + publicCompanyEvents.realizedProfitLoss;
+  const marketRealizedProfitLoss = marketLifecycle.realizedProfitLoss + publicCompanyEvents.realizedProfitLoss;
   const finalStockChanges = getLatestStockChanges(publicCompanyEvents.stocks);
 
   // ---------- Step 4.5: Dividends ----------
