@@ -12,4 +12,4 @@ export const AD_CONFIG = {
   DAILY_AD_LIMIT: 5,
 } as const;
 
-export type RewardedAdPlacement = 'gems' | 'education' | 'business_project_slot' | 'business_upgrade_slot';
+export type RewardedAdPlacement = 'gems' | 'education' | 'business_project_slot' | 'business_upgrade_slot' | 'business_company_slot';
