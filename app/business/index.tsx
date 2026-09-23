@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
+import ScreenHeader from '../../src/components/ScreenHeader';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
 import { getLevelName, getBusinessType, getAutomationScore } from '../../src/engine/businessEngine';
@@ -113,17 +114,13 @@ export default function BusinessPortfolioScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        {isBusinessTab ? (
-          <View style={{ width: 24 }} />
-        ) : (
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-          </Pressable>
-        )}
-        <Text style={styles.headerTitle}>Business Empire</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <ScreenHeader
+        title="Business Empire"
+        subtitle={businesses.length > 0 ? `${businesses.length} active compan${businesses.length === 1 ? 'y' : 'ies'}` : 'Build and manage your companies'}
+        showBack={!isBusinessTab}
+        onBack={() => router.back()}
+        accentColor={Colors.business}
+      />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.summaryGrid}>
