@@ -1,4 +1,5 @@
 import {
+  ChildLifePath,
   ChildPersonality,
   FamilyWorkArrangement,
   GameState,
@@ -285,7 +286,7 @@ export function generateRelationshipCandidates(state: GameState, count = 3): Rel
       gender,
       age,
       occupationId: occupation.id,
-      occupationTitle: occupation.title,
+      occupationTitle: startsEntrepreneur ? 'Young Entrepreneur' : occupation.title,
       weeklyIncome,
       careerLevel,
       savings,
@@ -375,6 +376,113 @@ function personalityFitHint(gain: number): string {
   return gain >= 10 ? 'Great personality fit' : gain >= 7 ? 'Good personality fit' : 'Mixed personality fit';
 }
 
+export function getChildNaturalLifePath(child: RelationshipChild): ChildLifePath {
+  const personality = child.personality ?? getChildPersonality(child.id);
+  if (personality.ambition === 'driven' && personality.riskTolerance === 'risk_taking') return 'entrepreneurial';
+  if (personality.ambition !== 'relaxed' && personality.riskTolerance === 'cautious') return 'academic';
+  if (personality.independence === 'independent' && personality.riskTolerance === 'risk_taking') return 'practical';
+  if (personality.ambition === 'relaxed' && personality.financialStyle === 'luxury') return 'creative';
+  if (personality.resilience === 'resilient' && personality.riskTolerance === 'risk_taking') return 'athletic';
+  const variants: ChildLifePath[] = ['academic', 'creative', 'athletic', 'practical', 'balanced'];
+  return variants[stableHash(child.id) % variants.length];
+}
+
+function alternateChildLifePath(path: ChildLifePath): ChildLifePath {
+  const order: ChildLifePath[] = ['academic', 'creative', 'athletic', 'entrepreneurial', 'practical', 'balanced'];
+  return order[(order.indexOf(path) + 1) % order.length];
+}
+
+function lifePathLabel(path: ChildLifePath): string {
+  if (path === 'entrepreneurial') return 'entrepreneurial';
+  return path;
+}
+
+function countMemoryTag(state: GameState, tag: string): number {
+  return (state.relationshipState?.memories ?? []).filter((memory) => memory.tag === tag).length;
+}
+
+export function createWorkFamilyConflictEvent(
+  state: GameState,
+  partner: RelationshipConnection,
+  children: RelationshipChild[],
+): RelationshipEvent | null {
+  const hasCareer = !!(state.career?.companyId || state.currentJobId);
+  const targetBusiness = [...(state.businesses ?? [])].sort((a, b) => (b.valuation ?? 0) - (a.valuation ?? 0))[0] ?? null;
+  if (!hasCareer && !targetBusiness) return null;
+
+  const dependentChildren = children.filter((child) => getChildAge(child, globalWeek(state)) < 18);
+  const child = dependentChildren.length > 0
+    ? [...dependentChildren].sort((a, b) => getChildAge(b, globalWeek(state)) - getChildAge(a, globalWeek(state)))[0]
+    : null;
+  const careerFirstCount = countMemoryTag(state, 'career_first');
+  const familyFirstCount = countMemoryTag(state, 'showed_up_for_family');
+  const patternNote = careerFirstCount >= 2
+    ? ` ${partner.name} points out that choosing work has started to become a pattern.`
+    : familyFirstCount >= 2
+      ? ` ${partner.name} remembers that you have made room for family before.`
+      : '';
+  const workContext = hasCareer && targetBusiness
+    ? 'your career and business responsibilities'
+    : hasCareer
+      ? 'an important week at work'
+      : `a demanding week at ${targetBusiness?.name ?? 'your business'}`;
+  const familyMoment = child
+    ? `${child.name} has something important happening at the same time`
+    : `${partner.name} has been counting on real time together`;
+
+  const drivenGrace = partner.ambition === 'driven' ? 2 : partner.ambition === 'relaxed' ? -1 : 0;
+  const workPenalty = Math.max(-14, -6 - Math.min(6, careerFirstCount * 2) + drivenGrace);
+  const familyGain = Math.min(11, 6 + Math.min(3, careerFirstCount));
+
+  return {
+    id: child ? 'work_family_conflict_child' : 'work_family_conflict_partner',
+    icon: '⚖️',
+    title: child ? 'Work or a Family Moment?' : 'Work or Time Together?',
+    description: `A clash has come up between ${workContext} and home: ${familyMoment}.${patternNote}`,
+    choices: [
+      {
+        text: child ? `Show up fully for ${child.name}` : `Protect the time with ${partner.name}`,
+        relationship: familyGain,
+        childId: child?.id,
+        childRelationship: child ? 7 : undefined,
+        careerPerformanceDelta: hasCareer ? -7 : undefined,
+        businessId: targetBusiness?.id,
+        businessReputationDelta: targetBusiness ? -1 : undefined,
+        businessMoraleDelta: targetBusiness ? -1 : undefined,
+        memoryTag: 'showed_up_for_family',
+        memoryLabel: child ? `Chose ${child.name}'s important moment over work` : 'Protected family time during a work conflict',
+        memorySentiment: 'positive',
+        personalityHint: partner.ambition === 'driven' ? 'Family appreciates it; work takes a real hit' : 'Strong family-first fit',
+      },
+      {
+        text: 'Split the difference',
+        relationship: 3,
+        childId: child?.id,
+        childRelationship: child ? 3 : undefined,
+        careerPerformanceDelta: hasCareer ? -2 : undefined,
+        memoryTag: 'balanced_work_family',
+        memoryLabel: 'Tried to balance work and family',
+        memorySentiment: 'mixed',
+        personalityHint: 'Balanced compromise',
+      },
+      {
+        text: 'Prioritize work',
+        relationship: workPenalty,
+        childId: child?.id,
+        childRelationship: child ? -5 - Math.min(3, careerFirstCount) : undefined,
+        careerPerformanceDelta: hasCareer ? 5 : undefined,
+        businessId: targetBusiness?.id,
+        businessReputationDelta: targetBusiness ? 2 : undefined,
+        businessMoraleDelta: targetBusiness ? 1 : undefined,
+        memoryTag: 'career_first',
+        memoryLabel: child ? `Missed ${child.name}'s important moment for work` : 'Put work ahead of family time',
+        memorySentiment: careerFirstCount > 0 ? 'negative' : 'mixed',
+        personalityHint: partner.ambition === 'driven' ? 'They understand ambition, but still notice the choice' : 'Likely family strain',
+      },
+    ],
+  };
+}
+
 function getMarriageMilestoneEvent(
   state: GameState,
   partner: RelationshipConnection,
@@ -406,6 +514,9 @@ function getMarriageMilestoneEvent(
         cost: intimateCost,
         relationship: anniversaryRelationshipGain(partner, 'intimate'),
         personalityHint: personalityFitHint(anniversaryRelationshipGain(partner, 'intimate')),
+        memoryTag: 'simple_family_tradition',
+        memoryLabel: `Marked the ${milestone}-year anniversary meaningfully`,
+        memorySentiment: 'positive',
         happiness: 5,
         happinessDuration: 4,
       },
@@ -414,6 +525,9 @@ function getMarriageMilestoneEvent(
         cost: partyCost,
         relationship: anniversaryRelationshipGain(partner, 'party'),
         personalityHint: personalityFitHint(anniversaryRelationshipGain(partner, 'party')),
+        memoryTag: 'big_family_celebration',
+        memoryLabel: `Hosted a big ${milestone}-year anniversary party`,
+        memorySentiment: 'positive',
         happiness: 9,
         happinessDuration: 5,
       },
@@ -422,6 +536,9 @@ function getMarriageMilestoneEvent(
         cost: tripCost,
         relationship: anniversaryRelationshipGain(partner, 'trip'),
         personalityHint: personalityFitHint(anniversaryRelationshipGain(partner, 'trip')),
+        memoryTag: 'world_travellers',
+        memoryLabel: `Travelled together for the ${milestone}-year anniversary`,
+        memorySentiment: 'positive',
         happiness: 11,
         happinessDuration: 6,
         travelWeeks: tripWeeks,
@@ -430,6 +547,9 @@ function getMarriageMilestoneEvent(
         text: 'Keep it simple at home',
         relationship: partner.financialStyle === 'frugal' ? 3 : partner.financialStyle === 'luxury' ? -1 : 1,
         personalityHint: partner.financialStyle === 'frugal' ? 'Good personality fit' : 'Low-cost celebration',
+        memoryTag: 'simple_family_tradition',
+        memoryLabel: `Kept the ${milestone}-year anniversary simple`,
+        memorySentiment: 'mixed',
       },
     ],
   };
@@ -449,58 +569,141 @@ function getChildMilestoneEvent(
     if (celebrated.includes(milestoneKey)) continue;
 
     const inflation = state.inflationMultiplier ?? 1;
-    const base = age >= 18 ? 5000 : age >= 16 ? 2500 : age >= 10 ? 1000 : 500;
-    const familyCost = Math.round(base * inflation);
-    const partyCost = Math.round(base * 4 * inflation);
-    const experienceCost = Math.round(base * 2.5 * inflation);
-    const title = age === 18 ? `${child.name} Turns 18`
-      : age === 16 ? `${child.name}'s Sweet Sixteen`
-        : `${child.name} Turns ${age}`;
+    const personality = child.personality ?? getChildPersonality(child.id);
+    const naturalPath = getChildNaturalLifePath(child);
+    const currentPath = child.lifePath ?? naturalPath;
+    const alternatePath = alternateChildLifePath(currentPath);
+    const milestoneMemory = age >= 16 ? 'child_independence' as const : 'supported_child_path' as const;
+
+    if (age === 18) {
+      const fundNextStep = Math.round(15000 * inflation);
+      const bigParty = Math.round(20000 * inflation);
+      const experience = Math.round(10000 * inflation);
+      return {
+        id: 'child_milestone_18',
+        milestoneKey,
+        icon: '🎓',
+        title: `${child.name} Turns 18`,
+        description: `${child.name} is stepping into adult life after years of choices that shaped a ${lifePathLabel(currentPath)} direction. This is your last major launch decision before they build an independent life.`,
+        choices: [
+          {
+            text: `Fund their next step (€${fundNextStep.toLocaleString()})`,
+            cost: fundNextStep,
+            childId: child.id,
+            childSavings: fundNextStep,
+            childRelationship: 9,
+            memoryTag: 'child_independence',
+            memoryLabel: `Backed ${child.name}'s launch into adult life`,
+            memorySentiment: 'positive',
+            personalityHint: personality.independence === 'independent' ? 'Great fit for an independent child' : 'Strong practical support',
+            happiness: 6,
+            happinessDuration: 4,
+          },
+          {
+            text: `Throw a big 18th party (€${bigParty.toLocaleString()})`,
+            cost: bigParty,
+            childId: child.id,
+            childRelationship: personality.financialStyle === 'luxury' ? 10 : 6,
+            memoryTag: 'big_family_celebration',
+            memoryLabel: `Threw a major 18th birthday for ${child.name}`,
+            memorySentiment: 'positive',
+            personalityHint: personality.financialStyle === 'luxury' ? 'Great personality fit' : 'Memorable, but expensive',
+            happiness: 9,
+            happinessDuration: 5,
+          },
+          {
+            text: `Take a special experience together (€${experience.toLocaleString()})`,
+            cost: experience,
+            childId: child.id,
+            childRelationship: personality.riskTolerance === 'risk_taking' || personality.independence === 'independent' ? 10 : 7,
+            memoryTag: 'supported_child_path',
+            memoryLabel: `Shared a milestone experience with ${child.name}`,
+            memorySentiment: 'positive',
+            personalityHint: personality.riskTolerance === 'risk_taking' ? 'Great personality fit' : 'Strong shared memory',
+            happiness: 8,
+            happinessDuration: 5,
+          },
+          {
+            text: 'Keep the milestone simple at home',
+            childId: child.id,
+            childRelationship: personality.financialStyle === 'frugal' ? 4 : 1,
+            memoryTag: 'simple_family_tradition',
+            memoryLabel: `Kept ${child.name}'s 18th birthday simple`,
+            memorySentiment: 'mixed',
+            personalityHint: personality.financialStyle === 'frugal' ? 'Good personality fit' : 'Low-cost celebration',
+          },
+        ],
+      };
+    }
+
+    const base = age === 16 ? 9000 : age === 10 ? 4000 : 1500;
+    const focusedCost = Math.round(base * inflation);
+    const partyCost = Math.round(base * (age === 16 ? 2.2 : 1.8) * inflation);
+    const exploreCost = Math.round(base * 0.7 * inflation);
+    const title = age === 16 ? `${child.name}'s Sweet Sixteen & Future` : `${child.name} Turns ${age}`;
+    const development = age === 16 ? 15 : age === 10 ? 10 : 6;
 
     return {
       id: `child_milestone_${age}`,
       milestoneKey,
-      icon: age >= 18 ? '🎓' : '🎂',
+      icon: age === 16 ? '🧭' : '🎂',
       title,
-      description: `${child.name} has reached a major family milestone. Their personality shapes whether they value a close family moment, a large party, or a memorable experience most.`,
+      description: age === 16
+        ? `${child.name} is thinking seriously about what comes after school. Their current ${lifePathLabel(currentPath)} direction reflects earlier family choices and their own personality.`
+        : `${child.name} is showing a stronger ${lifePathLabel(naturalPath)} streak. This milestone can shape the interests and confidence they carry forward.`,
       choices: [
         {
-          text: `Family celebration (€${familyCost.toLocaleString()})`,
-          cost: familyCost,
+          text: age === 16
+            ? `Back their ${lifePathLabel(currentPath)} plan (€${focusedCost.toLocaleString()})`
+            : `Invest in their ${lifePathLabel(currentPath)} interest (€${focusedCost.toLocaleString()})`,
+          cost: focusedCost,
           childId: child.id,
-          childRelationship: childCelebrationGain(child, 'family'),
-          personalityHint: personalityFitHint(childCelebrationGain(child, 'family')),
-          happiness: 4,
-          happinessDuration: 3,
+          childLifePath: currentPath,
+          childDevelopment: development,
+          childEducationFund: age === 16 && currentPath === 'academic' ? Math.round(focusedCost * 0.75) : 0,
+          childRelationship: 8,
+          memoryTag: milestoneMemory,
+          memoryLabel: `Supported ${child.name}'s ${lifePathLabel(currentPath)} direction`,
+          memorySentiment: 'positive',
+          personalityHint: currentPath === naturalPath ? 'Great personality fit' : 'Builds on their existing path',
+          happiness: 5,
+          happinessDuration: 4,
         },
         {
-          text: `Throw a big party (€${partyCost.toLocaleString()})`,
+          text: `Give them a big milestone party (€${partyCost.toLocaleString()})`,
           cost: partyCost,
           childId: child.id,
-          childRelationship: childCelebrationGain(child, 'party'),
-          personalityHint: personalityFitHint(childCelebrationGain(child, 'party')),
-          happiness: 7,
+          childDevelopment: 2,
+          childRelationship: personality.financialStyle === 'luxury' ? 10 : personality.independence === 'close' ? 8 : 5,
+          memoryTag: 'big_family_celebration',
+          memoryLabel: `Threw a big age-${age} celebration for ${child.name}`,
+          memorySentiment: 'positive',
+          personalityHint: personality.financialStyle === 'luxury' || personality.independence === 'close' ? 'Great personality fit' : 'Celebration over development',
+          happiness: 8,
           happinessDuration: 4,
         },
         {
-          text: age >= 18
-            ? `Fund their next step (€${experienceCost.toLocaleString()})`
-            : `Plan a special experience (€${experienceCost.toLocaleString()})`,
-          cost: experienceCost,
+          text: `Let them explore a ${lifePathLabel(alternatePath)} direction (€${exploreCost.toLocaleString()})`,
+          cost: exploreCost,
           childId: child.id,
-          childSavings: age >= 18 ? experienceCost : undefined,
-          childRelationship: childCelebrationGain(child, 'experience'),
-          personalityHint: personalityFitHint(childCelebrationGain(child, 'experience')),
-          happiness: 6,
-          happinessDuration: 4,
+          childLifePath: alternatePath,
+          childDevelopment: Math.max(4, development - 3),
+          childEducationFund: age === 16 && alternatePath === 'academic' ? Math.round(exploreCost * 0.6) : 0,
+          childRelationship: personality.independence === 'independent' ? 9 : 6,
+          memoryTag: 'supported_child_path',
+          memoryLabel: `Gave ${child.name} room to explore a new direction`,
+          memorySentiment: 'positive',
+          personalityHint: personality.independence === 'independent' ? 'Great fit for their independence' : 'Encourages exploration',
         },
         {
-          text: 'Keep the milestone simple at home',
+          text: 'Keep it simple and let them find their own way',
           childId: child.id,
-          childRelationship: (child.personality ?? getChildPersonality(child.id)).financialStyle === 'frugal' ? 3 : 1,
-          personalityHint: (child.personality ?? getChildPersonality(child.id)).financialStyle === 'frugal'
-            ? 'Good personality fit'
-            : 'Low-cost celebration',
+          childDevelopment: 1,
+          childRelationship: personality.financialStyle === 'frugal' ? 4 : 2,
+          memoryTag: 'simple_family_tradition',
+          memoryLabel: `Kept ${child.name}'s age-${age} milestone simple`,
+          memorySentiment: 'mixed',
+          personalityHint: personality.financialStyle === 'frugal' ? 'Good personality fit' : 'Low-cost, low-pressure option',
         },
       ],
     };
@@ -1077,14 +1280,15 @@ function createRelationshipEvent(
   ) {
     const shortCost = Math.round(12000 * inflation);
     const longCost = Math.round(30000 * inflation);
+    const travelHistoryBonus = Math.min(3, countMemoryTag(state, 'world_travellers'));
     const shortGain = Math.max(4, Math.min(14,
-      8
+      8 + travelHistoryBonus
       + (partner.financialStyle === 'luxury' ? 2 : partner.financialStyle === 'frugal' ? -1 : 0)
       + (partner.riskTolerance === 'risk_taking' ? 2 : 0)
       + (partner.ambition === 'driven' ? 1 : 0)
     ));
     const longGain = Math.max(3, Math.min(16,
-      10
+      10 + travelHistoryBonus
       + (partner.financialStyle === 'luxury' ? 3 : partner.financialStyle === 'frugal' ? -2 : 0)
       + (partner.riskTolerance === 'risk_taking' ? 3 : partner.riskTolerance === 'cautious' ? -1 : 0)
       + (partner.ambition === 'relaxed' ? 2 : partner.ambition === 'driven' ? -3 : 0)
@@ -1102,6 +1306,9 @@ function createRelationshipEvent(
           cost: shortCost,
           relationship: shortGain,
           personalityHint: personalityFitHint(shortGain),
+          memoryTag: 'world_travellers',
+          memoryLabel: 'Took time away together on a world trip',
+          memorySentiment: 'positive',
           happiness: 12,
           happinessDuration: 6,
           travelWeeks: 2,
@@ -1111,6 +1318,9 @@ function createRelationshipEvent(
           cost: longCost,
           relationship: longGain,
           personalityHint: personalityFitHint(longGain),
+          memoryTag: 'world_travellers',
+          memoryLabel: 'Took an extended world tour together',
+          memorySentiment: 'positive',
           happiness: 18,
           happinessDuration: 8,
           travelWeeks: 4,
@@ -1293,8 +1503,15 @@ function processPartnerCareer(
 
 function launchAdultChild(child: RelationshipChild, state: GameState, gw: number): { child: RelationshipChild; milestone: string } {
   const fund = Math.max(0, child.educationFund ?? 0);
+  const personality = child.personality ?? getChildPersonality(child.id);
+  const lifePath = child.lifePath ?? getChildNaturalLifePath(child);
+  const developmentScore = Math.max(0, child.developmentScore ?? 0);
+  const effectiveFund = fund
+    + developmentScore * 650
+    + (lifePath === 'academic' ? 10000 : 0)
+    + (lifePath === 'practical' ? 4000 : 0);
   const outcome: NonNullable<RelationshipChild['educationOutcome']> =
-    fund >= 50000 ? 'elite' : fund >= 20000 ? 'strong' : fund >= 5000 ? 'solid' : 'limited';
+    effectiveFund >= 50000 ? 'elite' : effectiveFund >= 20000 ? 'strong' : effectiveFund >= 5000 ? 'solid' : 'limited';
 
   const occupations = occupationsData as any[];
   const eligible = outcome === 'elite'
@@ -1305,8 +1522,18 @@ function launchAdultChild(child: RelationshipChild, state: GameState, gw: number
         ? occupations.filter((item) => (item.baseWeeklyIncome ?? 0) >= 620)
         : occupations.filter((item) => (item.baseWeeklyIncome ?? 0) <= 820);
   const occupation = randomOf(eligible.length > 0 ? eligible : occupations);
-  const multiplier = outcome === 'elite' ? 1.12 : outcome === 'strong' ? 1.05 : outcome === 'solid' ? 0.98 : 0.88;
-  const weeklyIncome = Math.max(350, Math.round((occupation.baseWeeklyIncome ?? 650) * multiplier));
+  const educationMultiplier = outcome === 'elite' ? 1.12 : outcome === 'strong' ? 1.05 : outcome === 'solid' ? 0.98 : 0.88;
+  const pathMultiplier = lifePath === 'academic' ? 1.08
+    : lifePath === 'practical' ? 1.06
+      : lifePath === 'entrepreneurial' ? 1.03
+        : lifePath === 'creative' ? 0.99
+          : lifePath === 'athletic' ? 1.01 : 1;
+  const startsEntrepreneur = lifePath === 'entrepreneurial'
+    && developmentScore >= 18
+    && personality.riskTolerance !== 'cautious';
+  const weeklyIncome = startsEntrepreneur
+    ? Math.max(700, Math.round(800 * (state.inflationMultiplier ?? 1) * (1 + developmentScore / 100)))
+    : Math.max(350, Math.round((occupation.baseWeeklyIncome ?? 650) * educationMultiplier * pathMultiplier));
 
   return {
     child: {
@@ -1325,14 +1552,18 @@ function launchAdultChild(child: RelationshipChild, state: GameState, gw: number
       childrenCount: child.childrenCount ?? 0,
       descendants: child.descendants ?? [],
       parentRelationship: child.parentRelationship ?? 75,
-      personality: child.personality ?? getChildPersonality(child.id),
-      adultStatus: 'employed',
+      personality,
+      lifePath,
+      developmentScore,
+      adultStatus: startsEntrepreneur ? 'entrepreneur' : 'employed',
       debt: child.debt ?? 0,
       failureCount: child.failureCount ?? 0,
-      businessValue: child.businessValue ?? 0,
+      businessValue: startsEntrepreneur ? Math.round(20000 * (state.inflationMultiplier ?? 1)) : (child.businessValue ?? 0),
       lastAdultEventYear: state.year,
     },
-    milestone: `${child.name} became independent and started work as ${occupation.title}.`,
+    milestone: startsEntrepreneur
+      ? `${child.name} became independent and launched a first business after following an entrepreneurial path.`
+      : `${child.name} became independent and started work as ${occupation.title} after following a ${lifePathLabel(lifePath)} path.`,
   };
 }
 
@@ -1420,7 +1651,8 @@ function progressAdultChild(
         const raiseRate = outcome === 'elite' ? 0.05 : outcome === 'strong' ? 0.04 : outcome === 'solid' ? 0.03 : 0.02;
         const ambitionMultiplier = personality.ambition === 'driven' ? 1.35
           : personality.ambition === 'career_minded' ? 1.15 : 0.85;
-        weeklyIncome = Math.round(Math.max(350, weeklyIncome || 350) * (1 + raiseRate * ambitionMultiplier));
+        const pathCareerMultiplier = child.lifePath === 'academic' ? 1.18 : child.lifePath === 'practical' ? 1.10 : 1;
+        weeklyIncome = Math.round(Math.max(350, weeklyIncome || 350) * (1 + raiseRate * ambitionMultiplier * pathCareerMultiplier));
       }
     }
   }
@@ -1814,6 +2046,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   let pendingEvent = current.pendingEvent ?? null;
   let eventTitle: string | null = null;
   let lastRelationshipEventWeek = current.lastRelationshipEventWeek ?? 0;
+  let lastWorkFamilyConflictWeek = current.lastWorkFamilyConflictWeek ?? 0;
 
   if (!pendingEvent && !coupleTripActive && annualProgression && gw - lastRelationshipEventWeek >= 6) {
     const milestoneEvent = createFamilyMilestoneEvent(
@@ -1825,6 +2058,27 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       pendingEvent = milestoneEvent;
       eventTitle = milestoneEvent.title;
       lastRelationshipEventWeek = gw;
+    }
+  }
+
+  if (
+    partner &&
+    !pendingEvent &&
+    !coupleTripActive &&
+    annualProgression &&
+    gw - lastWorkFamilyConflictWeek >= 40 &&
+    Math.random() < 0.55
+  ) {
+    const conflict = createWorkFamilyConflictEvent(
+      { ...workingState, relationshipState: { ...workingState.relationshipState, activeConnections: adjustedConnections, children } },
+      currentPartner ?? partner,
+      children,
+    );
+    if (conflict) {
+      pendingEvent = conflict;
+      eventTitle = conflict.title;
+      lastRelationshipEventWeek = gw;
+      lastWorkFamilyConflictWeek = gw;
     }
   }
 
@@ -1900,6 +2154,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       financialObligations,
       timeline,
       lastRelationshipEventWeek,
+      lastWorkFamilyConflictWeek,
       recentRelationshipEventIds,
       financialSnapshot: currentSnapshot,
       sharedGoal: partnerDiedName ? null : sharedGoal,
