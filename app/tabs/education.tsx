@@ -154,12 +154,12 @@ export default function EducationScreen() {
           const accent = levelAccent(currentCourse.level ?? 1);
           const rewardDisabled = simulatedAdPlaying || (adsRemoved && !adFreeEducationReward.available);
           const rewardLabel = adsRemoved
-            ? (adFreeEducationReward.available ? 'Use daily instant completion' : 'Daily boost already used')
+            ? (adFreeEducationReward.available ? 'Claim Daily Instant Completion' : 'Daily Instant Completion Used')
             : simulatedAdReady
-              ? 'Claim instant completion'
+              ? 'Claim Reward • Finish Education'
               : simulatedAdPlaying
-                ? 'Watching ad...'
-                : 'Watch ad for instant completion';
+                ? 'Watching Ad...'
+                : 'Watch Ad • Finish Education';
 
           return (
             <GameCard
@@ -222,13 +222,12 @@ export default function EducationScreen() {
                   </View>
                 </View>
                 <GameButton
-                  compact
-                  variant="secondary"
                   accentColor={Colors.education}
-                  icon={adsRemoved ? 'gift-outline' : simulatedAdReady ? 'checkmark-circle-outline' : 'play-circle-outline'}
+                  icon={adsRemoved ? 'gift-outline' : simulatedAdReady ? 'checkmark-circle-outline' : 'play-circle'}
                   label={rewardLabel}
                   onPress={speedUp}
                   disabled={rewardDisabled}
+                  style={styles.boostAction}
                 />
                 {!!adMessage && <Text style={styles.adMessage}>{adMessage}</Text>}
               </View>
@@ -443,6 +442,7 @@ const styles = StyleSheet.create({
   boostCopy: { flex: 1, minWidth: 0 },
   boostTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   boostText: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 2 },
+  boostAction: { minHeight: 46 },
   adMessage: { color: Colors.textSecondary, textAlign: 'center', marginTop: 6, fontSize: 10, lineHeight: 14 },
   emptyCurrentRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   emptyCurrentIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: `${Colors.education}12`, borderWidth: 1, borderColor: `${Colors.education}33`, alignItems: 'center', justifyContent: 'center' },
