@@ -413,7 +413,6 @@ const styles = StyleSheet.create({
   investmentMeta: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 7 },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9 },
   cardAction: { flexGrow: 1, flexBasis: '46%' },
-  helpText: { color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 12 },
   auctionMetricRow: { flexDirection: 'row', gap: 7, marginTop: 9 },
   auctionMetricPrimary: { flex: 0.8, backgroundColor: `${Colors.business}0D`, borderWidth: 1, borderColor: `${Colors.business}33`, borderRadius: 8, padding: 8 },
   auctionMetricSecondary: { flex: 1.2, minWidth: 0, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, padding: 8 },
