@@ -89,6 +89,9 @@ export default function BusinessCapacityPanel({ compact = false }: { compact?: b
             Two company slots are free. Extra slots are permanent and account-wide across every save.
           </Text>
 
+          <Text style={styles.balanceText}>
+            You have {profile.prestigePoints ?? 0} PP • {profile.gems ?? 0} Gems
+          </Text>
           <View style={styles.costRow}>
             <View style={styles.costItem}>
               <Ionicons name="ribbon-outline" size={15} color={Colors.family} />
@@ -118,7 +121,6 @@ export default function BusinessCapacityPanel({ compact = false }: { compact?: b
 
           <GameButton
             compact
-            variant="secondary"
             accentColor={Colors.info}
             icon={profile.adsRemoved ? 'gift-outline' : 'play-circle-outline'}
             label={
@@ -131,7 +133,11 @@ export default function BusinessCapacityPanel({ compact = false }: { compact?: b
             onPress={unlockWithAd}
             disabled={loadingAd}
           />
-          <Text style={styles.adHelper}>Each completed rewarded ad permanently unlocks +1 slot, up to 10 companies.</Text>
+          <Text style={styles.adHelper}>
+            {profile.adsRemoved
+              ? 'Remove Ads benefit: each claim permanently unlocks +1 company slot, up to 10.'
+              : 'Each completed rewarded ad permanently unlocks +1 company slot, up to 10.'}
+          </Text>
         </>
       )}
 
@@ -159,6 +165,7 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     marginBottom: 10,
   },
+  balanceText: { color: Colors.textMuted, fontSize: 9, textAlign: 'center', marginBottom: 6 },
   costRow: {
     flexDirection: 'row',
     alignItems: 'center',
