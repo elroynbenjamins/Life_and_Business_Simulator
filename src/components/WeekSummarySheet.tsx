@@ -215,6 +215,37 @@ export default function WeekSummarySheet() {
               </View>
             )}
 
+            {(summary?.marketCompanyEvents ?? []).map((event, index) => {
+              const color = event.kind === 'delisted'
+                ? Colors.negative
+                : event.kind === 'matured'
+                  ? Colors.primary
+                  : Colors.info;
+              return (
+                <View
+                  key={`${event.ticker}_${event.kind}_${index}`}
+                  style={[styles.eventBox, { backgroundColor: `${color}12`, borderColor: `${color}44` }]}
+                >
+                  <Text style={styles.eventTitle}>
+                    {event.kind === 'ipo' ? '🚀 New IPO'
+                      : event.kind === 'matured' ? '🏢 Company Matures'
+                        : '📉 Company Delisted'}
+                  </Text>
+                  <Text style={styles.eventDesc}>{event.description}</Text>
+                  {event.kind === 'delisted' && (event.settlementCash ?? 0) > 0 && (
+                    <Text style={[styles.eventEffect, { color: Colors.warning }]}>
+                      Recovery paid: {formatCurrency(event.settlementCash ?? 0)}
+                    </Text>
+                  )}
+                  {event.kind === 'delisted' && (event.realizedProfitLoss ?? 0) !== 0 && (
+                    <Text style={[styles.eventEffect, { color: (event.realizedProfitLoss ?? 0) >= 0 ? Colors.primary : Colors.negative }]}>
+                      Position result: {(event.realizedProfitLoss ?? 0) >= 0 ? '+' : ''}{formatCurrency(event.realizedProfitLoss ?? 0)}
+                    </Text>
+                  )}
+                </View>
+              );
+            })}
+
             {/* D20 Performance Event */}
             {summary?.performanceEventResult && (
               <View style={[styles.eventBox, { backgroundColor: summary.performanceEventResult.success ? `${Colors.primary}22` : `${Colors.negative}22`, borderColor: summary.performanceEventResult.success ? `${Colors.primary}33` : `${Colors.negative}33` }]}>
