@@ -5,7 +5,6 @@ export const REMOVE_ADS_DAILY_GEM_REWARD_LIMIT = 1;
 export const REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT = 20;
 export const REMOVE_ADS_DAILY_SLOT_REWARD_LIMIT = 1;
 export const REMOVE_ADS_DAILY_EDUCATION_REWARD_LIMIT = 1;
-export const BUSINESS_CAPACITY_AD_UNLOCK_DAILY_LIMIT = 1;
 
 export function getLocalDayKey(now = new Date()): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -41,18 +40,5 @@ export function getAdFreeEducationRewardUsage(profile: PlayerProfile, dayKey = g
     remaining,
     limit,
     available: profile.adsRemoved && remaining > 0,
-  };
-}
-
-
-export function getBusinessCapacityAdUnlockUsage(profile: PlayerProfile, dayKey = getLocalDayKey()) {
-  const claimedToday = profile.businessCapacityAdClaimDate === dayKey ? 1 : 0;
-  const limit = BUSINESS_CAPACITY_AD_UNLOCK_DAILY_LIMIT;
-  const remaining = Math.max(0, limit - claimedToday);
-  return {
-    claimedToday,
-    remaining,
-    limit,
-    available: remaining > 0,
   };
 }
