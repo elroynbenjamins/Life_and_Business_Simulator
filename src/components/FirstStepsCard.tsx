@@ -29,6 +29,7 @@ export default function FirstStepsCard() {
 
   const current = journey.current;
   const progress = journey.total > 0 ? journey.completed / journey.total : 0;
+  const compactMode = journey.completed >= 2;
 
   return (
     <GameCard style={styles.card}>
@@ -39,7 +40,7 @@ export default function FirstStepsCard() {
         <View style={styles.headerCopy}>
           <Text style={styles.eyebrow}>FIRST LIFE JOURNEY</Text>
           <Text style={styles.title}>Your First Steps</Text>
-          <Text style={styles.subtitle}>Guidance only — every system remains open to explore in your own order.</Text>
+          {!compactMode && <Text style={styles.subtitle}>Guidance only — every system remains open to explore in your own order.</Text>}
         </View>
         <Text style={styles.counter}>{journey.completed}/{journey.total}</Text>
       </View>
@@ -68,7 +69,7 @@ export default function FirstStepsCard() {
         </View>
       )}
 
-      <View style={styles.steps}>
+      {!compactMode && <View style={styles.steps}>
         {journey.steps.map((step, index) => {
           const active = current?.id === step.id;
           return (
@@ -89,7 +90,7 @@ export default function FirstStepsCard() {
             </View>
           );
         })}
-      </View>
+      </View>}
     </GameCard>
   );
 }
