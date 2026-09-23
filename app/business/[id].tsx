@@ -6,6 +6,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PieChart } from 'react-native-chart-kit';
 import { Colors, resolveThemeColor } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
+import StatusPill from '../../src/components/StatusPill';
 import useGameStore from '../../src/store/gameStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
@@ -29,6 +30,7 @@ import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutive
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
+import { BUSINESS_IDENTITY_DEFINITIONS } from '../../src/engine/businessIdentityEngine';
 import {
   CORPORATE_CAPEX_PROJECTS,
   canStartCorporateCapex,
@@ -148,6 +150,14 @@ const GOVERNANCE_ROLES: Array<{ key: BusinessGovernanceRole; label: string }> = 
 
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
 const INTEGRATION_STRATEGIES: Array<Exclude<AcquisitionIntegrationStrategy, 'pending'>> = ['independent', 'integrate', 'turnaround'];
+
+function businessIdentityColor(color: string): string {
+  if (color === 'premium') return Colors.premium;
+  if (color === 'info') return Colors.info;
+  if (color === 'warning') return Colors.warning;
+  if (color === 'family') return Colors.family;
+  return Colors.primary;
+}
 type BusinessDetailSection = 'overview' | 'ownership' | 'leadership' | 'finance' | 'people' | 'risk' | 'growth' | 'capital';
 
 const BUSINESS_SECTION_CHIPS: Array<{ key: BusinessDetailSection; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
@@ -687,6 +697,36 @@ export default function BusinessDetailScreen() {
           {biz.level < 7 && (
             <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 8 }}>
               Next level requires reputation {BUSINESS_LEVEL_REPUTATION_REQUIREMENTS[biz.level + 1]} and the valuation target. Expansion requirements are shown on each location.
+            </Text>
+          )}
+        </GameCard>
+
+        <GameCard
+          variant={(biz.identityTraits?.length ?? 0) > 0 ? 'standard' : 'subtle'}
+          eyebrow="COMPANY IDENTITY"
+          title={(biz.identityTraits?.length ?? 0) > 0 ? 'What this company has become' : 'Identity still forming'}
+          accentColor={Colors.business}
+        >
+          {(biz.identityTraits?.length ?? 0) > 0 ? (
+            <View style={styles.identityList}>
+              {(biz.identityTraits ?? []).map((trait) => {
+                const definition = BUSINESS_IDENTITY_DEFINITIONS[trait.id];
+                return (
+                  <View key={trait.id} style={styles.identityRow}>
+                    <StatusPill
+                      compact
+                      icon={definition.icon as any}
+                      label={definition.name}
+                      color={businessIdentityColor(definition.color)}
+                    />
+                    <Text style={styles.identityDescription}>{definition.description}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.identityEmpty}>
+              Persistent identity traits emerge naturally from sustained pricing, strategy, employee, financing and family-governance choices. They are not selected manually.
             </Text>
           )}
         </GameCard>
@@ -3662,6 +3702,10 @@ const styles = StyleSheet.create({
   healthScore: { fontSize: 28, fontWeight: '800', marginBottom: 2 },
   strategyPanel: { marginTop: 10, padding: 12, borderRadius: 12, backgroundColor: Colors.elevated },
   strategyText: { color: Colors.textPrimary, fontSize: 13, marginTop: 4 },
+  identityList: { gap: 9 },
+  identityRow: { gap: 5, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  identityDescription: { color: Colors.textSecondary, fontSize: 10, lineHeight: 15 },
+  identityEmpty: { color: Colors.textMuted, fontSize: 11, lineHeight: 16 },
   nextActionCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, padding: 12 },
   nextActionIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   nextActionEyebrow: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.7 },
