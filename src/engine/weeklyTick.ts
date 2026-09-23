@@ -6,6 +6,7 @@ import { syncFamilyTree } from './familyTreeEngine';
 import { processNews } from './newsEngine';
 import { processStocks, rollMarketSentiment, rollMarketEvent, processDividends } from './stockEngine';
 import { processEducation } from './educationEngine';
+import { getStudentWorkTier, rollStudentWorkIncome } from './studentWork';
 import { processJobs } from './jobEngine';
 import { processIncome, processExpenses, processLoans, processTaxes, getNetWorth, getPortfolioValue, isSalaryReduced } from './financeEngine';
 import { calculateHappiness } from './happinessEngine';
@@ -36,7 +37,8 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     newAge += 1;
   }
   const globalWeek = ((newYear - 1) * 20) + newWeek;
-  const partTimeActive = !!state?.partTimeJob && !state?.currentJobId && !state?.career?.companyId;
+  const studentWorkTier = getStudentWorkTier(state);
+  const partTimeActive = !!studentWorkTier && !state?.currentJobId && !state?.career?.companyId;
 
   // ---------- Step 2: Economy (Inflation) ----------
   const economy = processEconomy(state, newWeek);
@@ -81,7 +83,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const dividendIncome = Math.round(baseDividendIncome * (1 + (prestigeEffects.dividend_boost ?? 0)));
 
   // ---------- Step 5: Education ----------
-  const edu = processEducation(stateWithInflation, newWeek, partTimeActive);
+  const edu = processEducation(stateWithInflation, newWeek, partTimeActive ? studentWorkTier : null);
 
   // ---------- Step 5.5: Apply Education Rewards ----------
   let updatedSkills = { ...(state?.skills ?? {}) };
@@ -139,7 +141,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const taxes = processTaxes({ ...stateWithInflation, career: careerTick.updatedCareer }, salary, globalWeek);
 
   // ---------- Step 11.5: Part-Time Income ----------
-  const partTimeIncome = partTimeActive ? Math.floor(275 + Math.random() * 151) : 0;
+  const partTimeIncome = partTimeActive ? rollStudentWorkIncome(studentWorkTier) : 0;
 
   // ---------- Step 11.6: Mature fixed-term bank deposits ----------
   let bankDepositMaturityIncome = 0;
