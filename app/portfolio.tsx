@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
-import GameStatusBar from '../src/components/StatusBar';
+import ScreenHeader from '../src/components/ScreenHeader';
 import GameCard from '../src/components/GameCard';
+import StatusPill from '../src/components/StatusPill';
+import GameButton from '../src/components/GameButton';
 import SectorPill from '../src/components/SectorPill';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency, formatPercent } from '../src/utils/format';
@@ -35,32 +37,52 @@ export default function PortfolioScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>My Portfolio</Text>
-      </View>
-      <GameStatusBar />
+      <ScreenHeader
+        title="My Portfolio"
+        subtitle="Investments, positions and performance"
+        showBack
+        onBack={() => router.back()}
+        accentColor={Colors.info}
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <GameCard>
-          <Text style={styles.label}>Total Portfolio Value</Text>
+        <GameCard
+          variant="hero"
+          eyebrow="INVESTMENT PORTFOLIO"
+          title="Current value"
+          accentColor={totalGainLoss >= 0 ? Colors.primary : Colors.negative}
+          titleAccessory={(
+            <StatusPill
+              compact
+              icon={totalGainLoss >= 0 ? 'trending-up-outline' : 'trending-down-outline'}
+              label={formatPercent(totalGainPercent)}
+              color={totalGainLoss >= 0 ? Colors.primary : Colors.negative}
+            />
+          )}
+        >
           <Text style={styles.bigValue}>{formatCurrency(portfolioValue)}</Text>
           <Text style={[styles.gainText, { color: totalGainLoss >= 0 ? Colors.primary : Colors.negative }]}>
-            {totalGainLoss >= 0 ? '+' : ''}{formatCurrency(totalGainLoss)} ({formatPercent(totalGainPercent)})
+            {totalGainLoss >= 0 ? '+' : ''}{formatCurrency(totalGainLoss)} total unrealized P/L
           </Text>
-          <View style={styles.divider} />
-          <View style={styles.row}>
-            <Text style={styles.label}>Cash</Text>
-            <Text style={styles.val}>{formatCurrency(cash)}</Text>
+          <View style={styles.portfolioMetrics}>
+            <View style={styles.portfolioMetric}>
+              <Text style={styles.metricLabel}>Cash</Text>
+              <Text style={styles.metricValue}>{formatCurrency(cash)}</Text>
+            </View>
+            <View style={styles.portfolioMetric}>
+              <Text style={styles.metricLabel}>Positions</Text>
+              <Text style={styles.metricValue}>{ownedHoldings.length}</Text>
+            </View>
           </View>
         </GameCard>
 
         {ownedHoldings.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="bar-chart-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>No investments yet. Visit Markets to start investing.</Text>
-          </View>
+          <GameCard variant="subtle">
+            <View style={styles.empty}>
+              <Ionicons name="bar-chart-outline" size={42} color={Colors.textMuted} />
+              <Text style={styles.emptyText}>No investments yet. Visit Markets to start investing.</Text>
+              <GameButton compact accentColor={Colors.info} label="Open Markets" icon="trending-up-outline" onPress={() => router.push('/tabs/market')} />
+            </View>
+          </GameCard>
         ) : null}
 
         {ownedHoldings.map((h) => {
@@ -110,14 +132,15 @@ export default function PortfolioScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   label: { color: Colors.textSecondary, fontSize: 13 },
   bigValue: { color: Colors.textPrimary, fontSize: 28, fontWeight: '700', marginTop: 4 },
   gainText: { fontSize: 15, fontWeight: '600', marginTop: 4 },
-  divider: { height: 1, backgroundColor: Colors.cardBorder, marginVertical: 12 },
+  portfolioMetrics: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  portfolioMetric: { flex: 1, backgroundColor: Colors.elevated, borderRadius: 9, borderWidth: 1, borderColor: Colors.cardBorder, padding: 9 },
+  metricLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
+  metricValue: { color: Colors.textPrimary, fontSize: 13, fontWeight: '800', marginTop: 3 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   val: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   right: { alignItems: 'flex-end' },
@@ -128,6 +151,6 @@ const styles = StyleSheet.create({
   meta: { color: Colors.textMuted, fontSize: 12, marginTop: 8 },
   sellBtn: { borderWidth: 1, borderColor: Colors.negative, borderRadius: 8, paddingVertical: 8, alignItems: 'center', marginTop: 8 },
   sellBtnText: { color: Colors.negative, fontSize: 13, fontWeight: '600' },
-  empty: { alignItems: 'center', paddingVertical: 48 },
+  empty: { alignItems: 'center', paddingVertical: 20, gap: 12 },
   emptyText: { color: Colors.textMuted, fontSize: 15, textAlign: 'center', marginTop: 16, maxWidth: 250 },
 });
