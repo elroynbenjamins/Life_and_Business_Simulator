@@ -57,6 +57,9 @@ export default function StockDetailScreen() {
   const isCrypto = sd?.type === 'crypto';
   const isEmergingCompany = assetMeta.marketRole === 'emerging';
   const isDelisted = stock.marketStatus === 'delisted';
+  const acquiredBy = stock.acquiredByTicker
+    ? (stocksData as any[]).find((item) => item.ticker === stock.acquiredByTicker)
+    : null;
   const marketStage = stock.companyStage ?? (isEmergingCompany ? 'emerging' : 'established');
   const unitLabel = isCrypto ? 'coins' : 'shares';
   const singularUnit = isCrypto ? 'coin' : 'share';
@@ -141,10 +144,20 @@ export default function StockDetailScreen() {
           >
             <Text style={styles.lifecycleText}>
               {isDelisted
-                ? 'This company failed during its early public years. Trading is closed and any player position was settled automatically at the recovery value.'
+                ? stock.delistingReason === 'acquisition'
+                  ? `This company was acquired by ${acquiredBy?.company ?? stock.acquiredByTicker ?? 'another public company'}. Trading is closed and shareholders were automatically paid the takeover price.`
+                  : 'This company failed during its early public years. Trading is closed and any player position was settled automatically at the recovery value.'
                 : marketStage === 'mature'
                   ? 'This former emerging company survived its risky early years. It now trades with a more established risk profile.'
                   : 'Young public companies can outperform quickly, stagnate, or fail and delist. Their early price swings are intentionally wider than established stocks.'}
+            </Text>
+          </GameCard>
+        )}
+
+        {stock.activeCompanyEvent && !isDelisted && (
+          <GameCard variant="subtle" eyebrow="ACTIVE COMPANY STORY" title={stock.activeCompanyEvent.title} accentColor={Colors.info}>
+            <Text style={styles.lifecycleText}>
+              This company-specific event is still influencing the stock for {stock.activeCompanyEvent.weeksRemaining} more week{stock.activeCompanyEvent.weeksRemaining === 1 ? '' : 's'}.
             </Text>
           </GameCard>
         )}
