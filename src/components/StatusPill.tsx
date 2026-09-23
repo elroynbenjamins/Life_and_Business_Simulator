@@ -38,6 +38,7 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     borderWidth: 1,
     alignSelf: 'flex-start',
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -50,6 +51,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 11,
     fontWeight: '700',
+    flexShrink: 1,
   },
   compactText: {
     fontSize: 10,
