@@ -176,6 +176,12 @@ function formatReturn(value: number | null): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 }
 
+function compactMetadataLabel(value: string, maxLength = 18): string {
+  const clean = value.trim();
+  if (clean.length <= maxLength) return clean;
+  return `${clean.slice(0, Math.max(1, maxLength - 1))}…`;
+}
+
 export default function BusinessPortfolioScreen() {
   const router = useRouter();
   const pathname = usePathname();
@@ -404,7 +410,7 @@ export default function BusinessPortfolioScreen() {
                           <StatusPill
                             compact
                             icon="layers-outline"
-                            label={holdingCompanies.find((holding) => holding.id === biz.holdingCompanyId)?.name ?? 'Holding'}
+                            label={compactMetadataLabel(holdingCompanies.find((holding) => holding.id === biz.holdingCompanyId)?.name ?? 'Holding')}
                             color={Colors.info}
                           />
                         )}
