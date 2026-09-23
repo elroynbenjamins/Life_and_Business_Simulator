@@ -414,7 +414,8 @@ export function createWorkFamilyConflictEvent(
   partner: RelationshipConnection,
   children: RelationshipChild[],
 ): RelationshipEvent | null {
-  const hasCareer = !!(state.career?.companyId || state.currentJobId);
+  const hasCareerV2 = !!state.career?.companyId;
+  const hasCareer = hasCareerV2 || !!state.currentJobId;
   const targetBusiness = [...(state.businesses ?? [])].sort((a, b) => (b.valuation ?? 0) - (a.valuation ?? 0))[0] ?? null;
   if (!hasCareer && !targetBusiness) return null;
 
@@ -453,7 +454,7 @@ export function createWorkFamilyConflictEvent(
         relationship: familyGain,
         childId: child?.id,
         childRelationship: child ? 7 : undefined,
-        careerPerformanceDelta: hasCareer ? -7 : undefined,
+        careerPerformanceDelta: hasCareerV2 ? -7 : undefined,
         businessId: targetBusiness?.id,
         businessReputationDelta: targetBusiness ? -1 : undefined,
         businessMoraleDelta: targetBusiness ? -1 : undefined,
@@ -467,7 +468,7 @@ export function createWorkFamilyConflictEvent(
         relationship: 3,
         childId: child?.id,
         childRelationship: child ? 3 : undefined,
-        careerPerformanceDelta: hasCareer ? -2 : undefined,
+        careerPerformanceDelta: hasCareerV2 ? -2 : undefined,
         memoryTag: 'balanced_work_family',
         memoryLabel: 'Tried to balance work and family',
         memorySentiment: 'mixed',
@@ -478,7 +479,7 @@ export function createWorkFamilyConflictEvent(
         relationship: workPenalty,
         childId: child?.id,
         childRelationship: child ? -5 - Math.min(3, careerFirstCount) : undefined,
-        careerPerformanceDelta: hasCareer ? 5 : undefined,
+        careerPerformanceDelta: hasCareerV2 ? 5 : undefined,
         businessId: targetBusiness?.id,
         businessReputationDelta: targetBusiness ? 2 : undefined,
         businessMoraleDelta: targetBusiness ? 1 : undefined,
@@ -2069,7 +2070,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   let lastRelationshipEventWeek = current.lastRelationshipEventWeek ?? 0;
   let lastWorkFamilyConflictWeek = current.lastWorkFamilyConflictWeek ?? 0;
 
-  if (!pendingEvent && !coupleTripActive && annualProgression && gw - lastRelationshipEventWeek >= 6) {
+  if (!pendingEvent && !coupleTripActive && gw - lastRelationshipEventWeek >= 6) {
     const milestoneEvent = createFamilyMilestoneEvent(
       { ...workingState, relationshipState: { ...workingState.relationshipState, activeConnections: adjustedConnections, children } },
       currentPartner,
