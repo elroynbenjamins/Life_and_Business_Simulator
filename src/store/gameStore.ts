@@ -1802,7 +1802,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         partnerId: partner.id,
         sourceEventId: 'wedding',
       },
-    ].slice(-24);
+    ].slice(-120);
     const relationshipState = {
       ...state.relationshipState,
       activeConnections: connections,
