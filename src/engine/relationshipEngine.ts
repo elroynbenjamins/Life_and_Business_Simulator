@@ -1039,6 +1039,60 @@ function createRelationshipEvent(
     }
   }
 
+  const tripCooldown = state.relationshipState?.lastCoupleTripWeek ?? 0;
+  const tripActive = (state.relationshipState?.coupleTripWeeksRemaining ?? 0) > 0;
+  const hasVeryYoungChild = dependentChildren.some((child) => getChildAge(child, globalWeek(state)) < 6);
+  const sharedLife = partner.stage === 'married' || partner.stage === 'living_together' || !!partner.isCohabiting;
+  if (
+    sharedLife &&
+    partner.relationship >= 75 &&
+    !tripActive &&
+    !hasVeryYoungChild &&
+    (tripCooldown === 0 || globalWeek(state) - tripCooldown >= 100)
+  ) {
+    const shortCost = Math.round(12000 * inflation);
+    const longCost = Math.round(30000 * inflation);
+    const shortGain = Math.max(4, Math.min(14,
+      8
+      + (partner.financialStyle === 'luxury' ? 2 : partner.financialStyle === 'frugal' ? -1 : 0)
+      + (partner.riskTolerance === 'risk_taking' ? 2 : 0)
+      + (partner.ambition === 'driven' ? 1 : 0)
+    ));
+    const longGain = Math.max(3, Math.min(16,
+      10
+      + (partner.financialStyle === 'luxury' ? 3 : partner.financialStyle === 'frugal' ? -2 : 0)
+      + (partner.riskTolerance === 'risk_taking' ? 3 : partner.riskTolerance === 'cautious' ? -1 : 0)
+      + (partner.ambition === 'relaxed' ? 2 : partner.ambition === 'driven' ? -3 : 0)
+    ));
+    const deferDelta = partner.financialStyle === 'frugal' || partner.riskTolerance === 'cautious' || partner.ambition === 'driven' ? 1 : -2;
+
+    eligible.push({
+      id: 'couple_world_trip',
+      icon: '🌍',
+      title: 'A World Trip Together',
+      description: `${partner.name} brings up taking real time away together. Travel is paid up front, and both of you pause salary income while you are away; investments, property and businesses continue normally.`,
+      choices: [
+        {
+          text: `Take a 2-week world trip (€${shortCost.toLocaleString()}) — no salary for 2 weeks`,
+          cost: shortCost,
+          relationship: shortGain,
+          happiness: 12,
+          happinessDuration: 6,
+          travelWeeks: 2,
+        },
+        {
+          text: `Take a 4-week world tour (€${longCost.toLocaleString()}) — no salary for 4 weeks`,
+          cost: longCost,
+          relationship: longGain,
+          happiness: 18,
+          happinessDuration: 8,
+          travelWeeks: 4,
+        },
+        { text: 'Plan something smaller another time', relationship: deferDelta },
+      ],
+    });
+  }
+
   if (eligible.length === 0 && Math.random() < 0.10) {
     eligible.push({
       id: 'future_plans',
@@ -1515,6 +1569,8 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   }
 
   const annualProgression = state.week === 1;
+  const coupleTripActive = (current.coupleTripWeeksRemaining ?? 0) > 0;
+  let coupleTripWeeksRemaining = Math.max(0, (current.coupleTripWeeksRemaining ?? 0) - 1);
   let partnerCareerEvent: string | null = null;
   let activeConnections = (current.activeConnections ?? []).map((connection) => {
     let updated: RelationshipConnection = normalizePartnerCareerConnection({
@@ -1612,7 +1668,10 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     timeline.push({ week: state.week, year: state.year, title: milestone });
   }
 
-  if (partnerDiedName) familyExpansionWeeksRemaining = 0;
+  if (partnerDiedName) {
+    familyExpansionWeeksRemaining = 0;
+    coupleTripWeeksRemaining = 0;
+  }
 
   if (familyExpansionWeeksRemaining > 0) {
     familyExpansionWeeksRemaining -= 1;
@@ -1654,6 +1713,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       familyExpansionWeeksRemaining: partnerDiedName ? 0 : familyExpansionWeeksRemaining,
       familySpendingMode: partnerDiedName ? 'normal' : familySpendingMode,
       familySpendingWeeksRemaining: partnerDiedName ? 0 : familySpendingWeeksRemaining,
+      coupleTripWeeksRemaining: partnerDiedName ? 0 : coupleTripWeeksRemaining,
       pendingEvent: partnerDiedName ? null : current.pendingEvent,
       sharedGoal: partnerDiedName ? null : current.sharedGoal,
     },
@@ -1661,19 +1721,26 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
 
   const partner = activePartnerId ? activeConnections.find((c) => c.id === activePartnerId) ?? null : null;
   const finances = calculatePartnerContribution(partner, workingState);
+  const partnerContribution = coupleTripActive ? 0 : finances.contribution;
 
   // Partners keep their own money. Their unspent income grows personal savings
   // according to financial style, which can later support shared major expenses.
   const savingsConnections = activeConnections.map((connection) => {
     if (connection.id !== activePartnerId) return connection;
     const rate = connection.financialStyle === 'frugal' ? 0.20 : connection.financialStyle === 'luxury' ? 0.04 : 0.10;
-    const effectiveIncome = getEffectivePartnerWeeklyIncome(connection, workingState);
-    const disposable = Math.max(0, effectiveIncome - finances.contribution);
+    const effectiveIncome = coupleTripActive ? 0 : getEffectivePartnerWeeklyIncome(connection, workingState);
+    const disposable = Math.max(0, effectiveIncome - partnerContribution);
     return { ...connection, savings: Math.round((connection.savings ?? 0) + disposable * rate) };
   });
 
   let relationshipChange = 0;
-  let headline: string | null = partnerDiedName ? `${partnerDiedName} passed away.` : childBornName ? `${childBornName} joined your family.` : null;
+  let headline: string | null = partnerDiedName
+    ? `${partnerDiedName} passed away.`
+    : childBornName
+      ? `${childBornName} joined your family.`
+      : coupleTripActive && partner
+        ? `You and ${partner.name} are traveling together. Salary income is paused this week.`
+        : null;
   let adjustedConnections = savingsConnections;
   if (partner && gw - (current.personalActionWeek ?? 0) >= 8) {
     relationshipChange = -2;
@@ -1721,7 +1788,20 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   let eventTitle: string | null = null;
   let lastRelationshipEventWeek = current.lastRelationshipEventWeek ?? 0;
 
-  if (!pendingEvent && annualProgression && gw - lastRelationshipEventWeek >= 6) {
+  if (!pendingEvent && !coupleTripActive && annualProgression && gw - lastRelationshipEventWeek >= 6) {
+    const milestoneEvent = createFamilyMilestoneEvent(
+      { ...workingState, relationshipState: { ...workingState.relationshipState, activeConnections: adjustedConnections, children } },
+      currentPartner,
+      children,
+    );
+    if (milestoneEvent) {
+      pendingEvent = milestoneEvent;
+      eventTitle = milestoneEvent.title;
+      lastRelationshipEventWeek = gw;
+    }
+  }
+
+  if (!pendingEvent && !coupleTripActive && annualProgression && gw - lastRelationshipEventWeek >= 6) {
     const independentChildren = children.filter((child) => child.status === 'independent');
     if (independentChildren.length > 0 && Math.random() < 0.16) {
       const struggling = independentChildren.filter((child) => child.adultStatus === 'unemployed' || (child.debt ?? 0) > (child.savings ?? 0));
@@ -1749,6 +1829,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
   if (
     partner &&
     !pendingEvent &&
+    !coupleTripActive &&
     gw - lastRelationshipEventWeek >= 6
   ) {
     const eventPartner = adjustedConnections.find((c) => c.id === partner.id) ?? partner;
@@ -1803,9 +1884,10 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
       familyExpansionWeeksRemaining: partnerDiedName ? 0 : familyExpansionWeeksRemaining,
       familySpendingMode: partnerDiedName ? 'normal' : familySpendingMode,
       familySpendingWeeksRemaining: partnerDiedName ? 0 : familySpendingWeeksRemaining,
+      coupleTripWeeksRemaining: partnerDiedName ? 0 : coupleTripWeeksRemaining,
       pendingEvent: partnerDiedName ? null : pendingEvent,
     },
-    partnerContribution: finances.contribution,
+    partnerContribution,
     householdExtraCost: finances.householdExtraCost,
     familyCost: finances.familyCost,
     obligationCost,
