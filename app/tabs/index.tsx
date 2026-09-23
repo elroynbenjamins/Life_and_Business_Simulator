@@ -15,6 +15,7 @@ import { getCareerSalary } from '../../src/engine/careerEngine';
 import { calculatePartnerContribution } from '../../src/engine/relationshipEngine';
 import coursesData from '../../src/data/courses.json';
 import FirstStepsCard from '../../src/components/FirstStepsCard';
+import { averageStudentWorkIncome, getStudentStudyDuration, getStudentWorkOption, getStudentWorkTier } from '../../src/engine/studentWork';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -45,13 +46,16 @@ export default function DashboardScreen() {
     relationshipModeEnabled: s.relationshipModeEnabled,
     relationshipState: s.relationshipState,
     partTimeJob: s.partTimeJob,
+    studentWorkTier: s.studentWorkTier,
   }))) as ReturnType<typeof useGameStore.getState>;
   const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
   const relationshipState = useGameStore((s) => s?.relationshipState);
   const lifecycle = useGameStore((s) => s?.lifecycle);
   const partner = (relationshipState?.activeConnections ?? []).find((item) => item.id === relationshipState?.partnerId) ?? null;
 
-  const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
+  const partTimeJob = useGameStore((s) => s?.partTimeJob ?? false);
+  const studentWorkTier = useGameStore((s) => s?.studentWorkTier ?? null);
+  const studentWork = getStudentWorkOption(getStudentWorkTier({ partTimeJob, studentWorkTier }));
   const course = (coursesData ?? []).find((c) => c?.id === currentCourseId);
   const portfolioValue = getPortfolioValueTotal?.() ?? 0;
   const hasHoldings = (holdings?.length ?? 0) > 0;
@@ -77,8 +81,8 @@ export default function DashboardScreen() {
       })()
     : (currentJobId
         ? require('../../src/data/jobs.json')?.find((j: any) => j?.id === currentJobId)?.title
-        : (partTimeJob ? 'Part-Time' : null));
-  const displayIncome = isEmployed ? weeklyIncome : (partTimeJob ? 350 : 0);
+        : (partTimeJob ? (studentWork?.shortName ?? 'Part-Time') : null));
+  const displayIncome = isEmployed ? weeklyIncome : (partTimeJob ? averageStudentWorkIncome(studentWork?.id ?? null) : 0);
   const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
   const weeksUntilTax = 20 - (globalWeek % 20);
 
@@ -153,13 +157,13 @@ export default function DashboardScreen() {
         {/* Course Progress */}
         {course ? (() => {
           const baseDur = course?.duration ?? 1;
-          const adjustedDur = partTimeJob ? Math.ceil(baseDur * 1.25) : baseDur;
+          const adjustedDur = getStudentStudyDuration(baseDur, studentWork?.id ?? null);
           return (
             <GameCard title="Course Progress" onPress={() => router.push('/tabs/education')}>
               <Text style={styles.courseTitle}>{course?.name}</Text>
               <ProgressBar progress={courseWeeksCompleted / adjustedDur} />
               <Text style={styles.courseCaption}>
-                Week {courseWeeksCompleted}/{adjustedDur}{partTimeJob ? ' (slower — part-time)' : ''}
+                Week {courseWeeksCompleted}/{adjustedDur}{studentWork ? ` (${studentWork.shortName} · +${Math.round((studentWork.studyDurationMultiplier - 1) * 100)}%)` : ''}
               </Text>
             </GameCard>
           );
