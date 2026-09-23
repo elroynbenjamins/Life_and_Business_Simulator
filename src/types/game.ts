@@ -249,6 +249,8 @@ export interface RelationshipEventChoice {
   childId?: string;
   childSavings?: number;
   childRelationship?: number;
+  /** Starts unpaid couple travel for this many weekly ticks. */
+  travelWeeks?: number;
 }
 
 export interface RelationshipEvent {
@@ -257,6 +259,8 @@ export interface RelationshipEvent {
   description: string;
   icon: string;
   choices: RelationshipEventChoice[];
+  /** Persistent one-time milestone marker. */
+  milestoneKey?: string;
 }
 
 export interface RelationshipState {
@@ -288,6 +292,9 @@ export interface RelationshipState {
   lastFamilyAttemptWeek: number;
   lastRelationshipEventWeek: number;
   recentRelationshipEventIds: string[];
+  celebratedMilestones?: string[];
+  coupleTripWeeksRemaining?: number;
+  lastCoupleTripWeek?: number;
   pendingEvent: RelationshipEvent | null;
   financialSnapshot: RelationshipFinancialSnapshot | null;
   sharedGoal: RelationshipSharedGoal | null;
@@ -322,6 +329,9 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   lastFamilyAttemptWeek: 0,
   lastRelationshipEventWeek: 0,
   recentRelationshipEventIds: [],
+  celebratedMilestones: [],
+  coupleTripWeeksRemaining: 0,
+  lastCoupleTripWeek: 0,
   pendingEvent: null,
   financialSnapshot: null,
   sharedGoal: null,
