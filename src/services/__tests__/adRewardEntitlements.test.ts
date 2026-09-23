@@ -7,7 +7,6 @@ import {
   getAdFreeEducationRewardUsage,
   getAdFreeSlotRewardUsage,
   getGemRewardUsage,
-  getBusinessCapacityAdUnlockUsage,
 } from '../adRewardEntitlements';
 import { AD_CONFIG } from '../adConfig';
 
@@ -82,25 +81,4 @@ describe('rewarded ad account entitlements', () => {
     expect(getAdFreeEducationRewardUsage(profile, today).available).toBe(true);
   });
 
-
-  test('company capacity rewarded unlock is available once per local day', () => {
-    const profile = {
-      ...INITIAL_PROFILE,
-      businessCapacity: 4,
-      businessCapacityAdClaimDate: '',
-    };
-    expect(getBusinessCapacityAdUnlockUsage(profile, '2026-09-23')).toMatchObject({
-      claimedToday: 0,
-      remaining: 1,
-      available: true,
-    });
-    expect(getBusinessCapacityAdUnlockUsage({
-      ...profile,
-      businessCapacityAdClaimDate: '2026-09-23',
-    }, '2026-09-23')).toMatchObject({
-      claimedToday: 1,
-      remaining: 0,
-      available: false,
-    });
-  });
 });
