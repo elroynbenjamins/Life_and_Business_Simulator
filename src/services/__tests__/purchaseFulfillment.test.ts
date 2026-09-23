@@ -13,9 +13,17 @@ describe('purchase fulfillment', () => {
     expect(replay.profile.gems).toBe(100);
   });
 
-  test('grants the permanent remove-ads entitlement', () => {
-    const result = fulfillPurchase(INITIAL_PROFILE, 'remove_ads', 'transaction-2');
+  test('grants the permanent remove-ads entitlement without resetting account reward usage', () => {
+    const profile = {
+      ...INITIAL_PROFILE,
+      rewardedGemClaimDate: '2026-09-23',
+      rewardedGemClaimsToday: 1,
+      adFreeSlotRewardClaimDate: '2026-09-22',
+    };
+    const result = fulfillPurchase(profile, 'remove_ads', 'transaction-2');
     expect(result.profile.adsRemoved).toBe(true);
+    expect(result.profile.rewardedGemClaimsToday).toBe(1);
+    expect(result.profile.rewardedGemClaimDate).toBe('2026-09-23');
     expect(result.isConsumable).toBe(false);
   });
 
