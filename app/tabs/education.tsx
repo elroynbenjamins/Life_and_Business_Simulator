@@ -342,6 +342,7 @@ export default function EducationScreen() {
                 const canAfford = cost <= cash;
                 const canEnroll = !currentCourseId && !isDone && hasPrereq && hasExp && canAfford;
                 const accent = levelAccent(course.level);
+                const displayDuration = getStudentStudyDuration(course.duration ?? 1, studentWork?.id ?? null);
                 const requiredWeeks = course.level === 2 ? 75 : course.level >= 3 ? 150 : 0;
                 const missingExperience = Math.max(0, requiredWeeks - weeksEmployed);
                 const missingCash = Math.max(0, cost - cash);
@@ -372,7 +373,7 @@ export default function EducationScreen() {
                           <StatusPill compact label={levelLabel(course.level)} color={accent} />
                         </View>
                         <View style={styles.courseMetaRow}>
-                          <Text style={styles.courseMeta}>{course.duration}w</Text>
+                          <Text style={styles.courseMeta}>{displayDuration}w{studentWork ? ' with work' : ''}</Text>
                           <Text style={styles.metaDot}>•</Text>
                           <Text style={styles.courseMeta}>{cost > 0 ? formatCurrency(cost) : 'Free'}</Text>
                           {course.weeklyCost > 0 && (
