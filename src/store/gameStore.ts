@@ -2769,7 +2769,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             childId: choice.childId ?? null,
             sourceEventId: event.id,
           },
-        ].slice(-24)
+        ]
       : (state.relationshipState.memories ?? []);
     const relationshipState = {
       ...state.relationshipState,
