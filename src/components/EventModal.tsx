@@ -3,6 +3,9 @@ import { View, Text, StyleSheet, Modal, Pressable, ScrollView } from 'react-nati
 import { Colors } from '../theme/colors';
 import { formatCurrency } from '../utils/format';
 import useGameStore from '../store/gameStore';
+import ConsequenceChip from './ConsequenceChip';
+import StatusPill from './StatusPill';
+import GameButton from './GameButton';
 
 const CATEGORY_COLORS: Record<string, string> = {
   career: '#3B82F6',
@@ -43,17 +46,13 @@ export default function EventModal() {
           <View style={[styles.iconCircle, { backgroundColor: `${catColor}22` }]}>
             <Text style={styles.icon}>{event.icon}</Text>
           </View>
-          <View style={[styles.categoryPill, { backgroundColor: `${catColor}22` }]}>
-            <Text style={[styles.categoryText, { color: catColor }]}>
-              {event.category.toUpperCase()}
-            </Text>
-          </View>
+          <StatusPill compact label={event.category.toUpperCase()} color={catColor} />
           <Text style={styles.title}>{event.title}</Text>
           <Text style={styles.description}>{event.description}</Text>
 
           {isOpportunity && (
             <View style={styles.opportunityBadge}>
-              <Text style={styles.opportunityText}>📈 Investment Opportunity</Text>
+              <Text style={styles.opportunityText}>Investment Opportunity</Text>
             </View>
           )}
 
@@ -74,33 +73,31 @@ export default function EventModal() {
                 >
                   <Text style={styles.choiceText}>{choice.text}</Text>
                   <View style={styles.choiceEffects}>
-                    {cost > 0 && (
-                      <Text style={[styles.effectTag, { color: Colors.negative }]}>
-                        -{formatCurrency(cost)}
-                      </Text>
-                    )}
-                    {cashGain > 0 && (
-                      <Text style={[styles.effectTag, { color: Colors.primary }]}>
-                        +{formatCurrency(cashGain)}
-                      </Text>
-                    )}
+                    {cost > 0 && <ConsequenceChip icon="cash-outline" label={`-${formatCurrency(cost)}`} tone="negative" />}
+                    {cashGain > 0 && <ConsequenceChip icon="cash-outline" label={`+${formatCurrency(cashGain)}`} tone="positive" />}
                     {(choice.businessCash ?? 0) !== 0 && (
-                      <Text style={[styles.effectTag, { color: (choice.businessCash ?? 0) > 0 ? Colors.primary : Colors.negative }]}>
-                        Business {choice.businessCash! > 0 ? '+' : '-'}{formatCurrency(Math.abs(choice.businessCash!))}
-                      </Text>
+                      <ConsequenceChip
+                        icon="business-outline"
+                        label={`Business ${choice.businessCash! > 0 ? '+' : '-'}${formatCurrency(Math.abs(choice.businessCash!))}`}
+                        tone={choice.businessCash! > 0 ? 'positive' : 'negative'}
+                      />
                     )}
-                    {(choice.reputation ?? 0) !== 0 && <Text style={[styles.effectTag, { color: choice.reputation! > 0 ? Colors.primary : Colors.negative }]}>Reputation {choice.reputation! > 0 ? '+' : ''}{choice.reputation}</Text>}
-                    {(choice.marketShare ?? 0) !== 0 && <Text style={[styles.effectTag, { color: choice.marketShare! > 0 ? Colors.primary : Colors.negative }]}>Share {choice.marketShare! > 0 ? '+' : ''}{choice.marketShare}%</Text>}
-                    {choice.investmentId && (
-                      <Text style={[styles.effectTag, { color: '#EC4899' }]}>
-                        📈 Investment
-                      </Text>
+                    {(choice.reputation ?? 0) !== 0 && (
+                      <ConsequenceChip
+                        icon="star-outline"
+                        label={`Reputation ${choice.reputation! > 0 ? '+' : ''}${choice.reputation}`}
+                        tone={choice.reputation! > 0 ? 'positive' : 'negative'}
+                      />
                     )}
-                    {!canAfford && (
-                      <Text style={[styles.effectTag, { color: Colors.textMuted }]}>
-                        Can't afford
-                      </Text>
+                    {(choice.marketShare ?? 0) !== 0 && (
+                      <ConsequenceChip
+                        icon="pie-chart-outline"
+                        label={`Share ${choice.marketShare! > 0 ? '+' : ''}${choice.marketShare}%`}
+                        tone={choice.marketShare! > 0 ? 'positive' : 'negative'}
+                      />
                     )}
+                    {choice.investmentId && <ConsequenceChip icon="trending-up-outline" label="Investment" tone="info" />}
+                    {!canAfford && <ConsequenceChip icon="lock-closed-outline" label="Can't afford" tone="neutral" />}
                   </View>
                 </Pressable>
               );
@@ -108,12 +105,18 @@ export default function EventModal() {
           </ScrollView>
           {business && <>
             {fundingNeeded > 0 && Number.isFinite(fundingNeeded) && (
-              <Pressable style={styles.choiceBtn} disabled={cash < fundingNeeded} onPress={() => inject(business.id, fundingNeeded)}>
-                <Text style={styles.choiceText}>Inject {formatCurrency(fundingNeeded)} personal cash</Text>
-                {cash < fundingNeeded && <Text style={styles.description}>Not enough personal cash</Text>}
-              </Pressable>
+              <GameButton
+                compact
+                variant="secondary"
+                accentColor={Colors.business}
+                icon="wallet-outline"
+                label={cash < fundingNeeded ? `Need ${formatCurrency(fundingNeeded)} personal cash` : `Inject ${formatCurrency(fundingNeeded)} personal cash`}
+                onPress={() => inject(business.id, fundingNeeded)}
+                disabled={cash < fundingNeeded}
+                style={styles.modalAction}
+              />
             )}
-            <Pressable style={styles.choiceBtn} onPress={dismissEventModal}><Text style={styles.choiceText}>Skip this opportunity</Text></Pressable>
+            <GameButton compact variant="ghost" label="Skip this opportunity" onPress={dismissEventModal} style={styles.modalAction} />
           </>}
         </View>
       </View>
@@ -126,16 +129,14 @@ const styles = StyleSheet.create({
   card: { backgroundColor: Colors.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, alignItems: 'center' },
   iconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   icon: { fontSize: 32 },
-  categoryPill: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 12 },
-  categoryText: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  title: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
+  title: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800', textAlign: 'center', marginTop: 10, marginBottom: 8 },
   description: { color: Colors.textSecondary, fontSize: 15, textAlign: 'center', marginBottom: 16, lineHeight: 22 },
-  opportunityBadge: { backgroundColor: '#EC489922', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 16 },
-  opportunityText: { color: '#EC4899', fontSize: 12, fontWeight: '600' },
+  opportunityBadge: { backgroundColor: `${Colors.family}18`, borderWidth: 1, borderColor: `${Colors.family}33`, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 16 },
+  opportunityText: { color: Colors.family, fontSize: 12, fontWeight: '600' },
   choicesScroll: { width: '100%', maxHeight: 250 },
   choiceBtn: { backgroundColor: Colors.elevated, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: Colors.cardBorder },
   disabledChoice: { opacity: 0.4 },
   choiceText: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 4 },
-  choiceEffects: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  effectTag: { fontSize: 12, fontWeight: '600' },
+  choiceEffects: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 },
+  modalAction: { width: '100%', marginTop: 6 },
 });
