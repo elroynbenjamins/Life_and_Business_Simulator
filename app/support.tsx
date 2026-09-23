@@ -319,7 +319,7 @@ export default function SupportScreen() {
 
         {/* Buy Gems */}
         <GameCard title="Purchase Gems">
-          <Text style={styles.desc}>{storeAvailable ? 'Prices below come directly from Google Play for your account region.' : 'Store prices are shown after installing a Google Play testing build.'}</Text>
+          <Text style={styles.desc}>{storeAvailable ? 'Prices below come directly from Google Play for your account region.' : 'Store prices are shown in the installed Google Play app.'}</Text>
           {GEM_PRODUCTS.map((pack) => (
             <Pressable key={pack.id} disabled={purchasing} style={[styles.packRow, purchasing && styles.disabledBtn]} onPress={() => handlePurchase(pack.id)}>
               <View style={styles.packLeft}>
