@@ -2,24 +2,67 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { Colors } from '../theme/colors';
 
+export type GameCardVariant = 'standard' | 'hero' | 'subtle' | 'attention' | 'danger';
+
 interface Props {
   title?: string;
+  eyebrow?: string;
+  titleAccessory?: React.ReactNode;
   onPress?: () => void;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  variant?: GameCardVariant;
+  accentColor?: string;
+  compact?: boolean;
 }
 
-export default function GameCard({ title, onPress, children, style }: Props) {
+export default function GameCard({
+  title,
+  eyebrow,
+  titleAccessory,
+  onPress,
+  children,
+  style,
+  variant = 'standard',
+  accentColor,
+  compact = false,
+}: Props) {
+  const accent = accentColor
+    ?? (variant === 'danger' ? Colors.negative : variant === 'attention' ? Colors.warning : Colors.primary);
+
   const content = (
-    <View style={[styles.card, style]}>
-      {title ? <Text style={styles.title}>{title}</Text> : null}
+    <View
+      style={[
+        styles.card,
+        compact && styles.compact,
+        variant === 'hero' && styles.hero,
+        variant === 'subtle' && styles.subtle,
+        variant === 'attention' && styles.attention,
+        variant === 'danger' && styles.danger,
+        (variant === 'hero' || variant === 'attention' || variant === 'danger') && { borderColor: accent },
+        style,
+      ]}
+    >
+      {(eyebrow || title || titleAccessory) ? (
+        <View style={styles.headingRow}>
+          <View style={styles.headingCopy}>
+            {eyebrow ? <Text style={[styles.eyebrow, { color: accent }]}>{eyebrow}</Text> : null}
+            {title ? <Text style={[styles.title, variant === 'hero' && styles.heroTitle]}>{title}</Text> : null}
+          </View>
+          {titleAccessory ? <View style={styles.titleAccessory}>{titleAccessory}</View> : null}
+        </View>
+      ) : null}
       {children}
     </View>
   );
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [pressed && styles.pressed]}
+      >
         {content}
       </Pressable>
     );
@@ -36,10 +79,55 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
+  compact: {
+    padding: 12,
+    marginBottom: 10,
+  },
+  hero: {
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderRadius: 16,
+  },
+  subtle: {
+    backgroundColor: Colors.elevated,
+    borderColor: Colors.cardBorder,
+  },
+  attention: {
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+  },
+  danger: {
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+  },
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 9,
+  },
+  headingCopy: { flex: 1, minWidth: 0 },
+  eyebrow: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.05,
+    marginBottom: 2,
+  },
   title: {
     color: Colors.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontWeight: '700',
+  },
+  heroTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  titleAccessory: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.992 }],
   },
 });
