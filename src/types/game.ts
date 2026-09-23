@@ -277,6 +277,7 @@ export interface RelationshipEventChoice {
   happinessDuration?: number;
   childId?: string;
   childSavings?: number;
+  childEducationFund?: number;
   childRelationship?: number;
   /** Starts unpaid couple travel for this many weekly ticks. */
   travelWeeks?: number;
