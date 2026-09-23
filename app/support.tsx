@@ -303,7 +303,7 @@ export default function SupportScreen() {
             </Pressable>}
           </View>
           <Text style={styles.removeAdsBenefit}>
-            No ads will be shown. Keep 2 daily gem reward claims and 1 daily temporary business Slot 2 reward without watching ads.
+            No ads will be shown. Keep 2 daily gem reward claims, 1 daily temporary business Slot 2 reward, and 1 daily instant education completion without watching ads.
           </Text>
           {!adsRemoved && storeAvailable && <Pressable onPress={handleRestore} disabled={purchasing}><Text style={styles.restoreText}>Restore purchase</Text></Pressable>}
           {purchaseMessage !== '' && <Text style={styles.purchaseMessage}>{purchaseMessage}</Text>}
