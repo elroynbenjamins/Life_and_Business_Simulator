@@ -37,6 +37,8 @@ export default function EducationScreen() {
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const enrollCourse = useGameStore((s) => s?.enrollCourse);
   const speedUpEducationWithAd = useGameStore((s) => s?.speedUpEducationWithAd);
+  const getAdFreeEducationRewardUsage = useGameStore((s) => s.getAdFreeEducationRewardUsage);
+  const claimAdFreeEducationReward = useGameStore((s) => s.claimAdFreeEducationReward);
   const [adMessage, setAdMessage] = useState('');
   const [simulatedAdReady, setSimulatedAdReady] = useState(false);
   const [simulatedAdPlaying, setSimulatedAdPlaying] = useState(false);
@@ -46,6 +48,7 @@ export default function EducationScreen() {
   const studentWorkTier = useGameStore((s) => s?.studentWorkTier ?? null);
   const studentWork = getStudentWorkOption(getStudentWorkTier({ partTimeJob, studentWorkTier }));
   const adsRemoved = useGameStore((s) => s.profile?.adsRemoved ?? false);
+  const adFreeEducationReward = getAdFreeEducationRewardUsage();
   const educationNotice = getEducationAvailabilityNotice({
     currentCourseId: currentCourseId ?? null,
     completedCourses,
@@ -60,6 +63,14 @@ export default function EducationScreen() {
     : null;
 
   const speedUp = async () => {
+    if (adsRemoved) {
+      const claimed = claimAdFreeEducationReward();
+      setAdMessage(claimed
+        ? 'Daily ad-free education boost claimed.'
+        : 'Today’s ad-free education boost has already been used.');
+      return;
+    }
+
     setAdMessage('Loading advertisement...');
     const grant = () => { speedUpEducationWithAd?.(); setAdMessage('Education completed!'); };
     if (shouldSimulateNativeFeatures()) {
@@ -116,11 +127,27 @@ export default function EducationScreen() {
               return (<>
                 <ProgressBar progress={courseWeeksCompleted / adjDur} />
                 <Text style={styles.progressText}>Week {courseWeeksCompleted}/{adjDur}{studentWork ? ` (${studentWork.shortName} · +${Math.round((studentWork.studyDurationMultiplier - 1) * 100)}%)` : ''}</Text>
-                {!adsRemoved && <Pressable style={[styles.adButton, simulatedAdPlaying && { opacity: 0.55 }]} onPress={speedUp} disabled={simulatedAdPlaying}>
-                  <Ionicons name="play-circle" size={18} color={Colors.white} />
-                  <Text style={styles.enrollBtnText}>{simulatedAdReady ? 'Claim reward: complete education' : simulatedAdPlaying ? 'Watching ad...' : 'Watch ad: complete education'}</Text>
-                </Pressable>}
-                {!adsRemoved && <Text style={styles.adMessage}>Reward: finish this education. No gems are awarded.</Text>}
+                <Pressable
+                  style={[styles.adButton, (simulatedAdPlaying || (adsRemoved && !adFreeEducationReward.available)) && { opacity: 0.55 }]}
+                  onPress={speedUp}
+                  disabled={simulatedAdPlaying || (adsRemoved && !adFreeEducationReward.available)}
+                >
+                  <Ionicons name={adsRemoved ? "gift" : "play-circle"} size={18} color={Colors.white} />
+                  <Text style={styles.enrollBtnText}>
+                    {adsRemoved
+                      ? (adFreeEducationReward.available ? 'Daily boost: complete education' : 'Daily education boost used')
+                      : simulatedAdReady
+                        ? 'Claim reward: complete education'
+                        : simulatedAdPlaying
+                          ? 'Watching ad...'
+                          : 'Watch ad: complete education'}
+                  </Text>
+                </Pressable>
+                <Text style={styles.adMessage}>
+                  {adsRemoved
+                    ? 'Remove Ads benefit: one instant education completion per day, shared across all save slots.'
+                    : 'Reward: finish this education. No gems are awarded.'}
+                </Text>
                 {!!adMessage && <Text style={styles.adMessage}>{adMessage}</Text>}
               </>);
             })()}
