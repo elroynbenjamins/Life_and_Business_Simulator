@@ -118,8 +118,9 @@ describe('expanded relationship progression', () => {
   it('scales proposal and wedding costs predictably with inflation', () => {
     expect(getProposalCost('simple', 2)).toBe(1500);
     expect(getProposalCost('luxury', 1)).toBe(10000);
-    expect(getWeddingCost('courthouse', 1.5)).toBe(1500);
-    expect(getWeddingCost('luxury', 1)).toBe(40000);
+    expect(getWeddingCost('courthouse', 1.5)).toBe(7500);
+    expect(getWeddingCost('standard', 1)).toBe(30000);
+    expect(getWeddingCost('luxury', 1)).toBe(120000);
   });
 
   it('adds child costs while keeping adult children cost-free', () => {
