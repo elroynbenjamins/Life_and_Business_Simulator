@@ -74,7 +74,9 @@ Most content and balancing live in `src/data/*.json`. IDs are persisted in save 
 Create these one-time products in Google Play Console before testing purchases:
 
 - `remove_ads` — non-consumable, base price €2.99
-- `gems_100`, `gems_250`, `gems_500`, `gems_1000`, `gems_2500` — consumable
+- `gems_100`, `gems_250`, `gems_500` — consumable
+
+The retired `gems_1000` and `gems_2500` products are no longer shown or fetched by current builds. Legacy purchase callbacks for those IDs are still fulfilled so an already-started transaction is not lost.
 
 Google Play automatically derives regional prices from each product's base price. The app displays the store-returned `displayPrice`, including the user's local currency and formatting. Purchases require a development/production build installed through a Google Play testing track; they do not run in Expo Go or on web.
 
