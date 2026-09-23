@@ -241,6 +241,7 @@ export interface RelationshipFinancialSnapshot {
 
 export interface RelationshipEventChoice {
   text: string;
+  personalityHint?: string;
   cost?: number;
   cash?: number;
   relationship?: number;
