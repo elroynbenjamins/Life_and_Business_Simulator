@@ -68,7 +68,7 @@
     "name": "Millionaire",
     "description": "Reach €1,000,000 net worth",
     "xpReward": 120,
-    "gemReward": 5,
+    "gemReward": 0,
     "icon": "star"
   },
   {
@@ -140,7 +140,7 @@
     "name": "Multi-Millionaire",
     "description": "Reach €5,000,000 net worth",
     "xpReward": 200,
-    "gemReward": 10,
+    "gemReward": 0,
     "icon": "medal"
   },
   {
@@ -188,7 +188,7 @@
     "name": "Master Scholar",
     "description": "Complete all 18 courses",
     "xpReward": 120,
-    "gemReward": 5,
+    "gemReward": 0,
     "icon": "library"
   },
   {
@@ -196,7 +196,7 @@
     "name": "Market Genius",
     "description": "Achieve 25% profit on a market position",
     "xpReward": 60,
-    "gemReward": 25,
+    "gemReward": 0,
     "icon": "trending-up"
   },
   {
@@ -204,7 +204,7 @@
     "name": "Tycoon",
     "description": "Reach €10,000,000 net worth",
     "xpReward": 300,
-    "gemReward": 30,
+    "gemReward": 0,
     "icon": "planet"
   },
   {
@@ -212,7 +212,7 @@
     "name": "Business Empire",
     "description": "Own 5 businesses simultaneously",
     "xpReward": 100,
-    "gemReward": 20,
+    "gemReward": 0,
     "icon": "business"
   },
   {
@@ -220,7 +220,7 @@
     "name": "Property Mogul",
     "description": "Own 5 properties simultaneously",
     "xpReward": 80,
-    "gemReward": 15,
+    "gemReward": 0,
     "icon": "home"
   },
   {
@@ -244,7 +244,7 @@
     "name": "Portfolio Gold",
     "description": "Portfolio value reaches €500,000",
     "xpReward": 80,
-    "gemReward": 5,
+    "gemReward": 0,
     "icon": "pie-chart"
   },
   {
@@ -252,7 +252,7 @@
     "name": "Portfolio Platinum",
     "description": "Portfolio value reaches €1,000,000",
     "xpReward": 150,
-    "gemReward": 15,
+    "gemReward": 0,
     "icon": "pie-chart"
   },
   {
@@ -260,7 +260,7 @@
     "name": "Decade of Success",
     "description": "Play for 10 years (200 weeks)",
     "xpReward": 100,
-    "gemReward": 10,
+    "gemReward": 0,
     "icon": "time"
   },
   {
@@ -268,7 +268,7 @@
     "name": "Quarter-Century Legacy",
     "description": "Play for 25 years (500 weeks)",
     "xpReward": 250,
-    "gemReward": 15,
+    "gemReward": 0,
     "icon": "time"
   },
   {
@@ -276,7 +276,7 @@
     "name": "Lifetime Empire",
     "description": "Play for 50 years (1,000 weeks)",
     "xpReward": 500,
-    "gemReward": 30,
+    "gemReward": 0,
     "icon": "hourglass"
   },
   {
@@ -284,7 +284,7 @@
     "name": "Portfolio Diamond",
     "description": "Portfolio value reaches €5,000,000",
     "xpReward": 225,
-    "gemReward": 10,
+    "gemReward": 0,
     "icon": "pie-chart"
   },
   {
@@ -292,7 +292,7 @@
     "name": "Portfolio Empire",
     "description": "Portfolio value reaches €10,000,000",
     "xpReward": 350,
-    "gemReward": 20,
+    "gemReward": 0,
     "icon": "pie-chart"
   },
   {
@@ -300,7 +300,7 @@
     "name": "Institutional Investor",
     "description": "Portfolio value reaches €25,000,000",
     "xpReward": 600,
-    "gemReward": 40,
+    "gemReward": 0,
     "icon": "pie-chart"
   },
   {
@@ -308,7 +308,7 @@
     "name": "Market Millionaire",
     "description": "Realize €1,000,000 in market profits",
     "xpReward": 225,
-    "gemReward": 10,
+    "gemReward": 0,
     "icon": "trending-up"
   },
   {
@@ -316,7 +316,7 @@
     "name": "Trading Tycoon",
     "description": "Realize €2,500,000 in market profits",
     "xpReward": 350,
-    "gemReward": 20,
+    "gemReward": 0,
     "icon": "trending-up"
   },
   {
@@ -324,7 +324,7 @@
     "name": "Market Legend",
     "description": "Realize €5,000,000 in market profits",
     "xpReward": 500,
-    "gemReward": 30,
+    "gemReward": 0,
     "icon": "trending-up"
   },
   {
@@ -332,7 +332,7 @@
     "name": "C-Suite",
     "description": "Reach career position level 7",
     "xpReward": 120,
-    "gemReward": 10,
+    "gemReward": 0,
     "icon": "ribbon"
   },
   {
@@ -348,7 +348,7 @@
     "name": "Business Mogul",
     "description": "Own 3 businesses at the same time",
     "xpReward": 100,
-    "gemReward": 5,
+    "gemReward": 0,
     "icon": "business"
   },
   {
@@ -356,7 +356,7 @@
     "name": "Legendary Recruit",
     "description": "Hire a Legendary-tier employee",
     "xpReward": 75,
-    "gemReward": 3,
+    "gemReward": 0,
     "icon": "star"
   },
   {
@@ -364,7 +364,7 @@
     "name": "Two Decades",
     "description": "Survive for 20 years",
     "xpReward": 150,
-    "gemReward": 8,
+    "gemReward": 0,
     "icon": "calendar"
   },
   {
@@ -372,7 +372,7 @@
     "name": "Scholar",
     "description": "Complete all available courses",
     "xpReward": 120,
-    "gemReward": 6,
+    "gemReward": 0,
     "icon": "school"
   },
   {
@@ -388,7 +388,7 @@
     "name": "Life Partners",
     "description": "Get married",
     "xpReward": 50,
-    "gemReward": 1,
+    "gemReward": 0,
     "icon": "heart-circle"
   },
   {
@@ -396,7 +396,7 @@
     "name": "Next Generation",
     "description": "Have your first child",
     "xpReward": 40,
-    "gemReward": 1,
+    "gemReward": 0,
     "icon": "people"
   },
   {
@@ -404,7 +404,7 @@
     "name": "Close-Knit",
     "description": "Reach a 90% parent relationship with a child",
     "xpReward": 60,
-    "gemReward": 2,
+    "gemReward": 0,
     "icon": "heart-half"
   },
   {
@@ -412,7 +412,7 @@
     "name": "Grand Legacy",
     "description": "Become a grandparent",
     "xpReward": 100,
-    "gemReward": 3,
+    "gemReward": 0,
     "icon": "people-circle"
   },
   {
@@ -420,7 +420,7 @@
     "name": "Growing Dynasty",
     "description": "Have 10 people recorded in your Family Tree",
     "xpReward": 120,
-    "gemReward": 4,
+    "gemReward": 0,
     "icon": "git-network"
   },
   {
@@ -428,7 +428,7 @@
     "name": "Second Generation",
     "description": "Continue the dynasty as Generation 2",
     "xpReward": 150,
-    "gemReward": 5,
+    "gemReward": 0,
     "icon": "return-up-forward"
   },
   {
@@ -436,7 +436,7 @@
     "name": "Third Generation",
     "description": "Reach Generation 3",
     "xpReward": 250,
-    "gemReward": 10,
+    "gemReward": 0,
     "icon": "ribbon"
   },
   {
@@ -444,7 +444,7 @@
     "name": "Prepared for Tomorrow",
     "description": "Create a Will or Family Trust",
     "xpReward": 50,
-    "gemReward": 1,
+    "gemReward": 0,
     "icon": "document-text"
   },
   {
@@ -452,7 +452,7 @@
     "name": "Dynasty Trust",
     "description": "Establish a Family Trust",
     "xpReward": 120,
-    "gemReward": 5,
+    "gemReward": 0,
     "icon": "business"
   },
   {
@@ -460,7 +460,7 @@
     "name": "Family Enterprise",
     "description": "Designate your first Family Business",
     "xpReward": 70,
-    "gemReward": 2,
+    "gemReward": 0,
     "icon": "people"
   },
   {
@@ -468,7 +468,7 @@
     "name": "Passing the Torch",
     "description": "Carry a Family Business into a second generation",
     "xpReward": 150,
-    "gemReward": 5,
+    "gemReward": 0,
     "icon": "flame"
   },
   {
@@ -476,7 +476,7 @@
     "name": "Three-Generation Company",
     "description": "Keep a Family Business through three generations",
     "xpReward": 300,
-    "gemReward": 10,
+    "gemReward": 0,
     "icon": "trophy"
   },
   {
@@ -484,7 +484,7 @@
     "name": "Family in the Boardroom",
     "description": "Appoint an adult child to a business governance role",
     "xpReward": 70,
-    "gemReward": 2,
+    "gemReward": 0,
     "icon": "people-circle"
   },
   {
@@ -492,7 +492,7 @@
     "name": "Boardroom Call",
     "description": "Resolve a strategic business decision",
     "xpReward": 50,
-    "gemReward": 1,
+    "gemReward": 0,
     "icon": "compass"
   },
   {
@@ -500,7 +500,7 @@
     "name": "Crisis Manager",
     "description": "Resolve a business crisis before its deadline",
     "xpReward": 90,
-    "gemReward": 3,
+    "gemReward": 0,
     "icon": "shield-checkmark"
   },
   {
@@ -508,7 +508,7 @@
     "name": "Outside Capital",
     "description": "Bring outside investors into one of your companies",
     "xpReward": 80,
-    "gemReward": 2,
+    "gemReward": 0,
     "icon": "trending-up"
   },
   {
@@ -516,7 +516,7 @@
     "name": "Skin in the Game",
     "description": "Give an adult child ownership in a family company",
     "xpReward": 80,
-    "gemReward": 2,
+    "gemReward": 0,
     "icon": "pie-chart"
   },
   {
@@ -532,7 +532,7 @@
     "name": "Three Coins",
     "description": "Own AURX, NEXA and MOJO at the same time",
     "xpReward": 60,
-    "gemReward": 2,
+    "gemReward": 0,
     "icon": "layers"
   },
   {
@@ -540,7 +540,7 @@
     "name": "Digital Fortune",
     "description": "Hold €100,000 of cryptocurrency",
     "xpReward": 100,
-    "gemReward": 3,
+    "gemReward": 0,
     "icon": "wallet"
   },
   {
@@ -548,7 +548,7 @@
     "name": "Diamond Hands?",
     "description": "Reach a 100% unrealized gain on a MOJO position",
     "xpReward": 100,
-    "gemReward": 5,
+    "gemReward": 0,
     "icon": "diamond"
   }
 ]
