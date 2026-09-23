@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
-import GameStatusBar from '../src/components/StatusBar';
+import ScreenHeader from '../src/components/ScreenHeader';
 import GameCard from '../src/components/GameCard';
 import StatusPill from '../src/components/StatusPill';
 import useGameStore from '../src/store/gameStore';
@@ -55,13 +55,13 @@ export default function LifestyleScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Lifestyle</Text>
-      </View>
-      <GameStatusBar />
+      <ScreenHeader
+        title="Lifestyle"
+        subtitle="Housing, vehicles and household needs"
+        showBack
+        onBack={() => router.back()}
+        accentColor={Colors.happiness}
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* HOUSING */}
         <Text style={styles.sectionHeader}>🏠 Housing</Text>
@@ -151,8 +151,6 @@ export default function LifestyleScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   sectionHeader: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', marginTop: 16, marginBottom: 12 },
