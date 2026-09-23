@@ -336,6 +336,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
       return next.length > 40 ? next.slice(next.length - 40) : next;
     })(),
     partTimeJob: partTimeActive,
+    studentWorkTier: partTimeActive ? studentWorkTier : null,
     relationshipState: relationshipStateAfterBusiness,
     familyTree: familyTreeAfterBusiness,
     lifecycle: state?.lifecycle,
