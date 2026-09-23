@@ -310,7 +310,7 @@ export default function BusinessPortfolioScreen() {
           </Pressable>
 
           <Pressable style={styles.empireAction} onPress={() => router.push('/business/acquisitions')}>
-            <View style={[styles.empireActionIcon, { backgroundColor: `${acquisitionsUnlocked ? Colors.primary : Colors.textMuted}14` }]}>
+            <View style={[styles.empireActionIcon, { backgroundColor: acquisitionsUnlocked ? `${Colors.primary}14` : Colors.elevated }]}>
               <Ionicons name={acquisitionsUnlocked ? 'git-merge-outline' : 'lock-closed-outline'} size={19} color={acquisitionsUnlocked ? Colors.primary : Colors.textMuted} />
             </View>
             <Text style={[styles.empireActionTitle, !acquisitionsUnlocked && { color: Colors.textMuted }]}>Acquire</Text>
@@ -386,8 +386,8 @@ export default function BusinessPortfolioScreen() {
                       accessibilityLabel={`${type?.name ?? 'Business'} pixel art`}
                     />
                     <View style={styles.bizInfo}>
-                      <Text style={styles.bizName}>{biz.name}</Text>
-                      <Text style={styles.bizLevel}>{getLevelName(biz.level)} • {type?.industry ?? ''}</Text>
+                      <Text style={styles.bizName} numberOfLines={1}>{biz.name}</Text>
+                      <Text style={styles.bizLevel} numberOfLines={1}>{getLevelName(biz.level)} • {type?.industry ?? ''}</Text>
                       <View style={styles.badgeLine}>
                         {biz.familyBusiness?.isFamilyBusiness && (
                           <StatusPill compact icon="people-outline" label={`Family G${biz.familyBusiness.generationsOwned}`} color={Colors.warning} />
@@ -534,30 +534,27 @@ export default function BusinessPortfolioScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 32, gap: 10 },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  summaryCard: { width: '48.5%', minHeight: 88, backgroundColor: Colors.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.cardBorder },
-  summaryLabel: { color: Colors.textSecondary, fontSize: 10, fontWeight: '700' },
-  summaryValue: { fontSize: 16, fontWeight: '900', marginTop: 4 },
-  summaryFoot: { color: Colors.textMuted, fontSize: 9, marginTop: 5 },
+  empireValueBlock: { marginBottom: 13 },
+  empireValueLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  empireValue: { color: Colors.info, fontSize: 28, lineHeight: 34, fontWeight: '900', marginTop: 1 },
+  empireEquity: { color: Colors.textSecondary, fontSize: 10, marginTop: 1 },
+  empireMetrics: { flexDirection: 'row', gap: 7, marginBottom: 10 },
+  empireMetric: { flex: 1, minWidth: 0, backgroundColor: Colors.elevated, borderRadius: 9, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 8, paddingVertical: 8 },
+  empireMetricLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.35 },
+  empireMetricValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '900', marginTop: 3 },
+  empirePulse: { minHeight: 32, borderRadius: 9, backgroundColor: `${Colors.primary}0D`, borderWidth: 1, borderColor: `${Colors.primary}33`, paddingHorizontal: 9, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  empirePulseAttention: { backgroundColor: `${Colors.warning}0D`, borderColor: `${Colors.warning}33` },
+  empirePulseText: { flex: 1, color: Colors.textSecondary, fontSize: 10, lineHeight: 14, fontWeight: '700' },
+  empireActions: { flexDirection: 'row', gap: 7, marginTop: -1, marginBottom: 2 },
+  empireAction: { flex: 1, minWidth: 0, minHeight: 82, backgroundColor: Colors.card, borderRadius: 11, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 7, paddingVertical: 9, alignItems: 'center', justifyContent: 'center' },
+  empireActionIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
+  empireActionTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
+  empireActionSub: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 1 },
   emptyState: { alignItems: 'center', paddingVertical: 28 },
   emptyTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', marginTop: 12 },
   emptySubtitle: { color: Colors.textSecondary, fontSize: 13, marginTop: 4, textAlign: 'center' },
-  capitalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pulseHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  capitalIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#17263A', justifyContent: 'center', alignItems: 'center' },
-  capitalTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
-  capitalSub: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
-  pulseBadge: { borderRadius: 12, backgroundColor: '#17263A', paddingHorizontal: 9, paddingVertical: 6 },
-  pulseBadgeText: { color: Colors.info, fontSize: 10, fontWeight: '800' },
-  capitalActions: { gap: 8, marginTop: 12 },
-  capitalButton: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 48, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9 },
-  capitalButtonLocked: { opacity: 0.75 },
-  capitalButtonTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
-  capitalButtonSub: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
   sectionTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
   sectionSub: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
@@ -566,42 +563,28 @@ const styles = StyleSheet.create({
   historyLinkText: { color: Colors.info, fontSize: 10, fontWeight: '800' },
   sortRow: { gap: 7, paddingVertical: 1 },
   sortChip: { minHeight: 32, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, paddingHorizontal: 10, flexDirection: 'row', gap: 5, alignItems: 'center' },
-  sortChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  sortChipActive: { backgroundColor: Colors.business, borderColor: Colors.business },
   sortChipText: { color: Colors.textSecondary, fontSize: 10, fontWeight: '800' },
   sortChipTextActive: { color: Colors.white },
-  bizHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  bizArtwork: { width: 56, height: 56 },
-  bizInfo: { flex: 1 },
+  bizHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  bizArtwork: { width: 52, height: 52 },
+  bizInfo: { flex: 1, minWidth: 0 },
   bizName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   bizLevel: { color: Colors.textSecondary, fontSize: 11, marginTop: 2 },
   badgeLine: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 5 },
-  familyBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, backgroundColor: `${Colors.warning}15` },
-  familyBadgeText: { color: Colors.warning, fontSize: 8, fontWeight: '800' },
-  holdingBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, backgroundColor: '#17263A' },
-  holdingBadgeText: { color: Colors.info, fontSize: 8, fontWeight: '800', maxWidth: 110 },
-  acquisitionBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, backgroundColor: `${Colors.primary}12` },
-  acquisitionBadgeText: { color: Colors.primary, fontSize: 8, fontWeight: '800', textTransform: 'capitalize' },
-  bizRight: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  attentionBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: `${Colors.warning}22`, borderWidth: 1, borderColor: Colors.warning, alignItems: 'center', justifyContent: 'center' },
-  crisisAttention: { backgroundColor: `${Colors.negative}22`, borderColor: Colors.negative },
-  attentionText: { color: Colors.white, fontSize: 11, fontWeight: '900' },
+  bizRight: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 1 },
   bizStats: { flexDirection: 'row', marginTop: 12, gap: 8 },
   bizStat: { flex: 1 },
   bizStatLabel: { color: Colors.textMuted, fontSize: 9 },
   bizStatValue: { fontSize: 12, fontWeight: '800', marginTop: 2 },
-  debtRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
-  debtText: { color: Colors.warning, fontSize: 9, fontWeight: '700' },
-  pendingStrip: { backgroundColor: `${Colors.warning}10`, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6, marginTop: 9 },
-  pendingStripCrisis: { backgroundColor: `${Colors.negative}10` },
-  pendingStripText: { color: Colors.textSecondary, fontSize: 10, fontWeight: '700' },
-  bottomRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
-  automationBar: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  automationLabel: { color: Colors.textMuted, fontSize: 10 },
+  statusStrip: { minHeight: 34, borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 7, marginTop: 9, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusStripText: { flex: 1, color: Colors.textSecondary, fontSize: 9, lineHeight: 13, fontWeight: '700' },
+  statusMore: { fontSize: 9, fontWeight: '900' },
+  bizFooter: { minHeight: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 9 },
+  automationCompact: { flex: 1, maxWidth: 132, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5 },
   automationTrack: { flex: 1, height: 4, backgroundColor: Colors.elevated, borderRadius: 2 },
-  automationFill: { height: 4, backgroundColor: Colors.primary, borderRadius: 2 },
+  automationFill: { height: 4, backgroundColor: Colors.business, borderRadius: 2 },
   automationValue: { color: Colors.textSecondary, fontSize: 10, fontWeight: '600', width: 30, textAlign: 'right' },
-  startButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, padding: 15 },
-  startButtonText: { color: Colors.white, fontSize: 15, fontWeight: '800' },
   dealList: { gap: 0 },
   dealRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6 },
   dealIcon: { width: 30, height: 30, borderRadius: 9, backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center' },
