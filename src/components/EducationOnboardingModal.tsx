@@ -25,7 +25,7 @@ export default function EducationOnboardingModal() {
           <Text style={styles.eyebrow}>YOUR FIRST STEP</Text>
           <Text style={styles.title}>Choose your education</Text>
           <Text style={styles.text}>
-            Education unlocks career paths. Pick the Basic course that matches the career you want—such as Technology, Finance, Marketing or Sales.
+            Education unlocks career paths. Pick the Basic course that matches the career you want—such as Technology, Finance, Marketing or Sales. This completes the first objective in Your First Steps on Home.
           </Text>
           <View style={styles.tip}>
             <Ionicons name="bulb-outline" size={20} color={Colors.warning} />
