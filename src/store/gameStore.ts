@@ -2679,7 +2679,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       coupleTripWeeksRemaining: travelWeeks > 0
         ? Math.max(state.relationshipState.coupleTripWeeksRemaining ?? 0, travelWeeks)
         : (state.relationshipState.coupleTripWeeksRemaining ?? 0),
-      lastCoupleTripWeek: travelWeeks > 0 ? gw : (state.relationshipState.lastCoupleTripWeek ?? 0),
+      lastCoupleTripWeek: event.id === 'couple_world_trip' || travelWeeks > 0 ? gw : (state.relationshipState.lastCoupleTripWeek ?? 0),
       timeline,
       pendingEvent: null,
     };
