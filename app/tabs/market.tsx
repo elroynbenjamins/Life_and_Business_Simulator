@@ -23,7 +23,7 @@ export default function MarketScreen() {
   const globalWeek = ((year - 1) * 20) + week;
   const listedByTicker = new Map((stocks ?? [])
     .filter((stock) => stock.marketStatus !== 'delisted')
-    .map((stock) => [stock.ticker, stock]));
+    .map((stock) => [stock.ticker, stock] as const));
   const filtered = (stocksData ?? []).filter((sd) =>
     listedByTicker.has(sd?.ticker)
     && (filter === 'all' || sd?.type === filter)
