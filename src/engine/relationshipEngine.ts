@@ -2109,6 +2109,7 @@ export function processRelationships(state: GameState): RelationshipWeekResult {
     !pendingEvent &&
     !coupleTripActive &&
     annualProgression &&
+    (currentPartner?.relationship ?? partner.relationship) >= 40 &&
     gw - lastWorkFamilyConflictWeek >= 40 &&
     Math.random() < 0.55
   ) {
