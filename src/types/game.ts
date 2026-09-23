@@ -929,6 +929,8 @@ export interface ActiveBusinessProject {
   neededRoll?: number;
   actualRoll?: number;
   projectName?: string;
+  /** True only for a project started using a one-use rewarded-ad second slot. */
+  usesTemporarySlot?: boolean;
 }
 
 export type CorporateScaleTier = 'local' | 'corporate' | 'major' | 'global';
@@ -1482,6 +1484,14 @@ export interface OwnedBusiness {
   // Upgrades
   purchasedUpgrades: string[];
   activeUpgrade?: { upgradeId: string; weeksRemaining: number } | null;
+  /** Optional second concurrent upgrade. Existing saves default to one slot. */
+  secondaryActiveUpgrade?: { upgradeId: string; weeksRemaining: number } | null;
+  /** Permanent second slots are purchased per business and capped at two total. */
+  upgradeSlot2Unlocked?: boolean;
+  projectSlot2Unlocked?: boolean;
+  /** Rewarded ads grant one temporary second-slot task, consumed on completion. */
+  temporaryUpgradeSlot2?: boolean;
+  temporaryProjectSlot2?: boolean;
   locations?: BusinessLocation[];
   activeExpansion?: { templateId: string; weeksRemaining: number } | null;
   // Long-horizon corporate capital expenditure

@@ -16,7 +16,11 @@ import {
   BUSINESS_LEVEL_REPUTATION_REQUIREMENTS, getAllBusinessLocationTemplates, getScaledLocationCosts, canStartBusinessExpansion,
   getBusinessHealthScore, BUSINESS_STRATEGIES, BUSINESS_DELEGATION_POLICIES,
   getBusinessDecisionChoiceCost, getPlayerOwnershipPct,
+  BUSINESS_PROJECT_SLOT_2_GEM_COST, BUSINESS_UPGRADE_SLOT_2_GEM_COST,
+  getBusinessProjectSlotLimit, getBusinessUpgradeSlotLimit,
 } from '../../src/engine/businessEngine';
+import { loadRewardedAd, showRewardedAd } from '../../src/services/adManager';
+import { shouldSimulateNativeFeatures } from '../../src/services/runtimeEnvironment';
 import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { businessTypeImages, employeeRoleImages } from '../../src/assets/progressionImages';
@@ -182,7 +186,9 @@ export default function BusinessDetailScreen() {
     buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
     drawCorporateRevolver, issueCorporateBond, repayBusinessLoan,
     injectCashIntoBusiness, withdrawFromBusiness,
-    applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, startBusinessReinvestment, setBusinessInsurancePolicy, startCorporateCapex, resolveBusinessRetention,
+    applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject,
+    unlockBusinessProjectSlot, grantTemporaryBusinessProjectSlot, unlockBusinessUpgradeSlot, grantTemporaryBusinessUpgradeSlot,
+    startBusinessReinvestment, setBusinessInsurancePolicy, startCorporateCapex, resolveBusinessRetention,
   } = useGameStore(useShallow((s) => ({
     designateFamilyBusiness: s.designateFamilyBusiness,
     toggleLongTermFamilyAsset: s.toggleLongTermFamilyAsset,
@@ -220,6 +226,10 @@ export default function BusinessDetailScreen() {
     applyMoraleActionToBusiness: s.applyMoraleActionToBusiness,
     startEmployeeTraining: s.startEmployeeTraining,
     startBusinessProject: s.startBusinessProject,
+    unlockBusinessProjectSlot: s.unlockBusinessProjectSlot,
+    grantTemporaryBusinessProjectSlot: s.grantTemporaryBusinessProjectSlot,
+    unlockBusinessUpgradeSlot: s.unlockBusinessUpgradeSlot,
+    grantTemporaryBusinessUpgradeSlot: s.grantTemporaryBusinessUpgradeSlot,
     startBusinessReinvestment: s.startBusinessReinvestment,
     setBusinessInsurancePolicy: s.setBusinessInsurancePolicy,
     startCorporateCapex: s.startCorporateCapex,
@@ -237,6 +247,8 @@ export default function BusinessDetailScreen() {
   const [showTrainingModal, setShowTrainingModal] = useState<string | null>(null); // employeeId
   const [showMoraleDropdown, setShowMoraleDropdown] = useState(false);
   const [showProjectsModal, setShowProjectsModal] = useState(false);
+  const [slotAdLoading, setSlotAdLoading] = useState<'project' | 'upgrade' | null>(null);
+  const [slotAdMessage, setSlotAdMessage] = useState<{ kind: 'project' | 'upgrade'; text: string } | null>(null);
   const [showFundingNotice, setShowFundingNotice] = useState(newBusiness === '1');
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
   const [transferError, setTransferError] = useState('');
@@ -280,6 +292,39 @@ export default function BusinessDetailScreen() {
     );
   }
 
+  const handleSlotRewardedAd = async (kind: 'project' | 'upgrade') => {
+    if (slotAdLoading) return;
+    setSlotAdLoading(kind);
+    setSlotAdMessage(null);
+
+    const grantSlot = () => {
+      if (kind === 'project') grantTemporaryBusinessProjectSlot(biz.id);
+      else grantTemporaryBusinessUpgradeSlot(biz.id);
+    };
+
+    if (shouldSimulateNativeFeatures()) {
+      grantSlot();
+      setSlotAdLoading(null);
+      setSlotAdMessage({ kind, text: 'Slot 2 is ready for one extra task.' });
+      return;
+    }
+
+    const placement = kind === 'project' ? 'business_project_slot' : 'business_upgrade_slot';
+    const loaded = await loadRewardedAd(placement);
+    if (!loaded) {
+      setSlotAdLoading(null);
+      setSlotAdMessage({ kind, text: 'Rewarded ad unavailable right now.' });
+      return;
+    }
+
+    const earned = await showRewardedAd(grantSlot);
+    setSlotAdLoading(null);
+    setSlotAdMessage({
+      kind,
+      text: earned ? 'Slot 2 is ready for one extra task.' : 'Watch the full ad to unlock Slot 2.',
+    });
+  };
+
   const handleTransfer = () => {
     const amount = Math.floor(Number(transferAmount));
     if (!Number.isFinite(amount) || amount <= 0 || !showTransferModal) {
@@ -308,7 +353,18 @@ export default function BusinessDetailScreen() {
   const automation = getAutomationScore(biz);
   const maxEmployees = type?.maxEmployees ?? 1;
   const uniquePurchasedUpgrades = [...new Set(biz.purchasedUpgrades ?? [])];
-  const availableUpgrades = (type?.upgrades ?? []).filter((uid) => !uniquePurchasedUpgrades.includes(uid));
+  const activeUpgrades = [biz.activeUpgrade, biz.secondaryActiveUpgrade].filter(
+    (upgrade): upgrade is { upgradeId: string; weeksRemaining: number } => !!upgrade
+  );
+  const activeUpgradeIds = activeUpgrades.map((upgrade) => upgrade.upgradeId);
+  const activeUpgradeCount = activeUpgrades.length;
+  const upgradeSlotLimit = getBusinessUpgradeSlotLimit(biz);
+  const availableUpgrades = (type?.upgrades ?? []).filter(
+    (uid) => !uniquePurchasedUpgrades.includes(uid) && !activeUpgradeIds.includes(uid)
+  );
+  const activeProjects = (biz.activeProjects ?? []).filter((project) => !project.resolved);
+  const activeProjectCount = activeProjects.length;
+  const projectSlotLimit = getBusinessProjectSlotLimit(biz);
   const isUnderStaffed = !meetsMinStaffing(biz);
   const allMoraleActions = getAllMoraleActions();
   const allTraining = getAllTraining();
@@ -2060,6 +2116,39 @@ export default function BusinessDetailScreen() {
         {/* Active Business Projects */}
         <View collapsable={false} onLayout={(event) => recordSection('growth', event)} />
         <GameCard title="Business Projects">
+          <View style={styles.slotAccessRow}>
+            <View style={styles.slotAccessStatus}>
+              <Ionicons name="layers-outline" size={12} color={Colors.info} />
+              <Text style={styles.slotAccessText}>Slots {activeProjectCount}/{projectSlotLimit}</Text>
+            </View>
+            {!biz.projectSlot2Unlocked && !biz.temporaryProjectSlot2 && activeProjectCount === 1 && (
+              <Pressable
+                style={[styles.slotMiniButton, slotAdLoading === 'project' && styles.disabledRow]}
+                disabled={slotAdLoading !== null}
+                onPress={() => handleSlotRewardedAd('project')}
+              >
+                <Ionicons name="play-circle-outline" size={12} color={Colors.info} />
+                <Text style={styles.slotMiniButtonText}>{slotAdLoading === 'project' ? 'Loading…' : 'Ad Slot 2'}</Text>
+              </Pressable>
+            )}
+            {!biz.projectSlot2Unlocked && (
+              <Pressable
+                style={[styles.slotMiniButton, styles.slotGemButton, (profile.gems ?? 0) < BUSINESS_PROJECT_SLOT_2_GEM_COST && styles.disabledRow]}
+                disabled={(profile.gems ?? 0) < BUSINESS_PROJECT_SLOT_2_GEM_COST}
+                onPress={() => confirmAction(
+                  'Unlock Project Slot 2',
+                  `Spend ${BUSINESS_PROJECT_SLOT_2_GEM_COST} gems to permanently run two projects at once for this business?`,
+                  () => unlockBusinessProjectSlot(biz.id),
+                )}
+              >
+                <Ionicons name="diamond-outline" size={11} color={Colors.warning} />
+                <Text style={styles.slotGemButtonText}>{BUSINESS_PROJECT_SLOT_2_GEM_COST}</Text>
+              </Pressable>
+            )}
+            {biz.projectSlot2Unlocked && <Text style={styles.slotPermanentLabel}>2 permanent</Text>}
+            {!biz.projectSlot2Unlocked && biz.temporaryProjectSlot2 && <Text style={styles.slotTemporaryLabel}>Ad slot ready</Text>}
+          </View>
+          {slotAdMessage?.kind === 'project' && <Text style={styles.slotMessage}>{slotAdMessage.text}</Text>}
           {/* Active projects */}
           {(biz.activeProjects ?? []).length > 0 && (
             <View style={{ marginBottom: 10 }}>
@@ -2081,15 +2170,14 @@ export default function BusinessDetailScreen() {
               })}
             </View>
           )}
-          {/* Start new project — one at a time */}
-          <Text style={styles.subHeading}>Start New (D20 skill check • 1 active max)</Text>
+          <Text style={styles.subHeading}>Start New • D20 skill check • max 2</Text>
           {(() => {
-            const hasActive = (biz.activeProjects ?? []).some((p) => !p.resolved);
+            const slotFull = activeProjectCount >= projectSlotLimit;
             return (
               <>
-                {hasActive && (
+                {slotFull && (
                   <Text style={{ color: Colors.warning, fontSize: 12, marginBottom: 6 }}>
-                    A project is already active — finish it first to start another.
+                    All available project slots are in use.
                   </Text>
                 )}
                 {allProjects.map((proj: any) => {
@@ -2102,7 +2190,8 @@ export default function BusinessDetailScreen() {
                   const needed = getProjectDifficulty(proj);
                   const odds = proj.guaranteed ? 100 : getProjectOdds(proj, bestSkill);
                   const scaledReputation = proj.scalesWithLevel ? Math.min(proj.maxReputationBonus ?? 4, (proj.reputationBonus ?? 0) + (biz.level ?? 0) * 0.4) : proj.reputationBonus;
-                  const disabled = !hasRole || hasActive;
+                  const duplicateActive = activeProjects.some((project) => project.projectType === proj.id);
+                  const disabled = !hasRole || slotFull || duplicateActive;
                   return (
                     <Pressable
                       key={proj.id}
@@ -2288,21 +2377,59 @@ export default function BusinessDetailScreen() {
         ) : null}
 
         {/* Upgrades */}
-        {(availableUpgrades.length > 0 || biz.activeUpgrade) && (
+        {(availableUpgrades.length > 0 || activeUpgradeCount > 0) && (
           <GameCard title="Upgrades">
-            {biz.activeUpgrade && (
-              <View style={{ padding: 10, backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 8, marginBottom: 8 }}>
-                <Text style={{ color: '#F59E0B', fontWeight: '700', fontSize: 13 }}>🔧 Building: {getUpgrade(biz.activeUpgrade.upgradeId)?.name ?? biz.activeUpgrade.upgradeId}</Text>
-                <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>{biz.activeUpgrade.weeksRemaining} weeks remaining</Text>
+            <View style={styles.slotAccessRow}>
+              <View style={styles.slotAccessStatus}>
+                <Ionicons name="layers-outline" size={12} color={Colors.info} />
+                <Text style={styles.slotAccessText}>Slots {activeUpgradeCount}/{upgradeSlotLimit}</Text>
               </View>
-            )}
+              {!biz.upgradeSlot2Unlocked && !biz.temporaryUpgradeSlot2 && activeUpgradeCount === 1 && (
+                <Pressable
+                  style={[styles.slotMiniButton, slotAdLoading === 'upgrade' && styles.disabledRow]}
+                  disabled={slotAdLoading !== null}
+                  onPress={() => handleSlotRewardedAd('upgrade')}
+                >
+                  <Ionicons name="play-circle-outline" size={12} color={Colors.info} />
+                  <Text style={styles.slotMiniButtonText}>{slotAdLoading === 'upgrade' ? 'Loading…' : 'Ad Slot 2'}</Text>
+                </Pressable>
+              )}
+              {!biz.upgradeSlot2Unlocked && (
+                <Pressable
+                  style={[styles.slotMiniButton, styles.slotGemButton, (profile.gems ?? 0) < BUSINESS_UPGRADE_SLOT_2_GEM_COST && styles.disabledRow]}
+                  disabled={(profile.gems ?? 0) < BUSINESS_UPGRADE_SLOT_2_GEM_COST}
+                  onPress={() => confirmAction(
+                    'Unlock Upgrade Slot 2',
+                    `Spend ${BUSINESS_UPGRADE_SLOT_2_GEM_COST} gems to permanently run two upgrades at once for this business?`,
+                    () => unlockBusinessUpgradeSlot(biz.id),
+                  )}
+                >
+                  <Ionicons name="diamond-outline" size={11} color={Colors.warning} />
+                  <Text style={styles.slotGemButtonText}>{BUSINESS_UPGRADE_SLOT_2_GEM_COST}</Text>
+                </Pressable>
+              )}
+              {biz.upgradeSlot2Unlocked && <Text style={styles.slotPermanentLabel}>2 permanent</Text>}
+              {!biz.upgradeSlot2Unlocked && biz.temporaryUpgradeSlot2 && <Text style={styles.slotTemporaryLabel}>Ad slot ready</Text>}
+            </View>
+            {slotAdMessage?.kind === 'upgrade' && <Text style={styles.slotMessage}>{slotAdMessage.text}</Text>}
+
+            {activeUpgrades.map((active, index) => (
+              <View key={`${active.upgradeId}:${index}`} style={{ padding: 9, backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 8, marginBottom: 7 }}>
+                <Text style={{ color: '#F59E0B', fontWeight: '700', fontSize: 12 }}>
+                  🔧 Slot {index + 1}: {getUpgrade(active.upgradeId)?.name ?? active.upgradeId}
+                </Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 10, marginTop: 2 }}>{active.weeksRemaining} weeks remaining</Text>
+              </View>
+            ))}
+
             {availableUpgrades.map((uid) => {
               const upg = getUpgrade(uid);
               if (!upg) return null;
               const cost = inflated(upg.cost ?? 0, inflationMultiplier);
               const bizBal = biz.balance ?? 0;
-              const affordable = bizBal >= cost && !biz.activeUpgrade;
-              const reason = biz.activeUpgrade ? 'Upgrade in progress' : bizBal < cost ? 'Insufficient balance' : '';
+              const slotFull = activeUpgradeCount >= upgradeSlotLimit;
+              const affordable = bizBal >= cost && !slotFull;
+              const reason = slotFull ? 'Upgrade slots full' : bizBal < cost ? 'Insufficient balance' : '';
               return (
                 <Pressable
                   key={uid}
@@ -3966,6 +4093,16 @@ const styles = StyleSheet.create({
   capexFundingMeta: { color: Colors.textSecondary, fontSize: 7, lineHeight: 10, marginTop: 2 },
   corporateCostWrap: { alignItems: 'flex-end', paddingLeft: 4 },
   corporateCost: { color: Colors.warning, fontSize: 9, fontWeight: '900' },
+  slotAccessRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5, backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 6, marginBottom: 7 },
+  slotAccessStatus: { flexDirection: 'row', alignItems: 'center', gap: 4, flexGrow: 1 },
+  slotAccessText: { color: Colors.textSecondary, fontSize: 9, fontWeight: '800' },
+  slotMiniButton: { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderColor: `${Colors.info}55`, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 4 },
+  slotMiniButtonText: { color: Colors.info, fontSize: 8, fontWeight: '900' },
+  slotGemButton: { borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}08` },
+  slotGemButtonText: { color: Colors.warning, fontSize: 8, fontWeight: '900' },
+  slotTemporaryLabel: { color: Colors.info, fontSize: 8, fontWeight: '800' },
+  slotPermanentLabel: { color: Colors.primary, fontSize: 8, fontWeight: '800' },
+  slotMessage: { color: Colors.textMuted, fontSize: 8, marginBottom: 7 },
   upgradeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   upgradeInfo: { flex: 1 },
   upgradeName: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },

@@ -623,6 +623,17 @@ export function getBusinessUpgradeWeeks(randomRoll = Math.random()): number {
   return Math.max(1, Math.round((16 + Math.floor(Math.max(0, Math.min(0.999999, randomRoll)) * 15)) * 0.75));
 }
 
+export const BUSINESS_PROJECT_SLOT_2_GEM_COST = 50;
+export const BUSINESS_UPGRADE_SLOT_2_GEM_COST = 75;
+
+export function getBusinessProjectSlotLimit(biz: OwnedBusiness): 1 | 2 {
+  return biz.projectSlot2Unlocked || biz.temporaryProjectSlot2 ? 2 : 1;
+}
+
+export function getBusinessUpgradeSlotLimit(biz: OwnedBusiness): 1 | 2 {
+  return biz.upgradeSlot2Unlocked || biz.temporaryUpgradeSlot2 ? 2 : 1;
+}
+
 /** Lean premises and overhead gradually expand with customer reputation. Wages are contractual. */
 export function getBusinessOperatingScale(reputation: number) {
   const maturity = Math.max(0, Math.min(1, reputation / 70));
@@ -914,6 +925,12 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     advertisingLevel: 'none',
     employees: [],
     purchasedUpgrades: [],
+    activeUpgrade: null,
+    secondaryActiveUpgrade: null,
+    upgradeSlot2Unlocked: false,
+    projectSlot2Unlocked: false,
+    temporaryUpgradeSlot2: false,
+    temporaryProjectSlot2: false,
     locations: [],
     activeExpansion: null,
     activeCorporateCapex: null,
@@ -1370,11 +1387,15 @@ export function processBusinessWeek(
     }
   }
 
-  // Tick down projects & resolve completed ones
+  // Tick down projects & resolve completed ones.
+  // A rewarded-ad second slot is a one-project entitlement and is consumed
+  // when the project that used that slot resolves.
+  let temporaryProjectSlot2 = biz.temporaryProjectSlot2 ?? false;
   let updatedProjects: ActiveBusinessProject[] = [];
   for (const p of biz.activeProjects ?? []) {
     if (p.weeksRemaining <= 1 && !p.resolved) {
       updatedProjects.push({ ...p, weeksRemaining: 0, resolved: true });
+      if (p.usesTemporarySlot && !biz.projectSlot2Unlocked) temporaryProjectSlot2 = false;
     } else if (p.weeksRemaining > 1) {
       updatedProjects.push({ ...p, weeksRemaining: p.weeksRemaining - 1 });
     }
@@ -1600,19 +1621,34 @@ export function processBusinessWeek(
     recruitProgress = 0;
   }
 
-  // Upgrade timer countdown
+  // Upgrade timer countdown. Slot 2 is capped at one additional upgrade.
   let activeUpgrade = biz.activeUpgrade ? { ...biz.activeUpgrade } : null;
-  let completedUpgradeId: string | null = null;
+  let secondaryActiveUpgrade = biz.secondaryActiveUpgrade ? { ...biz.secondaryActiveUpgrade } : null;
+  let temporaryUpgradeSlot2 = biz.temporaryUpgradeSlot2 ?? false;
+  const completedUpgradeIds: string[] = [];
+
   if (activeUpgrade) {
     activeUpgrade.weeksRemaining = Math.max(0, activeUpgrade.weeksRemaining - 1);
     if (activeUpgrade.weeksRemaining <= 0) {
-      // Complete the upgrade
       if (!(biz.purchasedUpgrades ?? []).includes(activeUpgrade.upgradeId)) {
-        completedUpgradeId = activeUpgrade.upgradeId;
-        newReputation = Math.min(100, newReputation + (getUpgrade(completedUpgradeId)?.reputationBoost ?? 0));
+        completedUpgradeIds.push(activeUpgrade.upgradeId);
+        newReputation = Math.min(100, newReputation + (getUpgrade(activeUpgrade.upgradeId)?.reputationBoost ?? 0));
       }
       timelineAdds.push({ week: currentWeek, year: currentYear, title: `Upgrade completed: ${activeUpgrade.upgradeId}`, icon: '🔧', kind: 'upgrade' as any });
       activeUpgrade = null;
+    }
+  }
+
+  if (secondaryActiveUpgrade) {
+    secondaryActiveUpgrade.weeksRemaining = Math.max(0, secondaryActiveUpgrade.weeksRemaining - 1);
+    if (secondaryActiveUpgrade.weeksRemaining <= 0) {
+      if (!(biz.purchasedUpgrades ?? []).includes(secondaryActiveUpgrade.upgradeId)) {
+        completedUpgradeIds.push(secondaryActiveUpgrade.upgradeId);
+        newReputation = Math.min(100, newReputation + (getUpgrade(secondaryActiveUpgrade.upgradeId)?.reputationBoost ?? 0));
+      }
+      timelineAdds.push({ week: currentWeek, year: currentYear, title: `Upgrade completed: ${secondaryActiveUpgrade.upgradeId}`, icon: '🔧', kind: 'upgrade' as any });
+      secondaryActiveUpgrade = null;
+      if (!biz.upgradeSlot2Unlocked) temporaryUpgradeSlot2 = false;
     }
   }
 
@@ -1834,6 +1870,7 @@ export function processBusinessWeek(
     lastBudgetAllocation: budgetResult.snapshot,
     activeEvents: newActiveEvents,
     activeProjects: updatedProjects,
+    temporaryProjectSlot2,
     lastExpenseBreakdown: expenseBreakdown,
     weeklyProfitHistory: profitHistory,
     weeklyRevenueHistory: revHistory,
@@ -1845,6 +1882,8 @@ export function processBusinessWeek(
     recruitProgress,
     timeline,
     activeUpgrade,
+    secondaryActiveUpgrade,
+    temporaryUpgradeSlot2,
     activeExpansion,
     activeCorporateCapex,
     completedCorporateCapex,
@@ -1853,7 +1892,7 @@ export function processBusinessWeek(
     locations,
     purchasedUpgrades: [...new Set([
       ...(biz.purchasedUpgrades ?? []),
-      ...(completedUpgradeId ? [completedUpgradeId] : []),
+      ...completedUpgradeIds,
     ])],
     lastBusinessEventWeek: triggeredEventId ? globalWeek : biz.lastBusinessEventWeek,
     businessEventCooldowns: triggeredEventId ? { ...eventCooldowns, [triggeredEventId]: globalWeek } : eventCooldowns,
@@ -1931,9 +1970,10 @@ export function startProject(
 ): { updatedBusiness: OwnedBusiness | null; cost: number; success: boolean; roll: number; needed: number } {
   const project: any = getProject(projectId);
   if (!project) return { updatedBusiness: null, cost: 0, success: false, roll: 0, needed: 0 };
-  // ONE active project at a time
-  const hasActive = (biz.activeProjects ?? []).some((p) => !p.resolved);
-  if (hasActive) return { updatedBusiness: null, cost: 0, success: false, roll: 0, needed: 0 };
+  const activeProjects = (biz.activeProjects ?? []).filter((p) => !p.resolved);
+  const slotLimit = getBusinessProjectSlotLimit(biz);
+  if (activeProjects.length >= slotLimit) return { updatedBusiness: null, cost: 0, success: false, roll: 0, needed: 0 };
+  if (activeProjects.some((p) => p.projectType === projectId)) return { updatedBusiness: null, cost: 0, success: false, roll: 0, needed: 0 };
   // Accessible projects such as Local Marketing do not require a specialist.
   const hasRequiredRole = !project.requiredRoleId || (biz.employees ?? []).some((e) => e.roleId === project.requiredRoleId);
   if (!hasRequiredRole) return { updatedBusiness: null, cost: 0, success: false, roll: 0, needed: 0 };
@@ -1967,6 +2007,7 @@ export function startProject(
     neededRoll: needed,
     actualRoll: roll,
     resolved: false,
+    usesTemporarySlot: activeProjects.length >= 1 && !biz.projectSlot2Unlocked && !!biz.temporaryProjectSlot2,
   };
 
   return {

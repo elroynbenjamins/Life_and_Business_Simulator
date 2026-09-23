@@ -4,7 +4,7 @@ import { initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
 import { inflated } from '../engine/economyEngine';
-import { getBusinessUpgradeWeeks } from '../engine/businessEngine';
+import { BUSINESS_PROJECT_SLOT_2_GEM_COST, BUSINESS_UPGRADE_SLOT_2_GEM_COST, getBusinessUpgradeSlotLimit, getBusinessUpgradeWeeks } from '../engine/businessEngine';
 import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts, getBusinessDecisionChoiceCost } from '../engine/businessEngine';
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
 import { ensureAuctions, getInspectionCost, inspectAuction, leaveAuction, placeAuctionBid } from '../engine/auctionEngine';
@@ -273,6 +273,10 @@ interface GameStore extends GameState {
   applyMoraleActionToBusiness: (businessId: string, actionId: string) => void;
   startEmployeeTraining: (businessId: string, employeeId: string, trainingId: string) => void;
   startBusinessProject: (businessId: string, projectId: string) => void;
+  unlockBusinessProjectSlot: (businessId: string) => void;
+  grantTemporaryBusinessProjectSlot: (businessId: string) => void;
+  unlockBusinessUpgradeSlot: (businessId: string) => void;
+  grantTemporaryBusinessUpgradeSlot: (businessId: string) => void;
   startBusinessReinvestment: (businessId: string, area: BusinessReinvestmentArea) => void;
   setBusinessInsurancePolicy: (businessId: string, area: BusinessInsuranceArea, tier: BusinessInsuranceTier) => void;
   startCorporateCapex: (businessId: string, projectId: string, financingMode?: 'cash' | 'project_finance') => void;
@@ -4629,23 +4633,80 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (idx < 0) return;
     const biz = { ...businesses[idx] };
     if ((biz.purchasedUpgrades ?? []).includes(upgradeId)) return;
-    // Only 1 upgrade at a time
-    if (biz.activeUpgrade) return;
+    if ([biz.activeUpgrade?.upgradeId, biz.secondaryActiveUpgrade?.upgradeId].includes(upgradeId)) return;
+
+    const activeCount = Number(!!biz.activeUpgrade) + Number(!!biz.secondaryActiveUpgrade);
+    if (activeCount >= getBusinessUpgradeSlotLimit(biz)) return;
+
     const upgrade = getUpgrade(upgradeId);
     if (!upgrade) return;
     const cost = inflated(upgrade.cost ?? 0, state?.inflationMultiplier ?? 1);
-    // Pay only from business balance — cannot go negative
     const bizBal = biz.balance ?? 0;
     if (bizBal < cost) return;
+
     biz.balance = bizBal - cost;
     biz.budgetReserves = consumeBusinessBudgetReserve(biz.budgetReserves, 'growth', cost);
-    // 25% faster than the original 16–30 week timer, rounded to whole weeks.
-    const weeks = getBusinessUpgradeWeeks();
-    biz.activeUpgrade = { upgradeId, weeksRemaining: weeks };
+    const nextUpgrade = { upgradeId, weeksRemaining: getBusinessUpgradeWeeks() };
+    if (!biz.activeUpgrade) biz.activeUpgrade = nextUpgrade;
+    else if (!biz.secondaryActiveUpgrade) biz.secondaryActiveUpgrade = nextUpgrade;
+    else return;
+
     businesses[idx] = biz;
     const updates = { businesses };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  unlockBusinessProjectSlot: (businessId: string) => {
+    const state = get();
+    if ((state.profile.gems ?? 0) < BUSINESS_PROJECT_SLOT_2_GEM_COST) return;
+    const businesses = [...(state.businesses ?? [])];
+    const idx = businesses.findIndex((business) => business.id === businessId);
+    if (idx < 0 || businesses[idx].projectSlot2Unlocked) return;
+    businesses[idx] = { ...businesses[idx], projectSlot2Unlocked: true, temporaryProjectSlot2: false };
+    const profile = { ...state.profile, gems: (state.profile.gems ?? 0) - BUSINESS_PROJECT_SLOT_2_GEM_COST };
+    set({ businesses, profile });
+    saveProfile(profile);
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  grantTemporaryBusinessProjectSlot: (businessId: string) => {
+    const state = get();
+    const businesses = [...(state.businesses ?? [])];
+    const idx = businesses.findIndex((business) => business.id === businessId);
+    if (idx < 0) return;
+    const business = businesses[idx];
+    const activeCount = (business.activeProjects ?? []).filter((project) => !project.resolved).length;
+    if (business.projectSlot2Unlocked || business.temporaryProjectSlot2 || activeCount !== 1) return;
+    businesses[idx] = { ...business, temporaryProjectSlot2: true };
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  unlockBusinessUpgradeSlot: (businessId: string) => {
+    const state = get();
+    if ((state.profile.gems ?? 0) < BUSINESS_UPGRADE_SLOT_2_GEM_COST) return;
+    const businesses = [...(state.businesses ?? [])];
+    const idx = businesses.findIndex((business) => business.id === businessId);
+    if (idx < 0 || businesses[idx].upgradeSlot2Unlocked) return;
+    businesses[idx] = { ...businesses[idx], upgradeSlot2Unlocked: true, temporaryUpgradeSlot2: false };
+    const profile = { ...state.profile, gems: (state.profile.gems ?? 0) - BUSINESS_UPGRADE_SLOT_2_GEM_COST };
+    set({ businesses, profile });
+    saveProfile(profile);
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  grantTemporaryBusinessUpgradeSlot: (businessId: string) => {
+    const state = get();
+    const businesses = [...(state.businesses ?? [])];
+    const idx = businesses.findIndex((business) => business.id === businessId);
+    if (idx < 0) return;
+    const business = businesses[idx];
+    const activeCount = Number(!!business.activeUpgrade) + Number(!!business.secondaryActiveUpgrade);
+    if (business.upgradeSlot2Unlocked || business.temporaryUpgradeSlot2 || activeCount !== 1) return;
+    businesses[idx] = { ...business, temporaryUpgradeSlot2: true };
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
   startBusinessExpansion: (businessId: string, templateId: string) => {
