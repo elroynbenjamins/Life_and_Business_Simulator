@@ -22,6 +22,7 @@ import {
   getNormalizedDatingAgeBounds,
   getProposalCost,
   getWeddingCost,
+  getWeddingPersonalityFit,
 } from '../../src/engine/relationshipEngine';
 
 const TRAIT_LABELS: Record<string, Record<string, string>> = {
@@ -110,6 +111,7 @@ export default function RelationshipsScreen() {
     state.career,
   ]);
   const familySpendingActive = (relationship?.familySpendingWeeksRemaining ?? 0) > 0;
+  const coupleTripWeeksRemaining = relationship?.coupleTripWeeksRemaining ?? 0;
   const dependentChildrenCount = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) < 18).length;
   const familyWorkPreview = getFamilyWorkIncomePreview(state, partner);
   const familyWorkAvailable = !!partner
@@ -315,10 +317,19 @@ export default function RelationshipsScreen() {
                 </View>
               )}
 
+              {coupleTripWeeksRemaining > 0 && (
+                <View style={styles.familyWarningBox}>
+                  <Text style={styles.compactTitle}>🌍 World trip in progress</Text>
+                  <Text style={styles.meta}>
+                    {coupleTripWeeksRemaining} week{coupleTripWeeksRemaining === 1 ? '' : 's'} remaining. Your salary and your partner's household contribution are paused while you travel; investments, property and businesses continue normally.
+                  </Text>
+                </View>
+              )}
+
               {partner.stage === 'engaged' && (
                 <View style={styles.majorBox}>
                   <Text style={styles.majorTitle}>Plan the Wedding</Text>
-                  <Text style={styles.meta}>Your partner can cover part of the wedding from their own savings. Choose how a future divorce settlement treats wealth built after marriage. This does not merge your playable cash while married.</Text>
+                  <Text style={styles.meta}>Wedding spending is now a major financial decision. Your partner contributes from their own savings based partly on their financial style, and the celebration itself has a stronger personality fit. Choose how a future divorce settlement treats wealth built after marriage.</Text>
 
                   <Text style={styles.subheading}>Financial agreement</Text>
                   <View style={styles.choiceRow}>
@@ -336,14 +347,22 @@ export default function RelationshipsScreen() {
                   <Text style={styles.subheading}>Wedding</Text>
                   {(['courthouse', 'standard', 'luxury'] as const).map((wedding) => {
                     const total = getWeddingCost(wedding, state.inflationMultiplier);
-                    const partnerShare = Math.min(Math.round(total * 0.25), Math.round((partner.savings ?? 0) * 0.35));
+                    const shareRate = partner.financialStyle === 'luxury' ? 0.35 : partner.financialStyle === 'frugal' ? 0.20 : 0.25;
+                    const savingsCap = partner.financialStyle === 'luxury' ? 0.45 : partner.financialStyle === 'frugal' ? 0.25 : 0.35;
+                    const partnerShare = Math.min(Math.round(total * shareRate), Math.round((partner.savings ?? 0) * savingsCap));
                     const yours = Math.max(0, total - partnerShare);
                     const ready = gw - (partner.engagedWeek ?? gw) >= 3;
+                    const fit = getWeddingPersonalityFit(partner, wedding);
                     return (
                       <Pressable key={wedding} disabled={!ready || state.cash < yours} style={[styles.weddingRow, (!ready || state.cash < yours) && styles.disabled]} onPress={() => marry(wedding, marriageAgreement)}>
-                        <View>
-                          <Text style={styles.compactTitle}>{wedding === 'courthouse' ? 'Courthouse' : capitalize(wedding) + ' Wedding'}</Text>
+                        <View style={{ flex: 1, paddingRight: 10 }}>
+                          <Text style={styles.compactTitle}>{wedding === 'courthouse' ? 'Intimate / Courthouse' : capitalize(wedding) + ' Wedding'}</Text>
                           <Text style={styles.meta}>{ready ? `Your share: ${formatCurrency(yours)}` : 'Available 3 weeks after engagement'}</Text>
+                          {financeKnown && (
+                            <Text style={[styles.meta, { color: fit.label === 'Great fit' ? Colors.primary : fit.label === 'Good fit' ? Colors.info : Colors.warning, marginTop: 3 }]}>
+                              Personality fit: {fit.label} • +{fit.relationshipBonus} relationship
+                            </Text>
+                          )}
                         </View>
                         <Text style={styles.moneyText}>{formatCurrency(total)}</Text>
                       </Pressable>
