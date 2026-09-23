@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
-import GameStatusBar from '../../src/components/StatusBar';
+import ScreenHeader from '../../src/components/ScreenHeader';
 import GameCard from '../../src/components/GameCard';
 import ProgressBar from '../../src/components/ProgressBar';
 import GameButton from '../../src/components/GameButton';
@@ -107,19 +107,21 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Dashboard</Text>
-        <View style={styles.headerRight}>
-          <Pressable style={styles.gemsBadge} onPress={() => router.push('/support')} hitSlop={8}>
-            <Ionicons name="diamond" size={14} color={Colors.premium} />
-            <Text style={styles.gemsText}>{gems}</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push('/profile')} hitSlop={12}>
-            <Ionicons name="settings-outline" size={24} color={Colors.textSecondary} />
-          </Pressable>
-        </View>
-      </View>
-      <GameStatusBar />
+      <ScreenHeader
+        title="Dashboard"
+        accentColor={Colors.primary}
+        right={(
+          <>
+            <Pressable style={styles.gemsBadge} onPress={() => router.push('/support')} hitSlop={8}>
+              <Ionicons name="diamond" size={14} color={Colors.premium} />
+              <Text style={styles.gemsText}>{gems}</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/profile')} hitSlop={12}>
+              <Ionicons name="settings-outline" size={22} color={Colors.textSecondary} />
+            </Pressable>
+          </>
+        )}
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <GameCard
           variant="hero"
@@ -313,9 +315,6 @@ function QuickLink({ icon, label, onPress, color, notification }: { icon: string
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 24, fontWeight: '700' },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   gemsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.premium}20`, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   gemsText: { color: Colors.premium, fontSize: 14, fontWeight: '700' },
   scroll: { flex: 1 },
