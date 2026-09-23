@@ -14,6 +14,7 @@ import { getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyCarCost,
 import { getCareerSalary } from '../../src/engine/careerEngine';
 import { calculatePartnerContribution } from '../../src/engine/relationshipEngine';
 import coursesData from '../../src/data/courses.json';
+import FirstStepsCard from '../../src/components/FirstStepsCard';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -112,6 +113,8 @@ export default function DashboardScreen() {
       </View>
       <GameStatusBar />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <FirstStepsCard />
+
         {/* News */}
         <GameCard>
           <View style={styles.newsRow}>
