@@ -41,6 +41,7 @@ import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
 import { AD_GEM_REWARD, GEM_CASH_RATE } from '../constants/rewards';
 import {
+  getAdFreeEducationRewardUsage as getProfileAdFreeEducationRewardUsage,
   getAdFreeSlotRewardUsage as getProfileAdFreeSlotRewardUsage,
   getGemRewardUsage,
   getLocalDayKey,
@@ -176,6 +177,8 @@ interface GameStore extends GameState {
   getAdUsage: () => { watchedToday: number; remaining: number; limit: number; limitReached: boolean };
   getAdFreeSlotRewardUsage: () => { claimedToday: number; remaining: number; limit: number; available: boolean };
   claimAdFreeBusinessSlotReward: (businessId: string, kind: 'project' | 'upgrade') => boolean;
+  getAdFreeEducationRewardUsage: () => { claimedToday: number; remaining: number; limit: number; available: boolean };
+  claimAdFreeEducationReward: () => boolean;
   getDailyLoginStatus: () => { available: boolean; streak: number; reward: number };
   claimDailyLoginReward: () => number;
   buyHouseUpgrade: (upgradeId: string) => void;
@@ -1366,6 +1369,26 @@ const useGameStore = create<GameStore>((set, get) => ({
   getAdUsage: () => getGemRewardUsage(get().profile),
 
   getAdFreeSlotRewardUsage: () => getProfileAdFreeSlotRewardUsage(get().profile),
+
+  getAdFreeEducationRewardUsage: () => getProfileAdFreeEducationRewardUsage(get().profile),
+
+  claimAdFreeEducationReward: () => {
+    const state = get();
+    const usage = getProfileAdFreeEducationRewardUsage(state.profile);
+    if (!state.profile.adsRemoved || !usage.available || !state.currentCourseId) return false;
+
+    const courseId = state.currentCourseId;
+    get().speedUpEducationWithAd();
+    const after = get();
+    const completed = !after.currentCourseId
+      && (after.completedCourses ?? []).some((course) => course.courseId === courseId);
+    if (!completed) return false;
+
+    const profile = { ...after.profile, adFreeEducationRewardClaimDate: getLocalDayKey() };
+    set({ profile });
+    saveProfile(profile);
+    return true;
+  },
 
   claimAdFreeBusinessSlotReward: (businessId: string, kind: 'project' | 'upgrade') => {
     const state = get();
