@@ -17,6 +17,7 @@ import { showGameDialog } from '../src/components/GameDialog';
 import { fulfillPurchase } from '../src/services/purchaseFulfillment';
 import { showAdPrivacyOptions } from '../src/services/adPrivacyManager';
 import { shouldSimulateNativeFeatures } from '../src/services/runtimeEnvironment';
+import { REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT } from '../src/services/adRewardEntitlements';
 
 export default function SupportScreen() {
   const router = useRouter();
@@ -84,8 +85,8 @@ export default function SupportScreen() {
       const granted = grantAdReward?.() ?? false;
       setAdState(granted ? 'success' : 'error');
       setAdMessage(granted
-        ? `Ad-free reward claimed! +${AD_GEM_REWARD} gems`
-        : 'Today’s ad-free gem rewards are already claimed.');
+        ? `Ad-free reward claimed! +${REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT} gems`
+        : 'Today’s ad-free gem reward is already claimed.');
       setTimeout(() => { setAdState('idle'); setAdMessage(''); }, 3000);
       return;
     }
@@ -231,7 +232,7 @@ export default function SupportScreen() {
         <GameCard title={adsRemoved ? "Ad-Free Gem Reward" : "Watch an Ad"}>
           <Text style={styles.desc}>
             {adsRemoved
-              ? `Remove Ads owners can claim ${AD_GEM_REWARD} gems twice per day without watching an advertisement.`
+              ? `Remove Ads owners can claim ${REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT} gems once per day without watching an advertisement.`
               : `${useSimulatedAd ? 'Complete a short simulated ad' : 'Watch a short ad'} and earn ${AD_GEM_REWARD} gems!`}
           </Text>
           {!adsRemoved && <View style={styles.adSupportNote}>
@@ -252,9 +253,9 @@ export default function SupportScreen() {
             <Text style={styles.adBtnText}>
               {adState === 'loading' ? 'Loading Ad...' :
                adState === 'showing' ? 'Showing Ad...' :
-               adUsage.limitReached ? (adsRemoved ? 'Daily rewards claimed' : 'Daily ad limit reached') :
+               adUsage.limitReached ? (adsRemoved ? 'Daily reward claimed' : 'Daily ad limit reached') :
                adsRemoved
-                 ? `Claim +${AD_GEM_REWARD} Gems — ${adUsage.remaining}/${adUsage.limit} left`
+                 ? `Claim +${REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT} Gems`
                  : `Watch Ad — ${adUsage.remaining}/${adUsage.limit} remaining today`}
             </Text>
           </Pressable>
@@ -303,7 +304,7 @@ export default function SupportScreen() {
             </Pressable>}
           </View>
           <Text style={styles.removeAdsBenefit}>
-            No ads will be shown. Keep 2 daily gem reward claims, 1 daily temporary business Slot 2 reward, and 1 daily instant education completion without watching ads.
+            No ads will be shown. Keep 1 daily 20-Gem reward, 1 daily temporary business Slot 2 reward, and 1 daily instant education completion without watching ads.
           </Text>
           {!adsRemoved && storeAvailable && <Pressable onPress={handleRestore} disabled={purchasing}><Text style={styles.restoreText}>Restore purchase</Text></Pressable>}
           {purchaseMessage !== '' && <Text style={styles.purchaseMessage}>{purchaseMessage}</Text>}
