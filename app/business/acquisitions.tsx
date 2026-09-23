@@ -17,6 +17,7 @@ import {
 } from '../../src/engine/acquisitionEngine';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
 import { AcquisitionFundingMode } from '../../src/types/game';
+import { getBusinessCapacity } from '../../src/engine/businessCapacityEngine';
 
 const RISK_LABELS = {
   low: { label: 'Low risk', color: Colors.primary },
@@ -33,6 +34,7 @@ const FUNDING_OPTIONS: Array<{ key: AcquisitionFundingMode; label: string; desc:
 export default function BusinessAcquisitionsScreen() {
   const router = useRouter();
   const acquisitionTargets = useGameStore((s) => s.acquisitionTargets ?? []);
+  const businesses = useGameStore((s) => s.businesses ?? []);
   const holdingCompanies = useGameStore((s) => s.holdingCompanies ?? []);
   const lastRefreshWeek = useGameStore((s) => s.lastAcquisitionRefreshWeek ?? 0);
   const cash = useGameStore((s) => s.cash ?? 0);
@@ -50,6 +52,8 @@ export default function BusinessAcquisitionsScreen() {
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
   const effects = getPrestigeEffects(profile);
+  const companyCapacity = getBusinessCapacity(profile);
+  const capacityFull = businesses.length >= companyCapacity;
   const negotiationBonus = effects.negotiation ?? 0;
   const loanRateReduction = effects.loan_rate_reduction ?? 0;
   const globalWeek = ((year - 1) * 20) + week;
@@ -72,7 +76,7 @@ export default function BusinessAcquisitionsScreen() {
 
   const confirmAcquire = (targetId: string) => {
     const target = acquisitionTargets.find((item) => item.id === targetId);
-    if (!target) return;
+    if (!target || capacityFull) return;
     const price = getAcquisitionPrice(target, negotiationBonus);
     const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction);
     const transactionCost = getAcquisitionTransactionCost(target, price);
@@ -121,6 +125,18 @@ export default function BusinessAcquisitionsScreen() {
             <Text style={styles.summaryValue}>{formatCurrency(sourceCash)}</Text>
           </View>
         </View>
+
+        {unlocked && capacityFull && (
+          <GameCard variant="attention" eyebrow="COMPANY CAPACITY" title="Unlock another company slot" accentColor={Colors.warning}>
+            <Text style={styles.capacityText}>
+              You currently own {businesses.length} of {companyCapacity} companies. Starting or acquiring another company requires a permanent capacity unlock.
+            </Text>
+            <Pressable style={styles.capacityLink} onPress={() => router.push('/business/start')}>
+              <Text style={styles.capacityLinkText}>Open company slot unlocks</Text>
+              <Ionicons name="arrow-forward" size={14} color={Colors.business} />
+            </Pressable>
+          </GameCard>
+        )}
 
         {!unlocked ? (
           <GameCard>
@@ -220,7 +236,7 @@ export default function BusinessAcquisitionsScreen() {
                 ? Math.round((price / target.estimatedValue - 1) * 100)
                 : 0;
               const debtServiceSafe = quote.weeklyPayment <= Math.max(1, target.weeklyProfit) * 0.80;
-              const canAfford = sourceCash >= totalCashNeeded && debtServiceSafe;
+              const canAfford = sourceCash >= totalCashNeeded && debtServiceSafe && !capacityFull;
 
               return (
                 <GameCard key={target.id}>
@@ -377,7 +393,7 @@ export default function BusinessAcquisitionsScreen() {
                       style={[styles.acquireButton, !canAfford && styles.acquireButtonDisabled]}
                     >
                       <Text style={[styles.acquireText, !canAfford && styles.acquireTextDisabled]}>
-                        {!debtServiceSafe ? 'Too leveraged' : sourceCash < totalCashNeeded ? 'Need cash' : 'Acquire'}
+                        {capacityFull ? 'Need slot' : !debtServiceSafe ? 'Too leveraged' : sourceCash < totalCashNeeded ? 'Need cash' : 'Acquire'}
                       </Text>
                     </Pressable>
                   </View>
@@ -401,6 +417,9 @@ const styles = StyleSheet.create({
   summaryCard: { flex: 1, backgroundColor: Colors.card, borderColor: Colors.cardBorder, borderWidth: 1, borderRadius: 12, padding: 13 },
   summaryLabel: { color: Colors.textMuted, fontSize: 11 },
   summaryValue: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800', marginTop: 4 },
+  capacityText: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16 },
+  capacityLink: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 10 },
+  capacityLinkText: { color: Colors.business, fontSize: 11, fontWeight: '800' },
   locked: { alignItems: 'center', paddingVertical: 18, gap: 9 },
   lockedTitle: { color: Colors.textPrimary, fontSize: 19, fontWeight: '800' },
   lockedText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19, textAlign: 'center' },
