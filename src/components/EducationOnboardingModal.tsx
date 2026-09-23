@@ -29,7 +29,7 @@ export default function EducationOnboardingModal() {
           </Text>
           <View style={styles.tip}>
             <Ionicons name="bulb-outline" size={20} color={Colors.warning} />
-            <Text style={styles.tipText}>You can choose freely. After completing it, the game will remind you which career becomes available.</Text>
+            <Text style={styles.tipText}>After enrolling, Career lets you choose Flexible Part-Time (+25% study time) or higher-paying High-Hours Part-Time (+60%). Both student jobs are tax-free.</Text>
           </View>
           <Pressable style={styles.primaryButton} onPress={chooseEducation}>
             <Text style={styles.primaryText}>Choose an education</Text>
