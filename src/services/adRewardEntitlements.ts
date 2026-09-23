@@ -1,7 +1,8 @@
 import { PlayerProfile } from '../types/game';
 import { AD_CONFIG } from './adConfig';
 
-export const REMOVE_ADS_DAILY_GEM_REWARD_LIMIT = 2;
+export const REMOVE_ADS_DAILY_GEM_REWARD_LIMIT = 1;
+export const REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT = 20;
 export const REMOVE_ADS_DAILY_SLOT_REWARD_LIMIT = 1;
 export const REMOVE_ADS_DAILY_EDUCATION_REWARD_LIMIT = 1;
 
