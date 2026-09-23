@@ -153,7 +153,7 @@ export default function RelationshipsScreen() {
               <Text style={styles.heroTitle}>Personal Life is Off</Text>
               <Text style={styles.heroText}>This save is currently focused on the economy only. You can enable Personal Life from Profile & Stats at any time.</Text>
             </View>
-            <GameButton variant="secondary" label="Open Profile Settings" icon="settings-outline" onPress={() => router.push('/profile')} />
+            <GameButton variant="secondary" accentColor={Colors.family} label="Open Profile Settings" icon="settings-outline" onPress={() => router.push('/profile')} />
           </GameCard>
         </ScrollView>
       </SafeAreaView>
@@ -197,7 +197,7 @@ export default function RelationshipsScreen() {
               <Counter label="Max" value={maxAge} onMinus={() => setMaxAge(Math.max(minAge, maxAge - 1))} onPlus={() => setMaxAge(Math.min(datingBounds.max, maxAge + 1))} />
             </View>
 
-            <GameButton label="Start Meeting People" icon="heart-outline" onPress={() => setDatingPreferences(preference, minAge, maxAge)} style={{ marginTop: 14 }} />
+            <GameButton accentColor={Colors.family} label="Start Meeting People" icon="heart-outline" onPress={() => setDatingPreferences(preference, minAge, maxAge)} style={{ marginTop: 14 }} />
           </GameCard>
         </ScrollView>
       </SafeAreaView>
