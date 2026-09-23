@@ -1,38 +1,248 @@
-import { GameState, StockState, NewsEvent, ActiveMarketSentiment, ActiveMarketEvent } from '../types/game';
+import { GameState, StockState, StockHolding, NewsEvent, ActiveMarketSentiment, ActiveMarketEvent, MarketCompanyEvent } from '../types/game';
 import stocksData from '../data/stocks.json';
 import marketSentimentData from '../data/market_sentiment.json';
 import marketEventsData from '../data/market_events.json';
 import marketSectorEventsData from '../data/market_sector_events.json';
 
-/**
- * Initialize stocks at game start.
- */
-export function initializeStocks(): StockState[] {
-  return (stocksData ?? []).map((s) => ({
-    ticker: s?.ticker ?? '',
-    currentPrice: s?.startPrice ?? 100,
-    priceHistory: [s?.startPrice ?? 100],
-  }));
+const EMERGING_POOL_SIZE = 8;
+const INITIAL_EMERGING_LISTINGS = 3;
+const MAX_ACTIVE_EMERGING = 5;
+const IPO_CHANCE_PER_YEAR = 0.65;
+
+function stockDefinitions() {
+  return (stocksData ?? []) as any[];
+}
+
+function coreStockDefinitions() {
+  return stockDefinitions().filter((stock) => stock.marketRole !== 'emerging');
+}
+
+function emergingStockDefinitions() {
+  return stockDefinitions().filter((stock) => stock.type === 'stock' && stock.marketRole === 'emerging');
+}
+
+function roundPrice(value: number): number {
+  return Math.max(0.01, Math.round(value * 100) / 100);
+}
+
+function createListedState(definition: any, listedWeek: number, emerging = false, quality?: number): StockState {
+  return {
+    ticker: definition?.ticker ?? '',
+    currentPrice: definition?.startPrice ?? 100,
+    priceHistory: [definition?.startPrice ?? 100],
+    marketStatus: 'listed',
+    listedWeek,
+    companyStage: emerging ? 'emerging' : 'established',
+    companyQuality: emerging ? Math.max(0.08, Math.min(0.95, quality ?? 0.5)) : undefined,
+  };
+}
+
+function weightedEmergingPick(
+  candidates: any[],
+  randomValue = Math.random(),
+): any | null {
+  if (candidates.length === 0) return null;
+  const totalWeight = candidates.reduce((sum, item) => sum + Math.max(0.05, Number(item.ipoWeight ?? 1)), 0);
+  let cursor = Math.max(0, Math.min(0.999999, randomValue)) * totalWeight;
+  for (const item of candidates) {
+    cursor -= Math.max(0.05, Number(item.ipoWeight ?? 1));
+    if (cursor <= 0) return item;
+  }
+  return candidates[candidates.length - 1] ?? null;
+}
+
+export function initializeMarketCompanyPool(randomFn: () => number = Math.random): string[] {
+  const remaining = [...emergingStockDefinitions()];
+  const selected: string[] = [];
+  while (remaining.length > 0 && selected.length < Math.min(EMERGING_POOL_SIZE, remaining.length)) {
+    const picked = weightedEmergingPick(remaining, randomFn());
+    if (!picked) break;
+    selected.push(picked.ticker);
+    const index = remaining.findIndex((item) => item.ticker === picked.ticker);
+    if (index >= 0) remaining.splice(index, 1);
+  }
+  return selected;
 }
 
 /**
- * Merge saved stocks with current stocks.json — adds any new tickers missing from saved state.
+ * Initialize the stable market plus a small, save-specific set of young public companies.
  */
-export function mergeStocks(existing: StockState[]): StockState[] {
-  const tickers = new Set((existing ?? []).map((s) => s?.ticker));
-  const missing = (stocksData ?? []).filter((s) => !tickers.has(s?.ticker));
-  if (missing.length === 0) return existing;
-  const added: StockState[] = missing.map((s) => ({
-    ticker: s?.ticker ?? '',
-    currentPrice: s?.startPrice ?? 100,
-    priceHistory: [s?.startPrice ?? 100],
-  }));
-  return [...(existing ?? []), ...added];
+export function initializeStocks(
+  marketCompanyPool: string[] = initializeMarketCompanyPool(),
+  randomFn: () => number = Math.random,
+): StockState[] {
+  const core = coreStockDefinitions().map((definition) => createListedState(definition, 1, false));
+  const initialEmerging = marketCompanyPool
+    .slice(0, INITIAL_EMERGING_LISTINGS)
+    .map((ticker) => emergingStockDefinitions().find((definition) => definition.ticker === ticker))
+    .filter(Boolean)
+    .map((definition) => createListedState(definition, 1, true, 0.12 + randomFn() * 0.78));
+  return [...core, ...initialEmerging];
+}
+
+/**
+ * Old saves keep every already-listed equity they knew about. New emerging definitions
+ * are not auto-injected: their appearance is controlled by each save's marketCompanyPool.
+ */
+export function mergeStocks(existing: StockState[], globalWeek = 1): StockState[] {
+  const normalized = (existing ?? []).map((stock) => {
+    const definition = stockDefinitions().find((item) => item.ticker === stock.ticker);
+    const emerging = definition?.marketRole === 'emerging';
+    return {
+      ...stock,
+      marketStatus: stock.marketStatus ?? 'listed',
+      listedWeek: stock.listedWeek ?? 1,
+      companyStage: stock.companyStage ?? (emerging ? 'mature' : 'established'),
+      companyQuality: emerging ? (stock.companyQuality ?? 0.65) : stock.companyQuality,
+    } as StockState;
+  });
+
+  const tickers = new Set(normalized.map((stock) => stock.ticker));
+  const missingCore = coreStockDefinitions()
+    .filter((definition) => !tickers.has(definition.ticker))
+    .map((definition) => createListedState(definition, Math.max(1, globalWeek), false));
+  return [...normalized, ...missingCore];
+}
+
+export function getLegacyMarketCompanyPool(): string[] {
+  return emergingStockDefinitions().map((definition) => definition.ticker);
+}
+
+export interface MarketCompanyLifecycleResult {
+  stocks: StockState[];
+  holdings: StockHolding[];
+  settlementCash: number;
+  realizedProfitLoss: number;
+  events: MarketCompanyEvent[];
+}
+
+/**
+ * Young public companies can IPO, mature into established listings, or fail and delist.
+ * Only companies selected in marketCompanyPool can ever appear in that save.
+ */
+export function processMarketCompanyLifecycle(
+  state: GameState,
+  globalWeek: number,
+  randomFn: () => number = Math.random,
+): MarketCompanyLifecycleResult {
+  let stocks = [...(state.stocks ?? [])];
+  let holdings = [...(state.holdings ?? [])];
+  let settlementCash = 0;
+  let realizedProfitLoss = 0;
+  const events: MarketCompanyEvent[] = [];
+
+  const pool = state.marketCompanyPool ?? [];
+  const usedTickers = new Set(stocks.map((stock) => stock.ticker));
+  const activeYoung = stocks.filter((stock) => {
+    const definition = stockDefinitions().find((item) => item.ticker === stock.ticker);
+    return definition?.marketRole === 'emerging'
+      && stock.marketStatus !== 'delisted'
+      && stock.companyStage !== 'mature'
+      && stock.companyStage !== 'failed';
+  }).length;
+
+  const annualListingWindow = globalWeek > 1 && (globalWeek - 1) % 20 === 0;
+  if (annualListingWindow && activeYoung < MAX_ACTIVE_EMERGING && randomFn() < IPO_CHANCE_PER_YEAR) {
+    const candidates = pool
+      .filter((ticker) => !usedTickers.has(ticker))
+      .map((ticker) => emergingStockDefinitions().find((definition) => definition.ticker === ticker))
+      .filter(Boolean);
+    const picked = weightedEmergingPick(candidates, randomFn());
+    if (picked) {
+      const quality = 0.10 + randomFn() * 0.84;
+      stocks.push(createListedState(picked, globalWeek, true, quality));
+      events.push({
+        ticker: picked.ticker,
+        company: picked.company,
+        kind: 'ipo',
+        description: `${picked.company} (${picked.ticker}) entered the public market. Young listings can grow quickly, stagnate, or fail.`,
+      });
+    }
+  }
+
+  stocks = stocks.map((stock) => {
+    const definition = stockDefinitions().find((item) => item.ticker === stock.ticker);
+    if (!definition || definition.marketRole !== 'emerging' || stock.marketStatus === 'delisted') return stock;
+
+    const age = Math.max(0, globalWeek - (stock.listedWeek ?? globalWeek));
+    const quality = Math.max(0.08, Math.min(0.95, stock.companyQuality ?? 0.5));
+    const priceRatio = (stock.currentPrice ?? definition.startPrice) / Math.max(0.01, definition.startPrice ?? 1);
+    let stage = stock.companyStage ?? 'emerging';
+
+    if (stage === 'emerging' && age >= 24 && priceRatio >= 1.12) stage = 'growth';
+
+    const matures = stage !== 'mature'
+      && stage !== 'failed'
+      && (
+        (age >= 60 && (priceRatio >= 1.15 || quality >= 0.68))
+        || (age >= 80 && priceRatio >= 0.70)
+      );
+    if (matures) {
+      events.push({
+        ticker: definition.ticker,
+        company: definition.company,
+        kind: 'matured',
+        description: `${definition.company} survived its risky early years and is now treated as an established listing.`,
+      });
+      return { ...stock, companyStage: 'mature' as const };
+    }
+
+    if (age < 12 || stage === 'mature' || stage === 'failed') {
+      return stage === stock.companyStage ? stock : { ...stock, companyStage: stage };
+    }
+
+    let failureChance = quality < 0.25 ? 0.022
+      : quality < 0.40 ? 0.012
+        : quality < 0.55 ? 0.005
+          : 0.0015;
+    if (priceRatio < 0.50) failureChance += 0.012;
+    if (priceRatio < 0.25) failureChance += 0.025;
+    if (age > 50) failureChance *= 0.70;
+
+    if (randomFn() >= failureChance) {
+      return stage === stock.companyStage ? stock : { ...stock, companyStage: stage };
+    }
+
+    const recoveryPrice = roundPrice((definition.startPrice ?? stock.currentPrice ?? 1) * (0.02 + randomFn() * 0.03));
+    const holding = holdings.find((item) => item.ticker === stock.ticker);
+    let companySettlement = 0;
+    let companyRealized = 0;
+    if (holding && holding.shares > 0) {
+      companySettlement = holding.shares * recoveryPrice;
+      const costBasis = holding.shares * holding.avgBuyPrice;
+      companyRealized = companySettlement - costBasis;
+      settlementCash += companySettlement;
+      realizedProfitLoss += companyRealized;
+      holdings = holdings.filter((item) => item.ticker !== stock.ticker);
+    }
+
+    events.push({
+      ticker: definition.ticker,
+      company: definition.company,
+      kind: 'delisted',
+      description: `${definition.company} failed during its early public years and was delisted.`,
+      settlementCash: companySettlement,
+      realizedProfitLoss: companyRealized,
+    });
+
+    const history = [...(stock.priceHistory ?? []), recoveryPrice].slice(-20);
+    return {
+      ...stock,
+      currentPrice: recoveryPrice,
+      priceHistory: history,
+      marketStatus: 'delisted' as const,
+      delistedWeek: globalWeek,
+      companyStage: 'failed' as const,
+    };
+  });
+
+  return { stocks, holdings, settlementCash, realizedProfitLoss, events };
 }
 
 /** Percentage changes from the two most recent saved prices. */
 export function getLatestStockChanges(stocks: StockState[]): { ticker: string; change: number }[] {
   return (stocks ?? []).flatMap((stock) => {
+    if (stock.marketStatus === 'delisted') return [];
     const history = stock?.priceHistory ?? [];
     if (history.length < 2) return [];
     const previousPrice = history[history.length - 2] ?? 0;
@@ -148,6 +358,7 @@ export function processDividends(
     const sd = (stocksData ?? []).find((s) => s?.ticker === holding?.ticker);
     if (!sd) continue;
     const stock = (state?.stocks ?? []).find((s) => s?.ticker === holding?.ticker);
+    if (stock?.marketStatus === 'delisted') continue;
     const price = stock?.currentPrice ?? sd.startPrice;
     // Use each asset's configured annual dividend/staking yield, with fallbacks.
     const metadata = sd as any;
@@ -178,6 +389,7 @@ export function processStocks(
   const elapsedWeeks = Math.max(0, ((state.year ?? 1) - 1) * 20 + (state.week ?? 1) - 1);
 
   const newStocks = (state?.stocks ?? []).map((stock) => {
+    if (stock.marketStatus === 'delisted') return stock;
     const data = (stocksData ?? []).find((s) => s?.ticker === stock?.ticker);
     const metadata = (data ?? {}) as any;
     const sector = data?.sector ?? '';
@@ -198,9 +410,15 @@ export function processStocks(
     // Crypto gets its own volatility profile. AurumX is deliberately the
     // defensive coin; MojoCoin is allowed much wider weekly swings.
     const configuredVolatility = Number(metadata.baseVolatility ?? 0);
-    const baseVolatility = isCrypto && configuredVolatility > 0
-      ? configuredVolatility
-      : isEtf ? 0.025 : isCommodity ? 0.08 : 0.06;
+    const isYoungEmerging = metadata.marketRole === 'emerging'
+      && stock.companyStage !== 'mature'
+      && stock.companyStage !== 'failed';
+    const emergingVolatility = Number(metadata.emergingVolatility ?? 0.13);
+    const baseVolatility = isYoungEmerging
+      ? emergingVolatility
+      : isCrypto && configuredVolatility > 0
+        ? configuredVolatility
+        : isEtf ? 0.025 : isCommodity ? 0.08 : 0.06;
     const cryptoVolatilityAdjustment = cryptoStyle === 'reserve' ? 0.85
       : cryptoStyle === 'speculative' ? 1.15 : 1;
     const volatility = baseVolatility * volatilityMult * cryptoVolatilityAdjustment;
@@ -214,6 +432,22 @@ export function processStocks(
     const trendGap = trendPrice / Math.max(isCrypto ? 0.01 : 1, stock.currentPrice ?? 1) - 1;
     const reversionCap = cryptoStyle === 'speculative' ? 0.012 : isCrypto ? 0.007 : 0.004;
     const meanReversion = Math.max(-reversionCap, Math.min(reversionCap, trendGap * 0.02));
+
+    let emergingDrift = 0;
+    let emergingMomentum = 0;
+    if (isYoungEmerging) {
+      const quality = Math.max(0.08, Math.min(0.95, stock.companyQuality ?? 0.5));
+      emergingDrift = (quality - 0.48) * 0.014 + (stock.companyStage === 'growth' ? 0.002 : 0);
+      const emergingHistory = stock.priceHistory ?? [];
+      if (emergingHistory.length >= 2) {
+        const last = emergingHistory[emergingHistory.length - 1] ?? stock.currentPrice ?? 0;
+        const previous = emergingHistory[emergingHistory.length - 2] ?? last;
+        if (previous > 0) {
+          const previousMove = (last - previous) / previous;
+          emergingMomentum = Math.max(-0.025, Math.min(0.025, previousMove * 0.14));
+        }
+      }
+    }
 
     // Crypto-specific mechanics.
     const history = stock?.priceHistory ?? [];
@@ -251,6 +485,8 @@ export function processStocks(
       + inflationDrift
       + weeklyGrowthDrift
       + meanReversion
+      + emergingDrift
+      + emergingMomentum
       + momentumEffect
       + techEffect
       + reserveInflationEffect
@@ -262,14 +498,16 @@ export function processStocks(
       ? rawChange * (1 - Math.max(0, Math.min(0.5, cryptoDownsideReduction)))
       : rawChange;
 
-    const minChange = cryptoStyle === 'reserve' ? -0.18
-      : cryptoStyle === 'utility' ? -0.25
-        : cryptoStyle === 'speculative' ? -0.35
-          : effectiveMacroShock < 0 ? -0.30 : -0.08;
-    const maxChange = cryptoStyle === 'reserve' ? 0.18
-      : cryptoStyle === 'utility' ? 0.28
-        : cryptoStyle === 'speculative' ? 0.40
-          : 0.10;
+    const minChange = isYoungEmerging ? (effectiveMacroShock < 0 ? -0.32 : -0.20)
+      : cryptoStyle === 'reserve' ? -0.18
+        : cryptoStyle === 'utility' ? -0.25
+          : cryptoStyle === 'speculative' ? -0.35
+            : effectiveMacroShock < 0 ? -0.30 : -0.08;
+    const maxChange = isYoungEmerging ? 0.24
+      : cryptoStyle === 'reserve' ? 0.18
+        : cryptoStyle === 'utility' ? 0.28
+          : cryptoStyle === 'speculative' ? 0.40
+            : 0.10;
     const totalChange = Math.max(minChange, Math.min(maxChange, protectedRawChange));
 
     let newPrice = (stock?.currentPrice ?? 100) * (1 + totalChange);
@@ -281,13 +519,14 @@ export function processStocks(
     return { ...stock, currentPrice: newPrice, priceHistory: nextHistory };
   });
 
-  const stockChanges = newStocks.map((ns) => {
+  const stockChanges = newStocks.flatMap((ns) => {
+    if (ns.marketStatus === 'delisted') return [];
     const old = (state?.stocks ?? []).find((s) => s?.ticker === ns?.ticker);
     const oldPrice = old?.currentPrice ?? ns?.currentPrice;
-    return {
+    return [{
       ticker: ns?.ticker ?? '',
       change: oldPrice > 0 ? ((ns?.currentPrice ?? 0) - oldPrice) / oldPrice * 100 : 0,
-    };
+    }];
   });
 
   return { stocks: newStocks, stockChanges };
