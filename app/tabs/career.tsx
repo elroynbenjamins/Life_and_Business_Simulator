@@ -15,6 +15,7 @@ import coursesData from '../../src/data/courses.json';
 import { showGameDialog } from '../../src/components/GameDialog';
 import { disciplineImages } from '../../src/assets/progressionImages';
 import { getPromotionAssetNotice } from '../../src/engine/playerNotificationEngine';
+import { getStudentWorkTier, STUDENT_WORK_OPTIONS } from '../../src/engine/studentWork';
 
 export default function CareerScreen() {
   const career = useGameStore((s) => s?.career);
@@ -281,27 +282,60 @@ export default function CareerScreen() {
 }
 
 function PartTimeCard() {
-  const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
-  const togglePartTimeJob = useGameStore((s) => s?.togglePartTimeJob);
+  const partTimeJob = useGameStore((s) => s?.partTimeJob ?? false);
+  const studentWorkTier = useGameStore((s) => s?.studentWorkTier ?? null);
+  const setStudentWorkTier = useGameStore((s) => s?.setStudentWorkTier);
   const hasCareerV2 = !!useGameStore((s) => s?.career?.companyId);
   const hasLegacyJob = !!useGameStore((s) => s?.currentJobId);
   const hasFullTimeJob = hasCareerV2 || hasLegacyJob;
+  const activeTier = getStudentWorkTier({ partTimeJob, studentWorkTier });
+
   return (
     <GameCard>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: Colors.textPrimary, fontSize: 15, fontWeight: '700' }}>🕒 Part-Time Job</Text>
-          <Text style={{ color: Colors.textMuted, fontSize: 12, marginTop: 2 }}>€275–425/week • Slows study by 25%</Text>
-          {hasFullTimeJob && <Text style={{ color: Colors.warning, fontSize: 11, marginTop: 2 }}>Unavailable while working a full-time job</Text>}
-        </View>
-        <Pressable
-          style={{ backgroundColor: hasFullTimeJob ? Colors.textMuted : partTimeJob ? Colors.negative : Colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, opacity: hasFullTimeJob ? 0.55 : 1 }}
-          onPress={() => togglePartTimeJob?.()}
-          disabled={hasFullTimeJob}
-        >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{hasFullTimeJob ? 'Unavailable' : partTimeJob ? 'Quit' : 'Start'}</Text>
-        </Pressable>
-      </View>
+      <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>Student Work</Text>
+      <Text style={{ color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 3, marginBottom: 10 }}>
+        Both options are tax-free and end automatically when you start a full-time career. More work means more income, but less time to study.
+      </Text>
+
+      {(['flexible', 'high_hours'] as const).map((tier) => {
+        const option = STUDENT_WORK_OPTIONS[tier];
+        const active = activeTier === tier;
+        return (
+          <View key={tier} style={{ marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.cardBorder }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>
+                  {tier === 'flexible' ? '🕒' : '💼'} {option.name}
+                </Text>
+                <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700', marginTop: 3 }}>
+                  €{option.minWeeklyIncome}–{option.maxWeeklyIncome}/week • Tax-free
+                </Text>
+                <Text style={{ color: Colors.warning, fontSize: 11, marginTop: 2 }}>
+                  Study duration +{Math.round((option.studyDurationMultiplier - 1) * 100)}%
+                </Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 }}>{option.description}</Text>
+              </View>
+              <Pressable
+                style={{
+                  backgroundColor: hasFullTimeJob ? Colors.textMuted : active ? Colors.negative : Colors.primary,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  opacity: hasFullTimeJob ? 0.55 : 1,
+                }}
+                onPress={() => setStudentWorkTier?.(active ? null : tier)}
+                disabled={hasFullTimeJob}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>
+                  {hasFullTimeJob ? 'Unavailable' : active ? 'Quit' : 'Start'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        );
+      })}
+
+      {hasFullTimeJob && <Text style={{ color: Colors.warning, fontSize: 11, marginTop: 9 }}>Student work is unavailable while working a full-time career.</Text>}
     </GameCard>
   );
 }
