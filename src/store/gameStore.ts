@@ -45,7 +45,6 @@ import {
   getAdFreeEducationRewardUsage as getProfileAdFreeEducationRewardUsage,
   getAdFreeSlotRewardUsage as getProfileAdFreeSlotRewardUsage,
   getGemRewardUsage,
-  getBusinessCapacityAdUnlockUsage,
   getLocalDayKey,
 } from '../services/adRewardEntitlements';
 import { showGameDialog } from '../components/GameDialog';
@@ -3156,14 +3155,8 @@ const useGameStore = create<GameStore>((set, get) => ({
   grantBusinessCapacityAdUnlock: () => {
     const state = get();
     if (getBusinessCapacity(state.profile) >= MAX_BUSINESS_CAPACITY) return false;
-    const usage = getBusinessCapacityAdUnlockUsage(state.profile);
-    if (!usage.available) return false;
-    const unlocked = unlockBusinessCapacity(state.profile);
-    if (!unlocked) return false;
-    const profile = {
-      ...unlocked,
-      businessCapacityAdClaimDate: getLocalDayKey(),
-    };
+    const profile = unlockBusinessCapacity(state.profile);
+    if (!profile) return false;
     set({ profile });
     saveProfile(profile);
     return true;
