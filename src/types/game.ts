@@ -1780,6 +1780,8 @@ export interface PlayerProfile {
   rewardedGemClaimsToday?: number;
   /** Remove Ads owners receive one ad-free temporary business Slot 2 claim per day. */
   adFreeSlotRewardClaimDate?: string;
+  /** Remove Ads owners receive one ad-free instant education completion per day. */
+  adFreeEducationRewardClaimDate?: string;
 }
 
 export const INITIAL_PROFILE: PlayerProfile = {
@@ -1794,6 +1796,7 @@ export const INITIAL_PROFILE: PlayerProfile = {
   rewardedGemClaimDate: '',
   rewardedGemClaimsToday: 0,
   adFreeSlotRewardClaimDate: '',
+  adFreeEducationRewardClaimDate: '',
 };
 
 /** Save slot metadata */
