@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
+import ScreenHeader from '../../src/components/ScreenHeader';
 import ProgressBar from '../../src/components/ProgressBar';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
@@ -104,9 +105,11 @@ export default function EducationScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Education</Text>
-      </View>
+      <ScreenHeader
+        title="Education"
+        subtitle="Build skills and unlock career paths"
+        accentColor={Colors.education}
+      />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {educationNotice.available && (
