@@ -4,7 +4,7 @@ import { getPlayerFamilyWorkFraction, processRelationships } from './relationshi
 import { processLifecycle } from './lifecycleEngine';
 import { syncFamilyTree } from './familyTreeEngine';
 import { processNews } from './newsEngine';
-import { processMarketCompanyLifecycle, processStocks, rollMarketSentiment, rollMarketEvent, processDividends } from './stockEngine';
+import { getLatestStockChanges, processMarketCompanyLifecycle, processPublicCompanyEvents, processStocks, rollMarketSentiment, rollMarketEvent, processDividends } from './stockEngine';
 import { processEducation } from './educationEngine';
 import { getStudentWorkTier, rollStudentWorkIncome } from './studentWork';
 import { processJobs } from './jobEngine';
@@ -87,16 +87,26 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     },
     globalWeek,
   );
-  const delistedTickers = new Set(
-    marketLifecycle.events.filter((event) => event.kind === 'delisted').map((event) => event.ticker),
+
+  // ---------- Step 4.35: Company-specific stories and rare M&A ----------
+  const publicCompanyEvents = processPublicCompanyEvents(
+    {
+      ...stateWithInflation,
+      stocks: marketLifecycle.stocks,
+      holdings: marketLifecycle.holdings,
+    },
+    globalWeek,
   );
-  const finalStockChanges = stockResult.stockChanges.filter((change) => !delistedTickers.has(change.ticker));
+  const combinedMarketCompanyEvents = [...marketLifecycle.events, ...publicCompanyEvents.events];
+  const marketSettlementCash = marketLifecycle.settlementCash + publicCompanyEvents.settlementCash;
+  const marketRealizedProfitLoss = marketRealizedProfitLoss + publicCompanyEvents.realizedProfitLoss;
+  const finalStockChanges = getLatestStockChanges(publicCompanyEvents.stocks);
 
   // ---------- Step 4.5: Dividends ----------
   const baseDividendIncome = processDividends({
     ...stateWithInflation,
-    stocks: marketLifecycle.stocks,
-    holdings: marketLifecycle.holdings,
+    stocks: publicCompanyEvents.stocks,
+    holdings: publicCompanyEvents.holdings,
   }, globalWeek);
   const dividendIncome = Math.round(baseDividendIncome * (1 + (prestigeEffects.dividend_boost ?? 0)));
 
@@ -182,7 +192,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     + bankDepositMaturityIncome
     + relationshipTick.partnerContribution
     + relationshipTick.partnerInheritance
-    + marketLifecycle.settlementCash
+    + marketSettlementCash
     - totalExpenses
     - taxes.taxAmount;
 
@@ -325,8 +335,8 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     inflationMultiplier: economy.inflationMultiplier,
     currentCarId: stateWithInflation.currentCarId,
     pendingCarDelivery: stateWithInflation.pendingCarDelivery,
-    stocks: marketLifecycle.stocks,
-    holdings: marketLifecycle.holdings,
+    stocks: publicCompanyEvents.stocks,
+    holdings: publicCompanyEvents.holdings,
     currentCourseId: edu.currentCourseId,
     courseWeeksCompleted: edu.courseWeeksCompleted,
     completedCourses: edu.completedCourses,
@@ -350,7 +360,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     competitors: compResult.updatedCompetitors,
     activeMarketSentiment: newSentiment,
     activeMarketEvents: newMarketEvents,
-    totalRealizedProfitLoss: (state?.totalRealizedProfitLoss ?? 0) + marketLifecycle.realizedProfitLoss,
+    totalRealizedProfitLoss: (state?.totalRealizedProfitLoss ?? 0) + marketRealizedProfitLoss,
     newsHistory: (() => {
       const prev = state?.newsHistory ?? [];
       const next = [...prev, news.headline];
@@ -409,7 +419,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     weeksUnemployed: prevStats.weeksUnemployed + (isEmployed ? 0 : 1),
     loansTaken: prevStats.loansTaken,
     loansRepaid: prevStats.loansRepaid + loanResult.loansRepaid,
-    totalRealizedProfitLoss: (prevStats.totalRealizedProfitLoss ?? 0) + marketLifecycle.realizedProfitLoss,
+    totalRealizedProfitLoss: (prevStats.totalRealizedProfitLoss ?? 0) + marketRealizedProfitLoss,
     totalDividendsReceived: (prevStats.totalDividendsReceived ?? 0) + dividendIncome,
     highestSoldStockProfitPercent: prevStats.highestSoldStockProfitPercent ?? 0,
     highestStockPortfolioValue: Math.max(
@@ -476,9 +486,9 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     skillGains,
     marketSentimentName: newSentiment && globalWeek % 20 === 0 ? newSentiment.name : null,
     marketEventTitle: newMarketEvent?.title ?? null,
-    marketCompanyEvents: marketLifecycle.events,
+    marketCompanyEvents: combinedMarketCompanyEvents,
     performanceEventResult: careerTick.performanceEvent,
-    realizedProfitLoss: marketLifecycle.realizedProfitLoss,
+    realizedProfitLoss: marketRealizedProfitLoss,
     dividendIncome,
     partTimeIncome,
     partnerContribution: relationshipTick.partnerContribution,
