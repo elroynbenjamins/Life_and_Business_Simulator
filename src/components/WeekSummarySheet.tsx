@@ -51,7 +51,7 @@ export default function WeekSummarySheet() {
             {/* Income */}
             <Text style={styles.sectionLabel}>Income</Text>
             <Row label="Salary" value={summary?.salaryEarned ?? 0} positive />
-            {(summary?.partTimeIncome ?? 0) > 0 && <Row label="Part-time income (tax-free)" value={summary.partTimeIncome} positive />}
+            {(summary?.partTimeIncome ?? 0) > 0 && <Row label="Student work income (tax-free)" value={summary.partTimeIncome} positive />}
             {(summary?.partnerContribution ?? 0) > 0 && <Row label="Partner household contribution" value={summary.partnerContribution} positive />}
             {(summary?.partnerInheritance ?? 0) > 0 && <Row label="Inheritance from spouse" value={summary.partnerInheritance} positive />}
             {summary?.salaryReduced && (
