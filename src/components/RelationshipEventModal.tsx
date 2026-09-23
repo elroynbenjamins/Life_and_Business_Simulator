@@ -34,6 +34,7 @@ export default function RelationshipEventModal() {
                   onPress={() => handleChoice(index)}
                 >
                   <Text style={styles.choiceText}>{choice.text}</Text>
+                  {choice.personalityHint && <Text style={styles.fitHint}>{choice.personalityHint}</Text>}
                   {cost > 0 && (
                     <Text style={[styles.cost, !canAfford && { color: Colors.negative }]}>
                       {canAfford ? formatCurrency(cost) : `Need ${formatCurrency(cost)}`}
@@ -63,6 +64,7 @@ const styles = StyleSheet.create({
   choices: { maxHeight: 330 },
   choice: { borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, borderRadius: 11, padding: 13, marginBottom: 9 },
   choiceText: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  fitHint: { color: Colors.info, fontSize: 11, marginTop: 5, fontWeight: '700' },
   cost: { color: Colors.warning, fontSize: 11, marginTop: 5, fontWeight: '600' },
   disabled: { opacity: 0.42 },
   later: { alignItems: 'center', paddingVertical: 11, marginTop: 2 },
