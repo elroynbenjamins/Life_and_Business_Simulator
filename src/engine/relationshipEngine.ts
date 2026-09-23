@@ -310,8 +310,38 @@ export function getProposalCost(kind: 'simple' | 'classic' | 'luxury', inflation
 }
 
 export function getWeddingCost(kind: 'courthouse' | 'standard' | 'luxury', inflationMultiplier = 1): number {
-  const base = kind === 'courthouse' ? 1000 : kind === 'standard' ? 10000 : 40000;
+  // Weddings are intended to be a meaningful mid-game money sink rather than a token fee.
+  const base = kind === 'courthouse' ? 5000 : kind === 'standard' ? 30000 : 120000;
   return Math.round(base * inflationMultiplier);
+}
+
+export function getWeddingPersonalityFit(
+  partner: Pick<RelationshipConnection, 'financialStyle' | 'riskTolerance' | 'ambition'>,
+  kind: 'courthouse' | 'standard' | 'luxury',
+): { relationshipBonus: number; label: 'Great fit' | 'Good fit' | 'Mixed fit'; note: string } {
+  let score = kind === 'courthouse' ? 2 : kind === 'standard' ? 4 : 6;
+
+  if (partner.financialStyle === 'frugal') score += kind === 'courthouse' ? 5 : kind === 'standard' ? 1 : -6;
+  if (partner.financialStyle === 'balanced') score += kind === 'standard' ? 3 : 0;
+  if (partner.financialStyle === 'luxury') score += kind === 'luxury' ? 5 : kind === 'standard' ? 2 : -2;
+
+  if (partner.riskTolerance === 'cautious') score += kind === 'courthouse' ? 2 : kind === 'luxury' ? -2 : 0;
+  if (partner.riskTolerance === 'risk_taking') score += kind === 'luxury' ? 2 : 0;
+
+  if (partner.ambition === 'driven') score += kind === 'courthouse' ? 2 : kind === 'luxury' ? -1 : 1;
+  if (partner.ambition === 'relaxed') score += kind === 'luxury' ? 1 : 0;
+
+  const relationshipBonus = Math.max(1, Math.min(14, score));
+  const label = relationshipBonus >= 9 ? 'Great fit' : relationshipBonus >= 5 ? 'Good fit' : 'Mixed fit';
+  const note = partner.financialStyle === 'frugal'
+    ? 'They value meaning and financial restraint.'
+    : partner.financialStyle === 'luxury'
+      ? 'They enjoy a memorable, high-end celebration.'
+      : partner.ambition === 'driven'
+        ? 'They appreciate a celebration that does not derail long-term plans.'
+        : 'They prefer a balanced celebration and shared experience.';
+
+  return { relationshipBonus, label, note };
 }
 
 export function getDateConnectionGain(
