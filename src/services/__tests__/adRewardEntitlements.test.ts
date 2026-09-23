@@ -1,7 +1,9 @@
 import { INITIAL_PROFILE } from '../../types/game';
 import {
+  REMOVE_ADS_DAILY_EDUCATION_REWARD_LIMIT,
   REMOVE_ADS_DAILY_GEM_REWARD_LIMIT,
   REMOVE_ADS_DAILY_SLOT_REWARD_LIMIT,
+  getAdFreeEducationRewardUsage,
   getAdFreeSlotRewardUsage,
   getGemRewardUsage,
 } from '../adRewardEntitlements';
@@ -49,6 +51,21 @@ describe('rewarded ad account entitlements', () => {
     expect(used.remaining).toBe(0);
   });
 
+  test('Remove Ads owners receive one account-wide ad-free education completion per day', () => {
+    const available = getAdFreeEducationRewardUsage({ ...INITIAL_PROFILE, adsRemoved: true }, today);
+    expect(REMOVE_ADS_DAILY_EDUCATION_REWARD_LIMIT).toBe(1);
+    expect(available.available).toBe(true);
+    expect(available.remaining).toBe(1);
+
+    const used = getAdFreeEducationRewardUsage({
+      ...INITIAL_PROFILE,
+      adsRemoved: true,
+      adFreeEducationRewardClaimDate: today,
+    }, today);
+    expect(used.available).toBe(false);
+    expect(used.remaining).toBe(0);
+  });
+
   test('daily usage resets on the next local day', () => {
     const profile = {
       ...INITIAL_PROFILE,
@@ -56,8 +73,10 @@ describe('rewarded ad account entitlements', () => {
       rewardedGemClaimDate: '2026-09-22',
       rewardedGemClaimsToday: 2,
       adFreeSlotRewardClaimDate: '2026-09-22',
+      adFreeEducationRewardClaimDate: '2026-09-22',
     };
     expect(getGemRewardUsage(profile, today).remaining).toBe(2);
     expect(getAdFreeSlotRewardUsage(profile, today).available).toBe(true);
+    expect(getAdFreeEducationRewardUsage(profile, today).available).toBe(true);
   });
 });
