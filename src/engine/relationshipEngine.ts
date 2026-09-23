@@ -371,6 +371,10 @@ function childCelebrationGain(child: RelationshipChild, kind: ChildCelebrationKi
   return Math.max(2, Math.min(14, gain));
 }
 
+function personalityFitHint(gain: number): string {
+  return gain >= 10 ? 'Great personality fit' : gain >= 7 ? 'Good personality fit' : 'Mixed personality fit';
+}
+
 function getMarriageMilestoneEvent(
   state: GameState,
   partner: RelationshipConnection,
@@ -401,6 +405,7 @@ function getMarriageMilestoneEvent(
         text: `Meaningful celebration (€${intimateCost.toLocaleString()})`,
         cost: intimateCost,
         relationship: anniversaryRelationshipGain(partner, 'intimate'),
+        personalityHint: personalityFitHint(anniversaryRelationshipGain(partner, 'intimate')),
         happiness: 5,
         happinessDuration: 4,
       },
@@ -408,6 +413,7 @@ function getMarriageMilestoneEvent(
         text: `Host a big anniversary party (€${partyCost.toLocaleString()})`,
         cost: partyCost,
         relationship: anniversaryRelationshipGain(partner, 'party'),
+        personalityHint: personalityFitHint(anniversaryRelationshipGain(partner, 'party')),
         happiness: 9,
         happinessDuration: 5,
       },
@@ -415,6 +421,7 @@ function getMarriageMilestoneEvent(
         text: `Take an anniversary trip (€${tripCost.toLocaleString()})`,
         cost: tripCost,
         relationship: anniversaryRelationshipGain(partner, 'trip'),
+        personalityHint: personalityFitHint(anniversaryRelationshipGain(partner, 'trip')),
         happiness: 11,
         happinessDuration: 6,
         travelWeeks: tripWeeks,
@@ -457,6 +464,7 @@ function getChildMilestoneEvent(
           cost: familyCost,
           childId: child.id,
           childRelationship: childCelebrationGain(child, 'family'),
+          personalityHint: personalityFitHint(childCelebrationGain(child, 'family')),
           happiness: 4,
           happinessDuration: 3,
         },
@@ -465,6 +473,7 @@ function getChildMilestoneEvent(
           cost: partyCost,
           childId: child.id,
           childRelationship: childCelebrationGain(child, 'party'),
+          personalityHint: personalityFitHint(childCelebrationGain(child, 'party')),
           happiness: 7,
           happinessDuration: 4,
         },
@@ -476,6 +485,7 @@ function getChildMilestoneEvent(
           childId: child.id,
           childSavings: age >= 18 ? experienceCost : undefined,
           childRelationship: childCelebrationGain(child, 'experience'),
+          personalityHint: personalityFitHint(childCelebrationGain(child, 'experience')),
           happiness: 6,
           happinessDuration: 4,
         },
@@ -1078,6 +1088,7 @@ function createRelationshipEvent(
           text: `Take a 2-week world trip (€${shortCost.toLocaleString()}) — no salary for 2 weeks`,
           cost: shortCost,
           relationship: shortGain,
+          personalityHint: personalityFitHint(shortGain),
           happiness: 12,
           happinessDuration: 6,
           travelWeeks: 2,
@@ -1086,6 +1097,7 @@ function createRelationshipEvent(
           text: `Take a 4-week world tour (€${longCost.toLocaleString()}) — no salary for 4 weeks`,
           cost: longCost,
           relationship: longGain,
+          personalityHint: personalityFitHint(longGain),
           happiness: 18,
           happinessDuration: 8,
           travelWeeks: 4,
