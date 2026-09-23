@@ -3,6 +3,7 @@ import stocksData from '../data/stocks.json';
 import marketSentimentData from '../data/market_sentiment.json';
 import marketEventsData from '../data/market_events.json';
 import marketSectorEventsData from '../data/market_sector_events.json';
+import marketCompanyEventsData from '../data/market_company_events.json';
 
 const EMERGING_POOL_SIZE = 8;
 const INITIAL_EMERGING_LISTINGS = 3;
@@ -239,6 +240,209 @@ export function processMarketCompanyLifecycle(
   return { stocks, holdings, settlementCash, realizedProfitLoss, events };
 }
 
+const COMPANY_EVENT_CHANCE_PER_WEEK = 0.05;
+const PUBLIC_MA_CHANCE_PER_WEEK = 0.004;
+const COMPANY_EVENT_COOLDOWN_WEEKS = 14;
+
+function replaceLatestHistoryPrice(stock: StockState, nextPrice: number): StockState {
+  const price = roundPrice(nextPrice);
+  const history = [...(stock.priceHistory ?? [])];
+  if (history.length === 0) history.push(price);
+  else history[history.length - 1] = price;
+  return { ...stock, currentPrice: price, priceHistory: history.slice(-20) };
+}
+
+function weightedCompanyEventPick(events: any[], stock: StockState, randomValue: number): any | null {
+  if (events.length === 0) return null;
+  const quality = Math.max(0.08, Math.min(0.95, stock.companyQuality ?? 0.5));
+  const weights = events.map((event) => {
+    const directionFactor = event.positive
+      ? 0.75 + quality * 0.65
+      : 1.20 - quality * 0.45;
+    return Math.max(0.05, Number(event.weight ?? 1) * directionFactor);
+  });
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  let cursor = Math.max(0, Math.min(0.999999, randomValue)) * total;
+  for (let index = 0; index < events.length; index++) {
+    cursor -= weights[index];
+    if (cursor <= 0) return events[index];
+  }
+  return events[events.length - 1] ?? null;
+}
+
+export interface PublicCompanyEventResult {
+  stocks: StockState[];
+  holdings: StockHolding[];
+  settlementCash: number;
+  realizedProfitLoss: number;
+  events: MarketCompanyEvent[];
+}
+
+/**
+ * One-off company stories plus rare public-company acquisitions.
+ * Existing multi-week company effects tick here after processStocks used them.
+ */
+export function processPublicCompanyEvents(
+  state: GameState,
+  globalWeek: number,
+  randomFn: () => number = Math.random,
+): PublicCompanyEventResult {
+  let stocks = (state.stocks ?? []).map((stock) => {
+    const active = stock.activeCompanyEvent;
+    if (!active) return stock;
+    return {
+      ...stock,
+      activeCompanyEvent: active.weeksRemaining <= 1
+        ? null
+        : { ...active, weeksRemaining: active.weeksRemaining - 1 },
+    };
+  });
+  let holdings = [...(state.holdings ?? [])];
+  let settlementCash = 0;
+  let realizedProfitLoss = 0;
+  const events: MarketCompanyEvent[] = [];
+
+  const listedStocks = () => stocks.filter((stock) => {
+    const definition = stockDefinitions().find((item) => item.ticker === stock.ticker);
+    return definition?.type === 'stock' && stock.marketStatus !== 'delisted';
+  });
+
+  // Rare acquisition: established/mature public companies can absorb a younger listing.
+  const acquisitionTargets = listedStocks().filter((stock) => {
+    const definition = stockDefinitions().find((item) => item.ticker === stock.ticker);
+    const age = Math.max(0, globalWeek - (stock.listedWeek ?? globalWeek));
+    return definition?.marketRole === 'emerging'
+      && age >= 12
+      && stock.companyStage !== 'failed';
+  });
+
+  if (globalWeek > 20 && acquisitionTargets.length > 0 && randomFn() < PUBLIC_MA_CHANCE_PER_WEEK) {
+    const target = acquisitionTargets[Math.floor(randomFn() * acquisitionTargets.length)] ?? acquisitionTargets[0];
+    const targetDefinition = stockDefinitions().find((item) => item.ticker === target.ticker);
+    const allAcquirers = listedStocks().filter((stock) => stock.ticker !== target.ticker && (
+      stock.companyStage === 'established'
+      || stock.companyStage === 'mature'
+      || stockDefinitions().find((item) => item.ticker === stock.ticker)?.marketRole !== 'emerging'
+    ));
+    const sameSector = allAcquirers.filter((stock) =>
+      stockDefinitions().find((item) => item.ticker === stock.ticker)?.sector === targetDefinition?.sector
+    );
+    const acquirerPool = sameSector.length > 0 ? sameSector : allAcquirers;
+
+    if (targetDefinition && acquirerPool.length > 0) {
+      const acquirer = acquirerPool[Math.floor(randomFn() * acquirerPool.length)] ?? acquirerPool[0];
+      const acquirerDefinition = stockDefinitions().find((item) => item.ticker === acquirer.ticker);
+      const premium = 0.18 + randomFn() * 0.17;
+      const offerPrice = roundPrice((target.currentPrice ?? targetDefinition.startPrice ?? 1) * (1 + premium));
+      const holding = holdings.find((item) => item.ticker === target.ticker);
+      let companySettlement = 0;
+      let companyRealized = 0;
+      if (holding && holding.shares > 0) {
+        companySettlement = holding.shares * offerPrice;
+        const costBasis = holding.shares * holding.avgBuyPrice;
+        companyRealized = companySettlement - costBasis;
+        settlementCash += companySettlement;
+        realizedProfitLoss += companyRealized;
+        holdings = holdings.filter((item) => item.ticker !== target.ticker);
+      }
+
+      const acquirerReaction = -0.02 + randomFn() * 0.07;
+      stocks = stocks.map((stock) => {
+        if (stock.ticker === target.ticker) {
+          return {
+            ...replaceLatestHistoryPrice(stock, offerPrice),
+            marketStatus: 'delisted' as const,
+            delistedWeek: globalWeek,
+            delistingReason: 'acquisition' as const,
+            acquiredByTicker: acquirer.ticker,
+            activeCompanyEvent: null,
+          };
+        }
+        if (stock.ticker === acquirer.ticker) {
+          return {
+            ...replaceLatestHistoryPrice(stock, (stock.currentPrice ?? 1) * (1 + acquirerReaction)),
+            lastCompanyEventWeek: globalWeek,
+            activeCompanyEvent: {
+              id: 'acquisition_integration',
+              title: 'Acquisition Integration',
+              weeklyEffect: -0.001 + randomFn() * 0.004,
+              weeksRemaining: 4,
+            },
+          };
+        }
+        return stock;
+      });
+
+      events.push({
+        ticker: target.ticker,
+        company: targetDefinition.company,
+        kind: 'acquired',
+        title: `${acquirerDefinition?.company ?? acquirer.ticker} Acquires ${targetDefinition.company}`,
+        description: `${acquirerDefinition?.company ?? acquirer.ticker} agreed to acquire ${targetDefinition.company} at a ${Math.round(premium * 100)}% premium. The target ticker will leave the market.`,
+        settlementCash: companySettlement,
+        realizedProfitLoss: companyRealized,
+        impactPercent: premium * 100,
+        acquirerTicker: acquirer.ticker,
+        acquirerCompany: acquirerDefinition?.company ?? acquirer.ticker,
+      });
+
+      return { stocks, holdings, settlementCash, realizedProfitLoss, events };
+    }
+  }
+
+  if (randomFn() >= COMPANY_EVENT_CHANCE_PER_WEEK) {
+    return { stocks, holdings, settlementCash, realizedProfitLoss, events };
+  }
+
+  const eligibleStocks = listedStocks().filter((stock) =>
+    globalWeek - (stock.lastCompanyEventWeek ?? -100) >= COMPANY_EVENT_COOLDOWN_WEEKS
+    && !stock.activeCompanyEvent
+  );
+  if (eligibleStocks.length === 0) return { stocks, holdings, settlementCash, realizedProfitLoss, events };
+
+  const pickedStock = eligibleStocks[Math.floor(randomFn() * eligibleStocks.length)] ?? eligibleStocks[0];
+  const definition = stockDefinitions().find((item) => item.ticker === pickedStock.ticker);
+  if (!definition) return { stocks, holdings, settlementCash, realizedProfitLoss, events };
+
+  const eligibleEvents = (marketCompanyEventsData as any[]).filter((event) =>
+    !(event.sectors?.length) || event.sectors.includes(definition.sector)
+  );
+  const pickedEvent = weightedCompanyEventPick(eligibleEvents, pickedStock, randomFn());
+  if (!pickedEvent) return { stocks, holdings, settlementCash, realizedProfitLoss, events };
+
+  const variance = 0.85 + randomFn() * 0.30;
+  const impact = Number(pickedEvent.priceImpact ?? 0) * variance;
+  stocks = stocks.map((stock) => {
+    if (stock.ticker !== pickedStock.ticker) return stock;
+    return {
+      ...replaceLatestHistoryPrice(stock, (stock.currentPrice ?? definition.startPrice ?? 1) * (1 + impact)),
+      lastCompanyEventWeek: globalWeek,
+      activeCompanyEvent: Math.abs(Number(pickedEvent.weeklyEffect ?? 0)) > 0
+        ? {
+            id: pickedEvent.id,
+            title: pickedEvent.title,
+            weeklyEffect: Number(pickedEvent.weeklyEffect ?? 0),
+            weeksRemaining: Math.max(1, Number(pickedEvent.durationWeeks ?? 1)),
+          }
+        : null,
+      dividendYieldOverride: Number(pickedEvent.dividendYield ?? 0) > 0
+        ? Math.max(stock.dividendYieldOverride ?? 0, Number(pickedEvent.dividendYield))
+        : stock.dividendYieldOverride,
+    };
+  });
+
+  events.push({
+    ticker: definition.ticker,
+    company: definition.company,
+    kind: 'company_event',
+    title: pickedEvent.title,
+    description: `${definition.company}: ${pickedEvent.description}`,
+    impactPercent: impact * 100,
+  });
+
+  return { stocks, holdings, settlementCash, realizedProfitLoss, events };
+}
+
 /** Percentage changes from the two most recent saved prices. */
 export function getLatestStockChanges(stocks: StockState[]): { ticker: string; change: number }[] {
   return (stocks ?? []).flatMap((stock) => {
@@ -362,7 +566,7 @@ export function processDividends(
     const price = stock?.currentPrice ?? sd.startPrice;
     // Use each asset's configured annual dividend/staking yield, with fallbacks.
     const metadata = sd as any;
-    let rate = Number(metadata.stakingYield ?? metadata.dividendYield ?? 0);
+    let rate = Number(stock?.dividendYieldOverride ?? metadata.stakingYield ?? metadata.dividendYield ?? 0);
     if (rate <= 0 && sd.sector === 'Banking') rate = 0.025;
     else if (rate <= 0 && sd.sector === 'Finance') rate = 0.015;
     else if (rate <= 0 && sd.type === 'etf') rate = 0.01;
@@ -487,6 +691,7 @@ export function processStocks(
       + meanReversion
       + emergingDrift
       + emergingMomentum
+      + (stock.activeCompanyEvent?.weeklyEffect ?? 0)
       + momentumEffect
       + techEffect
       + reserveInflationEffect
