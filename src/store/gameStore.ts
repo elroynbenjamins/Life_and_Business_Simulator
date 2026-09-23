@@ -41,6 +41,7 @@ import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
 import { AD_GEM_REWARD, GEM_CASH_RATE } from '../constants/rewards';
 import {
+  REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT,
   getAdFreeEducationRewardUsage as getProfileAdFreeEducationRewardUsage,
   getAdFreeSlotRewardUsage as getProfileAdFreeSlotRewardUsage,
   getGemRewardUsage,
@@ -1355,9 +1356,10 @@ const useGameStore = create<GameStore>((set, get) => ({
     const usage = getGemRewardUsage(state.profile);
     if (usage.limitReached) return false;
 
+    const rewardAmount = state.profile.adsRemoved ? REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT : AD_GEM_REWARD;
     const profile = {
       ...state.profile,
-      gems: (state.profile.gems ?? 0) + AD_GEM_REWARD,
+      gems: (state.profile.gems ?? 0) + rewardAmount,
       rewardedGemClaimDate: getLocalDayKey(),
       rewardedGemClaimsToday: usage.watchedToday + 1,
     };
