@@ -35,7 +35,6 @@ export default function AchievementsScreen() {
   const unlocked = allAchievements.filter((a) => unlockedAchievements.includes(a?.id));
   const locked = allAchievements.filter((a) => !unlockedAchievements.includes(a?.id));
   const totalXp = unlocked.reduce((t, a) => t + (a?.xpReward ?? 0), 0);
-  const totalGemRewards = unlocked.reduce((t, a) => t + (a?.gemReward ?? 0), 0);
   const categoryCounts = useMemo(() => {
     const counts = Object.fromEntries(ACHIEVEMENT_CATEGORIES.map((item) => [item, 0])) as Record<AchievementCategory, number>;
     for (const achievement of allAchievements) {
@@ -65,7 +64,7 @@ export default function AchievementsScreen() {
           <Text style={styles.statsLabel}>Progress</Text>
           <Text style={styles.statsValue}>{unlocked.length}/{achievementsData.length} Unlocked</Text>
           <Text style={styles.xpText}>Total XP Earned: {totalXp}</Text>
-          <Text style={styles.gemText}>Achievement Gems Earned: {totalGemRewards}</Text>
+          <Text style={styles.achievementRewardNote}>Achievements award XP and Prestige Points, not Gems.</Text>
         </GameCard>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -105,7 +104,6 @@ export default function AchievementsScreen() {
               </View>
               <View style={styles.rewardCol}>
                 <Text style={unlockedItem ? styles.achXp : styles.achXpLocked}>+{a?.xpReward} XP</Text>
-                {(a?.gemReward ?? 0) > 0 && <Text style={unlockedItem ? styles.achGems : styles.achGemsLocked}>+{a?.gemReward} 💎</Text>}
               </View>
             </View>
           </GameCard>
@@ -129,7 +127,7 @@ const styles = StyleSheet.create({
   statsLabel: { color: Colors.textSecondary, fontSize: 13 },
   statsValue: { color: Colors.textPrimary, fontSize: 22, fontWeight: '700', marginTop: 4 },
   xpText: { color: Colors.warning, fontSize: 14, fontWeight: '600', marginTop: 4 },
-  gemText: { color: '#A78BFA', fontSize: 13, fontWeight: '600', marginTop: 3 },
+  achievementRewardNote: { color: Colors.textMuted, fontSize: 11, marginTop: 3 },
   sectionHeader: { color: Colors.textSecondary, fontSize: 16, fontWeight: '600', marginTop: 12, marginBottom: 8 },
   chipRow: { gap: 8, marginTop: 12, paddingRight: 16 },
   chip: { minHeight: 36, borderRadius: 18, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
