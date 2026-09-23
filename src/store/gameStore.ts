@@ -28,7 +28,7 @@ import {
   getAcquisitionTransactionCostRate,
   migrateAcquiredBusinessAssets,
 } from '../engine/acquisitionEngine';
-import { PARTNER_CAREER_SYSTEM_VERSION, generateRelationshipCandidates, getChildFuturePotential, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getFamilyPlanningPreview, getNormalizedDatingAgeBounds, getPartnerCareerStartingLevel, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
+import { PARTNER_CAREER_SYSTEM_VERSION, generateRelationshipCandidates, getChildFuturePotential, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getFamilyPlanningPreview, getNormalizedDatingAgeBounds, getPartnerCareerStartingLevel, getProposalCost, getWeddingCost, getWeddingPersonalityFit, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
 import coursesData from '../data/courses.json';
 import jobsData from '../data/jobs.json';
@@ -519,6 +519,9 @@ const useGameStore = create<GameStore>((set, get) => ({
             businessValue: child.businessValue ?? 0,
           })),
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
+          celebratedMilestones: saved.relationshipState?.celebratedMilestones ?? [],
+          coupleTripWeeksRemaining: saved.relationshipState?.coupleTripWeeksRemaining ?? 0,
+          lastCoupleTripWeek: saved.relationshipState?.lastCoupleTripWeek ?? 0,
           pendingEvent: saved.relationshipState?.pendingEvent ?? null,
           financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
           sharedGoal: saved.relationshipState?.sharedGoal ?? null,
@@ -746,6 +749,9 @@ const useGameStore = create<GameStore>((set, get) => ({
             businessValue: child.businessValue ?? 0,
           })),
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
+          celebratedMilestones: saved.relationshipState?.celebratedMilestones ?? [],
+          coupleTripWeeksRemaining: saved.relationshipState?.coupleTripWeeksRemaining ?? 0,
+          lastCoupleTripWeek: saved.relationshipState?.lastCoupleTripWeek ?? 0,
           pendingEvent: saved.relationshipState?.pendingEvent ?? null,
           financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
           sharedGoal: saved.relationshipState?.sharedGoal ?? null,
@@ -1697,15 +1703,15 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (gw - (partner.engagedWeek ?? gw) < 3) return;
 
     const totalCost = getWeddingCost(wedding, state.inflationMultiplier ?? 1);
-    const partnerShare = Math.min(Math.round(totalCost * 0.25), Math.round((partner.savings ?? 0) * 0.35));
+    const shareRate = partner.financialStyle === 'luxury' ? 0.35 : partner.financialStyle === 'frugal' ? 0.20 : 0.25;
+    const savingsCap = partner.financialStyle === 'luxury' ? 0.45 : partner.financialStyle === 'frugal' ? 0.25 : 0.35;
+    const partnerShare = Math.min(Math.round(totalCost * shareRate), Math.round((partner.savings ?? 0) * savingsCap));
     const playerCost = Math.max(0, totalCost - partnerShare);
     if ((state.cash ?? 0) < playerCost) return;
 
+    const fit = getWeddingPersonalityFit(partner, wedding);
     const connections = (state.relationshipState?.activeConnections ?? []).map((item) => {
       if (item.id !== partner.id) return item;
-      const weddingBoost = wedding === 'luxury' ? 7 : wedding === 'standard' ? 5 : 3;
-      const styleAdjustment = item.financialStyle === 'frugal' && wedding === 'luxury' ? -2
-        : item.financialStyle === 'luxury' && wedding === 'luxury' ? 2 : 0;
       return {
         ...item,
         stage: 'married' as const,
@@ -1715,7 +1721,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         marriedWeek: gw,
         netWorthAtMarriage: getNetWorth(state),
         savings: Math.max(0, (item.savings ?? 0) - partnerShare),
-        relationship: Math.min(100, item.relationship + weddingBoost + styleAdjustment),
+        relationship: Math.min(100, item.relationship + fit.relationshipBonus),
       };
     });
 
@@ -1726,7 +1732,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     };
     const tempHappinessEffects = [...(state.tempHappinessEffects ?? []), { amount: 10, weeksRemaining: 4, source: 'Wedding' }];
     const updates = { cash: (state.cash ?? 0) - playerCost, relationshipState, tempHappinessEffects };
-    set({ ...updates, relationshipFeedback: { title: 'Married', message: `You and ${partner.name} are now married.`, positive: true } });
+    set({ ...updates, relationshipFeedback: { title: 'Married', message: `You and ${partner.name} are now married. The ${fit.label.toLowerCase()} celebration matched their personality for +${fit.relationshipBonus} relationship.`, positive: true } });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -2656,10 +2662,25 @@ const useGameStore = create<GameStore>((set, get) => ({
             : child
         )
       : state.relationshipState.children;
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const celebratedMilestones = event.milestoneKey
+      ? [...new Set([...(state.relationshipState.celebratedMilestones ?? []), event.milestoneKey])]
+      : (state.relationshipState.celebratedMilestones ?? []);
+    const travelWeeks = Math.max(0, choice.travelWeeks ?? 0);
+    const timeline = [
+      ...(state.relationshipState.timeline ?? []),
+      { week: state.week, year: state.year, title: `${event.title}: ${choice.text}` },
+    ].slice(-80);
     const relationshipState = {
       ...state.relationshipState,
       activeConnections,
       children,
+      celebratedMilestones,
+      coupleTripWeeksRemaining: travelWeeks > 0
+        ? Math.max(state.relationshipState.coupleTripWeeksRemaining ?? 0, travelWeeks)
+        : (state.relationshipState.coupleTripWeeksRemaining ?? 0),
+      lastCoupleTripWeek: travelWeeks > 0 ? gw : (state.relationshipState.lastCoupleTripWeek ?? 0),
+      timeline,
       pendingEvent: null,
     };
     const tempHappinessEffects = choice.happiness
