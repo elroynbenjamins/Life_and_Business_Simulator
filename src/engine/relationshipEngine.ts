@@ -426,6 +426,11 @@ function getMarriageMilestoneEvent(
         happinessDuration: 6,
         travelWeeks: tripWeeks,
       },
+      {
+        text: 'Keep it simple at home',
+        relationship: partner.financialStyle === 'frugal' ? 3 : partner.financialStyle === 'luxury' ? -1 : 1,
+        personalityHint: partner.financialStyle === 'frugal' ? 'Good personality fit' : 'Low-cost celebration',
+      },
     ],
   };
 }
@@ -488,6 +493,14 @@ function getChildMilestoneEvent(
           personalityHint: personalityFitHint(childCelebrationGain(child, 'experience')),
           happiness: 6,
           happinessDuration: 4,
+        },
+        {
+          text: 'Keep the milestone simple at home',
+          childId: child.id,
+          childRelationship: (child.personality ?? getChildPersonality(child.id)).financialStyle === 'frugal' ? 3 : 1,
+          personalityHint: (child.personality ?? getChildPersonality(child.id)).financialStyle === 'frugal'
+            ? 'Good personality fit'
+            : 'Low-cost celebration',
         },
       ],
     };
