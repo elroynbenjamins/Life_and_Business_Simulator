@@ -388,6 +388,14 @@ export default function BusinessPortfolioScreen() {
                     <View style={styles.bizInfo}>
                       <Text style={styles.bizName} numberOfLines={1}>{biz.name}</Text>
                       <Text style={styles.bizLevel} numberOfLines={1}>{getLevelName(biz.level)} • {type?.industry ?? ''}</Text>
+                      <View style={styles.primaryStatus}>
+                        <StatusPill
+                          compact
+                          icon={visualStatus.icon}
+                          label={visualStatus.issueCount > 1 ? `${visualStatus.label} +${visualStatus.issueCount - 1}` : visualStatus.label}
+                          color={visualStatus.color}
+                        />
+                      </View>
                       <View style={styles.badgeLine}>
                         {biz.familyBusiness?.isFamilyBusiness && (
                           <StatusPill compact icon="people-outline" label={`Family G${biz.familyBusiness.generationsOwned}`} color={Colors.warning} />
@@ -406,12 +414,6 @@ export default function BusinessPortfolioScreen() {
                       </View>
                     </View>
                     <View style={styles.bizRight}>
-                      <StatusPill
-                        compact
-                        icon={visualStatus.icon}
-                        label={visualStatus.issueCount > 1 ? `${visualStatus.label} +${visualStatus.issueCount - 1}` : visualStatus.label}
-                        color={visualStatus.color}
-                      />
                       <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
                     </View>
                   </View>
@@ -571,8 +573,9 @@ const styles = StyleSheet.create({
   bizInfo: { flex: 1, minWidth: 0 },
   bizName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   bizLevel: { color: Colors.textSecondary, fontSize: 11, marginTop: 2 },
+  primaryStatus: { marginTop: 5 },
   badgeLine: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 5 },
-  bizRight: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 1 },
+  bizRight: { width: 22, alignItems: 'flex-end', paddingTop: 15 },
   bizStats: { flexDirection: 'row', marginTop: 12, gap: 8 },
   bizStat: { flex: 1 },
   bizStatLabel: { color: Colors.textMuted, fontSize: 9 },
