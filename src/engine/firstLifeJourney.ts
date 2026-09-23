@@ -81,7 +81,7 @@ export function getFirstLifeJourney(state: FirstLifeJourneyState): FirstLifeJour
     {
       id: 'student_income',
       title: 'Set up student income',
-      detail: 'A part-time job can cover living costs while you study. It slows Basic education by 25%, so the choice is yours.',
+      detail: 'Choose Flexible Part-Time for lighter hours or High-Hours Part-Time for stronger tax-free income and slower education.',
       actionLabel: 'View Work Options',
       route: '/tabs/career',
       complete: hasIncome,
