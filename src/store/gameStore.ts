@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, FamilyWorkArrangement, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, CorporateDepartmentId, CorporateCompensationPolicy, CorporateTrainingPolicy, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, BusinessManagementTargetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
-import { initializeStocks, mergeStocks } from '../engine/stockEngine';
+import { getLegacyMarketCompanyPool, initializeMarketCompanyPool, initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
 import { inflated } from '../engine/economyEngine';
@@ -507,6 +507,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         competitors: saved.competitors ?? {},
         activeMarketSentiment: saved.activeMarketSentiment ?? null,
         activeMarketEvents: saved.activeMarketEvents ?? [],
+        marketCompanyPool: saved.marketCompanyPool?.length ? saved.marketCompanyPool : getLegacyMarketCompanyPool(),
         totalRealizedProfitLoss: saved.totalRealizedProfitLoss ?? 0,
         relationshipModeEnabled: saved.relationshipModeEnabled ?? false,
         relationshipState: {
@@ -565,8 +566,8 @@ const useGameStore = create<GameStore>((set, get) => ({
         if (typeof c.promotionProgress === 'undefined') c.promotionProgress = 0;
         if (typeof c.lastPerformanceEventWeek === 'undefined') c.lastPerformanceEventWeek = 0;
       }
-      merged.stocks = mergeStocks(merged.stocks);
       const loadGlobalWeek = ((merged.year - 1) * 20) + merged.week;
+      merged.stocks = mergeStocks(merged.stocks, loadGlobalWeek);
       merged.businesses = merged.businesses.map((business) =>
         migrateAcquiredBusinessAssets(business, merged.inflationMultiplier, loadGlobalWeek)
       );
@@ -742,6 +743,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         competitors: saved.competitors ?? {},
         activeMarketSentiment: saved.activeMarketSentiment ?? null,
         activeMarketEvents: saved.activeMarketEvents ?? [],
+        marketCompanyPool: saved.marketCompanyPool?.length ? saved.marketCompanyPool : getLegacyMarketCompanyPool(),
         totalRealizedProfitLoss: saved.totalRealizedProfitLoss ?? 0,
         relationshipModeEnabled: saved.relationshipModeEnabled ?? false,
         relationshipState: {
@@ -800,8 +802,8 @@ const useGameStore = create<GameStore>((set, get) => ({
         if (typeof c.promotionProgress === 'undefined') c.promotionProgress = 0;
         if (typeof c.lastPerformanceEventWeek === 'undefined') c.lastPerformanceEventWeek = 0;
       }
-      merged.stocks = mergeStocks(merged.stocks);
       const slotGlobalWeek = ((merged.year - 1) * 20) + merged.week;
+      merged.stocks = mergeStocks(merged.stocks, slotGlobalWeek);
       merged.businesses = merged.businesses.map((business) =>
         migrateAcquiredBusinessAssets(business, merged.inflationMultiplier, slotGlobalWeek)
       );
@@ -819,7 +821,8 @@ const useGameStore = create<GameStore>((set, get) => ({
   startNewGame: async (name?: string, relationshipModeEnabled = false) => {
     const { activeSlot, profile } = get();
     await clearGame(activeSlot);
-    const stocks = initializeStocks();
+    const marketCompanyPool = initializeMarketCompanyPool();
+    const stocks = initializeStocks(marketCompanyPool);
     // Apply prestige starting_cash bonus
     const prestigeFx = getPrestigeEffects(profile);
     const startingCash = 10000 + (prestigeFx.starting_cash ?? 0);
@@ -827,6 +830,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       ...INITIAL_GAME_STATE,
       playerName: name?.trim?.() || 'Player',
       stocks,
+      marketCompanyPool,
       cash: startingCash,
       netWorthHistory: [startingCash],
       relationshipModeEnabled,
@@ -1236,7 +1240,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (qty <= 0) return;
     const stock = (state?.stocks ?? []).find((s) => s?.ticker === ticker);
-    if (!stock) return;
+    if (!stock || stock.marketStatus === 'delisted') return;
     const totalCost = qty * (stock?.currentPrice ?? 0);
     if ((state?.cash ?? 0) < totalCost) return;
 
@@ -1271,7 +1275,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (qty <= 0) return;
     const stock = (state?.stocks ?? []).find((s) => s?.ticker === ticker);
-    if (!stock) return;
+    if (!stock || stock.marketStatus === 'delisted') return;
     const holding = (state?.holdings ?? []).find((h) => h?.ticker === ticker);
     if (!holding || (holding?.shares ?? 0) < qty) return;
 
@@ -4994,6 +4998,7 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     careerHistory: state?.careerHistory ?? [],
     totalWeeksWorked: state?.totalWeeksWorked ?? 0,
     stocks: state?.stocks ?? [],
+    marketCompanyPool: state?.marketCompanyPool ?? [],
     holdings: state?.holdings ?? [],
     loans: state?.loans ?? [],
     bankDeposits: state?.bankDeposits ?? [],
