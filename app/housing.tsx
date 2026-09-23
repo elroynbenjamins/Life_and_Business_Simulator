@@ -191,7 +191,7 @@ export default function LifestyleScreen() {
           const isCurrent = vehicle?.id === currentCarId;
           const tradeIn = Math.round(((currentCar?.purchaseCost ?? 0) * 0.4));
           const inflatedPurchase = inflated(vehicle?.purchaseCost ?? 0, inflationMultiplier);
-          const netCost = Math.max(0, inflatedPurchase - tradeIn);
+          const netCost = inflatedPurchase - tradeIn;
           const weeklyCost = inflated(vehicle?.weeklyCost ?? 0, inflationMultiplier);
           const weeklyDelta = weeklyCost - currentCarCost;
           const canAfford = cash >= netCost;
@@ -228,8 +228,10 @@ export default function LifestyleScreen() {
                   </View>
                   {tradeIn > 0 && (
                     <View style={styles.purchaseRight}>
-                      <Text style={styles.costLabel}>After trade-in</Text>
-                      <Text style={[styles.purchaseValue, { color: canAfford ? Colors.primary : Colors.negative }]}>{formatCurrency(netCost)}</Text>
+                      <Text style={styles.costLabel}>{netCost < 0 ? 'Trade-in credit' : 'After trade-in'}</Text>
+                      <Text style={[styles.purchaseValue, { color: netCost < 0 || canAfford ? Colors.primary : Colors.negative }]}>
+                        {netCost < 0 ? `+${formatCurrency(Math.abs(netCost))}` : formatCurrency(netCost)}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -240,7 +242,13 @@ export default function LifestyleScreen() {
                   compact
                   accentColor={Colors.info}
                   icon="car-sport-outline"
-                  label={canAfford ? (tradeIn > 0 ? `Buy • Net ${formatCurrency(netCost)}` : `Buy • ${formatCurrency(inflatedPurchase)}`) : `Need ${formatCurrency(Math.max(0, netCost - cash))} more`}
+                  label={canAfford
+                    ? netCost < 0
+                      ? `Change • Receive ${formatCurrency(Math.abs(netCost))}`
+                      : tradeIn > 0
+                        ? `Buy • Net ${formatCurrency(netCost)}`
+                        : `Buy • ${formatCurrency(inflatedPurchase)}`
+                    : `Need ${formatCurrency(Math.max(0, netCost - cash))} more`}
                   onPress={() => handleCar(vehicle)}
                   disabled={!canAfford}
                 />
