@@ -36,6 +36,7 @@ import {
   tickCorporateWorkforce,
 } from './businessWorkforceEngine';
 import { appendCorporateKpiSnapshot } from './corporateReportingEngine';
+import { BUSINESS_IDENTITY_DEFINITIONS, getBusinessIdentityEffects, updateBusinessIdentity } from './businessIdentityEngine';
 import {
   closeCompletedBusinessManagementQuarter,
   ensureBusinessManagementTargetPlan,
@@ -1044,6 +1045,7 @@ export function processBusinessWeek(
     return { updatedBusiness: biz, weeklyRevenue: 0, weeklyExpenses: 0, weeklyProfit: 0, playerDividend: 0, ownershipDistributions: [], taxRefund: 0, newEvent: null, newRetention: null };
   }
   const globalWeek = ((currentYear - 1) * 20) + currentWeek;
+  const identityEffects = getBusinessIdentityEffects(biz);
   const workforceTick = tickCorporateWorkforce(biz, globalWeek, inflationMultiplier);
   let corporateWorkforce = workforceTick.workforce;
   const workforceBiz = corporateWorkforce
@@ -1128,8 +1130,8 @@ export function processBusinessWeek(
 
   // Active event, strategic and project multipliers
   const strategyTotals = getStrategyModifierTotals(biz);
-  let eventRevenueMultiplier = strategyTotals.revenue;
-  let eventExpenseMultiplier = strategyTotals.expense;
+  let eventRevenueMultiplier = strategyTotals.revenue * identityEffects.revenueMultiplier;
+  let eventExpenseMultiplier = strategyTotals.expense * identityEffects.expenseMultiplier;
   const acquisition = biz.acquisition ? { ...biz.acquisition } : null;
   if (acquisition?.integrationStrategy === 'pending') {
     // A newly acquired company waits for an integration decision. It suffers a
@@ -1483,6 +1485,7 @@ export function processBusinessWeek(
     + buffAgg.weeklyRepBoost + strategyTotals.reputation + integrationRepDelta
     + governanceEffects.reputationPerWeek
     + workforceEffects.reputationPerWeek
+    + identityEffects.reputationPerWeek
     - reinvestmentEffects.reputationDrag;
   newReputation = Math.max(0, Math.min(100, newReputation));
 
@@ -1507,7 +1510,7 @@ export function processBusinessWeek(
     }
     return {
       ...emp,
-      morale: Math.max(10, Math.min(100, (emp.morale ?? 50) + moraleChange + buffAgg.weeklyMoraleBoost + strategyTotals.morale - moraleDrop)),
+      morale: Math.max(10, Math.min(100, (emp.morale ?? 50) + moraleChange + buffAgg.weeklyMoraleBoost + strategyTotals.morale + identityEffects.moralePerWeek - moraleDrop)),
       skill: newSkill,
       experience: (emp.experience ?? 0) + 1,
       weeksEmployed: (emp.weeksEmployed ?? 0) + 1,
@@ -1928,6 +1931,28 @@ export function processBusinessWeek(
   updatedBusiness.level = getBusinessLevelForMetrics(thresholds, updatedBusiness.valuation, updatedBusiness.reputation);
   updatedBusiness = closeCompletedBusinessManagementQuarter(updatedBusiness, globalWeek);
   updatedBusiness.managementTargets = ensureBusinessManagementTargetPlan(updatedBusiness, globalWeek);
+
+  const identityUpdate = updateBusinessIdentity(updatedBusiness, globalWeek);
+  updatedBusiness = identityUpdate.business;
+  if (identityUpdate.newlyEarned.length > 0) {
+    const identityEntries = identityUpdate.newlyEarned.map((trait) => ({
+      week: currentWeek,
+      year: currentYear,
+      title: `Company identity earned: ${BUSINESS_IDENTITY_DEFINITIONS[trait.id].name}`,
+      icon: '🏷️',
+      kind: 'event' as const,
+    }));
+    updatedBusiness.timeline = [...(updatedBusiness.timeline ?? []), ...identityEntries].slice(-50);
+    if (!newEvent) {
+      const first = identityUpdate.newlyEarned[0];
+      newEvent = {
+        businessName: updatedBusiness.name,
+        eventTitle: `Identity earned: ${BUSINESS_IDENTITY_DEFINITIONS[first.id].name}`,
+        icon: '🏷️',
+      };
+    }
+  }
+
   const reportedBusiness = appendCorporateKpiSnapshot(updatedBusiness, globalWeek);
 
   return {
