@@ -72,6 +72,14 @@ export function getChildFuturePotential(child: RelationshipChild): {
   else if (child.educationOutcome === 'solid') score += 7;
   else if (child.educationOutcome === 'limited') { score -= 5; risks.push('Limited education start'); }
 
+  const developmentScore = Math.max(0, child.developmentScore ?? 0);
+  if (developmentScore >= 30) { score += 8; strengths.push('Strong early development'); }
+  else if (developmentScore >= 15) score += 4;
+  const lifePath = child.lifePath;
+  if (lifePath === 'academic' && ['strong', 'elite'].includes(child.educationOutcome ?? '')) { score += 4; strengths.push('Academic direction'); }
+  if (lifePath === 'entrepreneurial') { strengths.push('Entrepreneurial direction'); }
+  if (lifePath === 'practical') { score += 2; strengths.push('Practical direction'); }
+
   if (personality.ambition === 'driven') { score += 12; strengths.push('Driven'); }
   else if (personality.ambition === 'career_minded') score += 7;
   else { score -= 3; }
@@ -1541,7 +1549,7 @@ function launchAdultChild(child: RelationshipChild, state: GameState, gw: number
       age: Math.max(18, child.age ?? 18),
       educationFund: 0,
       status: 'independent',
-      occupationTitle: occupation.title,
+      occupationTitle: startsEntrepreneur ? 'Young Entrepreneur' : occupation.title,
       weeklyIncome,
       educationOutcome: outcome,
       launchedGlobalWeek: gw,
