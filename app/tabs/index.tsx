@@ -281,20 +281,14 @@ export default function DashboardScreen() {
           </GameCard>
         ) : null}
 
-        {/* Quick Links */}
+        {/* Utility Links */}
         <Text style={styles.sectionLabel}>More</Text>
         <View style={styles.linksRow}>
           <QuickLink icon="home" label="Lifestyle" onPress={() => router.push('/housing')} />
-          {relationshipModeEnabled && <QuickLink icon="heart" label="Personal Life" onPress={() => router.push('/relationships')} color={Colors.happiness} notification={!!relationshipState?.pendingEvent} />}
-          <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} />
-          <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} />
-          <QuickLink icon="pie-chart" label="Portfolio" onPress={() => router.push('/portfolio')} />
-          <QuickLink icon="business" label="Business" onPress={() => router.push('/business')} color={Colors.business} notification={businessAttentionCount > 0} />
-          <QuickLink icon="home-outline" label="Properties" onPress={() => router.push('/properties')} color={Colors.business} />
+          <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} color={Colors.warning} />
+          <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} color={Colors.info} />
           <QuickLink icon="ribbon" label="Prestige" onPress={() => router.push('/prestige')} color={Colors.family} />
           <QuickLink icon="diamond" label="Support" onPress={() => router.push('/support')} color={Colors.premium} notification={loginRewardAvailable} />
-          <QuickLink icon="information-circle" label="Info" onPress={() => router.push('/info')} color={Colors.info} />
-          <QuickLink icon="stats-chart" label="Statistics" onPress={() => router.push('/tabs/statistics')} color={Colors.primary} />
           <QuickLink icon="newspaper" label="News" onPress={() => router.push('/news')} color={Colors.warning} />
         </View>
 
@@ -340,7 +334,7 @@ const styles = StyleSheet.create({
   courseCaption: { color: Colors.textSecondary, fontSize: 11, marginTop: 7 },
   sectionLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', marginTop: 4, marginBottom: 8 },
   linksRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginVertical: 4 },
-  quickLink: { flexBasis: '30%', flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 12, borderWidth: 1, borderColor: Colors.cardBorder },
+  quickLink: { flexBasis: '31%', flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   quickLinkText: { color: Colors.textPrimary, fontSize: 13, fontWeight: '500' },
   notificationDot: { position: 'absolute', top: 7, right: 7, width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.negative },
 });
