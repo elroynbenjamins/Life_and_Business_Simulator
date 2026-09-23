@@ -233,6 +233,7 @@ export function processMarketCompanyLifecycle(
       priceHistory: history,
       marketStatus: 'delisted' as const,
       delistedWeek: globalWeek,
+      delistingReason: 'failure' as const,
       companyStage: 'failed' as const,
     };
   });
