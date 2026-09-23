@@ -25,6 +25,8 @@ import { getCorporateWorkforceAttentionReason } from '../../src/engine/businessW
 import CorporateGroupReportPanel from '../../src/components/CorporateGroupReportPanel';
 import { getCorporateGroupManagementReport } from '../../src/engine/corporateGroupReportingEngine';
 import { CorporateReportPeriod, getCorporateManagementAttentionReason } from '../../src/engine/corporateReportingEngine';
+import { getBusinessCapacity } from '../../src/engine/businessCapacityEngine';
+import { BUSINESS_IDENTITY_DEFINITIONS } from '../../src/engine/businessIdentityEngine';
 
 type SortMode = 'attention' | 'value' | 'profit' | 'roi';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -182,11 +184,20 @@ function compactMetadataLabel(value: string, maxLength = 18): string {
   return `${clean.slice(0, Math.max(1, maxLength - 1))}…`;
 }
 
+function identityColor(color: string): string {
+  if (color === 'premium') return Colors.premium;
+  if (color === 'info') return Colors.info;
+  if (color === 'warning') return Colors.warning;
+  if (color === 'family') return Colors.family;
+  return Colors.primary;
+}
+
 export default function BusinessPortfolioScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const isBusinessTab = pathname === '/tabs/business';
   const businesses = useGameStore((state) => state.businesses ?? []);
+  const profile = useGameStore((state) => state.profile);
   const soldBusinesses = useGameStore((state) => state.soldBusinesses ?? []);
   const holdingCompanies = useGameStore((state) => state.holdingCompanies ?? []);
   const currentYear = useGameStore((state) => state.year ?? 1);
@@ -197,6 +208,8 @@ export default function BusinessPortfolioScreen() {
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
 
   const netWorth = getNetWorthValue();
+  const businessCapacity = getBusinessCapacity(profile);
+  const capacityFull = businesses.length >= businessCapacity;
   const acquisitionsUnlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
   const summary = useMemo(
     () => getBusinessEmpireSummary(businesses, holdingCompanies, currentYear, currentWeek, inflationMultiplier),
@@ -308,11 +321,13 @@ export default function BusinessPortfolioScreen() {
 
         <View style={styles.empireActions}>
           <Pressable style={styles.empireAction} onPress={() => router.push('/business/start')}>
-            <View style={[styles.empireActionIcon, { backgroundColor: `${Colors.business}14` }]}>
-              <Ionicons name="add" size={20} color={Colors.business} />
+            <View style={[styles.empireActionIcon, { backgroundColor: `${capacityFull ? Colors.warning : Colors.business}14` }]}>
+              <Ionicons name={capacityFull ? 'lock-closed-outline' : 'add'} size={20} color={capacityFull ? Colors.warning : Colors.business} />
             </View>
             <Text style={styles.empireActionTitle}>Start</Text>
-            <Text style={styles.empireActionSub}>New business</Text>
+            <Text style={[styles.empireActionSub, capacityFull && { color: Colors.warning }]}>
+              {businesses.length}/{businessCapacity} slots
+            </Text>
           </Pressable>
 
           <Pressable style={styles.empireAction} onPress={() => router.push('/business/acquisitions')}>
@@ -416,6 +431,21 @@ export default function BusinessPortfolioScreen() {
                         )}
                         {biz.acquisition && (
                           <StatusPill compact icon="git-merge-outline" label={`Acquired${risk ? ` • ${risk}` : ''}`} color={Colors.primary} />
+                        )}
+                        {(biz.identityTraits ?? []).slice(0, 1).map((trait) => {
+                          const definition = BUSINESS_IDENTITY_DEFINITIONS[trait.id];
+                          return (
+                            <StatusPill
+                              key={trait.id}
+                              compact
+                              icon={definition.icon as any}
+                              label={definition.name}
+                              color={identityColor(definition.color)}
+                            />
+                          );
+                        })}
+                        {(biz.identityTraits?.length ?? 0) > 1 && (
+                          <StatusPill compact label={`+${(biz.identityTraits?.length ?? 1) - 1} identities`} color={Colors.textSecondary} />
                         )}
                       </View>
                     </View>
