@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
-import GameStatusBar from '../src/components/StatusBar';
+import ScreenHeader from '../src/components/ScreenHeader';
 import GameCard from '../src/components/GameCard';
+import StatusPill from '../src/components/StatusPill';
 import useGameStore from '../src/store/gameStore';
 import achievementsData from '../src/data/achievements.json';
 
@@ -52,18 +53,23 @@ export default function AchievementsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Achievements</Text>
-      </View>
-      <GameStatusBar />
+      <ScreenHeader
+        title="Achievements"
+        subtitle="Milestones across your life and empire"
+        showBack
+        onBack={() => router.back()}
+        accentColor={Colors.warning}
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <GameCard>
-          <Text style={styles.statsLabel}>Progress</Text>
-          <Text style={styles.statsValue}>{unlocked.length}/{achievementsData.length} Unlocked</Text>
-          <Text style={styles.xpText}>Total XP Earned: {totalXp}</Text>
+        <GameCard
+          variant="hero"
+          eyebrow="ACHIEVEMENT PROGRESS"
+          title="Lifetime milestones"
+          accentColor={Colors.warning}
+          titleAccessory={<StatusPill compact icon="trophy-outline" label={`${unlocked.length}/${achievementsData.length}`} color={Colors.warning} />}
+        >
+          <Text style={styles.statsValue}>{Math.round((unlocked.length / Math.max(1, achievementsData.length)) * 100)}% complete</Text>
+          <Text style={styles.xpText}>{totalXp} XP earned from completed achievements</Text>
           <Text style={styles.achievementRewardNote}>Achievements award XP and Prestige Points, not Gems.</Text>
         </GameCard>
 
@@ -120,8 +126,6 @@ export default function AchievementsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   statsLabel: { color: Colors.textSecondary, fontSize: 13 },
