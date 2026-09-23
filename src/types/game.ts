@@ -639,12 +639,27 @@ export interface JobData {
   requiredExperienceWeeks: number;
 }
 
+export type MarketCompanyStage = 'established' | 'emerging' | 'growth' | 'mature' | 'failed';
+export type MarketCompanyStatus = 'listed' | 'delisted';
+
+export interface MarketCompanyEvent {
+  ticker: string;
+  company: string;
+  kind: 'ipo' | 'matured' | 'delisted';
+  description: string;
+  settlementCash?: number;
+  realizedProfitLoss?: number;
+}
+
 export interface StockData {
   ticker: string;
   company: string;
   sector: string;
   startPrice: number;
   type: string;
+  marketRole?: 'core' | 'emerging';
+  ipoWeight?: number;
+  emergingVolatility?: number;
   cryptoStyle?: 'reserve' | 'utility' | 'speculative';
   annualTrend?: number;
   baseVolatility?: number;
@@ -723,6 +738,11 @@ export interface StockState {
   ticker: string;
   currentPrice: number;
   priceHistory: number[];
+  marketStatus?: MarketCompanyStatus;
+  listedWeek?: number;
+  delistedWeek?: number;
+  companyStage?: MarketCompanyStage;
+  companyQuality?: number;
 }
 
 export interface CareerHistoryEntry {
@@ -843,6 +863,7 @@ export interface WeekSummary {
   // Market events
   marketSentimentName: string | null;
   marketEventTitle: string | null;
+  marketCompanyEvents: MarketCompanyEvent[];
   // D20 performance event
   performanceEventResult: { roll: number; needed: number; success: boolean } | null;
   // Realized P/L this week
@@ -1685,6 +1706,8 @@ export interface GameState {
   careerHistory: CareerHistoryEntry[];
   totalWeeksWorked: number;
   stocks: StockState[];
+  /** Save-specific emerging companies that are allowed to list during this world. */
+  marketCompanyPool: string[];
   holdings: StockHolding[];
   loans: ActiveLoan[];
   bankDeposits: BankDeposit[];
@@ -1762,6 +1785,7 @@ export const INITIAL_GAME_STATE: GameState = {
   careerHistory: [],
   totalWeeksWorked: 0,
   stocks: [],
+  marketCompanyPool: [],
   holdings: [],
   loans: [],
   bankDeposits: [],
