@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../theme/colors';
 
 interface Props {
   label: string;
@@ -11,14 +12,15 @@ interface Props {
 }
 
 export default function StatusPill({ label, color, icon, compact = false, outlined = false }: Props) {
+  const supportsAlphaSuffix = typeof color === 'string' && color.startsWith('#');
   return (
     <View
       style={[
         styles.pill,
         compact && styles.compact,
         {
-          backgroundColor: outlined ? 'transparent' : `${color}18`,
-          borderColor: `${color}55`,
+          backgroundColor: outlined ? 'transparent' : supportsAlphaSuffix ? `${color}18` : Colors.elevated,
+          borderColor: supportsAlphaSuffix ? `${color}55` : Colors.cardBorder,
         },
       ]}
     >
