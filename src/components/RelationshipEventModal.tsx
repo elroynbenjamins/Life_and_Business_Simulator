@@ -26,6 +26,13 @@ export default function RelationshipEventModal() {
             {(event.choices ?? []).map((choice, index) => {
               const cost = choice.cost ?? 0;
               const canAfford = cost <= cash;
+              const effects = [
+                choice.careerPerformanceDelta ? `Career performance ${choice.careerPerformanceDelta > 0 ? '+' : ''}${choice.careerPerformanceDelta}` : null,
+                choice.businessReputationDelta ? `Business reputation ${choice.businessReputationDelta > 0 ? '+' : ''}${choice.businessReputationDelta}` : null,
+                choice.businessMoraleDelta ? `Team morale ${choice.businessMoraleDelta > 0 ? '+' : ''}${choice.businessMoraleDelta}` : null,
+                choice.childDevelopment ? `Development +${choice.childDevelopment}` : null,
+                choice.childEducationFund ? `Education fund +${formatCurrency(choice.childEducationFund)}` : null,
+              ].filter(Boolean);
               return (
                 <Pressable
                   key={index}
@@ -35,6 +42,7 @@ export default function RelationshipEventModal() {
                 >
                   <Text style={styles.choiceText}>{choice.text}</Text>
                   {choice.personalityHint && <Text style={styles.fitHint}>{choice.personalityHint}</Text>}
+                  {effects.length > 0 && <Text style={styles.effectText}>{effects.join(' • ')}</Text>}
                   {cost > 0 && (
                     <Text style={[styles.cost, !canAfford && { color: Colors.negative }]}>
                       {canAfford ? formatCurrency(cost) : `Need ${formatCurrency(cost)}`}
@@ -65,6 +73,7 @@ const styles = StyleSheet.create({
   choice: { borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, borderRadius: 11, padding: 13, marginBottom: 9 },
   choiceText: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
   fitHint: { color: Colors.info, fontSize: 11, marginTop: 5, fontWeight: '700' },
+  effectText: { color: Colors.textSecondary, fontSize: 11, marginTop: 4, lineHeight: 16 },
   cost: { color: Colors.warning, fontSize: 11, marginTop: 5, fontWeight: '600' },
   disabled: { opacity: 0.42 },
   later: { alignItems: 'center', paddingVertical: 11, marginTop: 2 },
