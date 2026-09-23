@@ -641,14 +641,19 @@ export interface JobData {
 
 export type MarketCompanyStage = 'established' | 'emerging' | 'growth' | 'mature' | 'failed';
 export type MarketCompanyStatus = 'listed' | 'delisted';
+export type MarketCompanyDelistingReason = 'failure' | 'acquisition';
 
 export interface MarketCompanyEvent {
   ticker: string;
   company: string;
-  kind: 'ipo' | 'matured' | 'delisted';
+  kind: 'ipo' | 'matured' | 'delisted' | 'company_event' | 'acquired';
+  title?: string;
   description: string;
   settlementCash?: number;
   realizedProfitLoss?: number;
+  impactPercent?: number;
+  acquirerTicker?: string;
+  acquirerCompany?: string;
 }
 
 export interface StockData {
@@ -741,8 +746,18 @@ export interface StockState {
   marketStatus?: MarketCompanyStatus;
   listedWeek?: number;
   delistedWeek?: number;
+  delistingReason?: MarketCompanyDelistingReason;
+  acquiredByTicker?: string;
   companyStage?: MarketCompanyStage;
   companyQuality?: number;
+  lastCompanyEventWeek?: number;
+  activeCompanyEvent?: {
+    id: string;
+    title: string;
+    weeklyEffect: number;
+    weeksRemaining: number;
+  } | null;
+  dividendYieldOverride?: number;
 }
 
 export interface CareerHistoryEntry {
@@ -1210,6 +1225,19 @@ export interface FamilyBusinessState {
   designatedYear: number;
 }
 
+export type BusinessIdentityTraitId =
+  | 'premium_brand'
+  | 'efficient_operator'
+  | 'employee_favorite'
+  | 'innovation_leader'
+  | 'debt_heavy'
+  | 'family_institution';
+
+export interface BusinessIdentityTrait {
+  id: BusinessIdentityTraitId;
+  earnedGlobalWeek: number;
+}
+
 export type BusinessStrategicFocus = 'balanced' | 'growth' | 'margin' | 'premium' | 'automation' | 'rd';
 export type BusinessDecisionKind = 'strategy' | 'crisis';
 export type BusinessGovernanceRole = 'manager' | 'executive' | 'board' | 'successor';
@@ -1551,6 +1579,9 @@ export interface OwnedBusiness {
   valuation: number;
   /** Persistent percentage-point adjustment earned or lost through decisions. */
   marketShareModifier?: number;
+  /** Emergent, persistent identity traits earned from sustained management behaviour. */
+  identityTraits?: BusinessIdentityTrait[];
+  identityProgress?: Partial<Record<BusinessIdentityTraitId, number>>;
   // Settings
   pricingStrategy: 'budget' | 'standard' | 'premium' | 'luxury';
   advertisingLevel: 'none' | 'basic' | 'moderate' | 'aggressive';
@@ -1849,6 +1880,10 @@ export interface PlayerProfile {
   adFreeSlotRewardClaimDate?: string;
   /** Remove Ads owners receive one ad-free instant education completion per day. */
   adFreeEducationRewardClaimDate?: string;
+  /** Account-wide number of concurrently owned businesses allowed (2-10). */
+  businessCapacity?: number;
+  /** One permanent company-capacity ad unlock can be claimed per local day. */
+  businessCapacityAdClaimDate?: string;
 }
 
 export const INITIAL_PROFILE: PlayerProfile = {
@@ -1864,6 +1899,8 @@ export const INITIAL_PROFILE: PlayerProfile = {
   rewardedGemClaimsToday: 0,
   adFreeSlotRewardClaimDate: '',
   adFreeEducationRewardClaimDate: '',
+  businessCapacity: 2,
+  businessCapacityAdClaimDate: '',
 };
 
 /** Save slot metadata */
