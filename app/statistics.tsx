@@ -12,6 +12,7 @@ import { formatCurrency } from '../src/utils/format';
 import { getWeeklySalary, processExpenses } from '../src/engine/financeEngine';
 import { getCareerSalary } from '../src/engine/careerEngine';
 import { calculatePartnerContribution } from '../src/engine/relationshipEngine';
+import { averageStudentWorkIncome, getStudentWorkTier } from '../src/engine/studentWork';
 
 export default function StatisticsScreen({ showBack = true }: { showBack?: boolean } = {}) {
   const { width: screenWidth } = useWindowDimensions();
@@ -30,6 +31,7 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
     profile: st.profile,
     loans: st.loans,
     partTimeJob: st.partTimeJob,
+    studentWorkTier: st.studentWorkTier,
     holdings: st.holdings,
     week: st.week,
     year: st.year,
@@ -37,14 +39,23 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
     relationshipState: st.relationshipState,
   }))) as ReturnType<typeof useGameStore.getState>;
   const expenses = processExpenses(gameState);
-  const careerIncome = gameState.career?.companyId
+  const coupleTripActive = (gameState.relationshipState?.coupleTripWeeksRemaining ?? 0) > 0;
+  const baseCareerIncome = gameState.career?.companyId
     ? getCareerSalary(gameState.career, gameState.inflationMultiplier ?? 1, gameState.profile)
     : getWeeklySalary(gameState);
-  const partTimeIncome = !gameState.career?.companyId && !gameState.currentJobId && gameState.partTimeJob ? 350 : 0;
+  const careerIncome = coupleTripActive ? 0 : baseCareerIncome;
+  const studentWorkTier = getStudentWorkTier({
+    partTimeJob: gameState.partTimeJob,
+    studentWorkTier: gameState.studentWorkTier,
+  });
+  const partTimeIncome = !coupleTripActive && !gameState.career?.companyId && !gameState.currentJobId && studentWorkTier
+    ? averageStudentWorkIncome(studentWorkTier)
+    : 0;
   const totalStocksOwned = (gameState.holdings ?? []).reduce((total, holding) => total + (holding.shares ?? 0), 0);
   const partner = gameState.relationshipState?.activeConnections?.find(item => item.id === gameState.relationshipState.partnerId) ?? null;
   const household = calculatePartnerContribution(partner, gameState);
-  const weeklyIncome = careerIncome + partTimeIncome + household.contribution;
+  const partnerContribution = coupleTripActive ? 0 : household.contribution;
+  const weeklyIncome = careerIncome + partTimeIncome + partnerContribution;
   const weeklyExpenses = expenses.totalExpenses + household.householdExtraCost + household.familyCost + household.obligationCost;
   const nw = (netWorthHistory ?? []).slice(-1)[0] ?? 0;
   const chartWidth = Math.min(screenWidth - 64, 500);
@@ -58,7 +69,7 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
   const chartData = hasChart ? history.map((v) => (v ?? 0) + offset) : [];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenHeader
         title="Life Statistics"
         subtitle="Cash flow, progress and lifetime records"
@@ -70,7 +81,7 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
         <GameCard title="Weekly Income & Expenses">
           <Row label="Job income" value={formatCurrency(careerIncome)} tone={careerIncome > 0 ? 'positive' : undefined} />
           {partTimeIncome > 0 && <Row label="Part-time income" value={formatCurrency(partTimeIncome)} tone="positive" />}
-          {household.contribution > 0 && <Row label="Partner contribution" value={formatCurrency(household.contribution)} tone="positive" />}
+          {partnerContribution > 0 && <Row label="Partner contribution" value={formatCurrency(partnerContribution)} tone="positive" />}
           <View style={styles.sectionDivider} />
           <Row label="Housing rent" value={formatCurrency(expenses.rent)} tone="negative" />
           <Row label="Utilities" value={formatCurrency(expenses.utilityCost)} tone="negative" />
