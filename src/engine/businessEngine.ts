@@ -922,6 +922,8 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     level: 0,
     valuation: type.startupCost ?? 10000,
     marketShareModifier: 0,
+    identityTraits: [],
+    identityProgress: {},
     pricingStrategy: 'standard',
     advertisingLevel: 'none',
     employees: [],
