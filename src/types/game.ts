@@ -1599,6 +1599,8 @@ export interface TriggeredEvent {
   }>;
 }
 
+export type StudentWorkTier = 'flexible' | 'high_hours';
+
 export interface GameState {
   playerName: string;
   week: number;
@@ -1658,8 +1660,10 @@ export interface GameState {
   totalRealizedProfitLoss: number;
   // News history (last ~40 headlines)
   newsHistory?: string[];
-  // Part-time job flag (mutually exclusive with full career)
+  // Student work remains mutually exclusive with a full-time career.
+  // partTimeJob is retained as a backwards-compatible active flag for older saves.
   partTimeJob?: boolean;
+  studentWorkTier?: StudentWorkTier | null;
   adWatchedToday: number;
   adLastWatchDate: string; // YYYY-MM-DD
   relationshipModeEnabled: boolean;
@@ -1725,6 +1729,7 @@ export const INITIAL_GAME_STATE: GameState = {
   totalRealizedProfitLoss: 0,
   newsHistory: [],
   partTimeJob: false,
+  studentWorkTier: null,
   adWatchedToday: 0,
   adLastWatchDate: '',
   relationshipModeEnabled: false,
