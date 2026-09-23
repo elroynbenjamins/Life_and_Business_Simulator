@@ -1882,8 +1882,6 @@ export interface PlayerProfile {
   adFreeEducationRewardClaimDate?: string;
   /** Account-wide number of concurrently owned businesses allowed (2-10). */
   businessCapacity?: number;
-  /** One permanent company-capacity ad unlock can be claimed per local day. */
-  businessCapacityAdClaimDate?: string;
 }
 
 export const INITIAL_PROFILE: PlayerProfile = {
@@ -1900,7 +1898,6 @@ export const INITIAL_PROFILE: PlayerProfile = {
   adFreeSlotRewardClaimDate: '',
   adFreeEducationRewardClaimDate: '',
   businessCapacity: 2,
-  businessCapacityAdClaimDate: '',
 };
 
 /** Save slot metadata */
