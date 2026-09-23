@@ -21,8 +21,17 @@ const toneColor: Record<Tone, string> = {
 
 export default function ConsequenceChip({ label, icon, tone = 'neutral' }: Props) {
   const color = toneColor[tone];
+  const supportsAlphaSuffix = typeof color === 'string' && color.startsWith('#');
   return (
-    <View style={[styles.chip, { borderColor: `${color}55`, backgroundColor: `${color}12` }]}>
+    <View
+      style={[
+        styles.chip,
+        {
+          borderColor: supportsAlphaSuffix ? `${color}55` : Colors.cardBorder,
+          backgroundColor: supportsAlphaSuffix ? `${color}12` : Colors.elevated,
+        },
+      ]}
+    >
       {icon ? <Ionicons name={icon} size={12} color={color} /> : null}
       <Text style={[styles.text, { color }]}>{label}</Text>
     </View>
