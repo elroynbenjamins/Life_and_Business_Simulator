@@ -98,7 +98,7 @@ export default function PrestigeScreen() {
             </View>
           </View>
           <Text style={styles.pointsDesc}>
-            Level 3 bonuses also cost 10 Gems; Level 4 bonuses cost 25 Gems on top of their PP cost.
+            Prestige Points come from achievement progression. Level 3 bonuses also cost 10 Gems; Level 4 bonuses cost 25 Gems on top of their PP cost.
           </Text>
         </GameCard>
       </View>
