@@ -77,7 +77,7 @@ export default function SupportScreen() {
   const handleWatchAd = useCallback(async () => {
     if (adState === 'loading' || adState === 'showing') return;
     if (adUsage.limitReached) {
-      setAdMessage(adsRemoved ? 'Today’s ad-free gem rewards are already claimed.' : 'Daily ad limit reached');
+      setAdMessage(adsRemoved ? 'Today’s ad-free gem reward is already claimed.' : 'Daily ad limit reached');
       return;
     }
 
