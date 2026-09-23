@@ -311,7 +311,7 @@ export default function SupportScreen() {
             </Pressable>}
           </View>
           <Text style={styles.removeAdsBenefit}>
-            No ads will be shown. Keep 1 daily 20-Gem reward, 1 daily temporary business Slot 2 reward, and 1 daily instant education completion without watching ads.
+            No ads will be shown. Reward-equivalent buttons remain available without ads: the daily 20-Gem reward, daily temporary business Slot 2 reward, daily instant education completion, and permanent +1 company-capacity unlocks up to the 10-company maximum.
           </Text>
           {!adsRemoved && storeAvailable && <Pressable onPress={handleRestore} disabled={purchasing}><Text style={styles.restoreText}>Restore purchase</Text></Pressable>}
           {purchaseMessage !== '' && <Text style={styles.purchaseMessage}>{purchaseMessage}</Text>}
