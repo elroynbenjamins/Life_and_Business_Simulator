@@ -1,4 +1,4 @@
-import { getLatestStockChanges, mergeStocks, processDividends, processStocks } from '../stockEngine';
+import { getLatestStockChanges, initializeMarketCompanyPool, initializeStocks, mergeStocks, processDividends, processMarketCompanyLifecycle, processStocks } from '../stockEngine';
 import { GameState, INITIAL_GAME_STATE } from '../../types/game';
 import marketSectorEvents from '../../data/market_sector_events.json';
 import stocksData from '../../data/stocks.json';
@@ -58,6 +58,97 @@ describe('stockEngine market reporting and type events', () => {
     expect((marketSectorEvents as any[]).some((event) => event.assetTypes?.includes('etf'))).toBe(false);
   });
 
+  test('selects only a subset of emerging companies for each save', () => {
+    const pool = initializeMarketCompanyPool(() => 0.42);
+    const unique = new Set(pool);
+    const emergingTickers = new Set(
+      (stocksData as any[]).filter((stock) => stock.marketRole === 'emerging').map((stock) => stock.ticker),
+    );
+
+    expect(pool).toHaveLength(8);
+    expect(unique.size).toBe(8);
+    expect(pool.every((ticker) => emergingTickers.has(ticker))).toBe(true);
+    expect(pool.length).toBeLessThan(emergingTickers.size);
+  });
+
+  test('starts a save with only three companies from its emerging pool listed', () => {
+    const pool = ['QNTM', 'NOVA', 'RIVO', 'VYBE', 'FARO', 'ORBT', 'NEON', 'FLUX'];
+    const initialized = initializeStocks(pool, () => 0.5);
+    const listedEmerging = initialized.filter((stock) =>
+      (stocksData as any[]).find((definition) => definition.ticker === stock.ticker)?.marketRole === 'emerging'
+    );
+
+    expect(listedEmerging.map((stock) => stock.ticker)).toEqual(pool.slice(0, 3));
+    expect(initialized.some((stock) => stock.ticker === 'MCRS')).toBe(true);
+    expect(initialized.some((stock) => stock.ticker === 'VYBE')).toBe(false);
+  });
+
+  test('can introduce a later IPO from the save-specific pool', () => {
+    const pool = ['QNTM', 'NOVA', 'RIVO', 'VYBE', 'FARO', 'ORBT', 'NEON', 'FLUX'];
+    const stocks = initializeStocks(pool, () => 0.5);
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      year: 2,
+      week: 1,
+      stocks,
+      marketCompanyPool: pool,
+    };
+
+    const result = processMarketCompanyLifecycle(state, 21, () => 0);
+    expect(result.events.some((event) => event.kind === 'ipo')).toBe(true);
+    expect(result.stocks.length).toBe(stocks.length + 1);
+    expect(result.stocks.some((stock) => stock.ticker === 'VYBE' && stock.companyStage === 'emerging')).toBe(true);
+  });
+
+  test('successful emerging companies can mature into established listings', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [{
+        ticker: 'QNTM',
+        currentPrice: 42,
+        priceHistory: [28, 34, 42],
+        marketStatus: 'listed',
+        listedWeek: 1,
+        companyStage: 'growth',
+        companyQuality: 0.82,
+      }],
+      marketCompanyPool: [],
+    };
+
+    const result = processMarketCompanyLifecycle(state, 62, () => 0.99);
+    expect(result.stocks[0].companyStage).toBe('mature');
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ticker: 'QNTM', kind: 'matured' }),
+    ]));
+  });
+
+  test('fragile emerging companies can fail and automatically settle holdings', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [{
+        ticker: 'QNTM',
+        currentPrice: 5,
+        priceHistory: [28, 12, 5],
+        marketStatus: 'listed',
+        listedWeek: 1,
+        companyStage: 'emerging',
+        companyQuality: 0.10,
+      }],
+      marketCompanyPool: [],
+      holdings: [{ ticker: 'QNTM', shares: 10, avgBuyPrice: 28 }],
+    };
+
+    const result = processMarketCompanyLifecycle(state, 20, () => 0);
+    expect(result.stocks[0].marketStatus).toBe('delisted');
+    expect(result.stocks[0].companyStage).toBe('failed');
+    expect(result.holdings).toHaveLength(0);
+    expect(result.settlementCash).toBeGreaterThan(0);
+    expect(result.realizedProfitLoss).toBeLessThan(0);
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ticker: 'QNTM', kind: 'delisted' }),
+    ]));
+  });
+
   test('merges all three new cryptocurrencies into existing saves', () => {
     const merged = mergeStocks([{ ticker: 'MCRS', currentPrice: 312, priceHistory: [312] }]);
     const tickers = new Set(merged.map((asset) => asset.ticker));
@@ -65,6 +156,7 @@ describe('stockEngine market reporting and type events', () => {
     expect(tickers.has('AURX')).toBe(true);
     expect(tickers.has('NEXA')).toBe(true);
     expect(tickers.has('MOJO')).toBe(true);
+    expect(tickers.has('QNTM')).toBe(false);
   });
 
   test('NEXA pays its configured annual staking reward', () => {
