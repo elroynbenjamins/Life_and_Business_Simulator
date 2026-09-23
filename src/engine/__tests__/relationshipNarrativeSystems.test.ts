@@ -152,6 +152,41 @@ describe('relationship narrative systems', () => {
     expect(launched.businessValue).toBeGreaterThan(0);
   });
 
+  test('creative child paths lead into creative adult career pools', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+    const year = 19;
+    const gw = (year - 1) * 20 + 1;
+    const creativeChild = child(18, gw, {
+      age: 17,
+      status: 'dependent',
+      lifePath: 'creative',
+      developmentScore: 26,
+      educationFund: 18000,
+      personality: {
+        ambition: 'career_minded',
+        financialStyle: 'balanced',
+        riskTolerance: 'balanced',
+        independence: 'balanced',
+        resilience: 'resilient',
+      },
+    });
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      year,
+      week: 1,
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [creativeChild],
+        celebratedMilestones: ['child_story_child_5y', 'child_story_child_10y', 'child_story_child_16y'],
+      },
+    };
+
+    const result = processRelationships(state);
+    expect(result.state.children[0].lifePath).toBe('creative');
+    expect(['Graphic Designer', 'Marketing Specialist']).toContain(result.state.children[0].occupationTitle);
+  });
+
   test('repeated career-first memories make later work-family conflicts harsher', () => {
     const currentPartner = partner();
     const baseState: GameState = {
