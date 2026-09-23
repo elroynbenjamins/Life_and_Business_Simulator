@@ -148,7 +148,7 @@ export default function StartBusinessScreen() {
             >
               <Ionicons name={atCapacity ? 'lock-closed' : 'rocket'} size={20} color={Colors.white} />
               <Text style={styles.foundButtonText}>
-                {atCapacity ? `Unlock Slot ${Math.min(10, businessCapacity + 1)} Above` : 'Found Business'}
+                {atCapacity ? (businessCapacity >= 10 ? 'Maximum Company Capacity' : `Unlock Slot ${businessCapacity + 1} Above`) : 'Found Business'}
               </Text>
             </Pressable>
           </View>
