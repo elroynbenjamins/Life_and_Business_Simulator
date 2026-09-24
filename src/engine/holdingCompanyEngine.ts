@@ -450,7 +450,7 @@ export function getHoldingSubsidiaryHealthSnapshot(
 
 export type HoldingSubsidiaryAttentionAction =
   | { kind: 'business_overview'; focus: 'integration' | 'decision'; label: string; detail: string }
-  | { kind: 'business_finance'; label: string; detail: string }
+  | { kind: 'business_finance'; focus: 'cash-management' | 'budget'; label: string; detail: string }
   | { kind: 'holding_capital'; label: string; detail: string };
 
 export function getHoldingSubsidiaryAttentionAction(
@@ -478,8 +478,9 @@ export function getHoldingSubsidiaryAttentionAction(
   if (health.cash < 0) {
     return {
       kind: 'business_finance',
+      focus: 'cash-management',
       label: 'Repair cash',
-      detail: 'Open Finance to review cash funding and budget controls.',
+      detail: 'Open Cash Management for funding and owner-cash controls.',
     };
   }
   if (health.protectedCashGap > 0 && health.protectedCashCoverage < 0.5) {
@@ -492,8 +493,9 @@ export function getHoldingSubsidiaryAttentionAction(
   if (health.weeklyProfit < 0) {
     return {
       kind: 'business_finance',
+      focus: 'budget',
       label: 'Review loss',
-      detail: 'Open Finance to review budget, cash flow and funding.',
+      detail: 'Open the Annual Cash Plan to review reserves and profit allocation.',
     };
   }
   if (health.protectedCashGap > 0) {
