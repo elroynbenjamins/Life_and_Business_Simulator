@@ -30,6 +30,7 @@ import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutive
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
+import { getBusinessOwnershipStakeValue } from '../../src/engine/businessOwnershipEngine';
 import { getBusinessLoanOutstandingPrincipal } from '../../src/engine/businessDebtEngine';
 import { BUSINESS_IDENTITY_DEFINITIONS } from '../../src/engine/businessIdentityEngine';
 import {
@@ -572,7 +573,7 @@ export default function BusinessDetailScreen() {
   const canIssue5 = playerOwnershipPct * 0.95 >= 51;
   const canIssue10 = playerOwnershipPct * 0.90 >= 51;
   const canTransfer5 = playerOwnershipPct >= 56;
-  const fivePctStakeValue = Math.round((biz.valuation ?? 0) * 0.05);
+  const fivePctStakeValue = getBusinessOwnershipStakeValue(biz, 5);
   const childShareGiftTax = calculateChildInheritanceTax(fivePctStakeValue);
   const trustShareTransferTax = Math.round(fivePctStakeValue * 0.075);
   const acquisitionReturn = biz.acquisition ? getBusinessEquityReturn(biz) : null;
