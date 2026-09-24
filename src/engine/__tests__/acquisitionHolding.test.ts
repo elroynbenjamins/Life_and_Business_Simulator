@@ -489,6 +489,9 @@ describe('business acquisitions and holding companies', () => {
     expect(result.updatedBusiness.acquisition?.integrationOutcome).toBe('success');
     expect(result.updatedBusiness.acquisition?.postIntegrationRevenueBonus).toBeCloseTo(0.04);
     expect(result.updatedBusiness.acquisition?.postIntegrationExpenseReduction).toBeCloseTo(0.04);
+    expect(result.newEvent?.businessName).toBe(finalWeek.name);
+    expect(result.newEvent?.eventTitle).toBe('Integration success: Aggressive Turnaround');
+    expect(result.newEvent?.icon).toBe('✅');
   });
 
   test('holding synergies are capped and reward concentration plus diversification', () => {
