@@ -1,7 +1,7 @@
 import achievementsData from '../../data/achievements.json';
 import coursesData from '../../data/courses.json';
 import prestigeData from '../../data/prestige_tree_v2.json';
-import { checkAchievements } from '../achievementEngine';
+import { checkAchievements, getAchievementGemRewardSettlement } from '../achievementEngine';
 import { canUnlockPrestige, getPrestigeEffects, unlockPrestige } from '../prestigeEngine';
 import { getSuccessionPreview } from '../lifecycleEngine';
 import { processStocks } from '../stockEngine';
@@ -260,6 +260,27 @@ describe('achievement and Prestige expansion', () => {
     ]) {
       expect(unlocked).toContain(id);
     }
+  });
+
+  test('account-wide achievement Gem settlement pays each achievement only once', () => {
+    const first = getAchievementGemRewardSettlement(['first_job', 'first_million'], []);
+    expect(first.gemsGained).toBe(5);
+    expect(first.rewards).toEqual({ first_job: 2, first_million: 3 });
+    expect(first.rewardedAchievementGemIds).toEqual(expect.arrayContaining(['first_job', 'first_million']));
+
+    const repeated = getAchievementGemRewardSettlement(
+      ['first_job', 'first_million', 'first_job'],
+      first.rewardedAchievementGemIds,
+    );
+    expect(repeated.gemsGained).toBe(0);
+    expect(repeated.rewards).toEqual({});
+
+    const mixed = getAchievementGemRewardSettlement(
+      ['first_job', 'buy_first_car'],
+      first.rewardedAchievementGemIds,
+    );
+    expect(mixed.gemsGained).toBe(2);
+    expect(mixed.rewards).toEqual({ buy_first_car: 2 });
   });
 
   test('achievements award 2 Gems normally and 3 Gems for 100+ XP milestones', () => {
