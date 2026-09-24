@@ -3,6 +3,7 @@ import {
   getAcquisitionCycleValueMultiplier,
   getEconomicCycleEffects,
   getIndustryEconomicCycleMultiplier,
+  getPropertyCyclePurchaseMultiplier,
   processEconomy,
 } from '../economyEngine';
 import { getAcquisitionFinancingQuote } from '../acquisitionEngine';
@@ -10,6 +11,7 @@ import {
   EMPTY_HOLDING_SHARED_SERVICES,
   getHoldingManagementFeeForWeek,
 } from '../holdingCompanyEngine';
+import { createProperty, processProperties } from '../propertyEngine';
 
 function makeHolding(overrides: Partial<HoldingCompany> = {}): HoldingCompany {
   return {
@@ -72,6 +74,25 @@ describe('economic cycles', () => {
 
     expect(boom.interestRate).toBeGreaterThan(recession.interestRate);
     expect(boom.weeklyPayment).toBeGreaterThan(recession.weeklyPayment);
+  });
+
+  test('property listings and owned values react consistently to the cycle', () => {
+    expect(getPropertyCyclePurchaseMultiplier('recession')).toBeLessThan(1);
+    expect(getPropertyCyclePurchaseMultiplier('boom')).toBeGreaterThan(1);
+
+    const property = createProperty('investment_studio', 1, 2, 1, getPropertyCyclePurchaseMultiplier('recession'));
+    expect(property).not.toBeNull();
+    if (!property) return;
+
+    const before = property.currentValue;
+    const result = processProperties(
+      [{ ...property, isRentedOut: true }],
+      1,
+      0,
+      getEconomicCycleEffects('recession').propertyValueWeeklyAdjustment,
+      getEconomicCycleEffects('recession').propertyIncomeMultiplier,
+    );
+    expect(result.updatedProperties[0].currentValue).toBeLessThan(before);
   });
 
   test('cycle advancement uses the advanced year at a year boundary', () => {
