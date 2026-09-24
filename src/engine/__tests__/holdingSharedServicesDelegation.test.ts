@@ -9,6 +9,7 @@ import {
   EMPTY_HOLDING_SHARED_SERVICES,
   canChargeHoldingManagementFee,
   getHoldingAvailableDistributionCash,
+  getHoldingCapitalAllocationPreview,
   getHoldingManagementFeeForWeek,
   getHoldingReserveTarget,
   getHoldingSharedServiceEffects,
@@ -129,6 +130,39 @@ describe('holding shared services and delegated management', () => {
     expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 95_000, 0)).toBe(1_750);
     expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 100_000, 0)).toBe(0);
     expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 110_000, 0)).toBe(0);
+  });
+
+  test('holding capital allocation preview compares liquidity with debt prepayment economics', () => {
+    const business = {
+      ...makeManagedBusiness(),
+      balance: 200_000,
+      lastWeekExpenses: 100_000,
+      businessLoans: [{
+        id: 'allocation-debt',
+        amount: 500_000,
+        remainingAmount: 550_000,
+        weeklyPayment: 55_000,
+        weeksRemaining: 10,
+        interestRate: 0.10,
+        purpose: 'operating',
+      }],
+    };
+
+    const preview = getHoldingCapitalAllocationPreview(business, 200_000, 1);
+
+    expect(preview.growth.protectedCash).toBe(800_000);
+    expect(preview.growth.reserveGapBefore).toBe(600_000);
+    expect(preview.growth.reserveGapAfter).toBe(400_000);
+    expect(preview.growth.additionalRunwayWeeks).toBeCloseTo(2);
+
+    expect(preview.debt.cashUsed).toBe(200_000);
+    expect(preview.debt.principalRepaid).toBe(200_000);
+    expect(preview.debt.principalBefore).toBe(500_000);
+    expect(preview.debt.principalAfter).toBe(300_000);
+    expect(preview.debt.futureInterestAvoided).toBe(20_000);
+    expect(preview.debt.weeklyDebtServiceBefore).toBe(55_000);
+    expect(preview.debt.weeklyDebtServiceAfter).toBe(33_000);
+    expect(preview.debt.weeklyDebtServiceReduction).toBe(22_000);
   });
 
   test('holding reserve defaults to a four-week group contingency buffer', () => {
