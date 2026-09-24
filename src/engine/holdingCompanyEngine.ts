@@ -449,7 +449,7 @@ export function getHoldingSubsidiaryHealthSnapshot(
 }
 
 export type HoldingSubsidiaryAttentionAction =
-  | { kind: 'business_overview'; label: string; detail: string }
+  | { kind: 'business_overview'; focus: 'integration' | 'decision'; label: string; detail: string }
   | { kind: 'business_finance'; label: string; detail: string }
   | { kind: 'holding_capital'; label: string; detail: string };
 
@@ -462,6 +462,7 @@ export function getHoldingSubsidiaryAttentionAction(
   if (health.integrationPending) {
     return {
       kind: 'business_overview',
+      focus: 'integration',
       label: 'Choose integration',
       detail: 'Open the acquisition integration choices.',
     };
@@ -469,6 +470,7 @@ export function getHoldingSubsidiaryAttentionAction(
   if (health.decisionPending) {
     return {
       kind: 'business_overview',
+      focus: 'decision',
       label: 'Resolve decision',
       detail: 'Open the pending business decision.',
     };
