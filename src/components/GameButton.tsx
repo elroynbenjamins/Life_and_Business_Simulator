@@ -2,6 +2,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme/colors';
+import { tutorialButtonTarget, TutorialTargetId } from '../engine/tutorialEngine';
+import { useTutorialHighlight } from '../store/tutorialStore';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -15,6 +17,7 @@ interface Props {
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
   accentColor?: string;
+  tutorialId?: TutorialTargetId;
 }
 
 export default function GameButton({
@@ -27,7 +30,9 @@ export default function GameButton({
   compact = false,
   style,
   accentColor = Colors.primary,
+  tutorialId,
 }: Props) {
+  const highlighted = useTutorialHighlight(tutorialId ?? tutorialButtonTarget(label), disabled);
   const foreground = variant === 'primary' || variant === 'danger' ? Colors.white
     : variant === 'secondary' ? Colors.textPrimary
       : Colors.textSecondary;
@@ -40,6 +45,7 @@ export default function GameButton({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled }}
+      accessibilityHint={highlighted ? 'Highlighted by the guided introduction. This performs the normal game action.' : undefined}
       disabled={disabled}
       hitSlop={compact ? 5 : undefined}
       onPress={onPress}
@@ -54,6 +60,7 @@ export default function GameButton({
         disabled && styles.disabled,
         pressed && !disabled && styles.pressed,
         style,
+        highlighted && styles.tutorialHighlight,
       ]}
     >
       {icon ? <Ionicons name={icon} size={compact ? 15 : 17} color={iconColor} /> : null}
@@ -65,48 +72,17 @@ export default function GameButton({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 44,
-    borderRadius: 11,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    borderWidth: 1,
+    minHeight: 44, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1,
   },
-  compact: {
-    minHeight: 34,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 9,
-  },
-  primary: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  secondary: {
-    backgroundColor: Colors.elevated,
-    borderColor: Colors.cardBorder,
-  },
-  danger: {
-    backgroundColor: Colors.negative,
-    borderColor: Colors.negative,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-    borderColor: 'transparent',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  compactLabel: {
-    fontSize: 12,
-  },
+  compact: { minHeight: 34, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9 },
+  primary: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  secondary: { backgroundColor: Colors.elevated, borderColor: Colors.cardBorder },
+  danger: { backgroundColor: Colors.negative, borderColor: Colors.negative },
+  ghost: { backgroundColor: 'transparent', borderColor: 'transparent' },
+  label: { fontSize: 14, fontWeight: '800' },
+  compactLabel: { fontSize: 12 },
   disabled: { opacity: 0.42 },
-  pressed: {
-    opacity: 0.86,
-    transform: [{ scale: 0.985 }],
-  },
+  pressed: { opacity: 0.86, transform: [{ scale: 0.985 }] },
+  tutorialHighlight: { borderColor: Colors.warning, shadowColor: Colors.warning, shadowOpacity: 0.65, shadowRadius: 7, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
 });
