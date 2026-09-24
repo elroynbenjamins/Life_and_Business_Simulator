@@ -12,6 +12,7 @@ import {
 } from '../acquisitionEngine';
 import { getAllBusinessLocationTemplates, getBusinessType, getHoldingSynergyProfile, processBusinessWeek } from '../businessEngine';
 import { getNetWorth } from '../financeEngine';
+import { getBusinessEquityReturn } from '../businessPortfolioEngine';
 import { createHoldingCompany, getHoldingCompanySummary } from '../holdingCompanyEngine';
 import { INITIAL_GAME_STATE } from '../../types/game';
 
@@ -256,6 +257,27 @@ describe('business acquisitions and holding companies', () => {
     randomSpy.mockReturnValue(0.99);
     const waitingTick = processBusinessWeek(acquired!, 1, 9, 7);
     expect(waitingTick.updatedBusiness.acquisition?.integrationWeeksRemaining).toBe(before);
+  });
+
+  test('acquisition ROI stays aligned with canonical portfolio return math', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const target = generateAcquisitionTargets(121, 1, 1)[0];
+    const business = createAcquiredBusiness(
+      target,
+      { ...INITIAL_GAME_STATE, week: 1, year: 7, inflationMultiplier: 1 },
+      null,
+      target.askingPrice,
+      'balanced',
+      0,
+    )!;
+
+    const acquisitionReturn = getAcquisitionReturn(business)!;
+    const portfolioReturn = getBusinessEquityReturn(business);
+
+    expect(acquisitionReturn.debt).toBe(portfolioReturn.debt);
+    expect(acquisitionReturn.equityValue).toBe(portfolioReturn.equityValue);
+    expect(acquisitionReturn.investedCapital).toBe(portfolioReturn.investmentBasis);
+    expect(acquisitionReturn.returnPct).toBe(portfolioReturn.returnPct);
   });
 
   test('baseline acquired company does not reach triple-digit return within one game year', () => {
