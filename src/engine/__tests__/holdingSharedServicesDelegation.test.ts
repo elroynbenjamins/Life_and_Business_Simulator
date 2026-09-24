@@ -103,6 +103,13 @@ describe('holding shared services and delegated management', () => {
     jest.restoreAllMocks();
   });
 
+  test('management fee respects full subsidiary protected cash when provided', () => {
+    const holding = makeHolding({ managementFeeRate: 0.03 });
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 100_000, 950_000)).toBe(3_000);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 951_000, 100_000, 950_000)).toBe(1_000);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 900_000, 100_000, 950_000)).toBe(0);
+  });
+
   test('holding reserve target protects owner distributions without locking strategic capital', () => {
     const holding = makeHolding({ cashReserve: 500_000, reserveTargetWeeks: 8 });
     const first = makeManagedBusiness();
