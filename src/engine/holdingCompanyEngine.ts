@@ -127,3 +127,33 @@ export function getHoldingSharedServiceEffects(holding: HoldingCompany | null | 
     services,
   };
 }
+
+
+export const HOLDING_MANAGEMENT_FEE_DEFAULT = 0.01;
+export const HOLDING_MANAGEMENT_FEE_MAX = 0.03;
+
+export function normalizeHoldingManagementFeeRate(rate: number | null | undefined): number {
+  const value = Number.isFinite(rate as number) ? Number(rate) : HOLDING_MANAGEMENT_FEE_DEFAULT;
+  return Math.max(0, Math.min(HOLDING_MANAGEMENT_FEE_MAX, value));
+}
+
+export function getHoldingManagementFeeForWeek(
+  holding: HoldingCompany,
+  subsidiaryWeeklyRevenue: number,
+  subsidiaryBalance: number,
+  subsidiaryWeeklyExpenses: number,
+): number {
+  const rate = normalizeHoldingManagementFeeRate(holding.managementFeeRate);
+  if (rate <= 0 || subsidiaryWeeklyRevenue <= 0) return 0;
+
+  // Management fees are based on revenue but cannot raid the operating buffer.
+  const operatingBuffer = Math.max(0, subsidiaryWeeklyExpenses) * 4;
+  const availableCash = Math.max(0, subsidiaryBalance - operatingBuffer);
+  return Math.max(
+    0,
+    Math.min(
+      Math.round(Math.max(0, subsidiaryWeeklyRevenue) * rate),
+      Math.round(availableCash),
+    ),
+  );
+}
