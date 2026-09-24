@@ -203,6 +203,12 @@ export function getBusinessEmpireSummary(
     (sum, business) => sum + getBusinessDebt(business) * getPlayerEquityOwnershipPct(business) / 100,
     0,
   );
+  const playerNetBusinessEquity = (businesses ?? []).reduce(
+    (sum, business) => sum
+      + Math.max(0, Math.max(0, business.valuation ?? 0) - getBusinessDebt(business))
+        * getPlayerEquityOwnershipPct(business) / 100,
+    0,
+  );
   const weeklyProfit = (businesses ?? []).reduce((sum, business) => sum + (business.lastWeekProfit ?? 0), 0);
   const operatingCash = (businesses ?? []).reduce((sum, business) => sum + Math.max(0, business.balance ?? 0), 0);
   const holdingCash = (holdingCompanies ?? []).reduce((sum, holding) => sum + Math.max(0, holding.cashReserve ?? 0), 0);
@@ -229,7 +235,7 @@ export function getBusinessEmpireSummary(
     netBusinessEquity: Math.max(0, totalValue - totalDebt),
     playerBusinessValue: Math.round(playerBusinessValue),
     playerBusinessDebt: Math.round(playerBusinessDebt),
-    playerNetBusinessEquity: Math.round(playerBusinessValue - playerBusinessDebt),
+    playerNetBusinessEquity: Math.round(playerNetBusinessEquity),
     weeklyProfit,
     operatingCash,
     holdingCash,
