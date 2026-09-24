@@ -613,6 +613,18 @@ export default function BusinessDetailScreen() {
         biz.acquisition.integrationOutcome,
       )
     : null;
+  const activeIntegrationPreview = biz.acquisition
+    && biz.acquisition.integrationStrategy !== 'pending'
+    && biz.acquisition.integrationOutcome === 'pending'
+    ? getAcquisitionIntegrationDecisionPreview(
+        biz.acquisition.baseIntegrationWeeks,
+        biz.acquisition.baseIntegrationPenalty,
+        biz.acquisition.diligenceScore,
+        biz.acquisition.integrationStrategy,
+        biz.acquisition.quotedWeeklyRevenue ?? biz.lastWeekRevenue ?? 0,
+        biz.acquisition.quotedWeeklyProfit ?? biz.lastWeekProfit ?? 0,
+      )
+    : null;
   // Market share pie chart data. Keep these as plain calculations rather than
   // hooks because selling the current business removes it from the store
   // synchronously and this screen then takes the early "not found" return.
@@ -1055,7 +1067,7 @@ export default function BusinessDetailScreen() {
 
             {biz.acquisition.integrationStrategy === 'pending' ? (
               <>
-                <Text style={styles.integrationPrompt}>Choose how to integrate this company. The integration clock begins only after you choose.</Text>
+                <Text style={styles.integrationPrompt}>Choose how to integrate this company. Review the trade-offs first; the choice cannot be changed after integration starts.</Text>
                 {INTEGRATION_STRATEGIES.map((strategy) => {
                   const preview = getAcquisitionIntegrationDecisionPreview(
                     biz.acquisition!.baseIntegrationWeeks,
@@ -1072,14 +1084,26 @@ export default function BusinessDetailScreen() {
                     mixedEffect,
                     failedEffect,
                   } = preview;
+                  const expectedEffectText = formatIntegrationOutcomeEffect(
+                    preview.expectedRevenueBonus,
+                    preview.expectedExpenseReduction,
+                    preview.expectedReputationDelta,
+                  );
                   const outcomeText = strategy === 'independent'
-                    ? '100% success • no permanent operating effect'
-                    : `Success ${Math.round(probabilities.success * 100)}%: ${formatIntegrationOutcomeEffect(successEffect.revenueBonus, successEffect.expenseReduction, successEffect.reputationDelta)} • Mixed ${Math.round(probabilities.mixed * 100)}%: ${formatIntegrationOutcomeEffect(mixedEffect.revenueBonus, mixedEffect.expenseReduction, mixedEffect.reputationDelta)} • Fail ${Math.round(probabilities.failed * 100)}%: ${formatIntegrationOutcomeEffect(failedEffect.revenueBonus, failedEffect.expenseReduction, failedEffect.reputationDelta)}`;
+                    ? 'Outcome: 100% stable • no permanent operating change'
+                    : `Odds: ${Math.round(probabilities.success * 100)}% success • ${Math.round(probabilities.mixed * 100)}% mixed • ${Math.round(probabilities.failed * 100)}% fail`;
+                  const fullOutcomeText = strategy === 'independent'
+                    ? 'No permanent operating change.'
+                    : `Success ${Math.round(probabilities.success * 100)}%: ${formatIntegrationOutcomeEffect(successEffect.revenueBonus, successEffect.expenseReduction, successEffect.reputationDelta)}\nMixed ${Math.round(probabilities.mixed * 100)}%: ${formatIntegrationOutcomeEffect(mixedEffect.revenueBonus, mixedEffect.expenseReduction, mixedEffect.reputationDelta)}\nFail ${Math.round(probabilities.failed * 100)}%: ${formatIntegrationOutcomeEffect(failedEffect.revenueBonus, failedEffect.expenseReduction, failedEffect.reputationDelta)}`;
                   return (
                     <Pressable
                       key={strategy}
                       style={styles.integrationChoice}
-                      onPress={() => setAcquisitionIntegrationStrategy(biz.id, strategy)}
+                      onPress={() => confirmAction(
+                        `Choose ${profile.label}?`,
+                        `${profile.description}\n\nTemporary phase: ${profile.weeks} weeks at ${Math.round(profile.penalty * 100)}% disruption. Estimated operating profit during integration: ${formatCurrency(preview.estimatedWeeklyProfitDuringIntegration)}/wk before buyer debt.\n\nExpected permanent effect: ${expectedEffectText}\n\n${fullOutcomeText}\n\nThis integration strategy cannot be changed once started.`,
+                        () => setAcquisitionIntegrationStrategy(biz.id, strategy),
+                      )}
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.integrationChoiceTitle}>{profile.label}</Text>
@@ -1091,11 +1115,7 @@ export default function BusinessDetailScreen() {
                             : ''}
                         </Text>
                         <Text style={styles.integrationChoiceExpected}>
-                          Expected permanent effect: {formatIntegrationOutcomeEffect(
-                            preview.expectedRevenueBonus,
-                            preview.expectedExpenseReduction,
-                            preview.expectedReputationDelta,
-                          )}
+                          Expected permanent: {expectedEffectText}
                         </Text>
                         <Text style={styles.integrationChoiceOutcome}>{outcomeText}</Text>
                       </View>
@@ -1113,6 +1133,7 @@ export default function BusinessDetailScreen() {
                   </Text>
                   <Text style={styles.integrationActiveText}>
                     {biz.acquisition.integrationWeeksRemaining} weeks remaining • {Math.round((biz.acquisition.integrationPenalty ?? 0) * 100)}% temporary disruption
+                    {activeIntegrationPreview ? ` • est. ${formatCurrency(activeIntegrationPreview.estimatedWeeklyProfitDuringIntegration)}/wk operating profit` : ''}
                   </Text>
                   {activeIntegrationProbabilities && (
                     <Text style={styles.integrationActiveOdds}>
