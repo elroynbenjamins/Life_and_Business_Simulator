@@ -17,6 +17,7 @@ import { ThemePreference, useThemePreference } from '../src/theme/ThemeProvider'
 export default function ProfileScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'account' | 'progress' | 'history'>('account');
+  const [showAllCourses, setShowAllCourses] = useState(false);
   const playerName = useGameStore((s) => s?.playerName ?? 'Player');
   const age = useGameStore((s) => s?.age ?? 22);
   const week = useGameStore((s) => s?.week ?? 1);
@@ -242,12 +243,27 @@ export default function ProfileScreen() {
         {/* Completed Courses */}
         {completedCourses.length > 0 && (
           <GameCard title="Completed Courses">
-            {completedCourses.map((c, i) => (
-              <View key={i} style={styles.historyRow}>
-                <Text style={styles.historyTitle}>{c?.name}</Text>
-                <Text style={styles.historyMeta}>Completed Week {c?.completedWeek}</Text>
-              </View>
-            ))}
+            {[...completedCourses]
+              .reverse()
+              .slice(0, showAllCourses ? completedCourses.length : 8)
+              .map((course, i) => (
+                <View key={`${course?.courseId ?? course?.name}_${i}`} style={styles.historyRow}>
+                  <Text style={styles.historyTitle}>{course?.name}</Text>
+                  <Text style={styles.historyMeta}>Completed Week {course?.completedWeek}</Text>
+                </View>
+              ))}
+            {completedCourses.length > 8 && (
+              <Pressable
+                accessibilityRole="button"
+                style={styles.historyDisclosure}
+                onPress={() => setShowAllCourses((value) => !value)}
+              >
+                <Text style={styles.historyDisclosureText}>
+                  {showAllCourses ? 'Show recent courses' : `Show all ${completedCourses.length} courses`}
+                </Text>
+                <Ionicons name={showAllCourses ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.info} />
+              </Pressable>
+            )}
           </GameCard>
         )}
 
@@ -345,6 +361,8 @@ const styles = StyleSheet.create({
   historyRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   historyTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   historyMeta: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
+  historyDisclosure: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 6 },
+  historyDisclosureText: { color: Colors.info, fontSize: 11, fontWeight: '800' },
   slotBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: Colors.info, borderRadius: 12, padding: 16, marginTop: 16 },
   slotBtnText: { color: Colors.info, fontSize: 16, fontWeight: '600' },
   supportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#8B5CF6', borderRadius: 12, padding: 16, marginTop: 10 },
