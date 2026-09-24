@@ -54,6 +54,7 @@ import {
   canStartCorporateCapex,
   getCorporateCapexCost,
   getCorporateCapexProject,
+  getCorporateScaleTier,
 } from '../engine/corporateScaleEngine';
 import {
   createCorporateLoan,
@@ -4859,7 +4860,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     let financingLoan: BusinessLoan | null = null;
 
     if (financingMode === 'project_finance') {
-      const quote = getProjectFinanceQuote(business, cost, loanRateReduction);
+      const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
+      const quote = getProjectFinanceQuote(business, cost, loanRateReduction, macroRateModifier);
       if (!quote.allowed || (business.balance ?? 0) < quote.cashContribution) return;
       cashRequired = quote.cashContribution;
       financingLoan = createCorporateLoan(quote, globalWeek, project.id);
@@ -4907,10 +4909,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     const index = businesses.findIndex((business) => business.id === businessId);
     if (index < 0) return;
     const business = businesses[index];
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
     const quote = getRevolverDrawQuote(
       business,
       amount,
       getPrestigeEffects(state.profile).loan_rate_reduction ?? 0,
+      macroRateModifier,
     );
     if (!quote.allowed) return;
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
@@ -4943,10 +4947,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     const index = businesses.findIndex((business) => business.id === businessId);
     if (index < 0) return;
     const business = businesses[index];
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
     const quote = getBondQuote(
       business,
       amount,
       getPrestigeEffects(state.profile).loan_rate_reduction ?? 0,
+      macroRateModifier,
     );
     if (!quote.allowed) return;
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
@@ -5176,25 +5182,50 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   takeBusinessLoan: (businessId: string, amount: number, interestRate: number, durationWeeks: number) => {
     const state = get();
+    if (
+      state.lifecycle?.isDead
+      || !Number.isFinite(amount)
+      || !Number.isFinite(interestRate)
+      || !Number.isFinite(durationWeeks)
+      || amount <= 0
+      || durationWeeks <= 0
+    ) return;
+
     const businesses = [...(state?.businesses ?? [])];
     const idx = businesses.findIndex((b) => b?.id === businessId);
     if (idx < 0) return;
     const biz = { ...businesses[idx] };
+
+    // Simple operating loans are the local-company funding path. Once a company
+    // reaches corporate scale, use the credit facility / bonds / project finance.
+    if (getCorporateScaleTier(biz) !== 'local') return;
     if ((biz.businessLoans?.length ?? 0) >= 3) return;
-    const effectiveInterestRate = Math.max(0, interestRate - (getPrestigeEffects(state.profile).loan_rate_reduction ?? 0));
-    const totalRepayment = amount * (1 + effectiveInterestRate);
-    const weeklyPayment = Math.ceil(totalRepayment / durationWeeks);
+
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
+    const effectiveInterestRate = Math.max(
+      0,
+      interestRate + macroRateModifier - (getPrestigeEffects(state.profile).loan_rate_reduction ?? 0),
+    );
+    const principal = Math.round(amount);
+    const duration = Math.max(1, Math.round(durationWeeks));
+    const totalRepayment = Math.round(principal * (1 + effectiveInterestRate));
+    const weeklyPayment = Math.ceil(totalRepayment / duration);
     const loan: BusinessLoan = {
       id: `bloan_${Date.now()}`,
-      amount,
+      amount: principal,
       remainingAmount: totalRepayment,
       weeklyPayment,
-      weeksRemaining: durationWeeks,
+      weeksRemaining: duration,
       interestRate: effectiveInterestRate,
+      purpose: 'operating',
     };
-    biz.businessLoans = [...(biz.businessLoans ?? []), loan];
-    biz.balance = (biz.balance ?? 0) + amount;
-    businesses[idx] = biz;
+    const updated = {
+      ...biz,
+      businessLoans: [...(biz.businessLoans ?? []), loan],
+      balance: (biz.balance ?? 0) + principal,
+    };
+    updated.valuation = calculateValuation(updated);
+    businesses[idx] = updated;
     const updates = { businesses };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
