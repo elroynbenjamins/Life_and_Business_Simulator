@@ -313,7 +313,9 @@ export default function BusinessAcquisitionsScreen() {
                     </View>
                     <View style={styles.metric}>
                       <Text style={styles.metricLabel}>Financed</Text>
-                      <Text style={styles.metricValue}>{formatCurrency(quote.debtPrincipal)}</Text>
+                      <Text style={styles.metricValue}>
+                        {quote.debtPrincipal > 0 ? `${formatCurrency(quote.debtPrincipal)} @ ${(quote.interestRate * 100).toFixed(1)}%` : 'None'}
+                      </Text>
                     </View>
 
                     <View style={styles.metric}>
