@@ -18,6 +18,7 @@ import { calculatePartnerContribution } from '../../src/engine/relationshipEngin
 import coursesData from '../../src/data/courses.json';
 import FirstStepsCard from '../../src/components/FirstStepsCard';
 import { averageStudentWorkIncome, getStudentStudyDuration, getStudentWorkOption, getStudentWorkTier } from '../../src/engine/studentWork';
+import achievementsData from '../../src/data/achievements.json';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -35,6 +36,11 @@ export default function DashboardScreen() {
   const getPortfolioValueTotal = useGameStore((s) => s?.getPortfolioValueTotal);
   const gems = useGameStore((s) => s?.profile?.gems ?? 0);
   const loginRewardAvailable = useGameStore((s) => s.getDailyLoginStatus().available);
+  const annualReports = useGameStore((s) => s.annualReports ?? []);
+  const annualReportUnread = useGameStore((s) => s.annualReportUnread ?? false);
+  const openAnnualReport = useGameStore((s) => s.openAnnualReport);
+  const pinnedAchievementGoals = useGameStore((s) => s.pinnedAchievementGoals ?? []);
+  const unlockedAchievements = useGameStore((s) => s.unlockedAchievements ?? []);
   const state = useGameStore(useShallow((s) => ({
     currentJobId: s.currentJobId,
     currentCourseId: s.currentCourseId,
@@ -64,6 +70,14 @@ export default function DashboardScreen() {
   const totalLoanDebt = (loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
   const businessAttentionCount = businesses.filter((business) => !!business.pendingDecision).length;
   const businessCrisisCount = businesses.filter((business) => business.pendingDecision?.kind === 'crisis').length;
+  const latestAnnualReport = annualReports[0] ?? null;
+  const latestAnnualNetFlow = latestAnnualReport
+    ? latestAnnualReport.totalIncome - latestAnnualReport.totalExpenses - latestAnnualReport.totalTax
+    : 0;
+  const activePinnedGoals = pinnedAchievementGoals
+    .filter((id) => !unlockedAchievements.includes(id))
+    .map((id) => (achievementsData as any[]).find((achievement) => achievement.id === id))
+    .filter(Boolean);
 
   // Use career v2 salary if available, otherwise legacy
   const hasCareerV2 = !!career?.companyId;
@@ -203,6 +217,60 @@ export default function DashboardScreen() {
         </GameCard>
 
         <FirstStepsCard />
+
+        {latestAnnualReport && (
+          <GameCard
+            variant="subtle"
+            eyebrow="YEARLY REPORT"
+            title={`Year ${Math.floor(latestAnnualReport.toWeek / 20)} Summary`}
+            accentColor={latestAnnualNetFlow >= 0 ? Colors.primary : Colors.negative}
+            onPress={() => openAnnualReport(0)}
+            titleAccessory={annualReportUnread
+              ? <StatusPill compact label="NEW" color={Colors.info} />
+              : <StatusPill compact label="Saved" color={Colors.textSecondary} />}
+          >
+            <View style={styles.annualReportRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.annualReportLabel}>NET CASH FLOW</Text>
+                <Text style={[styles.annualReportValue, { color: latestAnnualNetFlow >= 0 ? Colors.primary : Colors.negative }]}>
+                  {latestAnnualNetFlow >= 0 ? '+' : ''}{formatCurrency(latestAnnualNetFlow)}
+                </Text>
+              </View>
+              <View style={styles.annualReportMetric}>
+                <Text style={styles.annualReportLabel}>NET WORTH</Text>
+                <Text style={styles.annualReportMetricValue}>{formatCurrency(latestAnnualReport.currentNetWorth)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color={Colors.textMuted} />
+            </View>
+            <Text style={styles.annualReportHint}>Saved automatically. Open only when you want the full breakdown.</Text>
+          </GameCard>
+        )}
+
+        {activePinnedGoals.length > 0 && (
+          <GameCard
+            variant="subtle"
+            eyebrow="PERSONAL GOALS"
+            title="Pinned Milestones"
+            accentColor={Colors.warning}
+            onPress={() => router.push('/achievements')}
+            titleAccessory={<StatusPill compact label={`${activePinnedGoals.length}/3`} color={Colors.warning} />}
+          >
+            <View style={styles.goalList}>
+              {activePinnedGoals.map((goal: any) => (
+                <View key={goal.id} style={styles.goalRow}>
+                  <View style={styles.goalIcon}>
+                    <Ionicons name="flag-outline" size={15} color={Colors.warning} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.goalTitle}>{goal.name}</Text>
+                    <Text style={styles.goalDesc} numberOfLines={1}>{goal.description}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.goalHint}>Manage pinned goals from Achievements.</Text>
+          </GameCard>
+        )}
 
         {course ? (() => {
           const baseDur = course?.duration ?? 1;
@@ -346,6 +414,18 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 20, fontWeight: '700' },
   statCaption: { color: Colors.textMuted, fontSize: 12, marginTop: 4 },
   courseCaption: { color: Colors.textSecondary, fontSize: 11, marginTop: 7 },
+  annualReportRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  annualReportLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  annualReportValue: { fontSize: 18, fontWeight: '900', marginTop: 2 },
+  annualReportMetric: { alignItems: 'flex-end' },
+  annualReportMetricValue: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', marginTop: 2 },
+  annualReportHint: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 7 },
+  goalList: { gap: 4 },
+  goalRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  goalIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: `${Colors.warning}12`, alignItems: 'center', justifyContent: 'center' },
+  goalTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  goalDesc: { color: Colors.textMuted, fontSize: 9, marginTop: 1 },
+  goalHint: { color: Colors.textMuted, fontSize: 9, marginTop: 5 },
   sectionLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', marginTop: 4, marginBottom: 8 },
   linksRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginVertical: 4 },
   quickLink: { flexBasis: '31%', flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 12, borderWidth: 1, borderColor: Colors.cardBorder },
