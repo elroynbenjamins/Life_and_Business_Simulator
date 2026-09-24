@@ -201,6 +201,7 @@ function businessIdentityColor(color: string): string {
   return Colors.primary;
 }
 type BusinessDetailSection = 'overview' | 'ownership' | 'leadership' | 'finance' | 'people' | 'risk' | 'growth' | 'capital';
+type BusinessDetailFocus = 'integration' | 'decision';
 
 const BUSINESS_SECTION_CHIPS: Array<{ key: BusinessDetailSection; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { key: 'overview', label: 'Overview', icon: 'speedometer-outline' },
@@ -226,11 +227,17 @@ function normalizeBusinessDetailSection(value: string | string[] | undefined): B
   return BUSINESS_SECTION_CHIPS.some((section) => section.key === raw) ? raw as BusinessDetailSection : null;
 }
 
+function normalizeBusinessDetailFocus(value: string | string[] | undefined): BusinessDetailFocus | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === 'integration' || raw === 'decision' ? raw : null;
+}
+
 export default function BusinessDetailScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
-  const { id = '', newBusiness, section } = useLocalSearchParams();
+  const { id = '', newBusiness, section, focus } = useLocalSearchParams();
   const requestedSection = normalizeBusinessDetailSection(section);
+  const requestedFocus = normalizeBusinessDetailFocus(focus);
   const businesses = useGameStore((s) => s?.businesses ?? []);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
@@ -339,6 +346,8 @@ export default function BusinessDetailScreen() {
   const detailScrollRef = useRef<ScrollView>(null);
   const sectionTabScrollRef = useRef<ScrollView>(null);
   const managementSectionOffsets = useRef<Partial<Record<CorporateManagementActionTarget, number>>>({});
+  const businessFocusOffsets = useRef<Partial<Record<BusinessDetailFocus, number>>>({});
+  const handledBusinessFocus = useRef<string | null>(null);
 
   const activateSection = (target: BusinessDetailSection) => {
     setActiveSection(target);
@@ -362,6 +371,18 @@ export default function BusinessDetailScreen() {
     });
   };
 
+  const recordBusinessFocus = (target: BusinessDetailFocus, event: LayoutChangeEvent) => {
+    const y = event.nativeEvent.layout.y;
+    businessFocusOffsets.current[target] = y;
+    if (requestedFocus !== target || activeSection !== 'overview') return;
+    const focusKey = `${id}:${target}`;
+    if (handledBusinessFocus.current === focusKey) return;
+    handledBusinessFocus.current = focusKey;
+    requestAnimationFrame(() => {
+      detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+    });
+  };
+
   useEffect(() => {
     if (!requestedSection) return;
     setActiveSection(requestedSection);
@@ -373,6 +394,25 @@ export default function BusinessDetailScreen() {
       detailScrollRef.current?.scrollTo({ y: 0, animated: true });
     });
   }, [requestedSection]);
+
+  useEffect(() => {
+    if (!requestedFocus) return;
+    const focusKey = `${id}:${requestedFocus}`;
+    handledBusinessFocus.current = null;
+    setActiveSection('overview');
+    const overviewIndex = BUSINESS_SECTION_CHIPS.findIndex((item) => item.key === 'overview');
+    requestAnimationFrame(() => {
+      if (overviewIndex >= 0) {
+        sectionTabScrollRef.current?.scrollTo({ x: 0, animated: true });
+      }
+      requestAnimationFrame(() => {
+        const y = businessFocusOffsets.current[requestedFocus];
+        if (y == null || handledBusinessFocus.current === focusKey) return;
+        handledBusinessFocus.current = focusKey;
+        detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+      });
+    });
+  }, [id, requestedFocus]);
 
   const biz = businesses.find((b) => b?.id === id);
   useEffect(() => {
