@@ -168,6 +168,34 @@ describe('holding shared services and delegated management', () => {
     expect(profile.expenseReduction).toBeCloseTo(0.012);
   });
 
+  test('organic holding synergies scale down after mixed or failed acquisition integration', () => {
+    const holding = makeHolding();
+    const sibling = { ...makeManagedBusiness(), id: 'sibling', delegationPolicy: 'manual' as const };
+    const base = { ...makeManagedBusiness(), id: 'acquired', delegationPolicy: 'manual' as const };
+
+    const withOutcome = (outcome: 'success' | 'mixed' | 'failed') => ({
+      ...base,
+      acquisition: {
+        integrationStrategy: 'integrate',
+        integrationOutcome: outcome,
+        integrationWeeksRemaining: 0,
+      } as any,
+    });
+
+    const successBusiness = withOutcome('success');
+    const mixedBusiness = withOutcome('mixed');
+    const failedBusiness = withOutcome('failed');
+
+    const success = getHoldingSynergyProfile(successBusiness, [successBusiness, sibling], [holding]);
+    const mixed = getHoldingSynergyProfile(mixedBusiness, [mixedBusiness, sibling], [holding]);
+    const failed = getHoldingSynergyProfile(failedBusiness, [failedBusiness, sibling], [holding]);
+
+    expect(success.revenueBonus).toBeGreaterThan(mixed.revenueBonus);
+    expect(mixed.revenueBonus).toBeGreaterThan(failed.revenueBonus);
+    expect(success.expenseReduction).toBeGreaterThan(mixed.expenseReduction);
+    expect(mixed.expenseReduction).toBeGreaterThan(failed.expenseReduction);
+  });
+
   test('Follow Strategy delegation inherits the company strategic focus', () => {
     const growth = makeManagedBusiness();
     growth.delegationPolicy = 'balanced';
