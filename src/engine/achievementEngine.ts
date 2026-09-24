@@ -6,16 +6,21 @@ import housingData from '../data/housing.json';
 // house upgrades removed
 import { getPortfolioValue } from './financeEngine';
 
-export function getAchievementGemRewardSettlement(
+export function getAchievementRewardSettlement(
   newlyUnlockedIds: string[],
-  rewardedAchievementGemIds: string[] = [],
+  rewardedAchievementIds: string[] = [],
 ): {
+  xpGained: number;
+  prestigePointsGained: number;
   gemsGained: number;
-  rewards: Record<string, number>;
-  rewardedAchievementGemIds: string[];
+  rewardedThisCallIds: string[];
+  gemRewards: Record<string, number>;
+  rewardedAchievementIds: string[];
 } {
-  const rewardedIds = new Set(rewardedAchievementGemIds);
-  const rewards: Record<string, number> = {};
+  const rewardedIds = new Set(rewardedAchievementIds);
+  const rewardedThisCallIds: string[] = [];
+  const gemRewards: Record<string, number> = {};
+  let xpGained = 0;
   let gemsGained = 0;
 
   for (const id of newlyUnlockedIds) {
@@ -23,18 +28,22 @@ export function getAchievementGemRewardSettlement(
     const achievement = (achievementsData as any[]).find((item) => item?.id === id);
     if (!achievement) continue;
 
+    const xpReward = Math.max(0, Number(achievement.xpReward ?? 0));
     const gemReward = Math.max(0, Number(achievement.gemReward ?? 0));
-    if (gemReward > 0) {
-      rewards[id] = gemReward;
-      gemsGained += gemReward;
-    }
+    xpGained += xpReward;
+    gemsGained += gemReward;
+    if (gemReward > 0) gemRewards[id] = gemReward;
+    rewardedThisCallIds.push(id);
     rewardedIds.add(id);
   }
 
   return {
+    xpGained,
+    prestigePointsGained: xpGained,
     gemsGained,
-    rewards,
-    rewardedAchievementGemIds: [...rewardedIds],
+    rewardedThisCallIds,
+    gemRewards,
+    rewardedAchievementIds: [...rewardedIds],
   };
 }
 
