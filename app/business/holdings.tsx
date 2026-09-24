@@ -22,6 +22,7 @@ import {
   canChargeHoldingManagementFee,
   getHoldingCapitalAllocationPreview,
   getHoldingCompanySummary,
+  getHoldingReservePolicyPreview,
   getHoldingSharedServiceEffects,
   getHoldingTreasuryTransactionPreview,
   getHoldingSharedServiceUpgradeCost,
@@ -574,19 +575,70 @@ export default function HoldingCompaniesScreen() {
 
                   <Text style={styles.synergyTitle}>Reserve target</Text>
                   <Text style={styles.capitalMeta}>
-                    Protect owner distributions below {reserveTargetWeeks} weeks of subsidiary operating expenses
-                    {reserveTargetWeeks > 0 ? ` • target ${formatCurrency(reserveTarget)}` : ' • disabled'}.
+                    Sets the cash floor protected from owner distributions. Strategic investments may still use the full Holding reserve.
                   </Text>
-                  <View style={styles.buttonRow}>
+                  <View style={styles.reservePolicySummary}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.reservePolicySummaryLabel}>Current protection</Text>
+                      <Text style={styles.reservePolicySummaryValue}>
+                        {reserveTargetWeeks > 0 ? `${reserveTargetWeeks} weeks • ${formatCurrency(reserveTarget)}` : 'Off'}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.reservePolicySummaryLabel}>Owner available</Text>
+                      <Text style={styles.reservePolicySummaryValue}>{formatCurrency(availableDistributionCash)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.reservePolicyGrid}>
                     {RESERVE_TARGET_WEEKS.map((weeks) => {
                       const active = reserveTargetWeeks === weeks;
+                      const policyPreview = getHoldingReservePolicyPreview(holding, businesses, weeks);
+                      const targetGap = Math.max(0, policyPreview.nextTarget - policyPreview.cashReserve);
+                      const delta = policyPreview.distributionHeadroomDelta;
                       return (
                         <Pressable
                           key={weeks}
-                          onPress={() => setHoldingReserveTargetWeeks(holding.id, weeks)}
-                          style={[styles.smallAction, active && styles.protectedAction]}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active, disabled: active }}
+                          accessibilityLabel={
+                            weeks === 0
+                              ? `Reserve target off, owner distribution headroom ${formatCurrency(policyPreview.nextAvailableDistributionCash)}`
+                              : `${weeks} week reserve target, protects ${formatCurrency(policyPreview.nextTarget)}, owner distribution headroom ${formatCurrency(policyPreview.nextAvailableDistributionCash)}`
+                          }
+                          disabled={active}
+                          onPress={() => showGameDialog({
+                            title: weeks === 0 ? 'Turn reserve protection off?' : `Set a ${weeks}-week reserve target?`,
+                            message:
+                              `Weekly subsidiary operating expenses: ${formatCurrency(policyPreview.weeklyOperatingExpenses)}\n`
+                              + `Protected reserve: ${formatCurrency(policyPreview.currentTarget)} → ${formatCurrency(policyPreview.nextTarget)}\n`
+                              + `Owner distribution headroom: ${formatCurrency(policyPreview.currentAvailableDistributionCash)} → ${formatCurrency(policyPreview.nextAvailableDistributionCash)}\n\n`
+                              + (delta < 0
+                                ? `This protects ${formatCurrency(Math.abs(delta))} more cash from owner distributions. `
+                                : delta > 0
+                                  ? `This releases ${formatCurrency(delta)} more cash for owner distributions. `
+                                  : 'Owner distribution headroom is unchanged. ')
+                              + (targetGap > 0
+                                ? `The target is currently ${formatCurrency(targetGap)} above the Holding reserve, so owner distributions stay blocked until reserve cash rises above it. `
+                                : '')
+                              + 'Strategic Holding investments can still use the full reserve.',
+                            confirmText: weeks === 0 ? 'Turn Off' : `Set ${weeks}w`,
+                            cancelText: 'Back',
+                            onConfirm: () => setHoldingReserveTargetWeeks(holding.id, weeks),
+                          })}
+                          style={[styles.reservePolicyOption, active && styles.reservePolicyOptionActive]}
                         >
-                          <Text style={styles.smallActionText}>{weeks === 0 ? 'Off' : `${weeks}w`}</Text>
+                          <View style={styles.reservePolicyOptionHeader}>
+                            <Text style={[styles.reservePolicyWeeks, active && styles.reservePolicyWeeksActive]}>
+                              {weeks === 0 ? 'Off' : `${weeks} weeks`}
+                            </Text>
+                            {active && <Text style={styles.reservePolicyCurrent}>CURRENT</Text>}
+                          </View>
+                          <Text style={styles.reservePolicyAmount}>
+                            {weeks === 0 ? 'No protected cash floor' : `Protect ${formatCurrency(policyPreview.nextTarget)}`}
+                          </Text>
+                          <Text style={styles.reservePolicyHeadroom}>
+                            Owner available {formatCurrency(policyPreview.nextAvailableDistributionCash)}
+                          </Text>
                         </Pressable>
                       );
                     })}
@@ -1013,6 +1065,18 @@ const styles = StyleSheet.create({
   capitalTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   capitalMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
   transactionHint: { color: Colors.info, fontSize: 8, lineHeight: 12, marginTop: 7 },
+  reservePolicySummary: { flexDirection: 'row', gap: 8, marginTop: 8, padding: 9, borderRadius: 8, backgroundColor: Colors.elevated },
+  reservePolicySummaryLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '700' },
+  reservePolicySummaryValue: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900', marginTop: 2 },
+  reservePolicyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
+  reservePolicyOption: { width: '48%', minHeight: 72, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, backgroundColor: Colors.elevated, paddingHorizontal: 9, paddingVertical: 8 },
+  reservePolicyOptionActive: { borderColor: Colors.warning, backgroundColor: '#33270F' },
+  reservePolicyOptionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 5 },
+  reservePolicyWeeks: { color: Colors.textSecondary, fontSize: 10, fontWeight: '900' },
+  reservePolicyWeeksActive: { color: Colors.warning },
+  reservePolicyCurrent: { color: Colors.warning, fontSize: 6, fontWeight: '900', letterSpacing: 0.4 },
+  reservePolicyAmount: { color: Colors.textPrimary, fontSize: 8, fontWeight: '800', marginTop: 6 },
+  reservePolicyHeadroom: { color: Colors.info, fontSize: 7, lineHeight: 10, marginTop: 3 },
   capitalLedgerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9, marginBottom: 3 },
   capitalLedgerItem: { width: '48.5%', backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7 },
   capitalLedgerLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '700' },
