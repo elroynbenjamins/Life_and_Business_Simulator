@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { getLifestyleTab } from '../src/engine/tutorialPresentation';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
 import ScreenHeader from '../src/components/ScreenHeader';
@@ -20,7 +21,14 @@ import { carItemImages, housingItemImages } from '../src/assets/itemImages';
 
 export default function LifestyleScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'housing' | 'transport'>('housing');
+  const { section } = useLocalSearchParams<{ section?: string | string[] }>();
+  const requestedTab = getLifestyleTab(section);
+  const [activeTab, setActiveTab] = useState<'housing' | 'transport'>(requestedTab);
+  useEffect(() => { setActiveTab(requestedTab); }, [requestedTab]);
+  const chooseTab = (tab: 'housing' | 'transport') => {
+    setActiveTab(tab);
+    router.setParams({ section: tab });
+  };
   const currentHousingId = useGameStore((s) => s?.currentHousingId);
   const currentCarId = useGameStore((s) => s?.currentCarId ?? 'none');
   const pendingCarDelivery = useGameStore((s) => s?.pendingCarDelivery);
@@ -101,7 +109,7 @@ export default function LifestyleScreen() {
           <Pressable
             accessibilityRole="tab"
             accessibilityState={{ selected: activeTab === 'housing' }}
-            onPress={() => setActiveTab('housing')}
+            onPress={() => chooseTab('housing')}
             style={[styles.tabButton, activeTab === 'housing' && styles.tabButtonActive]}
           >
             <Ionicons name="home-outline" size={16} color={activeTab === 'housing' ? Colors.business : Colors.textMuted} />
@@ -110,7 +118,7 @@ export default function LifestyleScreen() {
           <Pressable
             accessibilityRole="tab"
             accessibilityState={{ selected: activeTab === 'transport' }}
-            onPress={() => setActiveTab('transport')}
+            onPress={() => chooseTab('transport')}
             style={[styles.tabButton, activeTab === 'transport' && styles.tabButtonActive]}
           >
             <Ionicons name="car-outline" size={16} color={activeTab === 'transport' ? Colors.info : Colors.textMuted} />

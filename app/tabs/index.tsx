@@ -1,5 +1,6 @@
+import ScrollView from '../../src/components/TutorialScrollView';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -154,6 +155,7 @@ export default function DashboardScreen() {
           variant="hero"
           eyebrow="THIS WEEK"
           title="Weekly cash flow"
+          tutorialId="home.cashflow"
           accentColor={projectedWeeklyFlow >= 0 ? Colors.primary : Colors.negative}
           titleAccessory={(
             <StatusPill
@@ -207,6 +209,7 @@ export default function DashboardScreen() {
           )}
 
           <GameButton
+            tutorialId="home.advance"
             label={lifecycle?.isDead ? 'Life Complete' : advancingWeek ? 'Processing Week...' : 'Advance to Next Week'}
             icon={advancingWeek ? 'hourglass-outline' : undefined}
             trailingIcon={lifecycle?.isDead || advancingWeek ? undefined : 'arrow-forward'}

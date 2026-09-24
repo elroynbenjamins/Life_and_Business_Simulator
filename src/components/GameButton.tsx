@@ -2,8 +2,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme/colors';
-import { tutorialButtonTarget, TutorialTargetId } from '../engine/tutorialEngine';
-import { useTutorialHighlight } from '../store/tutorialStore';
+import { TutorialTargetId } from '../engine/tutorialEngine';
+import { useTutorialAnchor } from './TutorialScrollView';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -32,7 +32,7 @@ export default function GameButton({
   accentColor = Colors.primary,
   tutorialId,
 }: Props) {
-  const highlighted = useTutorialHighlight(tutorialId ?? tutorialButtonTarget(label), disabled);
+  const { ref, onLayout, highlighted } = useTutorialAnchor(tutorialId, disabled);
   const foreground = variant === 'primary' || variant === 'danger' ? Colors.white
     : variant === 'secondary' ? Colors.textPrimary
       : Colors.textSecondary;
@@ -43,6 +43,10 @@ export default function GameButton({
 
   return (
     <Pressable
+      ref={ref}
+      collapsable={false}
+      onLayout={onLayout}
+      testID={tutorialId ? `tutorial-target-${tutorialId}` : undefined}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       accessibilityHint={highlighted ? 'Highlighted by the guided introduction. This performs the normal game action.' : undefined}

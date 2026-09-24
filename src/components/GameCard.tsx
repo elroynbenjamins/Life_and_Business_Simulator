@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { Colors } from '../theme/colors';
-import { tutorialCardTarget, TutorialTargetId } from '../engine/tutorialEngine';
-import { useTutorialHighlight } from '../store/tutorialStore';
+import { TutorialTargetId } from '../engine/tutorialEngine';
+import { useTutorialAnchor } from './TutorialScrollView';
 
 export type GameCardVariant = 'standard' | 'hero' | 'subtle' | 'attention' | 'danger';
 
@@ -23,11 +23,15 @@ export default function GameCard({
   title, eyebrow, titleAccessory, onPress, children, style,
   variant = 'standard', accentColor, compact = false, tutorialId,
 }: Props) {
-  const highlighted = useTutorialHighlight(tutorialId ?? tutorialCardTarget(title, eyebrow));
+  const { ref, onLayout, highlighted } = useTutorialAnchor(tutorialId);
   const accent = accentColor
     ?? (variant === 'danger' ? Colors.negative : variant === 'attention' ? Colors.warning : Colors.primary);
   const content = (
     <View
+      ref={ref}
+      collapsable={false}
+      onLayout={onLayout}
+      testID={tutorialId ? `tutorial-target-${tutorialId}` : undefined}
       style={[
         styles.card, compact && styles.compact,
         variant === 'hero' && styles.hero, variant === 'subtle' && styles.subtle,
