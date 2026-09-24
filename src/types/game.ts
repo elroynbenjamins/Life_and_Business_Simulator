@@ -1523,6 +1523,8 @@ export interface HoldingCompany {
   sharedServices?: HoldingSharedServices;
   /** Annualized management fee as a share of subsidiary revenue (0-3%). */
   managementFeeRate?: number;
+  /** Parent liquidity target measured in weeks of subsidiary operating expenses. */
+  reserveTargetWeeks?: number;
   totalManagementFeesCollected?: number;
   totalDividendsReceived?: number;
   totalOwnerDistributions?: number;
