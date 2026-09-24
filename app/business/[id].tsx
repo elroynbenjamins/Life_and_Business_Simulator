@@ -382,11 +382,13 @@ export default function BusinessDetailScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Business Not Found</Text>
-          <View style={{ width: 24 }} />
+          <View style={styles.headerSide}>
+            <Pressable onPress={() => router.back()} hitSlop={12}>
+              <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+            </Pressable>
+          </View>
+          <Text style={styles.headerTitle} numberOfLines={1}>Business Not Found</Text>
+          <View style={styles.headerSide} />
         </View>
       </SafeAreaView>
     );
@@ -794,9 +796,11 @@ export default function BusinessDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
+        <View style={styles.headerSide}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+          </Pressable>
+        </View>
         <Text style={styles.headerTitle} numberOfLines={1}>{biz.name}</Text>
         <View style={styles.headerActions}>
           <Pressable
@@ -3327,22 +3331,22 @@ export default function BusinessDetailScreen() {
             {transferAmountValid && (
               <View style={[styles.transferPreview, !transferWithinLimit && styles.transferPreviewInvalid]}>
                 <Text style={styles.transferPreviewTitle}>Transaction preview</Text>
-                <View style={styles.transferPreviewRow}>
+                <View style={[styles.transferPreviewRow, screenWidth < 360 && styles.transferPreviewRowCompact]}>
                   <Text style={styles.transferPreviewLabel}>Personal cash</Text>
-                  <Text style={styles.transferPreviewValue}>
+                  <Text style={[styles.transferPreviewValue, screenWidth < 360 && styles.transferPreviewValueCompact]}>
                     {formatCurrency(cash)} → {formatCurrency(previewPersonalCash)}
                   </Text>
                 </View>
-                <View style={styles.transferPreviewRow}>
+                <View style={[styles.transferPreviewRow, screenWidth < 360 && styles.transferPreviewRowCompact]}>
                   <Text style={styles.transferPreviewLabel}>Company cash</Text>
-                  <Text style={styles.transferPreviewValue}>
+                  <Text style={[styles.transferPreviewValue, screenWidth < 360 && styles.transferPreviewValueCompact]}>
                     {formatCurrency(biz.balance ?? 0)} → {formatCurrency(previewBusinessCash)}
                   </Text>
                 </View>
                 {showTransferModal === 'withdraw' && (
-                  <View style={styles.transferPreviewRow}>
+                  <View style={[styles.transferPreviewRow, screenWidth < 360 && styles.transferPreviewRowCompact]}>
                     <Text style={styles.transferPreviewLabel}>Protected floor</Text>
-                    <Text style={styles.transferPreviewValue}>{formatCurrency(protectedBusinessCash)}</Text>
+                    <Text style={[styles.transferPreviewValue, screenWidth < 360 && styles.transferPreviewValueCompact]}>{formatCurrency(protectedBusinessCash)}</Text>
                   </View>
                 )}
                 <Text style={[styles.transferPreviewHint, !transferWithinLimit && { color: Colors.negative }]}>
@@ -4111,9 +4115,10 @@ function RetBtn({ label, onPress, color }: { label: string; onPress: () => void;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 8 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 13 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  headerSide: { width: 72, minHeight: 28, justifyContent: 'center', alignItems: 'flex-start' },
+  headerTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 4 },
+  headerActions: { width: 72, minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   warningBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${Colors.warning}20`, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: `${Colors.warning}40` },
@@ -4696,8 +4701,10 @@ const styles = StyleSheet.create({
   transferPreviewInvalid: { borderColor: `${Colors.negative}66` },
   transferPreviewTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '900', marginBottom: 1 },
   transferPreviewRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+  transferPreviewRowCompact: { flexDirection: 'column', gap: 2 },
   transferPreviewLabel: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
   transferPreviewValue: { color: Colors.textSecondary, fontSize: 11, fontWeight: '800', textAlign: 'right', flexShrink: 1 },
+  transferPreviewValueCompact: { textAlign: 'left' },
   transferPreviewHint: { color: Colors.primary, fontSize: 10, lineHeight: 15, marginTop: 2 },
   transferError: { color: Colors.negative, fontSize: 12, fontWeight: '700', marginBottom: 10 },
   transferBtn: { backgroundColor: Colors.primary, borderRadius: 10, padding: 14, alignItems: 'center' },
