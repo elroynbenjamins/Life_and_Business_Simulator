@@ -77,6 +77,29 @@ describe('business acquisitions and holding companies', () => {
     }
   });
 
+  test('recession markets include balanced distressed targets without below-value arbitrage', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const targets = generateAcquisitionTargets(120, 1, ACQUISITION_TARGET_COUNT, 'recession');
+    const distressed = targets.filter((target) => target.marketCondition === 'distressed');
+
+    expect(distressed.length).toBeGreaterThanOrEqual(1);
+    for (const target of distressed) {
+      const priceToValue = target.askingPrice / target.estimatedValue;
+      expect(priceToValue).toBeGreaterThanOrEqual(1.10);
+      expect(priceToValue).toBeLessThanOrEqual(1.14);
+      expect(target.diligenceScore).toBeLessThanOrEqual(78);
+      expect(target.sellerReason).toContain('liquidity pressure');
+    }
+  });
+
+  test('boom acquisition markets are seller-friendly and marked competitive', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const targets = generateAcquisitionTargets(120, 1, ACQUISITION_TARGET_COUNT, 'boom');
+
+    expect(targets.every((target) => target.marketCondition === 'competitive')).toBe(true);
+    expect(targets.every((target) => target.askingPrice / target.estimatedValue >= 1.12)).toBe(true);
+  });
+
   test('targets have persistent history, traits, diligence findings, and bounded operating modifiers', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const target = generateAcquisitionTargets(120, 1, 1)[0];
