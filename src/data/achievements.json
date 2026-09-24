@@ -73,8 +73,8 @@
   },
   {
     "id": "all_basic_courses",
-    "name": "Scholar",
-    "description": "Complete all basic courses",
+    "name": "Foundation Scholar",
+    "description": "Complete all 10 Basic courses",
     "xpReward": 40,
     "gemReward": 2,
     "icon": "school"
@@ -185,8 +185,8 @@
   },
   {
     "id": "all_courses",
-    "name": "Master Scholar",
-    "description": "Complete all 18 courses",
+    "name": "Advanced Scholar",
+    "description": "Complete all 20 Basic and Advanced courses",
     "xpReward": 120,
     "gemReward": 3,
     "icon": "library"
@@ -369,8 +369,8 @@
   },
   {
     "id": "complete_all_courses",
-    "name": "Scholar",
-    "description": "Complete all available courses",
+    "name": "Master Scholar",
+    "description": "Complete all 30 available courses",
     "xpReward": 120,
     "gemReward": 3,
     "icon": "school"
