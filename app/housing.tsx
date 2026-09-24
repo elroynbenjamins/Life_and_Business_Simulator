@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -20,6 +20,7 @@ import { carItemImages, housingItemImages } from '../src/assets/itemImages';
 
 export default function LifestyleScreen() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'housing' | 'transport'>('housing');
   const currentHousingId = useGameStore((s) => s?.currentHousingId);
   const currentCarId = useGameStore((s) => s?.currentCarId ?? 'none');
   const pendingCarDelivery = useGameStore((s) => s?.pendingCarDelivery);
@@ -96,170 +97,198 @@ export default function LifestyleScreen() {
           </View>
         </GameCard>
 
-        {/* HOUSING */}
-        <View style={styles.sectionHeading}>
-          <View style={styles.sectionTitleRow}>
-            <Ionicons name="home-outline" size={17} color={Colors.business} />
-            <Text style={styles.sectionHeader}>Housing</Text>
-          </View>
-          <Text style={styles.sectionSub}>Compare total weekly cost and household capacity.</Text>
+        <View style={styles.tabSwitcher} accessibilityRole="tablist">
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 'housing' }}
+            onPress={() => setActiveTab('housing')}
+            style={[styles.tabButton, activeTab === 'housing' && styles.tabButtonActive]}
+          >
+            <Ionicons name="home-outline" size={16} color={activeTab === 'housing' ? Colors.business : Colors.textMuted} />
+            <Text style={[styles.tabLabel, activeTab === 'housing' && styles.tabLabelActive]}>Housing</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 'transport' }}
+            onPress={() => setActiveTab('transport')}
+            style={[styles.tabButton, activeTab === 'transport' && styles.tabButtonActive]}
+          >
+            <Ionicons name="car-outline" size={16} color={activeTab === 'transport' ? Colors.info : Colors.textMuted} />
+            <Text style={[styles.tabLabel, activeTab === 'transport' && styles.tabLabelActive]}>Transport</Text>
+          </Pressable>
         </View>
-        <View style={styles.pixelArtCard}>
-          <Image source={require('../assets/pixel-art/housing.png')} style={styles.housingArt} resizeMode="contain" accessibilityLabel="Pixel art showing apartment, house, and villa upgrades" />
-        </View>
-        {(housingData ?? []).map((h, idx) => {
-          const isCurrent = h?.id === currentHousingId;
-          const isUpgrade = idx > currentHIdx;
-          const rent = inflated(h?.weeklyRent ?? 0, inflationMultiplier);
-          const utilCost = Math.round(rent * 0.15);
-          const totalWeekly = rent + utilCost;
-          const delta = totalWeekly - (currentHousingRent + currentUtilities);
-          const capacity = getHousingCapacity(h.id);
-          const crowded = relationshipModeEnabled && householdSize > capacity;
 
-          return (
-            <GameCard key={h?.id} compact variant={isCurrent ? 'subtle' : 'standard'}>
-              <View style={styles.row}>
-                <Image source={housingItemImages[h.id]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${h.name} pixel art`} />
-                <View style={styles.info}>
-                  <View style={styles.nameLine}>
-                    <Text style={styles.name} numberOfLines={1}>{h?.name}</Text>
-                    {isCurrent && <StatusPill compact label="Current" icon="checkmark-circle-outline" color={Colors.info} />}
-                  </View>
-                  <View style={styles.comparisonRow}>
-                    <StatusPill compact icon="cash-outline" label={`${formatCurrency(totalWeekly)}/wk total`} color={Colors.primary} />
-                    {!isCurrent && (
-                      <StatusPill
-                        compact
-                        icon={delta > 0 ? 'arrow-up-outline' : delta < 0 ? 'arrow-down-outline' : 'remove-outline'}
-                        label={delta === 0 ? 'Same weekly cost' : `${delta > 0 ? '+' : ''}${formatCurrency(delta)}/wk`}
-                        color={delta > 0 ? Colors.warning : delta < 0 ? Colors.primary : Colors.textSecondary}
-                      />
-                    )}
-                  </View>
-                  {relationshipModeEnabled && (
+        {activeTab === 'housing' ? (
+          <View>
+          <View style={styles.sectionHeading}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="home-outline" size={17} color={Colors.business} />
+              <Text style={styles.sectionHeader}>Housing</Text>
+            </View>
+            <Text style={styles.sectionSub}>Compare total weekly cost and household capacity.</Text>
+          </View>
+          <View style={styles.pixelArtCard}>
+            <Image source={require('../assets/pixel-art/housing.png')} style={styles.housingArt} resizeMode="contain" accessibilityLabel="Pixel art showing apartment, house, and villa upgrades" />
+          </View>
+          {(housingData ?? []).map((h, idx) => {
+            const isCurrent = h?.id === currentHousingId;
+            const isUpgrade = idx > currentHIdx;
+            const rent = inflated(h?.weeklyRent ?? 0, inflationMultiplier);
+            const utilCost = Math.round(rent * 0.15);
+            const totalWeekly = rent + utilCost;
+            const delta = totalWeekly - (currentHousingRent + currentUtilities);
+            const capacity = getHousingCapacity(h.id);
+            const crowded = relationshipModeEnabled && householdSize > capacity;
+  
+            return (
+              <GameCard key={h?.id} compact variant={isCurrent ? 'subtle' : 'standard'}>
+                <View style={styles.row}>
+                  <Image source={housingItemImages[h.id]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${h.name} pixel art`} />
+                  <View style={styles.info}>
+                    <View style={styles.nameLine}>
+                      <Text style={styles.name} numberOfLines={1}>{h?.name}</Text>
+                      {isCurrent && <StatusPill compact label="Current" icon="checkmark-circle-outline" color={Colors.info} />}
+                    </View>
                     <View style={styles.comparisonRow}>
-                      <StatusPill compact icon="people-outline" label={`Comfortable for ${capacity}`} color={crowded ? Colors.negative : Colors.business} />
-                      {crowded && <StatusPill compact icon="warning-outline" label="Too small" color={Colors.negative} />}
+                      <StatusPill compact icon="cash-outline" label={`${formatCurrency(totalWeekly)}/wk total`} color={Colors.primary} />
+                      {!isCurrent && (
+                        <StatusPill
+                          compact
+                          icon={delta > 0 ? 'arrow-up-outline' : delta < 0 ? 'arrow-down-outline' : 'remove-outline'}
+                          label={delta === 0 ? 'Same weekly cost' : `${delta > 0 ? '+' : ''}${formatCurrency(delta)}/wk`}
+                          color={delta > 0 ? Colors.warning : delta < 0 ? Colors.primary : Colors.textSecondary}
+                        />
+                      )}
                     </View>
-                  )}
-                </View>
-              </View>
-
-              <View style={styles.costBreakdown}>
-                <View style={styles.costCell}>
-                  <Text style={styles.costLabel}>Rent</Text>
-                  <Text style={styles.costValue}>{formatCurrency(rent)}/wk</Text>
-                </View>
-                <View style={styles.costCell}>
-                  <Text style={styles.costLabel}>Utilities</Text>
-                  <Text style={styles.costValue}>{formatCurrency(utilCost)}/wk</Text>
-                </View>
-              </View>
-
-              {!isCurrent && (
-                <GameButton
-                  compact
-                  variant={isUpgrade ? 'primary' : 'secondary'}
-                  accentColor={isUpgrade ? Colors.business : Colors.warning}
-                  icon={isUpgrade ? 'arrow-up-circle-outline' : 'arrow-down-circle-outline'}
-                  label={isUpgrade ? 'Upgrade Home' : 'Downgrade Home'}
-                  onPress={() => handleHousing(h)}
-                />
-              )}
-            </GameCard>
-          );
-        })}
-
-        {/* CARS */}
-        <View style={styles.sectionHeading}>
-          <View style={styles.sectionTitleRow}>
-            <Ionicons name="car-outline" size={17} color={Colors.info} />
-            <Text style={styles.sectionHeader}>Vehicle</Text>
-          </View>
-          <Text style={styles.sectionSub}>Compare purchase cost, trade-in value and weekly running cost.</Text>
-        </View>
-        <View style={styles.pixelArtCard}>
-          <Image source={require('../assets/pixel-art/cars.png')} style={styles.carArt} resizeMode="contain" accessibilityLabel="Pixel art showing used car, sedan, and SUV progression" />
-        </View>
-        {pendingCarDelivery && (
-          <GameCard variant="attention" compact eyebrow="DELIVERY PENDING" title={carsData.find((car) => car.id === pendingCarDelivery.carId)?.name ?? 'Your vehicle'} accentColor={Colors.warning}>
-            <Text style={styles.desc}>Arrives after advancing one week.</Text>
-          </GameCard>
-        )}
-        {(carsData ?? []).map((vehicle) => {
-          const isCurrent = vehicle?.id === currentCarId;
-          const tradeIn = Math.round(((currentCar?.purchaseCost ?? 0) * 0.4));
-          const inflatedPurchase = inflated(vehicle?.purchaseCost ?? 0, inflationMultiplier);
-          const netCost = inflatedPurchase - tradeIn;
-          const weeklyCost = inflated(vehicle?.weeklyCost ?? 0, inflationMultiplier);
-          const weeklyDelta = weeklyCost - currentCarCost;
-          const canAfford = cash >= netCost;
-
-          return (
-            <GameCard key={vehicle?.id} compact variant={isCurrent ? 'subtle' : 'standard'}>
-              <View style={styles.row}>
-                {carItemImages[vehicle.id] ? <Image source={carItemImages[vehicle.id]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${vehicle.name} pixel art`} /> : null}
-                <View style={styles.info}>
-                  <View style={styles.nameLine}>
-                    <Text style={styles.name} numberOfLines={1}>{vehicle?.name}</Text>
-                    {isCurrent && <StatusPill compact label="Current" icon="checkmark-circle-outline" color={Colors.info} />}
-                  </View>
-                  <Text style={styles.desc} numberOfLines={2}>{vehicle?.description}</Text>
-                  <View style={styles.comparisonRow}>
-                    <StatusPill compact icon="speedometer-outline" label={weeklyCost > 0 ? `${formatCurrency(weeklyCost)}/wk` : 'No running cost'} color={Colors.info} />
-                    {!isCurrent && vehicle.id !== 'none' && (
-                      <StatusPill
-                        compact
-                        icon={weeklyDelta > 0 ? 'arrow-up-outline' : weeklyDelta < 0 ? 'arrow-down-outline' : 'remove-outline'}
-                        label={weeklyDelta === 0 ? 'Same running cost' : `${weeklyDelta > 0 ? '+' : ''}${formatCurrency(weeklyDelta)}/wk`}
-                        color={weeklyDelta > 0 ? Colors.warning : weeklyDelta < 0 ? Colors.primary : Colors.textSecondary}
-                      />
+                    {relationshipModeEnabled && (
+                      <View style={styles.comparisonRow}>
+                        <StatusPill compact icon="people-outline" label={`Comfortable for ${capacity}`} color={crowded ? Colors.negative : Colors.business} />
+                        {crowded && <StatusPill compact icon="warning-outline" label="Too small" color={Colors.negative} />}
+                      </View>
                     )}
                   </View>
                 </View>
-              </View>
-
-              {!isCurrent && vehicle?.id !== 'none' && (
-                <View style={styles.purchaseSummary}>
-                  <View>
-                    <Text style={styles.costLabel}>Purchase</Text>
-                    <Text style={styles.purchaseValue}>{formatCurrency(inflatedPurchase)}</Text>
+  
+                <View style={styles.costBreakdown}>
+                  <View style={styles.costCell}>
+                    <Text style={styles.costLabel}>Rent</Text>
+                    <Text style={styles.costValue}>{formatCurrency(rent)}/wk</Text>
                   </View>
-                  {tradeIn > 0 && (
-                    <View style={styles.purchaseRight}>
-                      <Text style={styles.costLabel}>{netCost < 0 ? 'Trade-in credit' : 'After trade-in'}</Text>
-                      <Text style={[styles.purchaseValue, { color: netCost < 0 || canAfford ? Colors.primary : Colors.negative }]}>
-                        {netCost < 0 ? `+${formatCurrency(Math.abs(netCost))}` : formatCurrency(netCost)}
-                      </Text>
-                    </View>
-                  )}
+                  <View style={styles.costCell}>
+                    <Text style={styles.costLabel}>Utilities</Text>
+                    <Text style={styles.costValue}>{formatCurrency(utilCost)}/wk</Text>
+                  </View>
                 </View>
-              )}
-
-              {!pendingCarDelivery && !isCurrent && vehicle?.id !== 'none' && (
-                <GameButton
-                  compact
-                  accentColor={Colors.info}
-                  icon="car-sport-outline"
-                  label={canAfford
-                    ? netCost < 0
-                      ? `Change • Receive ${formatCurrency(Math.abs(netCost))}`
-                      : tradeIn > 0
-                        ? `Buy • Net ${formatCurrency(netCost)}`
-                        : `Buy • ${formatCurrency(inflatedPurchase)}`
-                    : `Need ${formatCurrency(Math.max(0, netCost - cash))} more`}
-                  onPress={() => handleCar(vehicle)}
-                  disabled={!canAfford}
-                />
-              )}
-
-              {!pendingCarDelivery && !isCurrent && vehicle?.id === 'none' && currentCarId !== 'none' && (
-                <GameButton compact variant="secondary" accentColor={Colors.warning} icon="cash-outline" label="Sell Current Vehicle" onPress={() => changeCar?.('none')} />
-              )}
+  
+                {!isCurrent && (
+                  <GameButton
+                    compact
+                    variant={isUpgrade ? 'primary' : 'secondary'}
+                    accentColor={isUpgrade ? Colors.business : Colors.warning}
+                    icon={isUpgrade ? 'arrow-up-circle-outline' : 'arrow-down-circle-outline'}
+                    label={isUpgrade ? 'Upgrade Home' : 'Downgrade Home'}
+                    onPress={() => handleHousing(h)}
+                  />
+                )}
+              </GameCard>
+            );
+          })}
+  
+  
+          </View>
+        ) : (
+          <View>
+          <View style={styles.sectionHeading}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="car-outline" size={17} color={Colors.info} />
+              <Text style={styles.sectionHeader}>Vehicle</Text>
+            </View>
+            <Text style={styles.sectionSub}>Compare purchase cost, trade-in value and weekly running cost.</Text>
+          </View>
+          <View style={styles.pixelArtCard}>
+            <Image source={require('../assets/pixel-art/cars.png')} style={styles.carArt} resizeMode="contain" accessibilityLabel="Pixel art showing used car, sedan, and SUV progression" />
+          </View>
+          {pendingCarDelivery && (
+            <GameCard variant="attention" compact eyebrow="DELIVERY PENDING" title={carsData.find((car) => car.id === pendingCarDelivery.carId)?.name ?? 'Your vehicle'} accentColor={Colors.warning}>
+              <Text style={styles.desc}>Arrives after advancing one week.</Text>
             </GameCard>
-          );
-        })}
+          )}
+          {(carsData ?? []).map((vehicle) => {
+            const isCurrent = vehicle?.id === currentCarId;
+            const tradeIn = Math.round(((currentCar?.purchaseCost ?? 0) * 0.4));
+            const inflatedPurchase = inflated(vehicle?.purchaseCost ?? 0, inflationMultiplier);
+            const netCost = inflatedPurchase - tradeIn;
+            const weeklyCost = inflated(vehicle?.weeklyCost ?? 0, inflationMultiplier);
+            const weeklyDelta = weeklyCost - currentCarCost;
+            const canAfford = cash >= netCost;
+  
+            return (
+              <GameCard key={vehicle?.id} compact variant={isCurrent ? 'subtle' : 'standard'}>
+                <View style={styles.row}>
+                  {carItemImages[vehicle.id] ? <Image source={carItemImages[vehicle.id]} style={styles.itemIcon} resizeMode="contain" accessibilityLabel={`${vehicle.name} pixel art`} /> : null}
+                  <View style={styles.info}>
+                    <View style={styles.nameLine}>
+                      <Text style={styles.name} numberOfLines={1}>{vehicle?.name}</Text>
+                      {isCurrent && <StatusPill compact label="Current" icon="checkmark-circle-outline" color={Colors.info} />}
+                    </View>
+                    <Text style={styles.desc} numberOfLines={2}>{vehicle?.description}</Text>
+                    <View style={styles.comparisonRow}>
+                      <StatusPill compact icon="speedometer-outline" label={weeklyCost > 0 ? `${formatCurrency(weeklyCost)}/wk` : 'No running cost'} color={Colors.info} />
+                      {!isCurrent && vehicle.id !== 'none' && (
+                        <StatusPill
+                          compact
+                          icon={weeklyDelta > 0 ? 'arrow-up-outline' : weeklyDelta < 0 ? 'arrow-down-outline' : 'remove-outline'}
+                          label={weeklyDelta === 0 ? 'Same running cost' : `${weeklyDelta > 0 ? '+' : ''}${formatCurrency(weeklyDelta)}/wk`}
+                          color={weeklyDelta > 0 ? Colors.warning : weeklyDelta < 0 ? Colors.primary : Colors.textSecondary}
+                        />
+                      )}
+                    </View>
+                  </View>
+                </View>
+  
+                {!isCurrent && vehicle?.id !== 'none' && (
+                  <View style={styles.purchaseSummary}>
+                    <View>
+                      <Text style={styles.costLabel}>Purchase</Text>
+                      <Text style={styles.purchaseValue}>{formatCurrency(inflatedPurchase)}</Text>
+                    </View>
+                    {tradeIn > 0 && (
+                      <View style={styles.purchaseRight}>
+                        <Text style={styles.costLabel}>{netCost < 0 ? 'Trade-in credit' : 'After trade-in'}</Text>
+                        <Text style={[styles.purchaseValue, { color: netCost < 0 || canAfford ? Colors.primary : Colors.negative }]}>
+                          {netCost < 0 ? `+${formatCurrency(Math.abs(netCost))}` : formatCurrency(netCost)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+  
+                {!pendingCarDelivery && !isCurrent && vehicle?.id !== 'none' && (
+                  <GameButton
+                    compact
+                    accentColor={Colors.info}
+                    icon="car-sport-outline"
+                    label={canAfford
+                      ? netCost < 0
+                        ? `Change • Receive ${formatCurrency(Math.abs(netCost))}`
+                        : tradeIn > 0
+                          ? `Buy • Net ${formatCurrency(netCost)}`
+                          : `Buy • ${formatCurrency(inflatedPurchase)}`
+                      : `Need ${formatCurrency(Math.max(0, netCost - cash))} more`}
+                    onPress={() => handleCar(vehicle)}
+                    disabled={!canAfford}
+                  />
+                )}
+  
+                {!pendingCarDelivery && !isCurrent && vehicle?.id === 'none' && currentCarId !== 'none' && (
+                  <GameButton compact variant="secondary" accentColor={Colors.warning} icon="cash-outline" label="Sell Current Vehicle" onPress={() => changeCar?.('none')} />
+                )}
+              </GameCard>
+            );
+          })}
+  
+          </View>
+        )}
 
       </ScrollView>
     </SafeAreaView>
@@ -275,6 +304,11 @@ const styles = StyleSheet.create({
   currentLifestyleCopy: { flex: 1, minWidth: 0 },
   currentLifestyleLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', textTransform: 'uppercase' },
   currentLifestyleValue: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', marginTop: 2 },
+  tabSwitcher: { flexDirection: 'row', gap: 6, marginTop: 10, marginBottom: 4, padding: 3, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 12 },
+  tabButton: { flex: 1, minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8 },
+  tabButtonActive: { backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder },
+  tabLabel: { color: Colors.textMuted, fontSize: 12, fontWeight: '800' },
+  tabLabelActive: { color: Colors.textPrimary },
   sectionHeading: { marginTop: 10, marginBottom: 8 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionHeader: { color: Colors.textPrimary, fontSize: 17, fontWeight: '900' },
