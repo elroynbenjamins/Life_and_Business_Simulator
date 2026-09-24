@@ -149,37 +149,39 @@ export default function BusinessSaleScreen() {
           </View>
         </GameCard>
 
-        <GameCard>
-          <Text style={styles.sectionTitle}>Owner Deal Result</Text>
-          <Text style={styles.sectionSub}>
-            Includes tracked owner or holding distributions already received plus the cash delivered to the sale destination at closing.
-          </Text>
-          <View style={styles.rows}>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>{business.acquisition ? 'Equity invested' : 'Initial investment'}</Text>
-              <Text style={styles.rowValue}>
-                {quote.investmentBasis == null ? 'Legacy save — not tracked' : formatCurrency(quote.investmentBasis)}
-              </Text>
+        {playerOwnershipPct >= 99.9 && (
+          <GameCard>
+            <Text style={styles.sectionTitle}>Owner Deal Result</Text>
+            <Text style={styles.sectionSub}>
+              Includes tracked owner or holding distributions already received plus the cash delivered to the sale destination at closing.
+            </Text>
+            <View style={styles.rows}>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>{business.acquisition ? 'Equity invested' : 'Initial investment'}</Text>
+                <Text style={styles.rowValue}>
+                  {quote.investmentBasis == null ? 'Legacy save — not tracked' : formatCurrency(quote.investmentBasis)}
+                </Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>{holding ? 'Holding distributions received' : 'Owner distributions received'}</Text>
+                <Text style={styles.rowValue}>{formatCurrency(quote.totalPlayerDistributions)}</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.row}>
+                <Text style={styles.netLabel}>Owner cash result</Text>
+                <Text style={[styles.netValue, quote.lifetimeCashResult != null && { color: resultPositive ? Colors.primary : Colors.negative }]}>
+                  {quote.lifetimeCashResult == null ? 'Not tracked' : `${quote.lifetimeCashResult >= 0 ? '+' : ''}${formatCurrency(quote.lifetimeCashResult)}`}
+                </Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Owner return</Text>
+                <Text style={[styles.returnValue, quote.lifetimeReturnPct != null && { color: resultPositive ? Colors.primary : Colors.negative }]}>
+                  {formatReturn(quote.lifetimeReturnPct)}
+                </Text>
+              </View>
             </View>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>{holding ? 'Holding distributions received' : 'Owner distributions received'}</Text>
-              <Text style={styles.rowValue}>{formatCurrency(quote.totalPlayerDistributions)}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.row}>
-              <Text style={styles.netLabel}>Lifetime cash result</Text>
-              <Text style={[styles.netValue, quote.lifetimeCashResult != null && { color: resultPositive ? Colors.primary : Colors.negative }]}>
-                {quote.lifetimeCashResult == null ? 'Not tracked' : `${quote.lifetimeCashResult >= 0 ? '+' : ''}${formatCurrency(quote.lifetimeCashResult)}`}
-              </Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>Lifetime return</Text>
-              <Text style={[styles.returnValue, quote.lifetimeReturnPct != null && { color: resultPositive ? Colors.primary : Colors.negative }]}>
-                {formatReturn(quote.lifetimeReturnPct)}
-              </Text>
-            </View>
-          </View>
-        </GameCard>
+          </GameCard>
+        )}
 
         {business.acquisition && (
           <GameCard>
@@ -230,7 +232,9 @@ export default function BusinessSaleScreen() {
           onPress={confirmSale}
         >
           <Ionicons name="cash-outline" size={20} color={Colors.white} />
-          <Text style={styles.sellButtonText}>Sell for {formatCurrency(quote.netSaleProceeds)}</Text>
+          <Text style={styles.sellButtonText}>
+            {playerOwnershipPct < 99.9 ? '100% ownership required' : protectedAsset ? 'Remove family-asset protection first' : `Sell for ${formatCurrency(quote.netSaleProceeds)}`}
+          </Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
