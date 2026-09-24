@@ -154,18 +154,22 @@ export default function HoldingCompaniesScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Holding Companies</Text>
-        <Pressable
-          onPress={() => setShowHoldingsTour(true)}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Open holdings tour"
-        >
-          <Ionicons name="help-circle-outline" size={23} color={Colors.info} />
-        </Pressable>
+        <View style={styles.headerSide}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+          </Pressable>
+        </View>
+        <Text style={styles.headerTitle} numberOfLines={1}>Holding Companies</Text>
+        <View style={[styles.headerSide, styles.headerSideRight]}>
+          <Pressable
+            onPress={() => setShowHoldingsTour(true)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Open holdings tour"
+          >
+            <Ionicons name="help-circle-outline" size={23} color={Colors.info} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
@@ -177,8 +181,8 @@ export default function HoldingCompaniesScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.introTitle}>Build a business group</Text>
               <Text style={styles.introText}>
-                Holdings act as real group headquarters: allocate capital, build shared Finance/HR/Procurement/
-                Marketing/IT teams, delegate routine subsidiary management and prepare the next generation.
+                Holdings act as real group headquarters: allocate capital, build shared Finance, HR, Procurement,
+                Marketing and IT teams, delegate routine subsidiary management and prepare the next generation.
               </Text>
             </View>
           </View>
@@ -865,8 +869,10 @@ export default function HoldingCompaniesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  headerSide: { width: 44, minHeight: 28, justifyContent: 'center', alignItems: 'flex-start' },
+  headerSideRight: { alignItems: 'flex-end' },
+  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800', flex: 1, textAlign: 'center', marginHorizontal: 6 },
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 36 },
   holdingSelector: { gap: 7, paddingBottom: 10, paddingRight: 6 },
