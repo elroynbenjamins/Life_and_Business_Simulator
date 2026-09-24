@@ -7,6 +7,7 @@ import {
 import { getCorporateScaleTier } from './corporateScaleEngine';
 import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
 import { getCorporateWorkforceEffects } from './businessWorkforceEngine';
+import { getBusinessDebtPrincipal, getBusinessLoanOutstandingPrincipal, getBusinessWeeklyDebtService } from './businessDebtEngine';
 
 export interface CorporateCreditProfile {
   rating: CorporateCreditRating;
@@ -50,17 +51,11 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function getCorporateDebt(business: OwnedBusiness): number {
-  return (business.businessLoans ?? []).reduce(
-    (sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0),
-    0,
-  );
+  return getBusinessDebtPrincipal(business);
 }
 
 export function getCorporateWeeklyDebtService(business: OwnedBusiness): number {
-  return (business.businessLoans ?? []).reduce(
-    (sum, loan) => sum + Math.max(0, loan.weeklyPayment ?? 0),
-    0,
-  );
+  return getBusinessWeeklyDebtService(business);
 }
 
 function ratingFromScore(score: number): CorporateCreditRating {
@@ -79,7 +74,7 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
   const debtToValue = totalDebt / valuation;
   const revenue = Math.max(1, business.lastWeekRevenue ?? 0);
   const profit = business.lastWeekProfit ?? 0;
-  const operatingCashFlowBeforeDebt = profit + weeklyDebtService;
+  const operatingCashFlowBeforeDebt = (business.lastWeekCashFlow ?? profit) + weeklyDebtService;
   const interestCoverage = weeklyDebtService > 0
     ? operatingCashFlowBeforeDebt / weeklyDebtService
     : operatingCashFlowBeforeDebt > 0 ? 10 : 1;
@@ -137,7 +132,7 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
   const revolverLimit = Math.round(Math.min(25_000_000, Math.max(1_000_000, revolverBase)));
   const revolverOutstanding = (business.businessLoans ?? [])
     .filter((loan) => loan.purpose === 'corporate_revolver')
-    .reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
+    .reduce((sum, loan) => sum + getBusinessLoanOutstandingPrincipal(loan), 0);
   const revolverAvailable = Math.max(0, Math.min(revolverLimit - revolverOutstanding, remainingDebtCapacity));
 
   return {
@@ -190,9 +185,9 @@ function buildDebtQuote(
   } else if (requested <= 0) {
     allowed = false;
     reason = 'Choose a positive financing amount.';
-  } else if (totalRepayment > profile.remainingDebtCapacity) {
+  } else if (requested > profile.remainingDebtCapacity) {
     allowed = false;
-    reason = 'This would exceed the company’s credit capacity after scheduled interest.';
+    reason = 'This would exceed the company’s principal debt capacity.';
   }
 
   const operatingCashFlowBeforeDebt = Math.max(
@@ -287,9 +282,9 @@ export function getProjectFinanceQuote(
     allowed = false;
     reason = 'A BB credit rating or better is required for project finance.';
   }
-  if (allowed && totalRepayment > profile.remainingDebtCapacity) {
+  if (allowed && debtPrincipal > profile.remainingDebtCapacity) {
     allowed = false;
-    reason = 'This project would exceed the company’s credit capacity after scheduled interest.';
+    reason = 'This project would exceed the company’s principal debt capacity.';
   }
   // Avoid financing structures where scheduled debt service would absorb almost
   // all current operating profit before construction disruption.
