@@ -1523,7 +1523,7 @@ export interface HoldingCompany {
   designatedSuccessorChildId: string | null;
   designatedSuccessorChildName: string | null;
   sharedServices?: HoldingSharedServices;
-  /** Annualized management fee as a share of subsidiary revenue (0-3%). */
+  /** Weekly management fee as a share of eligible subsidiary revenue (0-3%). */
   managementFeeRate?: number;
   /** Parent liquidity target measured in weeks of subsidiary operating expenses. */
   reserveTargetWeeks?: number;
