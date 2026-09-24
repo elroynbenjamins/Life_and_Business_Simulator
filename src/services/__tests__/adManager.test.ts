@@ -1,13 +1,24 @@
-jest.mock('../adPrivacyManager', () => ({
-  canRequestAds: jest.fn(async () => true),
-}));
+type MockAd = {
+  addAdEventListener: jest.Mock;
+  load: jest.Mock;
+  show: jest.Mock;
+  emit: (event: string, ...args: any[]) => void;
+};
 
-jest.mock('react-native-google-mobile-ads', () => {
-  const createdAds: any[] = [];
+type AdsMock = {
+  __createdAds: MockAd[];
+  RewardedAdEventType: { LOADED: string; EARNED_REWARD: string };
+  AdEventType: { LOADED: string; ERROR: string; CLOSED: string };
+  RewardedAd: { createForAdRequest: jest.Mock };
+  InterstitialAd: { createForAdRequest: jest.Mock };
+};
 
-  const makeAd = () => {
+function buildAdsMock(): AdsMock {
+  const createdAds: MockAd[] = [];
+
+  const makeAd = (): MockAd => {
     const listeners = new Map<string, Set<(...args: any[]) => void>>();
-    const ad = {
+    const ad: MockAd = {
       addAdEventListener: jest.fn((event: string, callback: (...args: any[]) => void) => {
         const callbacks = listeners.get(event) ?? new Set();
         callbacks.add(callback);
@@ -42,38 +53,41 @@ jest.mock('react-native-google-mobile-ads', () => {
       createForAdRequest: jest.fn(() => makeAd()),
     },
   };
-});
+}
 
 async function flushNativeModuleLoad() {
-  await Promise.resolve();
-  await Promise.resolve();
-  await new Promise<void>((resolve) => setImmediate(resolve));
-  await Promise.resolve();
+  // Babel/Jest lowers the dynamic native-module import through microtasks.
+  // Keep this timer-free so it is reliable with both real and fake timers.
+  for (let index = 0; index < 8; index += 1) {
+    await Promise.resolve();
+  }
 }
+
+let mockAdsModule: AdsMock;
 
 function getHarness() {
   const manager = require('../adManager') as typeof import('../adManager');
-  const ads = require('react-native-google-mobile-ads') as {
-    __createdAds: Array<{
-      emit: (event: string, ...args: any[]) => void;
-      load: jest.Mock;
-      show: jest.Mock;
-    }>;
-    RewardedAdEventType: { LOADED: string; EARNED_REWARD: string };
-    AdEventType: { ERROR: string; CLOSED: string };
-    RewardedAd: { createForAdRequest: jest.Mock };
-  };
-  return { manager, ads };
+  return { manager, ads: mockAdsModule };
 }
 
 describe('rewarded ad responsiveness', () => {
   beforeEach(() => {
     jest.resetModules();
     jest.useRealTimers();
+    mockAdsModule = buildAdsMock();
+
+    // Register fresh mocks after each reset so the dynamic import inside
+    // adManager and this test share one exact native-module instance.
+    jest.doMock('../adPrivacyManager', () => ({
+      canRequestAds: jest.fn(async () => true),
+    }));
+    jest.doMock('react-native-google-mobile-ads', () => mockAdsModule);
   });
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.dontMock('../adPrivacyManager');
+    jest.dontMock('react-native-google-mobile-ads');
   });
 
   test('rejects a second load while another rewarded placement is loading', async () => {
@@ -98,6 +112,8 @@ describe('rewarded ad responsiveness', () => {
 
     const firstLoad = manager.loadRewardedAd('education');
     await flushNativeModuleLoad();
+    expect(ads.__createdAds).toHaveLength(1);
+
     ads.__createdAds[0].emit(ads.AdEventType.ERROR);
     await expect(firstLoad).resolves.toBe(false);
     expect(manager.getAdState()).toBe('error');
@@ -105,6 +121,7 @@ describe('rewarded ad responsiveness', () => {
     const retry = manager.loadRewardedAd('education');
     await flushNativeModuleLoad();
     expect(ads.__createdAds).toHaveLength(2);
+
     ads.__createdAds[1].emit(ads.RewardedAdEventType.LOADED);
     await expect(retry).resolves.toBe(true);
     expect(manager.getAdState()).toBe('ready');
@@ -115,6 +132,8 @@ describe('rewarded ad responsiveness', () => {
 
     const load = manager.loadRewardedAd('education');
     await flushNativeModuleLoad();
+    expect(ads.__createdAds).toHaveLength(1);
+
     ads.__createdAds[0].emit(ads.RewardedAdEventType.LOADED);
     await expect(load).resolves.toBe(true);
 
@@ -136,7 +155,7 @@ describe('rewarded ad responsiveness', () => {
     const { manager, ads } = getHarness();
 
     const timedOut = manager.loadRewardedAd('education');
-    await jest.advanceTimersByTimeAsync(0);
+    await flushNativeModuleLoad();
     expect(ads.__createdAds).toHaveLength(1);
 
     await jest.advanceTimersByTimeAsync(15000);
@@ -144,8 +163,9 @@ describe('rewarded ad responsiveness', () => {
     expect(manager.getAdState()).toBe('error');
 
     const retry = manager.loadRewardedAd('gems');
-    await jest.advanceTimersByTimeAsync(0);
+    await flushNativeModuleLoad();
     expect(ads.__createdAds).toHaveLength(2);
+
     ads.__createdAds[1].emit(ads.RewardedAdEventType.LOADED);
     await expect(retry).resolves.toBe(true);
   });
