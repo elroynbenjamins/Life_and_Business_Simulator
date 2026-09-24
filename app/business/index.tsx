@@ -578,7 +578,7 @@ export default function BusinessPortfolioScreen() {
                       </Text>
                     </View>
                     <View style={styles.bizStat}>
-                      <Text style={styles.bizStatLabel}>{equityReturn.investmentBasis != null ? 'Lifetime ROI' : 'Reputation'}</Text>
+                      <Text style={styles.bizStatLabel}>{equityReturn.investmentBasis != null ? 'Owner ROI' : 'Reputation'}</Text>
                       <Text style={[styles.bizStatValue, {
                         color: equityReturn.investmentBasis != null
                           ? ((equityReturn.returnPct ?? 0) >= 0 ? Colors.primary : Colors.negative)
