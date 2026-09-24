@@ -1,5 +1,5 @@
-import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany, EconomicCyclePhase } from '../types/game';
-import { canChargeHoldingManagementFee, getHoldingManagementFeeForWeek, getHoldingSharedServiceEffects } from './holdingCompanyEngine';
+import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany, HoldingSharedServiceId, EconomicCyclePhase } from '../types/game';
+import { canChargeHoldingManagementFee, getHoldingManagementFeeForWeek, getHoldingSharedServiceEffects, getHoldingSharedServiceLevel, getHoldingSharedServiceUpgradeCost, normalizeHoldingSharedServices } from './holdingCompanyEngine';
 import { getIndustryEconomicCycleMultiplier } from './economyEngine';
 import { getBusinessDebtPrincipal, processScheduledBusinessLoanPayments } from './businessDebtEngine';
 import {
@@ -255,6 +255,90 @@ export function getHoldingSynergyProfile(
     sameIndustrySiblings,
     relatedIndustrySiblings,
     uniqueIndustries,
+  };
+}
+
+export function getHoldingSharedServiceUpgradeEconomics(
+  holding: HoldingCompany,
+  businesses: OwnedBusiness[],
+  serviceId: HoldingSharedServiceId,
+  inflationMultiplier = 1,
+): {
+  cost: number;
+  currentLevel: number;
+  nextLevel: number;
+  affectedSubsidiaries: number;
+  weeklyFinancialBenefit: number;
+  revenueBonusDelta: number;
+  expenseReductionDelta: number;
+  crisisReductionDelta: number;
+  paybackWeeks: number | null;
+} {
+  const currentLevel = getHoldingSharedServiceLevel(holding, serviceId);
+  const nextLevel = Math.min(3, currentLevel + 1);
+  const cost = getHoldingSharedServiceUpgradeCost(holding, serviceId, inflationMultiplier);
+  const group = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
+
+  if (nextLevel <= currentLevel || cost <= 0 || group.length === 0) {
+    return {
+      cost,
+      currentLevel,
+      nextLevel,
+      affectedSubsidiaries: group.length,
+      weeklyFinancialBenefit: 0,
+      revenueBonusDelta: 0,
+      expenseReductionDelta: 0,
+      crisisReductionDelta: 0,
+      paybackWeeks: null,
+    };
+  }
+
+  const services = normalizeHoldingSharedServices(holding.sharedServices);
+  const simulatedHolding: HoldingCompany = {
+    ...holding,
+    sharedServices: {
+      ...services,
+      [serviceId]: nextLevel,
+    },
+  };
+
+  let weeklyFinancialBenefit = 0;
+  let revenueBonusDelta = 0;
+  let expenseReductionDelta = 0;
+  let crisisReductionDelta = 0;
+
+  for (const business of group) {
+    const current = getHoldingSynergyProfile(business, businesses, [holding]);
+    const next = getHoldingSynergyProfile(business, businesses, [simulatedHolding]);
+    const revenueDelta = Math.max(0, next.revenueBonus - current.revenueBonus);
+    const expenseDelta = Math.max(0, next.expenseReduction - current.expenseReduction);
+    const crisisDelta = Math.max(0, next.crisisReduction - current.crisisReduction);
+
+    weeklyFinancialBenefit += Math.max(0, business.lastWeekRevenue ?? 0) * revenueDelta;
+    weeklyFinancialBenefit += Math.max(0, business.lastWeekExpenses ?? 0) * expenseDelta;
+    revenueBonusDelta += revenueDelta;
+    expenseReductionDelta += expenseDelta;
+    crisisReductionDelta += crisisDelta;
+  }
+
+  weeklyFinancialBenefit = Math.round(weeklyFinancialBenefit);
+  const count = Math.max(1, group.length);
+  revenueBonusDelta /= count;
+  expenseReductionDelta /= count;
+  crisisReductionDelta /= count;
+
+  return {
+    cost,
+    currentLevel,
+    nextLevel,
+    affectedSubsidiaries: group.length,
+    weeklyFinancialBenefit,
+    revenueBonusDelta,
+    expenseReductionDelta,
+    crisisReductionDelta,
+    paybackWeeks: weeklyFinancialBenefit > 0
+      ? Math.max(1, Math.ceil(cost / weeklyFinancialBenefit))
+      : null,
   };
 }
 
