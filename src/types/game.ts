@@ -1441,6 +1441,7 @@ export interface BusinessAcquisitionTarget {
   diligenceScore: number;
   risk: AcquisitionRisk;
   diligenceNotes: string[];
+  marketCondition?: 'normal' | 'distressed' | 'competitive';
   /** Generated operating history/personality for established acquisition targets. */
   companyAgeYears?: number;
   sellerReason?: string;
