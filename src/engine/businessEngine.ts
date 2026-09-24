@@ -2063,6 +2063,8 @@ export function processBusinessWeek(
         pendingDecision = hrDecision;
         corporateWorkforce = scheduleNextCorporateHrEvent(corporateWorkforce, globalWeek);
       }
+      // Routine HR and strategic reviews should not chain into back-to-back prompts.
+      nextStrategicDecisionWeek = Math.max(nextStrategicDecisionWeek, globalWeek + 6);
     }
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextStrategicDecisionWeek) {
     const activeStrategicPrograms = strategyModifiers.filter((modifier) => modifier.id.startsWith('strategy_'));
@@ -2077,6 +2079,12 @@ export function processBusinessWeek(
         autoResolvedDecision = true;
       } else {
         pendingDecision = strategicDecision;
+      }
+      if (corporateWorkforce) {
+        corporateWorkforce = {
+          ...corporateWorkforce,
+          nextHrEventWeek: Math.max(corporateWorkforce.nextHrEventWeek ?? 0, globalWeek + 6),
+        };
       }
     }
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextCrisisCheckWeek) {
