@@ -364,6 +364,8 @@ export default function BusinessPortfolioScreen() {
               return (
                 <Pressable
                   key={option.key}
+                  accessibilityRole="button"
+                  hitSlop={{ top: 6, bottom: 6 }}
                   style={[styles.sortChip, active && styles.sortChipActive]}
                   onPress={() => setSortMode(option.key)}
                 >
@@ -527,7 +529,12 @@ export default function BusinessPortfolioScreen() {
                 <Text style={styles.sectionTitle}>Deal History</Text>
                 <Text style={styles.sectionSub}>Recent exits stay visible after the company leaves your portfolio.</Text>
               </View>
-              <Pressable style={styles.historyLink} onPress={() => router.push('/business/history')}>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={{ top: 8, bottom: 8 }}
+                style={styles.historyLink}
+                onPress={() => router.push('/business/history')}
+              >
                 <Text style={styles.historyLinkText}>View all {soldBusinesses.length}</Text>
                 <Ionicons name="chevron-forward" size={13} color={Colors.info} />
               </Pressable>
