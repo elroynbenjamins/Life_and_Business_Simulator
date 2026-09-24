@@ -20,9 +20,12 @@ import {
   HOLDING_SHARED_SERVICE_DEFINITIONS,
   HOLDING_SHARED_SERVICE_MAX_LEVEL,
   canChargeHoldingManagementFee,
+  filterAndSortHoldingSubsidiaries,
   getHoldingCapitalAllocationPreview,
   getHoldingCompanySummary,
   getHoldingSubsidiaryHealthSnapshot,
+  HoldingSubsidiaryFilter,
+  HoldingSubsidiarySort,
   getHoldingManagementFeePolicyPreview,
   getHoldingReservePolicyPreview,
   getHoldingSharedServiceEffects,
@@ -40,6 +43,24 @@ const PAYOUT_AMOUNTS = [100_000, 500_000, 1_000_000, 5_000_000];
 const SUBSIDIARY_ALLOCATION_AMOUNTS = [1_000_000, 5_000_000, 10_000_000] as const;
 const MANAGEMENT_FEE_RATES = [0, 0.01, 0.02, 0.03];
 const RESERVE_TARGET_WEEKS = [0, 4, 8, 12];
+
+const COMPANY_FILTER_OPTIONS: Array<{ key: HoldingSubsidiaryFilter; label: string }> = [
+  { key: 'all', label: 'All companies' },
+  { key: 'attention', label: 'Needs attention' },
+  { key: 'loss', label: 'Loss-making' },
+  { key: 'reserve', label: 'Reserve shortfall' },
+  { key: 'debt', label: 'Has debt' },
+  { key: 'manual', label: 'Manual' },
+  { key: 'delegated', label: 'Delegated' },
+];
+
+const COMPANY_SORT_OPTIONS: Array<{ key: HoldingSubsidiarySort; label: string }> = [
+  { key: 'attention', label: 'Attention first' },
+  { key: 'profit', label: 'Profit: low first' },
+  { key: 'cash', label: 'Cash: low first' },
+  { key: 'debt', label: 'Debt: high first' },
+  { key: 'name', label: 'Name A–Z' },
+];
 
 const HOLDINGS_TOUR_STEPS: FeatureTourStep[] = [
   {
@@ -89,6 +110,9 @@ export default function HoldingCompaniesScreen() {
   const [showCreateHolding, setShowCreateHolding] = useState(holdings.length === 0);
   const [expandedSubsidiaryId, setExpandedSubsidiaryId] = useState<string | null>(null);
   const [subsidiaryAllocationAmounts, setSubsidiaryAllocationAmounts] = useState<Record<string, number>>({});
+  const [companyFilter, setCompanyFilter] = useState<HoldingSubsidiaryFilter>('all');
+  const [companySort, setCompanySort] = useState<HoldingSubsidiarySort>('attention');
+  const [companyControlOpen, setCompanyControlOpen] = useState<'filter' | 'sort' | null>(null);
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
@@ -355,7 +379,23 @@ export default function HoldingCompaniesScreen() {
               totalManagementFeesCollected, totalOwnerDistributions, reserveTargetWeeks, reserveTarget, availableDistributionCash,
               familyControlledPct, protectedAssets, avgRevenueSynergy, avgExpenseSynergy, diversification,
               sharedServiceEffects, managementFeeEligibleCount, quarterlyManagementReport, annualManagementReport,
-            }) => (
+            }) => {
+              const visibleSubsidiaries = filterAndSortHoldingSubsidiaries(
+                subsidiaries,
+                inflationMultiplier,
+                companyFilter,
+                companySort,
+              );
+              const attentionCount = filterAndSortHoldingSubsidiaries(
+                subsidiaries,
+                inflationMultiplier,
+                'attention',
+                'attention',
+              ).length;
+              const activeFilterLabel = COMPANY_FILTER_OPTIONS.find((option) => option.key === companyFilter)?.label ?? 'All companies';
+              const activeSortLabel = COMPANY_SORT_OPTIONS.find((option) => option.key === companySort)?.label ?? 'Attention first';
+
+              return (
               <GameCard key={holding.id}>
                 <View style={styles.holdingHeader}>
                   <View style={styles.holdingIcon}>
@@ -825,7 +865,124 @@ export default function HoldingCompaniesScreen() {
                     <Text style={styles.emptySubsidiariesText}>Assign an existing company below or acquire a new target for this holding.</Text>
                   </View>
                 )}
-                {subsidiaries.map((business) => {
+                {subsidiaries.length > 0 && (
+                  <View style={styles.companyPortfolioToolbar}>
+                    <View style={styles.companyPortfolioSummary}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.companyPortfolioTitle}>Portfolio view</Text>
+                        <Text style={styles.companyPortfolioMeta}>
+                          {visibleSubsidiaries.length}/{subsidiaries.length} shown
+                          {attentionCount > 0 ? ` • ${attentionCount} need review` : ' • no active attention items'}
+                        </Text>
+                      </View>
+                      {(companyFilter !== 'all' || companySort !== 'attention') && (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            setCompanyFilter('all');
+                            setCompanySort('attention');
+                            setCompanyControlOpen(null);
+                          }}
+                          style={styles.companyResetButton}
+                        >
+                          <Text style={styles.companyResetText}>Reset</Text>
+                        </Pressable>
+                      )}
+                    </View>
+
+                    <View style={styles.companyControlRow}>
+                      <View style={styles.companyControlWrap}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityState={{ expanded: companyControlOpen === 'filter' }}
+                          onPress={() => setCompanyControlOpen((current) => current === 'filter' ? null : 'filter')}
+                          style={[styles.companyControlButton, companyControlOpen === 'filter' && styles.companyControlButtonOpen]}
+                        >
+                          <Ionicons name="filter-outline" size={13} color={Colors.info} />
+                          <Text style={styles.companyControlText} numberOfLines={1}>Filter: {activeFilterLabel}</Text>
+                          <Ionicons name={companyControlOpen === 'filter' ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.textMuted} />
+                        </Pressable>
+                        {companyControlOpen === 'filter' && (
+                          <View style={styles.companyDropdownMenu}>
+                            {COMPANY_FILTER_OPTIONS.map((option) => {
+                              const active = option.key === companyFilter;
+                              return (
+                                <Pressable
+                                  key={option.key}
+                                  accessibilityRole="button"
+                                  accessibilityState={{ selected: active }}
+                                  onPress={() => {
+                                    setCompanyFilter(option.key);
+                                    setCompanyControlOpen(null);
+                                  }}
+                                  style={[styles.companyDropdownOption, active && styles.companyDropdownOptionActive]}
+                                >
+                                  <Text style={[styles.companyDropdownText, active && styles.companyDropdownTextActive]}>{option.label}</Text>
+                                  {active && <Ionicons name="checkmark" size={13} color={Colors.info} />}
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={styles.companyControlWrap}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityState={{ expanded: companyControlOpen === 'sort' }}
+                          onPress={() => setCompanyControlOpen((current) => current === 'sort' ? null : 'sort')}
+                          style={[styles.companyControlButton, companyControlOpen === 'sort' && styles.companyControlButtonOpen]}
+                        >
+                          <Ionicons name="swap-vertical-outline" size={13} color={Colors.info} />
+                          <Text style={styles.companyControlText} numberOfLines={1}>Sort: {activeSortLabel}</Text>
+                          <Ionicons name={companyControlOpen === 'sort' ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.textMuted} />
+                        </Pressable>
+                        {companyControlOpen === 'sort' && (
+                          <View style={styles.companyDropdownMenu}>
+                            {COMPANY_SORT_OPTIONS.map((option) => {
+                              const active = option.key === companySort;
+                              return (
+                                <Pressable
+                                  key={option.key}
+                                  accessibilityRole="button"
+                                  accessibilityState={{ selected: active }}
+                                  onPress={() => {
+                                    setCompanySort(option.key);
+                                    setCompanyControlOpen(null);
+                                  }}
+                                  style={[styles.companyDropdownOption, active && styles.companyDropdownOptionActive]}
+                                >
+                                  <Text style={[styles.companyDropdownText, active && styles.companyDropdownTextActive]}>{option.label}</Text>
+                                  {active && <Ionicons name="checkmark" size={13} color={Colors.info} />}
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {subsidiaries.length > 0 && visibleSubsidiaries.length === 0 && (
+                  <View style={styles.companyFilterEmpty}>
+                    <Ionicons name="search-outline" size={20} color={Colors.textMuted} />
+                    <Text style={styles.companyFilterEmptyTitle}>No companies match this filter</Text>
+                    <Text style={styles.companyFilterEmptyText}>Choose another filter or reset the portfolio view.</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setCompanyFilter('all');
+                        setCompanyControlOpen(null);
+                      }}
+                      style={styles.companyFilterEmptyButton}
+                    >
+                      <Text style={styles.companyFilterEmptyButtonText}>Show all companies</Text>
+                    </Pressable>
+                  </View>
+                )}
+
+                {visibleSubsidiaries.map((business) => {
                   const allocationAmount = subsidiaryAllocationAmounts[business.id] ?? 1_000_000;
                   const capitalPreview = getHoldingCapitalAllocationPreview(
                     business,
@@ -1221,7 +1378,8 @@ export default function HoldingCompaniesScreen() {
                   </>
                 )}
               </GameCard>
-            ))}
+              );
+            })}
 
             {holdingView === 'subsidiaries' && holdings.length > 0 && unassigned.length > 0 && (
               <GameCard>
@@ -1375,6 +1533,27 @@ const styles = StyleSheet.create({
   emptySubsidiaries: { alignItems: 'center', paddingVertical: 18, paddingHorizontal: 12 },
   emptySubsidiariesTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', marginTop: 7 },
   emptySubsidiariesText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, textAlign: 'center', marginTop: 3 },
+  companyPortfolioToolbar: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, backgroundColor: Colors.elevated, padding: 9, marginTop: 8 },
+  companyPortfolioSummary: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  companyPortfolioTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900' },
+  companyPortfolioMeta: { color: Colors.textMuted, fontSize: 8, marginTop: 2 },
+  companyResetButton: { borderWidth: 1, borderColor: `${Colors.info}55`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
+  companyResetText: { color: Colors.info, fontSize: 7, fontWeight: '900' },
+  companyControlRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8, alignItems: 'flex-start' },
+  companyControlWrap: { flexGrow: 1, flexBasis: 145 },
+  companyControlButton: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, backgroundColor: Colors.card, paddingHorizontal: 9, paddingVertical: 7 },
+  companyControlButtonOpen: { borderColor: `${Colors.info}66`, backgroundColor: '#17263A' },
+  companyControlText: { color: Colors.textSecondary, fontSize: 8, fontWeight: '800', flex: 1 },
+  companyDropdownMenu: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, backgroundColor: Colors.card, marginTop: 5, overflow: 'hidden' },
+  companyDropdownOption: { minHeight: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 9, paddingVertical: 7, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  companyDropdownOptionActive: { backgroundColor: '#17263A' },
+  companyDropdownText: { color: Colors.textSecondary, fontSize: 8, fontWeight: '700', flex: 1 },
+  companyDropdownTextActive: { color: Colors.info, fontWeight: '900' },
+  companyFilterEmpty: { alignItems: 'center', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, backgroundColor: Colors.elevated, padding: 14, marginTop: 9 },
+  companyFilterEmptyTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900', marginTop: 6 },
+  companyFilterEmptyText: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, textAlign: 'center', marginTop: 3 },
+  companyFilterEmptyButton: { minHeight: 34, borderRadius: 8, borderWidth: 1, borderColor: `${Colors.info}55`, paddingHorizontal: 10, paddingVertical: 7, marginTop: 8, justifyContent: 'center' },
+  companyFilterEmptyButtonText: { color: Colors.info, fontSize: 8, fontWeight: '900' },
   subsidiaryBlock: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, paddingTop: 10, marginTop: 10 },
   subsidiaryRow: { flexDirection: 'row', alignItems: 'center' },
   subsidiaryManageButton: { width: 34, height: 34, borderRadius: 9, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
