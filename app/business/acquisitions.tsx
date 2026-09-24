@@ -18,6 +18,7 @@ import {
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
 import { AcquisitionFundingMode } from '../../src/types/game';
 import { getBusinessCapacity } from '../../src/engine/businessCapacityEngine';
+import { getEconomicCycleDescription, getEconomicCycleEffects } from '../../src/engine/economyEngine';
 
 const RISK_LABELS = {
   low: { label: 'Low risk', color: Colors.primary },
@@ -41,6 +42,7 @@ export default function BusinessAcquisitionsScreen() {
   const week = useGameStore((s) => s.week ?? 1);
   const year = useGameStore((s) => s.year ?? 1);
   const profile = useGameStore((s) => s.profile);
+  const economicCycle = useGameStore((s) => s.economicCycle);
   const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
   const ensureAcquisitionMarket = useGameStore((s) => s.ensureAcquisitionMarket);
   const refreshAcquisitionMarket = useGameStore((s) => s.refreshAcquisitionMarket);
@@ -57,6 +59,7 @@ export default function BusinessAcquisitionsScreen() {
   const capacityFull = businesses.length >= companyCapacity;
   const negotiationBonus = effects.negotiation ?? 0;
   const loanRateReduction = effects.loan_rate_reduction ?? 0;
+  const macroRateModifier = getEconomicCycleEffects(economicCycle?.phase ?? 'expansion').interestRateModifier;
   const globalWeek = ((year - 1) * 20) + week;
   const weeksUntilRefresh = lastRefreshWeek <= 0
     ? 0
@@ -79,7 +82,7 @@ export default function BusinessAcquisitionsScreen() {
     const target = acquisitionTargets.find((item) => item.id === targetId);
     if (!target || capacityFull) return;
     const price = getAcquisitionPrice(target, negotiationBonus);
-    const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction);
+    const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction, macroRateModifier);
     const transactionCost = getAcquisitionTransactionCost(target, price);
     const totalCashNeeded = quote.cashContribution + transactionCost;
     const destination = selectedHolding?.name ?? 'your direct portfolio';
@@ -213,6 +216,9 @@ export default function BusinessAcquisitionsScreen() {
                 <Text style={styles.marketSub}>
                   {weeksUntilRefresh > 0 ? `New targets in ${weeksUntilRefresh} week${weeksUntilRefresh === 1 ? '' : 's'}` : 'Market can refresh now'}
                 </Text>
+                <Text style={styles.marketSub}>
+                  {(economicCycle?.phase ?? 'expansion').replace('_', ' ').replace(/^./, (char) => char.toUpperCase())} • {getEconomicCycleDescription(economicCycle?.phase ?? 'expansion')}
+                </Text>
               </View>
               {negotiationBonus > 0 && (
                 <View style={styles.negotiationBadge}>
@@ -230,7 +236,7 @@ export default function BusinessAcquisitionsScreen() {
             ) : sortedTargets.map((target) => {
               const risk = RISK_LABELS[target.risk];
               const price = getAcquisitionPrice(target, negotiationBonus);
-              const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction);
+              const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction, macroRateModifier);
               const transactionCost = getAcquisitionTransactionCost(target, price);
               const totalCashNeeded = quote.cashContribution + transactionCost;
               const premiumPct = target.estimatedValue > 0
