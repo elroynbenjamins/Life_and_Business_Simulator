@@ -274,6 +274,12 @@ export function getHoldingCompanySummary(holding: HoldingCompany, businesses: Ow
   const reserveTargetWeeks = normalizeHoldingReserveTargetWeeks(holding.reserveTargetWeeks);
   const reserveTarget = getHoldingReserveTarget(holding, businesses);
   const availableDistributionCash = getHoldingAvailableDistributionCash(holding, businesses);
+  const cashReserve = Math.max(0, holding.cashReserve ?? 0);
+  const totalManagementFeesCollected = Math.max(0, holding.totalManagementFeesCollected ?? 0);
+  const totalDividendsReceived = Math.max(0, holding.totalDividendsReceived ?? 0);
+  const totalOwnerDistributions = Math.max(0, holding.totalOwnerDistributions ?? 0);
+  const totalHoldingInflows = totalManagementFeesCollected + totalDividendsReceived;
+  const ownerGroupValue = Math.max(0, Math.round(ownerNetEquity) + cashReserve);
 
   return {
     subsidiaryCount: subsidiaries.length,
@@ -282,15 +288,17 @@ export function getHoldingCompanySummary(holding: HoldingCompany, businesses: Ow
     netGroupEquity: Math.max(0, totalValue - totalDebt),
     ownerNetEquity: Math.round(ownerNetEquity),
     weeklyProfit,
-    cashReserve: holding.cashReserve ?? 0,
-    totalCapitalDeployed: holding.totalCapitalDeployed ?? 0,
+    cashReserve,
+    ownerGroupValue,
+    totalCapitalDeployed: Math.max(0, holding.totalCapitalDeployed ?? 0),
     managementFeeRate: normalizeHoldingManagementFeeRate(holding.managementFeeRate),
     reserveTargetWeeks,
     reserveTarget,
     availableDistributionCash,
-    totalManagementFeesCollected: holding.totalManagementFeesCollected ?? 0,
-    totalDividendsReceived: holding.totalDividendsReceived ?? 0,
-    totalOwnerDistributions: holding.totalOwnerDistributions ?? 0,
+    totalManagementFeesCollected,
+    totalDividendsReceived,
+    totalHoldingInflows,
+    totalOwnerDistributions,
     familyControlledValue,
     familyControlledPct: totalValue > 0 ? familyControlledValue / totalValue * 100 : 0,
     protectedAssets,
