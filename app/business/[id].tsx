@@ -29,6 +29,10 @@ import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
 import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutiveRole, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus, CorporateCompensationPolicy, CorporateDepartmentId, CorporateTrainingPolicy } from '../../src/types/game';
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
+import {
+  getAcquisitionIntegrationOutcomeEffect,
+  getAcquisitionIntegrationOutcomeProbabilities,
+} from '../../src/engine/acquisitionIntegrationEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
 import { getBusinessOwnershipEquityValue, getBusinessOwnershipStakeValue, getInvestmentForPostMoneyIssuePct } from '../../src/engine/businessOwnershipEngine';
 import { getBusinessLoanOutstandingPrincipal } from '../../src/engine/businessDebtEngine';
@@ -153,6 +157,21 @@ const GOVERNANCE_ROLES: Array<{ key: BusinessGovernanceRole; label: string }> = 
 
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
 const INTEGRATION_STRATEGIES: Array<Exclude<AcquisitionIntegrationStrategy, 'pending'>> = ['independent', 'integrate', 'turnaround'];
+
+function formatIntegrationOutcomeEffect(
+  revenueBonus: number,
+  expenseReduction: number,
+  reputationDelta: number,
+): string {
+  const revenueText = `${revenueBonus >= 0 ? '+' : ''}${(revenueBonus * 100).toFixed(1)}% rev`;
+  const expenseText = expenseReduction >= 0
+    ? `-${(expenseReduction * 100).toFixed(1)}% costs`
+    : `+${(Math.abs(expenseReduction) * 100).toFixed(1)}% costs`;
+  const reputationText = reputationDelta === 0
+    ? ''
+    : ` • ${reputationDelta > 0 ? '+' : ''}${reputationDelta} rep`;
+  return `${revenueText} • ${expenseText}${reputationText}`;
+}
 
 function businessIdentityColor(color: string): string {
   if (color === 'premium') return Colors.premium;
@@ -1030,6 +1049,16 @@ export default function BusinessDetailScreen() {
                     biz.acquisition!.diligenceScore,
                     strategy,
                   );
+                  const probabilities = getAcquisitionIntegrationOutcomeProbabilities(
+                    strategy,
+                    profile.successChance,
+                  );
+                  const successEffect = getAcquisitionIntegrationOutcomeEffect(strategy, 'success');
+                  const mixedEffect = getAcquisitionIntegrationOutcomeEffect(strategy, 'mixed');
+                  const failedEffect = getAcquisitionIntegrationOutcomeEffect(strategy, 'failed');
+                  const outcomeText = strategy === 'independent'
+                    ? '100% success • no permanent operating effect'
+                    : `Success ${Math.round(probabilities.success * 100)}%: ${formatIntegrationOutcomeEffect(successEffect.revenueBonus, successEffect.expenseReduction, successEffect.reputationDelta)} • Mixed ${Math.round(probabilities.mixed * 100)}%: ${formatIntegrationOutcomeEffect(mixedEffect.revenueBonus, mixedEffect.expenseReduction, mixedEffect.reputationDelta)} • Fail ${Math.round(probabilities.failed * 100)}%: ${formatIntegrationOutcomeEffect(failedEffect.revenueBonus, failedEffect.expenseReduction, failedEffect.reputationDelta)}`;
                   return (
                     <Pressable
                       key={strategy}
@@ -1040,8 +1069,9 @@ export default function BusinessDetailScreen() {
                         <Text style={styles.integrationChoiceTitle}>{profile.label}</Text>
                         <Text style={styles.integrationChoiceDesc}>{profile.description}</Text>
                         <Text style={styles.integrationChoiceMeta}>
-                          {profile.weeks} weeks • {Math.round(profile.penalty * 100)}% initial disruption • {Math.round(profile.successChance * 100)}% target success chance
+                          {profile.weeks} weeks • {Math.round(profile.penalty * 100)}% initial disruption
                         </Text>
+                        <Text style={styles.integrationChoiceOutcome}>{outcomeText}</Text>
                       </View>
                       <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
                     </Pressable>
@@ -4158,6 +4188,7 @@ const styles = StyleSheet.create({
   integrationChoiceTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   integrationChoiceDesc: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 2 },
   integrationChoiceMeta: { color: Colors.info, fontSize: 9, marginTop: 4 },
+  integrationChoiceOutcome: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 4 },
   integrationActive: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#33270F', borderRadius: 9, padding: 10, marginTop: 8 },
   integrationActiveTitle: { color: Colors.warning, fontSize: 12, fontWeight: '800' },
   integrationActiveText: { color: Colors.textSecondary, fontSize: 9, marginTop: 2 },
