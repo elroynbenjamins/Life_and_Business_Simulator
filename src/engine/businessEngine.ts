@@ -1,6 +1,7 @@
 import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany, EconomicCyclePhase } from '../types/game';
 import { getHoldingManagementFeeForWeek, getHoldingSharedServiceEffects } from './holdingCompanyEngine';
 import { getIndustryEconomicCycleMultiplier } from './economyEngine';
+import { processScheduledBusinessLoanPayments } from './businessDebtEngine';
 import {
   createDefaultBusinessReinvestmentState,
   getBusinessReinvestmentEffects,
@@ -1553,26 +1554,20 @@ export function processBusinessWeek(
     misc = baseMisc;
   }
 
-  let loanInterest = 0;
-  const updatedLoans: BusinessLoan[] = [];
-  for (const loan of biz.businessLoans ?? []) {
-    const payment = loan.weeklyPayment ?? 0;
-    const interestPortion = Math.round(payment * ((loan.interestRate ?? 0.1) / (loan.weeksRemaining || 1)));
-    loanInterest += payment;
-    const remaining = (loan.remainingAmount ?? 0) - payment;
-    const weeksLeft = (loan.weeksRemaining ?? 1) - 1;
-    if (weeksLeft > 0 && remaining > 0) {
-      updatedLoans.push({ ...loan, remainingAmount: Math.max(0, remaining), weeksRemaining: weeksLeft });
-    }
-  }
+  const loanTick = processScheduledBusinessLoanPayments(biz.businessLoans ?? []);
+  const updatedLoans = loanTick.loans;
+  const loanInterest = loanTick.interestExpense;
+  const loanPrincipalRepayment = loanTick.principalRepaid;
+  const debtService = loanTick.debtService;
 
   const expensesBeforeTax = rent + salaries + adCost + cogs + utilities + insurance + maintenance
     + boardFees + workforceTraining + workforceTransition + misc;
   const preTaxProfit = revenue - (expensesBeforeTax + loanInterest);
-  // Corporate tax: 20% of positive weekly profit
+  // Corporate tax: 20% of positive accounting profit after financing interest.
   const businessTax = preTaxProfit > 0 ? Math.round(preTaxProfit * 0.20) : 0;
   const totalExpenses = expensesBeforeTax + loanInterest + businessTax;
   const profit = revenue - totalExpenses;
+  const cashFlowAfterDebtService = profit - loanPrincipalRepayment;
 
   const expenseBreakdown: BusinessExpenseBreakdown = {
     rent, salaries, cogs, utilities,
@@ -1803,7 +1798,7 @@ export function processBusinessWeek(
   let newLevel = getBusinessLevelForMetrics(thresholds, valuation, newReputation);
 
   // Balance, annual budget allocation, extra debt paydown, and dividends.
-  let newBalance = (biz.balance ?? 0) + profit + extraCashDelta;
+  let newBalance = (biz.balance ?? 0) + cashFlowAfterDebtService + extraCashDelta;
   const budgetResult = applyBusinessBudgetWeek({
     business: biz,
     balanceBeforeBudget: newBalance,
@@ -2228,6 +2223,9 @@ export function processBusinessWeek(
     lastWeekRevenue: revenue,
     lastWeekExpenses: totalExpenses,
     lastWeekProfit: profit,
+    lastWeekCashFlow: cashFlowAfterDebtService,
+    lastWeekDebtService: debtService,
+    lastWeekPrincipalRepayment: loanPrincipalRepayment,
     reputation: Math.round(newReputation * 10) / 10,
     level: newLevel,
     valuation,
