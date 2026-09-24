@@ -3962,10 +3962,6 @@ const styles = StyleSheet.create({
   managementTargetAlignment: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: `${Colors.info}10`, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 7, marginTop: 8 },
   managementTargetAlignmentText: { flex: 1, color: Colors.textSecondary, fontSize: 10, lineHeight: 14 },
 
-  managementTargetProfileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
-  managementTargetProfileChip: { minWidth: '31%', flexGrow: 1, borderRadius: 7, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center' },
-  managementTargetProfileChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
-  managementTargetProfileText: { color: Colors.textSecondary, fontSize: 7, fontWeight: '800' },
   managementTargetRows: { marginTop: 7 },
   managementTargetRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
   managementTargetDot: { width: 7, height: 7, borderRadius: 4 },
