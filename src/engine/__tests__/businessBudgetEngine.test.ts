@@ -42,7 +42,7 @@ function makeBusiness(overrides: Partial<OwnedBusiness> = {}): OwnedBusiness {
     lastWeekExpenses: 70_000,
     lastWeekProfit: 30_000,
     weeklyProfitHistory: Array(20).fill(30_000),
-    budgetPlan: createBusinessBudgetPlan('standard', 3),
+    budgetPlan: createBusinessBudgetPlan('balanced', 3),
     budgetReserves: { reinvestment: 0, growth: 0 },
     ...overrides,
   };
@@ -61,31 +61,27 @@ describe('business budget engine', () => {
     }
   });
 
-  test('standard profile preserves the legacy 70 percent dividend behavior when cash is healthy', () => {
-    const business = makeBusiness({
-      budgetPlan: createBusinessBudgetPlan('standard', 3),
-    });
-    const result = applyBusinessBudgetWeek({
-      business,
-      balanceBeforeBudget: 1_100_000,
-      profit: 100_000,
-      totalExpenses: 10_000,
-      loans: [],
-      currentWeek: 5,
-      currentYear: 3,
-      inflationMultiplier: 1,
-    });
+  test('legacy standard profile normalizes to balanced instead of duplicating Returns', () => {
+    const plan = createBusinessBudgetPlan('standard', 3);
+    expect(plan.profile).toBe('balanced');
 
-    expect(result.dividendPaid).toBe(70_000);
-    expect(result.snapshot.reinvestmentAllocated).toBe(15_000);
-    expect(result.snapshot.growthAllocated).toBe(15_000);
-    expect(result.snapshot.extraDebtPaid).toBe(0);
-    expect(result.balance).toBe(1_030_000);
+    const normalized = normalizeBusinessBudgetPlan({
+      profile: 'standard',
+      targetReserveWeeks: 6,
+      dividendPct: 0.70,
+      debtPaydownPct: 0,
+      reinvestmentPct: 0.15,
+      growthPct: 0.15,
+      reviewYear: 3,
+    });
+    expect(normalized.profile).toBe('balanced');
+    expect(normalized.dividendPct).toBeCloseTo(0.25);
+    expect(normalized.targetReserveWeeks).toBe(8);
   });
 
   test('operating and earmarked reserves can suppress dividends when liquidity is tight', () => {
     const business = makeBusiness({
-      budgetPlan: createBusinessBudgetPlan('standard', 3),
+      budgetPlan: createBusinessBudgetPlan('balanced', 3),
     });
     const result = applyBusinessBudgetWeek({
       business,
@@ -98,9 +94,9 @@ describe('business budget engine', () => {
       inflationMultiplier: 1,
     });
 
-    expect(result.snapshot.operatingReserveTarget).toBe(60_000);
+    expect(result.snapshot.operatingReserveTarget).toBe(80_000);
     expect(result.dividendPaid).toBe(0);
-    expect(result.reserves.reinvestment).toBe(10_000);
+    expect(result.reserves.reinvestment).toBe(0);
   });
 
   test('deleveraging profile makes extra payments against highest-rate debt first', () => {
@@ -179,7 +175,7 @@ describe('business budget engine', () => {
     const business = makeBusiness({ valuation: 10_000_000 });
     const targets = getBusinessBudgetReserveTargets(business, 100_000, 1);
 
-    expect(targets.operatingReserveTarget).toBe(600_000);
+    expect(targets.operatingReserveTarget).toBe(800_000);
     expect(targets.reinvestmentReserveTarget).toBeGreaterThan(0);
     expect(targets.growthReserveTarget).toBe(800_000);
 
