@@ -15,6 +15,7 @@ import { getNetWorth } from '../src/engine/financeEngine';
 import loansData from '../src/data/loans.json';
 import { showGameDialog } from '../src/components/GameDialog';
 import { getPrestigeEffects } from '../src/engine/prestigeEngine';
+import { getEconomicCycleEffects } from '../src/engine/economyEngine';
 
 export default function LoansScreen() {
   const router = useRouter();
@@ -38,18 +39,20 @@ export default function LoansScreen() {
     bankDeposits: s.bankDeposits,
     businesses: s.businesses,
     properties: s.properties,
+    economicCycle: s.economicCycle,
     profile: s.profile,
   }))) as ReturnType<typeof useGameStore.getState>;
   const netWorth = getNetWorth(state);
   const prestigeEffects = getPrestigeEffects(state.profile);
   const loanRateReduction = prestigeEffects.loan_rate_reduction ?? 0;
   const depositInterestBonus = prestigeEffects.bank_deposit_interest_bonus ?? 0;
+  const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
 
   const totalDebt = loans.reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
   const totalWeeklyPayments = loans.reduce((t, l) => t + (l?.weeklyPayment ?? 0), 0);
 
   const handleTakeLoan = (template: (typeof loansData)[0]) => {
-    const effectiveRate = Math.max(0, (template?.interestRate ?? 0) - loanRateReduction);
+    const effectiveRate = Math.max(0, (template?.interestRate ?? 0) + macroRateModifier - loanRateReduction);
     const totalRepayment = (template?.amount ?? 0) * (1 + effectiveRate);
     const weeklyPayment = Math.ceil(totalRepayment / (template?.durationWeeks ?? 1));
     showGameDialog({ title: 'Take Loan', message: `Borrow ${formatCurrency(template?.amount)}?\n\nInterest: ${(effectiveRate * 100).toFixed(0)}%${loanRateReduction > 0 ? ` (Prestige reduced by ${(loanRateReduction * 100).toFixed(0)}%)` : ''}\nDuration: ${template?.durationWeeks} weeks\nWeekly payment: ${formatCurrency(weeklyPayment)}\nTotal repayment: ${formatCurrency(Math.round(totalRepayment))}`, confirmText: 'Borrow', onConfirm: () => takeLoan?.(template?.id) });
@@ -154,7 +157,7 @@ export default function LoansScreen() {
               <Text style={styles.loanName}>{template?.name}</Text>
               <View style={styles.loanRow}>
                 <Text style={styles.loanMeta}>Amount: {formatCurrency(template?.amount)}</Text>
-                <Text style={styles.loanMeta}>Interest: {(Math.max(0, (template?.interestRate ?? 0) - loanRateReduction) * 100).toFixed(0)}%</Text>
+                <Text style={styles.loanMeta}>Interest: {(Math.max(0, (template?.interestRate ?? 0) + macroRateModifier - loanRateReduction) * 100).toFixed(1)}%</Text>
               </View>
               <Text style={styles.loanMeta}>Duration: {template?.durationWeeks} weeks</Text>
               <Text style={styles.loanMeta}>Required net worth: {formatCurrency(template?.amount)}</Text>
@@ -188,7 +191,7 @@ export default function LoansScreen() {
             <TextInput style={styles.input} value={depositAmount} onChangeText={setDepositAmount} keyboardType="number-pad" placeholder="Amount to deposit" placeholderTextColor={Colors.textMuted} />
             <View style={styles.termRow}>
               {([20, 40, 60] as const).map((term) => {
-                const rate = (term === 20 ? 5 : term === 40 ? 9 : 14) + depositInterestBonus * 100;
+                const rate = Math.max(1, (term === 20 ? 5 : term === 40 ? 9 : 14) + depositInterestBonus * 100 + macroRateModifier * 75);
                 return <Pressable key={term} style={[styles.term, depositTerm === term && styles.activeTerm]} onPress={() => setDepositTerm(term)}><Text style={styles.termTitle}>{term} weeks</Text><Text style={styles.termRate}>+{rate}%</Text></Pressable>;
               })}
             </View>
