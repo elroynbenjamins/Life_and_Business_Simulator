@@ -62,7 +62,7 @@ export default function BusinessSaleScreen() {
     if (!canSell) return;
     showGameDialog({
       title: 'Confirm Business Sale',
-      message: `Sell ${business.name} for ${formatCurrency(quote.netSaleProceeds)} net proceeds after a ${formatCurrency(quote.debtSettlement)} contractual loan payoff and ${formatCurrency(quote.saleTransactionCost)} of transaction costs? The company will move to Deal History.`,
+      message: `Sell ${business.name} for ${formatCurrency(quote.netSaleProceeds)} net proceeds after repaying ${formatCurrency(quote.debtSettlement)} of outstanding loan principal and ${formatCurrency(quote.saleTransactionCost)} of transaction costs? Future scheduled interest is cancelled at payoff. The company will move to Deal History.`,
       confirmText: 'Sell Business',
       cancelText: 'Keep Business',
       destructive: true,
@@ -112,7 +112,7 @@ export default function BusinessSaleScreen() {
 
         <GameCard>
           <Text style={styles.sectionTitle}>Sale Breakdown</Text>
-          <Text style={styles.sectionSub}>Loans are settled at their contractual payoff balance and transaction costs are deducted automatically at closing.</Text>
+          <Text style={styles.sectionSub}>Outstanding loan principal is repaid at closing; unearned future scheduled interest is cancelled. Transaction costs are deducted automatically.</Text>
           {business.acquisition && (quote.heldWeeks ?? 40) < 40 && (
             <Text style={styles.shortHoldNote}>
               Recent acquisition: exit costs decline toward 2.5% as ownership approaches 40 weeks.
@@ -124,7 +124,7 @@ export default function BusinessSaleScreen() {
               <Text style={styles.rowValue}>{formatCurrency(quote.grossSalePrice)}</Text>
             </View>
             <View style={styles.row}>
-              <Text style={styles.rowLabel}>Loan payoff at closing</Text>
+              <Text style={styles.rowLabel}>Loan principal repaid</Text>
               <Text style={[styles.rowValue, quote.debtSettlement > 0 && { color: Colors.negative }]}>
                 {quote.debtSettlement > 0 ? '-' : ''}{formatCurrency(quote.debtSettlement)}
               </Text>
