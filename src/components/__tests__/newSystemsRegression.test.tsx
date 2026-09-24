@@ -79,6 +79,9 @@ test.each([['Statistics', StatisticsScreen], ['Finance', FinanceScreen]] as cons
     children: [{ id: 'child', birthGlobalWeek: 1, age: 0 }],
   };
   const view = render(<Screen />);
+  if (_name === 'Statistics') {
+    fireEvent.press(view.getByText('Weekly Cash Flow'));
+  }
   expect(view.getAllByText(new RegExp(String(calculatePartnerContribution(null, mockState).familyCost))).length).toBeGreaterThan(0);
   expect(view.getAllByText(/Childcare support/i).length).toBeGreaterThan(0);
   mockState = { ...mockState, year: 4 };
