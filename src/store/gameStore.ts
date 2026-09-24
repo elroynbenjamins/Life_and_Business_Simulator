@@ -352,12 +352,17 @@ const useGameStore = create<GameStore>((set, get) => ({
   slotMeta: {},
 
   loadSavedGame: async () => {
-    const [profile, slotMeta, activeSlot, savedSlots] = await Promise.all([
+    const [profile, activeSlot] = await Promise.all([
       loadProfile(),
-      loadAllSlotMeta(),
       getActiveSlot(),
-      Promise.all([0, 1, 2].map((slot) => loadGame(slot))),
     ]);
+    // Scan the three local save slots sequentially. Older save migrations can
+    // update slot metadata, so parallel reads could race those metadata writes.
+    const savedSlots: Array<GameState | null> = [];
+    for (const slot of [0, 1, 2]) {
+      savedSlots.push(await loadGame(slot));
+    }
+    const slotMeta = await loadAllSlotMeta();
     const saved = savedSlots[activeSlot] ?? null;
     const historicalAchievementIds = savedSlots.flatMap((slot) => slot?.unlockedAchievements ?? []);
     const historicalBusinessCapacity = savedSlots.reduce(
