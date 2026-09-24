@@ -2,9 +2,9 @@
 export const TUTORIAL_VERSION = 1;
 export const TUTORIAL_STEPS = [
   { id: 'cash_flow', route: '/tabs', target: 'home.cashflow', title: 'Understand this week', body: 'Available cash pays your bills. Weekly cash flow estimates income minus recurring costs; tax settles separately. You decide when time moves.', action: 'Open Home', kind: 'read' },
-  { id: 'education', route: '/tabs/education', target: 'education.enroll', title: 'Choose your first course', body: 'Select Basics, then compare course costs, duration and career direction. Scroll to an available Enroll button and choose a course you like. You can also leave education for later.', action: 'Open Education', kind: 'action' },
+  { id: 'education', route: '/tabs/education', target: 'education.enroll', title: 'Choose your first course', body: 'Select Basics, then compare course costs, duration and career direction. The highlighted Enroll button is an example, not a required choice. Choose any eligible Basic course. Show me returns to Basics. You can also leave education for later.', action: 'Open Education', kind: 'action' },
   { id: 'study_progress', route: '/tabs/education', target: 'education.progress', title: 'Your course is running', body: 'Current Education shows progress and remaining weeks. Advance weeks to study normally. The visible education boost is optional: neither an ad nor a purchase is required for this guide.', action: 'Open Education', kind: 'read' },
-  { id: 'student_income', route: '/tabs/career', target: null, title: 'Choose how to support yourself', body: 'Find the part-time work options on Career. Compare their income and study-time trade-off. Choose an option, or use Do this later to study without a student job.', action: 'Open Career', kind: 'action' },
+  { id: 'student_income', route: '/tabs/career', target: 'career.studentWork', title: 'Choose how to support yourself', body: 'Compare the two highlighted student-work options on Career. Compare their income and study-time trade-off. Choose an option, or use Do this later to study without a student job.', action: 'Open Career', kind: 'action' },
   { id: 'advance_week', route: '/tabs', target: 'home.advance', title: 'Run one real week', body: 'Review your plans, then press Advance to Next Week on Home. The game processes income, costs, study and events. The guide will never advance time for you.', action: 'Open Home', kind: 'action' },
   { id: 'weekly_result', route: '/tabs', target: 'home.cashflow', title: 'Read the result and keep building', body: 'The weekly result separates income, expenses and tax, with activity details below. Compare the result with your plans. Your First Steps on Home continues the longer journey; the guided opening ends here.', action: 'Open Home', kind: 'read' },
 ] as const;
@@ -67,7 +67,7 @@ export function isTutorialRoute(pathname: string, route: string): boolean {
   return pathname === route || (route === '/tabs' && (pathname === '/tabs/index' || pathname === '/'));
 }
 
-// Adapters for the existing shared controls. New screens can pass tutorialId explicitly.
+// Legacy adapters retained for compatibility; live controls now use explicit tutorialId props. New screens can pass tutorialId explicitly.
 // These never run a command and are deliberately restricted to exact known labels.
 export function tutorialButtonTarget(label: string): TutorialTargetId | undefined {
   if (label === 'Advance to Next Week') return 'home.advance';

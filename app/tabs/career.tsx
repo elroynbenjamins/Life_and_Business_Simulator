@@ -1,5 +1,7 @@
+import ScrollView from '../../src/components/TutorialScrollView';
+import { useTutorialHighlight } from '../../src/store/tutorialStore';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/theme/colors';
@@ -289,9 +291,10 @@ function PartTimeCard() {
   const hasLegacyJob = !!useGameStore((s) => s?.currentJobId);
   const hasFullTimeJob = hasCareerV2 || hasLegacyJob;
   const activeTier = getStudentWorkTier({ partTimeJob, studentWorkTier });
+  const guidedWork = useTutorialHighlight('career.studentWork', hasFullTimeJob);
 
   return (
-    <GameCard>
+    <GameCard tutorialId={hasFullTimeJob ? undefined : 'career.studentWork'}>
       <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '800' }}>Student Work</Text>
       <Text style={{ color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 3, marginBottom: 10 }}>
         Both options are tax-free and end automatically when you start a full-time career. More work means more income, but less time to study.
@@ -316,7 +319,16 @@ function PartTimeCard() {
                 <Text style={{ color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 }}>{option.description}</Text>
               </View>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${active ? 'Quit' : 'Start'} ${option.name}`}
+                accessibilityState={{ disabled: hasFullTimeJob }}
+                accessibilityHint={guidedWork ? 'Optional student-work choice. Compare income and study time before choosing.' : undefined}
+                testID={`student-work-${tier}`}
                 style={{
+                  minHeight: 44,
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: guidedWork ? Colors.warning : 'transparent',
                   backgroundColor: hasFullTimeJob ? Colors.textMuted : active ? Colors.negative : Colors.primary,
                   paddingHorizontal: 14,
                   paddingVertical: 8,

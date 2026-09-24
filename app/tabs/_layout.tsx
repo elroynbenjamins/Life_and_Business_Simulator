@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
+import { useTutorialFocusStore } from '../../src/store/tutorialFocusStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,14 +14,17 @@ function TabIcon({
   color,
   size,
   focused,
+  tutorialRoute,
 }: {
   name: React.ComponentProps<typeof Ionicons>['name'];
   color: string;
   size: number;
   focused: boolean;
+  tutorialRoute?: string;
 }) {
+  const guideHighlight = useTutorialFocusStore((state) => Boolean(tutorialRoute && state.navigationRoute === tutorialRoute));
   return (
-    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+    <View style={[styles.iconWrap, focused && styles.iconWrapActive, guideHighlight && styles.iconWrapGuided]}>
       <Ionicons name={name} size={Math.min(size, 22)} color={color} />
     </View>
   );
@@ -58,7 +62,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size, focused }) => <TabIcon name="home" color={color} size={size} focused={focused} />,
+          tabBarIcon: ({ color, size, focused }) => <TabIcon tutorialRoute="/tabs" name="home" color={color} size={size} focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -76,7 +80,7 @@ export default function TabsLayout() {
         name="education"
         options={{
           title: 'Education',
-          tabBarIcon: ({ color, size, focused }) => <TabIcon name="school" color={color} size={size} focused={focused} />,
+          tabBarIcon: ({ color, size, focused }) => <TabIcon tutorialRoute="/tabs/education" name="school" color={color} size={size} focused={focused} />,
           tabBarBadge: educationNotice.available ? '' : undefined,
           tabBarBadgeStyle: notificationBadgeStyle,
         }}
@@ -114,6 +118,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconWrapGuided: { borderWidth: 1, borderColor: Colors.warning, backgroundColor: `${Colors.warning}18` },
   iconWrapActive: {
     backgroundColor: `${Colors.primary}16`,
   },
