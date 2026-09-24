@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, Pressable } from 'react-native';
 import { Colors } from '../theme/colors';
 import { formatCurrency, formatPercent } from '../utils/format';
@@ -12,6 +12,7 @@ export default function WeekSummarySheet() {
   const summary = useGameStore((s) => s?.lastSummary);
   const dismissSummary = useGameStore((s) => s?.dismissSummary);
   const [showFinancialDetails, setShowFinancialDetails] = useState(false);
+  const [showActivityDetails, setShowActivityDetails] = useState(false);
 
   if (!showSummary || !summary) return null;
 
@@ -20,6 +21,15 @@ export default function WeekSummarySheet() {
   const totalExpenses = (summary?.rentPaid ?? 0) + (summary?.utilityCost ?? 0) + (summary?.foodCost ?? 0) + (summary?.carCost ?? 0) + (summary?.courseCost ?? 0) + (summary?.loanPayments ?? 0) + (summary?.relationshipHouseholdCost ?? 0) + (summary?.familyCost ?? 0) + (summary?.relationshipObligationCost ?? 0);
   const totalIncome = (summary?.salaryEarned ?? 0) + (summary?.partTimeIncome ?? 0) + (summary?.dividendIncome ?? 0) + (summary?.partnerContribution ?? 0) + (summary?.partnerInheritance ?? 0);
   const netFlow = totalIncome - totalExpenses - (summary?.taxAmount ?? 0);
+  const pendingDecisionCount =
+    ((summary?.lifeEvent?.type === 'choice' || summary?.lifeEvent?.type === 'opportunity') ? 1 : 0) +
+    (summary?.relationshipEventTitle ? 1 : 0) +
+    (summary?.diedThisWeek ? 1 : 0);
+
+  useEffect(() => {
+    setShowFinancialDetails(false);
+    setShowActivityDetails(false);
+  }, [summary?.newWeek]);
 
   return (
     <Modal visible transparent animationType="slide">
@@ -135,6 +145,37 @@ export default function WeekSummarySheet() {
               </View>
             )}
 
+            {pendingDecisionCount > 0 && (
+              <View style={styles.pendingDecisionBox}>
+                <View style={styles.pendingDecisionIcon}>
+                  <Text style={styles.pendingDecisionIconText}>!</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingDecisionTitle}>
+                    {summary?.diedThisWeek ? 'Legacy flow waiting' : `${pendingDecisionCount} follow-up decision${pendingDecisionCount === 1 ? '' : 's'} waiting`}
+                  </Text>
+                  <Text style={styles.pendingDecisionText}>
+                    Continue after this summary to handle the pending choice{pendingDecisionCount === 1 ? '' : 's'}.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showActivityDetails }}
+              style={styles.activityToggle}
+              onPress={() => setShowActivityDetails((value) => !value)}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.financeToggleTitle}>Weekly Activity</Text>
+                <Text style={styles.financeToggleSub}>Markets, career, business, property and personal-life updates</Text>
+              </View>
+              <Text style={styles.financeToggleIcon}>{showActivityDetails ? '−' : '+'}</Text>
+            </Pressable>
+
+            {showActivityDetails && (
+              <>
             <Text style={styles.sectionLabel}>Important This Week</Text>
             {summary?.courseProgress ? (
               <View style={styles.row}>
@@ -420,6 +461,8 @@ export default function WeekSummarySheet() {
                 })}
               </>
             )}
+              </>
+            )}
           </ScrollView>
 
           <GameButton label="Continue" trailingIcon="arrow-forward" onPress={dismissSummary} />
@@ -463,6 +506,12 @@ const styles = StyleSheet.create({
   financeToggleSub: { color: Colors.textMuted, fontSize: 9, marginTop: 1 },
   financeToggleIcon: { color: Colors.textMuted, fontSize: 18, fontWeight: '800', width: 18, textAlign: 'center' },
   financeDetails: { paddingHorizontal: 2, paddingBottom: 2 },
+  activityToggle: { minHeight: 46, borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, paddingHorizontal: 11, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 2 },
+  pendingDecisionBox: { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}12`, borderRadius: 10, padding: 10, marginBottom: 8 },
+  pendingDecisionIcon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: `${Colors.warning}22` },
+  pendingDecisionIconText: { color: Colors.warning, fontSize: 15, fontWeight: '900' },
+  pendingDecisionTitle: { color: Colors.warning, fontSize: 11, fontWeight: '900' },
+  pendingDecisionText: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 2 },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
   rowLabel: { color: Colors.textSecondary, fontSize: 14 },
   rowValue: { fontSize: 14, fontWeight: '600' },
