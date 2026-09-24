@@ -172,6 +172,37 @@ export function getHoldingAvailableDistributionCash(
   );
 }
 
+export function getHoldingReservePolicyPreview(
+  holding: HoldingCompany,
+  businesses: OwnedBusiness[],
+  nextWeeks: number,
+) {
+  const currentWeeks = normalizeHoldingReserveTargetWeeks(holding.reserveTargetWeeks);
+  const normalizedNextWeeks = normalizeHoldingReserveTargetWeeks(nextWeeks);
+  const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
+  const weeklyOperatingExpenses = Math.round(subsidiaries.reduce(
+    (sum, business) => sum + Math.max(0, business.lastWeekExpenses ?? 0),
+    0,
+  ));
+  const cashReserve = Math.max(0, Math.round(holding.cashReserve ?? 0));
+  const currentTarget = Math.round(weeklyOperatingExpenses * currentWeeks);
+  const nextTarget = Math.round(weeklyOperatingExpenses * normalizedNextWeeks);
+  const currentAvailableDistributionCash = Math.max(0, cashReserve - currentTarget);
+  const nextAvailableDistributionCash = Math.max(0, cashReserve - nextTarget);
+
+  return {
+    currentWeeks,
+    nextWeeks: normalizedNextWeeks,
+    weeklyOperatingExpenses,
+    cashReserve,
+    currentTarget,
+    nextTarget,
+    currentAvailableDistributionCash,
+    nextAvailableDistributionCash,
+    distributionHeadroomDelta: nextAvailableDistributionCash - currentAvailableDistributionCash,
+  };
+}
+
 export type HoldingTreasuryAction = 'fund' | 'distribution';
 
 export function getHoldingTreasuryTransactionPreview({
