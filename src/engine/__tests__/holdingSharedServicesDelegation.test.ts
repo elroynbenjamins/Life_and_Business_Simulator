@@ -4,6 +4,7 @@ import {
   getEffectiveDelegationPolicyConfig,
   getHoldingSharedServiceUpgradeEconomics,
   getHoldingSynergyProfile,
+  processAllBusinesses,
 } from '../businessEngine';
 import {
   EMPTY_HOLDING_SHARED_SERVICES,
@@ -120,6 +121,46 @@ describe('holding shared services and delegated management', () => {
       ],
     };
     expect(canChargeHoldingManagementFee(coOwned)).toBe(false);
+  });
+
+  test('co-owned held subsidiaries still route player dividends to the holding exactly once', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const holding = makeHolding({ managementFeeRate: 0.03 });
+    const business = {
+      ...makeManagedBusiness(),
+      delegationPolicy: 'manual' as const,
+      balance: 10_000_000,
+      advertisingLevel: 'none' as const,
+      pricingStrategy: 'standard' as const,
+      budgetPlan: {
+        profile: 'shareholder_returns' as const,
+        targetReserveWeeks: 6,
+        dividendPct: 0.55,
+        debtPaydownPct: 0.15,
+        reinvestmentPct: 0.20,
+        growthPct: 0.10,
+        reviewYear: 2,
+      },
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside', percent: 20, votingPercent: 20 },
+      ],
+    };
+
+    const result = processAllBusinesses([business], 1, 5, 2, {}, [holding]);
+    const playerDividend = result.ownershipDistributions
+      .filter((distribution) => distribution.ownerType === 'player')
+      .reduce((sum, distribution) => sum + distribution.amount, 0);
+    const investorDividend = result.ownershipDistributions
+      .filter((distribution) => distribution.ownerType === 'investor')
+      .reduce((sum, distribution) => sum + distribution.amount, 0);
+    const holdingFlow = result.holdingCashFlows.find((flow) => flow.holdingCompanyId === holding.id);
+
+    expect(playerDividend).toBeGreaterThan(0);
+    expect(investorDividend).toBeGreaterThan(0);
+    expect(result.totalDividend).toBe(0);
+    expect(holdingFlow?.dividends).toBe(playerDividend);
+    expect(holdingFlow?.managementFees).toBe(0);
   });
 
   test('management fee requires profit and respects protected cash plus profit cap', () => {
