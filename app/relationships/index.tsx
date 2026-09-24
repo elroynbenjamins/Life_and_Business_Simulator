@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -85,6 +85,10 @@ export default function RelationshipsScreen() {
     () => (relationship?.activeConnections ?? []).find((item) => item.id === relationship?.partnerId) ?? null,
     [relationship?.activeConnections, relationship?.partnerId]
   );
+  useEffect(() => {
+    if (partner && activeTab === 'dating') setActiveTab('relationship');
+    if (!partner && activeTab === 'relationship') setActiveTab('dating');
+  }, [partner?.id]);
   const dating = (relationship?.activeConnections ?? []).filter((item) => item.stage === 'dating');
   const cohabiting = !!partner && (partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married');
   const financeKnown = !!partner && ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'].every((trait) => partner.visibleTraits?.includes(trait as any));
