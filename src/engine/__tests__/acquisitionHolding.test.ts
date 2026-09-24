@@ -6,6 +6,7 @@ import {
   generateAcquisitionTargets,
   getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
+  getAcquisitionFundingSafetyMatrix,
   getAcquisitionUnderwrittenProfit,
   getAcquisitionPrice,
   getAcquisitionReturn,
@@ -252,6 +253,22 @@ describe('business acquisitions and holding companies', () => {
     expect(highDisruption.underwritingIntegrationPenalty).toBeCloseTo(0.096);
     expect(highDisruption.underwrittenWeeklyProfit).toBe(0);
     expect(highDisruption.allowed).toBe(false);
+  });
+
+  test('funding safety matrix exposes executable structures for each target', () => {
+    const target = {
+      weeklyRevenue: 1_000_000,
+      weeklyProfit: 600_000,
+      integrationPenalty: 0.05,
+      risk: 'low' as const,
+    };
+
+    const matrix = getAcquisitionFundingSafetyMatrix(target, 100_000_000, 0, 0);
+    expect(matrix.map((entry) => entry.mode)).toEqual(['cash', 'balanced', 'leveraged']);
+    expect(matrix.find((entry) => entry.mode === 'cash')?.safety.allowed).toBe(true);
+    expect(matrix.find((entry) => entry.mode === 'balanced')?.safety.allowed).toBe(true);
+    expect(matrix.find((entry) => entry.mode === 'leveraged')?.safety.allowed).toBe(false);
+    expect(matrix.find((entry) => entry.mode === 'leveraged')?.quote.interestRate).toBeCloseTo(0.15);
   });
 
   test('supports all-cash, balanced, and leveraged acquisition structures', () => {
