@@ -23,10 +23,10 @@ export function getBusinessLoanOutstandingPrincipal(loan: BusinessLoan): number 
   const remainingPayoff = Math.max(0, loan.remainingAmount ?? 0);
   const rate = Math.max(0, loan.interestRate ?? 0);
   if (remainingPayoff <= 0) return 0;
-  return Math.max(0, Math.min(
+  return Math.round(Math.max(0, Math.min(
     loan.amount ?? remainingPayoff,
     remainingPayoff / Math.max(1, 1 + rate),
-  ));
+  )));
 }
 
 export function getBusinessLoanRemainingInterest(loan: BusinessLoan): number {
