@@ -334,10 +334,19 @@ export function getProjectFinanceQuote(
   }
   // Avoid financing structures where scheduled debt service would absorb almost
   // all current operating profit before construction disruption.
+  const weeklyInterestExpense = Math.max(
+    0,
+    business.lastExpenseBreakdown?.loanInterest
+      ?? getBusinessWeeklyInterestExpense(business),
+  );
+  const cashAvailableForDebtService = Math.max(
+    0,
+    (business.lastWeekProfit ?? 0) + weeklyInterestExpense,
+  );
   const projectedDebtService = profile.weeklyDebtService + weeklyPayment;
-  if (allowed && projectedDebtService > Math.max(1, business.lastWeekProfit ?? 0) * 0.70) {
+  if (allowed && projectedDebtService > Math.max(1, cashAvailableForDebtService) * 0.70) {
     allowed = false;
-    reason = 'Projected debt service is too high for current earnings.';
+    reason = 'Projected debt service is too high for current operating cash generation.';
   }
 
   return {
