@@ -1669,18 +1669,19 @@ export function processBusinessWeek(
     };
   });
 
-  // Retention events (rare, only if not already pending)
+  // Retention events should stay meaningful even in a 10-company empire.
+  // Only established/key employees are eligible and the weekly chance is intentionally low.
   let newRetention: { businessName: string; employeeName: string; type: string } | null = null;
   let pendingRetention = biz.pendingRetention ?? null;
-  if (!pendingRetention && updatedEmployees.length > 0 && Math.random() < 0.02) {
-    const emp = updatedEmployees[Math.floor(Math.random() * updatedEmployees.length)];
-    // Higher skill/experience = more likely to be poached
-    if ((emp.skill ?? 0) > 60 || (emp.experience ?? 0) > 100) {
-      const types: Array<'poach' | 'raise' | 'promotion' | 'training'> = ['poach', 'raise', 'promotion', 'training'];
-      const type = types[Math.floor(Math.random() * types.length)];
-      pendingRetention = { employeeId: emp.id, type };
-      newRetention = { businessName: biz.name, employeeName: emp.name, type };
-    }
+  const retentionCandidates = updatedEmployees.filter((employee) =>
+    (employee.skill ?? 0) > 60 || (employee.experience ?? 0) > 100
+  );
+  if (!pendingRetention && retentionCandidates.length > 0 && Math.random() < 0.01) {
+    const emp = retentionCandidates[Math.floor(Math.random() * retentionCandidates.length)];
+    const types: Array<'poach' | 'raise' | 'promotion' | 'training'> = ['poach', 'raise', 'promotion', 'training'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    pendingRetention = { employeeId: emp.id, type };
+    newRetention = { businessName: biz.name, employeeName: emp.name, type };
   }
 
   // Level check
@@ -1980,6 +1981,11 @@ export function processBusinessWeek(
     return true;
   };
 
+  if (pendingDecision?.kind === 'strategy' && applyAutomaticStrategicChoice(pendingDecision)) {
+    pendingDecision = null;
+    autoResolvedDecision = true;
+  }
+
   if (pendingDecision && globalWeek > (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4)) {
     const fallback = pendingDecision.choices.find((choice) => choice.id === pendingDecision!.defaultChoiceId)
       ?? pendingDecision.choices[pendingDecision.choices.length - 1];
@@ -2044,13 +2050,17 @@ export function processBusinessWeek(
   ) {
     const hrDecision = makeCorporateHrDecision({ ...biz, corporateWorkforce }, globalWeek);
     if (hrDecision) {
-      if (applyAutomaticStrategicChoice(hrDecision)) {
+      const autoApplied = applyAutomaticStrategicChoice(hrDecision);
+      if (autoApplied) {
         pendingDecision = null;
         autoResolvedDecision = true;
+        if ((corporateWorkforce?.nextHrEventWeek ?? 0) <= globalWeek) {
+          corporateWorkforce = scheduleNextCorporateHrEvent(corporateWorkforce, globalWeek);
+        }
       } else {
         pendingDecision = hrDecision;
+        corporateWorkforce = scheduleNextCorporateHrEvent(corporateWorkforce, globalWeek);
       }
-      corporateWorkforce = scheduleNextCorporateHrEvent(corporateWorkforce, globalWeek);
     }
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextStrategicDecisionWeek) {
     const strategicDecision = makeStrategicDecision(biz, globalWeek);
