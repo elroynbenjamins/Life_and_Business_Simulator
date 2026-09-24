@@ -557,7 +557,7 @@ export default function HoldingCompaniesScreen() {
                           </Text>
                           {acquisitionReturn && (
                             <Text style={[styles.returnText, { color: acquisitionReturn.returnPct >= 0 ? Colors.primary : Colors.negative }]}>
-                              Equity return since acquisition: {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
+                              Owner return ({acquisitionReturn.playerOwnershipPct.toFixed(0)}% stake): {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
                             </Text>
                           )}
                           {business.acquisition?.integrationStrategy === 'pending' && (
