@@ -186,6 +186,22 @@ describe('holding shared services and delegated management', () => {
     expect(reviewed.lastDelegationSummary).toContain('protected cash reserves');
   });
 
+  test('delegation becomes more defensive in recession and more active in boom', () => {
+    const recessionBusiness = makeManagedBusiness();
+    recessionBusiness.balance = 200_000;
+    const recession = applyDelegatedBusinessRoutine(recessionBusiness, 1, 5, 2, 'recession');
+
+    const boomBusiness = makeManagedBusiness();
+    boomBusiness.balance = 200_000;
+    const boom = applyDelegatedBusinessRoutine(boomBusiness, 1, 5, 2, 'boom');
+
+    expect(recession.advertisingLevel).toBe('moderate');
+    expect(recession.pricingStrategy).toBe('budget');
+    expect(recession.lastDelegationSummary).toContain('recession');
+    expect(boom.advertisingLevel).toBe('aggressive');
+    expect(boom.lastDelegationSummary).toContain('strong demand');
+  });
+
   test('delegation pauses cleanly when the appointed manager is no longer available', () => {
     const business = {
       ...makeManagedBusiness(),
