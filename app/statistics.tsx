@@ -3,6 +3,7 @@ import { ScrollView, View, Text, StyleSheet, Pressable, useWindowDimensions } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LineChart } from 'react-native-chart-kit';
+import { Ionicons } from '@expo/vector-icons';
 import useGameStore from '../src/store/gameStore';
 import { useShallow } from 'zustand/react/shallow';
 import { Colors, resolveThemeColor } from '../src/theme/colors';
