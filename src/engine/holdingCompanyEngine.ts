@@ -390,7 +390,7 @@ export function getHoldingManagementFeePolicyPreview(
 
 
 export type HoldingSubsidiaryAttentionLevel = 'critical' | 'watch' | 'stable';
-export type HoldingSubsidiaryFilter = 'all' | 'attention' | 'critical' | 'watch' | 'loss' | 'reserve' | 'debt' | 'manual' | 'delegated';
+export type HoldingSubsidiaryFilter = 'all' | 'attention' | 'critical' | 'watch' | 'loss' | 'reserve' | 'material-debt' | 'debt' | 'manual' | 'delegated';
 export type HoldingSubsidiarySort = 'attention' | 'profit' | 'cash' | 'debt' | 'name';
 
 
@@ -562,6 +562,7 @@ export function getHoldingSubsidiaryAttentionSummary(
     loss: 0,
     reserve: 0,
     debt: 0,
+    materialDebt: 0,
     manual: 0,
     delegated: 0,
   };
@@ -573,6 +574,7 @@ export function getHoldingSubsidiaryAttentionSummary(
     if (health.weeklyProfit < 0) summary.loss += 1;
     if (health.protectedCashGap > 0) summary.reserve += 1;
     if (health.debtPrincipal > 0) summary.debt += 1;
+    if (health.materialDebt) summary.materialDebt += 1;
     if (!business.delegationPolicy || business.delegationPolicy === 'manual') summary.manual += 1;
     else summary.delegated += 1;
   }
@@ -600,6 +602,7 @@ export function filterAndSortHoldingSubsidiaries(
     if (filter === 'watch') return health.attention === 'watch';
     if (filter === 'loss') return health.weeklyProfit < 0;
     if (filter === 'reserve') return health.protectedCashGap > 0;
+    if (filter === 'material-debt') return health.materialDebt;
     if (filter === 'debt') return health.debtPrincipal > 0;
     if (filter === 'manual') return !business.delegationPolicy || business.delegationPolicy === 'manual';
     if (filter === 'delegated') return Boolean(business.delegationPolicy && business.delegationPolicy !== 'manual');
