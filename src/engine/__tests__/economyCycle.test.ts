@@ -115,11 +115,12 @@ describe('economic cycles', () => {
 });
 
 describe('holding management fees', () => {
-  test('fee respects the protected four-week operating buffer', () => {
+  test('fee respects the protected four-week operating buffer and profitable-week rule', () => {
     const holding = makeHolding({ managementFeeRate: 0.03 });
 
-    expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 100_000)).toBe(3_000);
-    expect(getHoldingManagementFeeForWeek(holding, 100_000, 401_000, 100_000)).toBe(1_000);
-    expect(getHoldingManagementFeeForWeek(holding, 100_000, 350_000, 100_000)).toBe(0);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 80_000)).toBe(3_000);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 321_000, 80_000)).toBe(1_000);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 300_000, 80_000)).toBe(0);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 100_000)).toBe(0);
   });
 });
