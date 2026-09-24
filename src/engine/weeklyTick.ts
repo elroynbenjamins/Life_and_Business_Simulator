@@ -50,6 +50,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     age: newAge,
     lastMacroCrashWeek: economy.crashStarted ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
     activeMacroCrash: economy.activeMacroCrash,
+    economicCycle: economy.economicCycle,
   };
 
   // Purchased vehicles arrive after this week's progression has completed.
@@ -74,7 +75,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const stockResult = processStocks(
     stateWithInflation,
     news,
-    economy.crashEvent?.stockShock ?? 0,
+    (economy.crashEvent?.stockShock ?? 0) + economy.stockDrift,
     prestigeEffects.crypto_downside_reduction ?? 0,
   );
 
@@ -198,7 +199,9 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
 
   // ---------- Step 12.3: Property Income ----------
   const propResult = processProperties(state?.properties ?? [], economy.inflationMultiplier, prestigeEffects.property_income ?? 0);
-  const propertyNetIncome = propResult.totalIncome - propResult.totalMaintenance;
+  const propertyNetIncome = Math.round(
+    propResult.totalIncome * economy.propertyIncomeMultiplier - propResult.totalMaintenance
+  );
   newCash += propertyNetIncome;
 
   // ---------- Step 12.4: Real-estate auctions ----------
@@ -269,10 +272,26 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     businessCostReduction: prestigeEffects.business_cost_reduction ?? 0,
     competitorRevenueMultipliers: compResult.competitorRevenueMultipliers,
     businessCrisisReduction: prestigeEffects.business_crisis_reduction ?? 0,
+    macroRevenueMultiplier: economy.businessRevenueMultiplier,
   }, state?.holdingCompanies ?? []);
   const adjustedBizProfit = bizResult.totalProfit;
   const adjustedBusinesses = bizResult.updatedBusinesses;
   newCash += bizResult.totalDividend;
+  const holdingCashFlowMap = new Map(
+    (bizResult.holdingCashFlows ?? []).map((flow) => [flow.holdingCompanyId, flow])
+  );
+  const adjustedHoldingCompanies = (state?.holdingCompanies ?? []).map((holding) => {
+    const flow = holdingCashFlowMap.get(holding.id);
+    if (!flow) return holding;
+    const dividends = Math.max(0, flow.dividends ?? 0);
+    const managementFees = Math.max(0, flow.managementFees ?? 0);
+    return {
+      ...holding,
+      cashReserve: (holding.cashReserve ?? 0) + dividends + managementFees,
+      totalDividendsReceived: (holding.totalDividendsReceived ?? 0) + dividends,
+      totalManagementFeesCollected: (holding.totalManagementFeesCollected ?? 0) + managementFees,
+    };
+  });
 
   const childDividendMap = new Map<string, number>();
   const currentChildIds = new Set((relationshipTick.state.children ?? []).map((child) => child.id));
@@ -351,6 +370,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     pendingInvestments: updatedInvestments,
     recentEventIds: newRecentEventIds,
     businesses: adjustedBusinesses,
+    holdingCompanies: adjustedHoldingCompanies,
     skills: updatedSkills,
     knowledge: updatedKnowledge,
     career: careerTick.updatedCareer,
@@ -373,6 +393,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     lifecycle: state?.lifecycle,
     lastMacroCrashWeek: economy.crashStarted ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
     activeMacroCrash: economy.activeMacroCrash,
+    economicCycle: economy.economicCycle,
   };
 
   const happiness = calculateHappiness(tempState);
