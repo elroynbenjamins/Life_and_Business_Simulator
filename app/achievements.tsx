@@ -29,6 +29,7 @@ function getAchievementCategory(achievement: any): AchievementCategory {
 export default function AchievementsScreen() {
   const router = useRouter();
   const unlockedAchievements = useGameStore((s) => s?.unlockedAchievements ?? []);
+  const profile = useGameStore((s) => s.profile);
   const [category, setCategory] = useState<AchievementCategory>('All');
   const [filter, setFilter] = useState<AchievementFilter>('progress');
 
@@ -36,6 +37,10 @@ export default function AchievementsScreen() {
   const unlocked = allAchievements.filter((a) => unlockedAchievements.includes(a?.id));
   const locked = allAchievements.filter((a) => !unlockedAchievements.includes(a?.id));
   const totalXp = unlocked.reduce((t, a) => t + (a?.xpReward ?? 0), 0);
+  const accountRewardedAchievementIds = useMemo(
+    () => new Set([...(profile.rewardedAchievementIds ?? []), ...(profile.rewardedAchievementGemIds ?? [])]),
+    [profile.rewardedAchievementIds, profile.rewardedAchievementGemIds],
+  );
   const totalAvailableGems = allAchievements.reduce((total, achievement) => total + (achievement?.gemReward ?? 0), 0);
   const categoryCounts = useMemo(() => {
     const counts = Object.fromEntries(ACHIEVEMENT_CATEGORIES.map((item) => [item, 0])) as Record<AchievementCategory, number>;
@@ -70,9 +75,9 @@ export default function AchievementsScreen() {
           titleAccessory={<StatusPill compact icon="trophy-outline" label={`${unlocked.length}/${achievementsData.length}`} color={Colors.warning} />}
         >
           <Text style={styles.statsValue}>{Math.round((unlocked.length / Math.max(1, achievementsData.length)) * 100)}% complete</Text>
-          <Text style={styles.xpText}>{totalXp} XP earned from completed achievements</Text>
+          <Text style={styles.xpText}>{totalXp} XP value represented by this save's completed achievements</Text>
           <Text style={styles.achievementRewardNote}>
-            Standard achievements award 2 Gems; harder 100+ XP milestones award 3. Gem rewards are account-wide and paid once per achievement. {totalAvailableGems} Gems are available across the full set.
+            XP, Prestige Points and Gems are account-wide and paid once per achievement. Standard achievements award 2 Gems; harder 100+ XP milestones award 3. The full set contains {totalAvailableGems} Gems.
           </Text>
         </GameCard>
 
@@ -98,6 +103,7 @@ export default function AchievementsScreen() {
         <Text style={styles.sectionHeader}>{visibleAchievements.length} achievement{visibleAchievements.length === 1 ? '' : 's'} shown</Text>
         {visibleAchievements.map((a) => {
           const unlockedItem = unlockedAchievements.includes(a?.id);
+          const accountRewardClaimed = accountRewardedAchievementIds.has(a?.id);
           return (
           <GameCard key={a?.id}>
             <View style={[styles.achRow, !unlockedItem && styles.lockedRow]}>
@@ -112,8 +118,9 @@ export default function AchievementsScreen() {
                 <Text style={styles.achDesc}>{a?.description}</Text>
               </View>
               <View style={styles.rewardCol}>
-                <Text style={unlockedItem ? styles.achXp : styles.achXpLocked}>+{a?.xpReward} XP</Text>
+                <Text style={unlockedItem ? styles.achXp : styles.achXpLocked}>+{a?.xpReward} XP / PP</Text>
                 <Text style={unlockedItem ? styles.achGem : styles.achGemLocked}>+{a?.gemReward ?? 0} Gems</Text>
+                {accountRewardClaimed && <Text style={styles.rewardClaimed}>Account claimed</Text>}
               </View>
             </View>
           </GameCard>
@@ -161,6 +168,7 @@ const styles = StyleSheet.create({
   achXp: { color: Colors.warning, fontSize: 13, fontWeight: '700' },
   achGem: { color: Colors.premium, fontSize: 11, fontWeight: '800', marginTop: 2 },
   achGemLocked: { color: Colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 },
+  rewardClaimed: { color: Colors.primary, fontSize: 8, fontWeight: '800', marginTop: 2 },
   achGems: { color: '#A78BFA', fontSize: 11, fontWeight: '700', marginTop: 2 },
   achXpLocked: { color: Colors.textMuted, fontSize: 13 },
   achGemsLocked: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
