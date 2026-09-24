@@ -1,4 +1,4 @@
-import { filterAndSortHoldingSubsidiaries } from '../holdingCompanyEngine';
+import { filterAndSortHoldingSubsidiaries, getHoldingSubsidiaryAttentionSummary } from '../holdingCompanyEngine';
 
 const businesses = [
   {
@@ -57,6 +57,30 @@ describe('holding subsidiary filtering and sorting', () => {
       'critical-debt',
       'loss-manual',
     ]);
+  });
+
+  test('supports exact critical and watch shortcuts', () => {
+    expect(filterAndSortHoldingSubsidiaries(businesses, 1, 'critical').map((b) => b.id))
+      .toEqual(['critical-debt']);
+    expect(filterAndSortHoldingSubsidiaries(businesses, 1, 'watch').map((b) => b.id))
+      .toEqual(['loss-manual']);
+  });
+
+  test('summarizes holding attention categories for shortcut chips', () => {
+    const summary = getHoldingSubsidiaryAttentionSummary(businesses, 1);
+
+    expect(summary).toMatchObject({
+      total: 3,
+      critical: 1,
+      watch: 1,
+      stable: 1,
+      attention: 2,
+      loss: 1,
+      reserve: 2,
+      debt: 1,
+      manual: 1,
+      delegated: 2,
+    });
   });
 
   test('supports loss, reserve, debt, manual and delegated filters', () => {
