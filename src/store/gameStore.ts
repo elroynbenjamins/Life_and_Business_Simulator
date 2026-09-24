@@ -48,7 +48,7 @@ import {
 } from '../services/adRewardEntitlements';
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
-import { getBusinessOwnershipTable, getInvestmentForPostMoneyIssuePct, issueNewBusinessEquity } from '../engine/businessOwnershipEngine';
+import { getBusinessOwnershipTable, getInvestmentForPostMoneyIssuePct, getRemainingPlayerCapitalBasisAfterShareTransfer, issueNewBusinessEquity } from '../engine/businessOwnershipEngine';
 import { claimBusinessCapacityReward, getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity } from '../engine/businessCapacityEngine';
 import { HOLDING_COMPANY_SETUP_COST, createHoldingCompany as buildHoldingCompany, getHoldingAvailableDistributionCash, getHoldingSharedServiceUpgradeCost, normalizeHoldingManagementFeeRate, normalizeHoldingReserveTargetWeeks, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
 import {
@@ -4417,6 +4417,13 @@ const useGameStore = create<GameStore>((set, get) => ({
     let capitalRaised = 0;
     let personalTransferTax = 0;
     let executedPct = 0;
+    let playerCapitalBasis = typeof business.capitalInvested === 'number'
+      ? business.capitalInvested
+      : business.acquisition
+        ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
+          + (business.acquisition.acquisitionTransactionCost ?? 0)
+          + (business.acquisition.additionalCapitalInvested ?? 0)
+        : null;
 
     if (targetType === 'investor') {
       // New-equity issuance: all existing holders dilute proportionally and the
@@ -4474,6 +4481,11 @@ const useGameStore = create<GameStore>((set, get) => ({
         if ((state.cash ?? 0) < personalTransferTax) return;
       }
 
+      playerCapitalBasis = getRemainingPlayerCapitalBasisAfterShareTransfer(
+        playerCapitalBasis,
+        playerStake.percent,
+        transferPct,
+      );
       ownership[playerIndex] = {
         ...playerStake,
         ownerName: state.playerName,
@@ -4499,6 +4511,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const updated = {
       ...business,
       balance: (business.balance ?? 0) + capitalRaised,
+      capitalInvested: playerCapitalBasis,
       ownership,
       familyBusiness: business.familyBusiness?.isFamilyBusiness
         ? { ...business.familyBusiness, familyOwnershipPct }
