@@ -40,6 +40,7 @@ import {
 } from './businessWorkforceEngine';
 import { appendCorporateKpiSnapshot } from './corporateReportingEngine';
 import {
+  getAcquisitionIntegrationHoldingSynergyFactor,
   getAcquisitionIntegrationOutcomeEffect,
   resolveAcquisitionIntegrationOutcome,
 } from './acquisitionIntegrationEngine';
@@ -229,15 +230,12 @@ export function getHoldingSynergyProfile(
   const executivePerformance = Math.max(0, Math.min(100, holding?.executivePerformance ?? 50));
   const executiveMultiplier = 0.90 + executivePerformance / 500;
 
-  let integrationSynergyFactor = 1;
-  if (biz.acquisition) {
-    if (biz.acquisition.integrationStrategy === 'pending') integrationSynergyFactor = 0.25;
-    else if (biz.acquisition.integrationStrategy === 'independent') integrationSynergyFactor = 0.50;
-    else if (biz.acquisition.integrationOutcome === 'pending') integrationSynergyFactor = 0.60;
-    else if (biz.acquisition.integrationOutcome === 'failed') integrationSynergyFactor = 0.65;
-    else if (biz.acquisition.integrationOutcome === 'mixed') integrationSynergyFactor = 0.85;
-    else integrationSynergyFactor = 1;
-  }
+  const integrationSynergyFactor = biz.acquisition
+    ? getAcquisitionIntegrationHoldingSynergyFactor(
+        biz.acquisition.integrationStrategy,
+        biz.acquisition.integrationOutcome,
+      )
+    : 1;
 
   const organicExpense = group.length >= 2
     ? Math.min(0.05, sameIndustrySiblings * 0.02) * executiveMultiplier * integrationSynergyFactor
