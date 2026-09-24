@@ -90,7 +90,7 @@ export default function BusinessAcquisitionsScreen() {
     const totalCashNeeded = quote.cashContribution + transactionCost;
     const destination = selectedHolding?.name ?? 'your direct portfolio';
     const debtText = quote.debtPrincipal > 0
-      ? ` + ${formatCurrency(quote.debtPrincipal)} acquisition debt (${formatCurrency(quote.weeklyPayment)}/wk)`
+      ? ` + ${formatCurrency(quote.debtPrincipal)} acquisition debt at ${(quote.interestRate * 100).toFixed(1)}% (${formatCurrency(quote.weeklyPayment)}/wk)`
       : '';
 
     showGameDialog({
