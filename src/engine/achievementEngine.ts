@@ -239,7 +239,7 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   // New achievements
   check('multi_business_3', (state?.businesses?.length ?? 0) >= 3);
   check('legendary_hire', (state?.businesses ?? []).some((b) => (b.employees ?? []).some((e) => e.tier === 'legendary')));
-  check('survive_20_years', (state?.year ?? 0) >= 20);
+  check('survive_20_years', (state?.statistics?.weeksPlayed ?? 0) >= 400);
   check('complete_all_courses', allCourseIds.length > 0 && allCourseIds.every((cid) => (state?.completedCourses ?? []).some((cc) => cc.courseId === cid)));
 
   return newlyUnlocked;
