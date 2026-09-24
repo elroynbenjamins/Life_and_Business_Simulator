@@ -11,11 +11,13 @@ import { formatCurrency } from '../../src/utils/format';
 import {
   ACQUISITION_MARKET_REFRESH_WEEKS,
   ACQUISITION_UNLOCK_NET_WORTH,
+  AcquisitionTargetSortMode,
   getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
   getAcquisitionFundingSafetyMatrix,
   getAcquisitionPrice,
   getAcquisitionTransactionCost,
+  sortAcquisitionTargets,
 } from '../../src/engine/acquisitionEngine';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
 import { AcquisitionFundingMode } from '../../src/types/game';
@@ -32,6 +34,14 @@ const FUNDING_OPTIONS: Array<{ key: AcquisitionFundingMode; label: string; desc:
   { key: 'cash', label: 'All Cash', desc: '100% cash • no acquisition debt' },
   { key: 'balanced', label: 'Balanced', desc: '60% cash • 40% acquisition debt' },
   { key: 'leveraged', label: 'Leveraged', desc: '30% cash • 70% acquisition debt' },
+];
+
+const SORT_OPTIONS: Array<{ key: AcquisitionTargetSortMode; label: string }> = [
+  { key: 'price', label: 'Price' },
+  { key: 'premium', label: 'Premium' },
+  { key: 'profit', label: 'Profit' },
+  { key: 'diligence', label: 'Diligence' },
+  { key: 'risk', label: 'Risk' },
 ];
 
 export default function BusinessAcquisitionsScreen() {
@@ -52,6 +62,7 @@ export default function BusinessAcquisitionsScreen() {
 
   const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
   const [fundingMode, setFundingMode] = useState<AcquisitionFundingMode>('balanced');
+  const [sortMode, setSortMode] = useState<AcquisitionTargetSortMode>('price');
   const [expandedTargetId, setExpandedTargetId] = useState<string | null>(null);
 
   const netWorth = getNetWorthValue();
@@ -76,8 +87,8 @@ export default function BusinessAcquisitionsScreen() {
   }, [unlocked, globalWeek, ensureAcquisitionMarket]);
 
   const sortedTargets = useMemo(
-    () => [...acquisitionTargets].sort((a, b) => a.askingPrice - b.askingPrice),
-    [acquisitionTargets]
+    () => sortAcquisitionTargets(acquisitionTargets, sortMode, negotiationBonus),
+    [acquisitionTargets, sortMode, negotiationBonus],
   );
 
   const confirmAcquire = (targetId: string) => {
@@ -231,6 +242,23 @@ export default function BusinessAcquisitionsScreen() {
                 </View>
               )}
             </View>
+
+            {sortedTargets.length > 1 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+                {SORT_OPTIONS.map((option) => {
+                  const active = sortMode === option.key;
+                  return (
+                    <Pressable
+                      key={option.key}
+                      onPress={() => setSortMode(option.key)}
+                      style={[styles.sortChip, active && styles.sortChipActive]}
+                    >
+                      <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>{option.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
 
             {sortedTargets.length === 0 ? (
               <GameCard>
@@ -533,6 +561,11 @@ const styles = StyleSheet.create({
   marketHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 4 },
   marketTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
   marketSub: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
+  sortRow: { gap: 6, paddingVertical: 7, paddingRight: 6 },
+  sortChip: { minHeight: 29, borderRadius: 15, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  sortChipActive: { borderColor: Colors.info, backgroundColor: `${Colors.info}14` },
+  sortChipText: { color: Colors.textMuted, fontSize: 9, fontWeight: '800' },
+  sortChipTextActive: { color: Colors.info },
   negotiationBadge: { flexDirection: 'row', gap: 5, alignItems: 'center', backgroundColor: '#10382D', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8 },
   negotiationText: { color: Colors.primary, fontSize: 10, fontWeight: '800' },
   emptyTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
