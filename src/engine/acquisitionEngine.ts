@@ -6,6 +6,7 @@ import {
   AcquisitionRisk,
   AcquisitionTier,
   BusinessAcquisitionTarget,
+  EconomicCyclePhase,
   GameState,
   HoldingCompany,
   OwnedBusiness,
@@ -13,6 +14,7 @@ import {
 import businessTypesData from '../data/business_types.json';
 import { aggregateEmployeeBuffs, candidateToEmployee, createBusiness, generateCandidates, getAllBusinessLocationTemplates, getBusinessType, getBusinessRevenueCapacity, getScaledLocationCosts } from './businessEngine';
 import { createCorporateWorkforce } from './businessWorkforceEngine';
+import { getAcquisitionCycleValueMultiplier } from './economyEngine';
 
 export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
@@ -284,12 +286,16 @@ export function getAcquisitionFinancingQuote(
   purchasePrice: number,
   mode: AcquisitionFundingMode,
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): AcquisitionFinancingQuote {
   const price = Math.max(0, Math.round(purchasePrice));
   const cashRatio = mode === 'cash' ? 1 : mode === 'balanced' ? 0.60 : 0.30;
   const baseRate = mode === 'cash' ? 0 : mode === 'balanced' ? 0.08 : 0.105;
   const durationWeeks = mode === 'cash' ? 0 : mode === 'balanced' ? 160 : 200;
-  const interestRate = Math.max(0.035, baseRate - clamp(loanRateReduction, 0, 0.05));
+  const interestRate = Math.max(
+    0.025,
+    baseRate + clamp(macroInterestRateModifier, -0.025, 0.035) - clamp(loanRateReduction, 0, 0.05),
+  );
   const cashContribution = Math.round(price * cashRatio);
   const debtPrincipal = Math.max(0, price - cashContribution);
   const totalRepayment = debtPrincipal > 0
@@ -373,10 +379,14 @@ export function generateAcquisitionTargets(
   globalWeek: number,
   inflationMultiplier = 1,
   count = ACQUISITION_TARGET_COUNT,
+  economicCyclePhase?: EconomicCyclePhase,
 ): BusinessAcquisitionTarget[] {
   const typeIds = uniqueTypeIds();
   const targets: BusinessAcquisitionTarget[] = [];
   const safeInflation = Math.max(0.5, inflationMultiplier || 1);
+  const cycleValueMultiplier = economicCyclePhase
+    ? getAcquisitionCycleValueMultiplier(economicCyclePhase)
+    : 1;
 
   for (let index = 0; index < Math.max(1, count); index += 1) {
     const band = TARGET_BANDS[index % TARGET_BANDS.length];
@@ -384,7 +394,7 @@ export function generateAcquisitionTargets(
     const type = getBusinessType(typeId);
     if (!type) continue;
 
-    const estimatedValue = Math.round(randomBetween(band.min, band.max) * safeInflation);
+    const estimatedValue = Math.round(randomBetween(band.min, band.max) * safeInflation * cycleValueMultiplier);
     const reputation = Math.round(randomBetween(52, 92));
     const profitMultiple = 2 + (reputation / 100) * 3;
     const weeklyProfit = Math.max(25_000, Math.round(estimatedValue / (20 * profitMultiple)));
@@ -470,12 +480,18 @@ export function createAcquiredBusiness(
   purchasePrice = target.askingPrice,
   fundingMode: AcquisitionFundingMode = 'cash',
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): OwnedBusiness | null {
   const type = getBusinessType(target.typeId);
   const base = createBusiness(target.typeId, target.name, state.week, state.year, state.inflationMultiplier);
   if (!base || !type) return null;
 
-  const financing = getAcquisitionFinancingQuote(purchasePrice, fundingMode, loanRateReduction);
+  const financing = getAcquisitionFinancingQuote(
+    purchasePrice,
+    fundingMode,
+    loanRateReduction,
+    macroInterestRateModifier,
+  );
   const acquisitionTransactionCost = getAcquisitionTransactionCost(target, financing.purchasePrice);
   const employees = createAcquisitionEmployees(target, state.inflationMultiplier);
   const level = target.tier === 'enterprise' ? 7 : target.tier === 'national' ? 6 : 5;
