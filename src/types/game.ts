@@ -856,6 +856,8 @@ export interface WeekSummary {
   newWeek: number;
   happiness: number;
   newAchievements: string[];
+  /** Account-wide Gem rewards actually settled for this week's newly unlocked achievements. */
+  achievementGemRewards?: Record<string, number>;
   isTaxWeek: boolean;
   taxAmount: number;
   earningsForTaxPeriod: number;
