@@ -1,6 +1,7 @@
 import { EstateBeneficiaryShare, EstateSettlement, GameState, LifecycleState, RelationshipChild, RelationshipConnection, SuccessionAssetStrategy } from '../types/game';
 import { getNetWorth, getPortfolioValue } from './financeEngine';
 import { getPlayerOwnershipPct } from './businessEngine';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 
 export interface LifecycleResult {
   lifecycle: LifecycleState;
@@ -116,8 +117,7 @@ export function calculateEstateSettlement(state: GameState): EstateSettlement {
     inheritableFamilyBusinesses.map((business) => business.holdingCompanyId).filter(Boolean)
   );
   const familyBusinessEquity = inheritableFamilyBusinesses.reduce((sum, business) => {
-    const debt = (business.businessLoans ?? []).reduce((loanSum, loan) => loanSum + (loan.remainingAmount ?? 0), 0);
-    const equity = Math.max(0, (business.valuation ?? 0) - debt);
+    const equity = Math.max(0, (business.valuation ?? 0) - getBusinessDebtPrincipal(business));
     return sum + equity * (getPlayerOwnershipPct(business) / 100);
   }, 0);
   const inheritableHoldingCash = (state.holdingCompanies ?? [])
@@ -235,7 +235,7 @@ export function getSuccessionPreview(
     const childPct = (business.ownership ?? [])
       .filter((stake) => stake.ownerType === 'child' && stake.ownerId === child.id)
       .reduce((stakeSum, stake) => stakeSum + (stake.percent ?? 0), 0);
-    const debt = (business.businessLoans ?? []).reduce((total, loan) => total + loan.remainingAmount, 0);
+    const debt = getBusinessDebtPrincipal(business);
     return sum + ((business.valuation ?? 0) - debt) * childPct / 100;
   }, 0);
   const inheritsFamilyBusinesses = getEstateSuccessorId(state) === child.id;
