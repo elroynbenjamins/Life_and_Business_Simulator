@@ -75,7 +75,7 @@ describe('holding subsidiary health snapshot', () => {
       lastWeekProfit: 100_000,
       lastWeekExpenses: 100_000,
       acquisition: { integrationStrategy: 'pending' },
-    } as any, 1)).toMatchObject({ kind: 'business_overview', label: 'Choose integration' });
+    } as any, 1)).toMatchObject({ kind: 'business_overview', focus: 'integration', label: 'Choose integration' });
 
     expect(getHoldingSubsidiaryAttentionAction({
       id: 'decision',
@@ -83,7 +83,7 @@ describe('holding subsidiary health snapshot', () => {
       lastWeekProfit: 100_000,
       lastWeekExpenses: 100_000,
       pendingDecision: { id: 'decision-1' },
-    } as any, 1)).toMatchObject({ kind: 'business_overview', label: 'Resolve decision' });
+    } as any, 1)).toMatchObject({ kind: 'business_overview', focus: 'decision', label: 'Resolve decision' });
   });
 
   test('routes financial problems to Finance and severe reserve gaps to Holding capital', () => {
