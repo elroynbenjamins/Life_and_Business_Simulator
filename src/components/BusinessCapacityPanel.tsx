@@ -7,12 +7,14 @@ import GameCard from './GameCard';
 import GameButton from './GameButton';
 import StatusPill from './StatusPill';
 import {
+  canClaimBusinessCapacityReward,
   getBusinessCapacity,
   getNextBusinessCapacityCost,
   MAX_BUSINESS_CAPACITY,
 } from '../engine/businessCapacityEngine';
 import { loadRewardedAd, showRewardedAd } from '../services/adManager';
 import { shouldSimulateNativeFeatures } from '../services/runtimeEnvironment';
+import { getLocalDayKey } from '../services/adRewardEntitlements';
 
 export default function BusinessCapacityPanel({ compact = false }: { compact?: boolean }) {
   const profile = useGameStore((state) => state.profile);
@@ -25,6 +27,7 @@ export default function BusinessCapacityPanel({ compact = false }: { compact?: b
   const capacity = getBusinessCapacity(profile);
   const nextCost = getNextBusinessCapacityCost(profile);
   const isFull = capacity >= MAX_BUSINESS_CAPACITY;
+  const rewardAvailable = canClaimBusinessCapacityReward(profile, getLocalDayKey());
   const currencyAffordable = !!nextCost
     && (profile.prestigePoints ?? 0) >= nextCost.prestigePoints
     && (profile.gems ?? 0) >= nextCost.gems;
@@ -35,7 +38,7 @@ export default function BusinessCapacityPanel({ compact = false }: { compact?: b
   };
 
   const unlockWithAd = async () => {
-    if (isFull || loadingAd) return;
+    if (isFull || loadingAd || !rewardAvailable) return;
     if (profile.adsRemoved || shouldSimulateNativeFeatures()) {
       const success = grantAdSlot();
       setMessage(success
@@ -126,17 +129,19 @@ export default function BusinessCapacityPanel({ compact = false }: { compact?: b
             label={
               loadingAd
                 ? 'Loading Ad...'
-                : profile.adsRemoved
-                  ? 'Claim Ad-Free +1 Company Slot'
-                  : 'Watch Ad • +1 Company Slot'
+                : !rewardAvailable
+                  ? 'Company Slot Claimed Today'
+                  : profile.adsRemoved
+                    ? 'Claim Ad-Free +1 Company Slot'
+                    : 'Watch Ad • +1 Company Slot'
             }
             onPress={unlockWithAd}
-            disabled={loadingAd}
+            disabled={loadingAd || !rewardAvailable}
           />
           <Text style={styles.adHelper}>
             {profile.adsRemoved
-              ? 'Remove Ads benefit: each claim permanently unlocks +1 company slot, up to 10.'
-              : 'Each completed rewarded ad permanently unlocks +1 company slot, up to 10.'}
+              ? 'Remove Ads benefit: claim one permanent +1 company slot per day, up to 10.'
+              : 'One completed rewarded ad can permanently unlock +1 company slot per day, up to 10.'}
           </Text>
         </>
       )}
