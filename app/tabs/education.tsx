@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
+import ScrollView from '../../src/components/TutorialScrollView';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/theme/colors';
@@ -18,6 +19,8 @@ import { shouldSimulateNativeFeatures } from '../../src/services/runtimeEnvironm
 import { disciplineImages } from '../../src/assets/progressionImages';
 import { getEducationAvailabilityNotice } from '../../src/engine/playerNotificationEngine';
 import { getStudentStudyDuration, getStudentWorkOption, getStudentWorkTier } from '../../src/engine/studentWork';
+
+import { useTutorialFocusStore } from '../../src/store/tutorialFocusStore';
 
 const CATEGORIES = ['Sales', 'Administration', 'Finance', 'Marketing', 'Technology', 'Healthcare', 'Legal', 'Logistics', 'Hospitality'];
 const CATEGORY_ICONS: Record<string, string> = {
@@ -60,6 +63,10 @@ export default function EducationScreen() {
   const [nativeAdPhase, setNativeAdPhase] = useState<'idle' | 'loading' | 'showing'>('idle');
   const [courseLevel, setCourseLevel] = useState<1 | 2 | 3>(1);
   const [showCompleted, setShowCompleted] = useState(false);
+  const guidedEnrollmentRequest = useTutorialFocusStore((s) => s.target === 'education.enroll' && s.status === 'locating' ? s.request : null);
+  useEffect(() => {
+    if (guidedEnrollmentRequest !== null) setCourseLevel(1);
+  }, [guidedEnrollmentRequest]);
   const weeksEmployed = useGameStore((s) => s?.statistics?.weeksEmployed ?? 0);
   const partTimeJob = useGameStore((s) => s?.partTimeJob ?? false);
   const studentWorkTier = useGameStore((s) => s?.studentWorkTier ?? null);
@@ -133,6 +140,13 @@ export default function EducationScreen() {
     groupedCourses[cat].push(course);
   }
 
+  const firstGuidedCourseId = CATEGORIES.flatMap((category) => groupedCourses[category] ?? []).find((course) =>
+    course.level === 1 && !currentCourseId && !completedIds.has(course.id)
+      && (!course.prerequisite || completedIds.has(course.prerequisite))
+      && meetsExperienceRequirement(course.level, weeksEmployed)
+      && (course.cost > 0 ? inflated(course.cost, inflationMultiplier) : 0) <= cash
+  )?.id;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScreenHeader
@@ -186,6 +200,7 @@ export default function EducationScreen() {
               variant="hero"
               eyebrow="CURRENT EDUCATION"
               title={currentCourse.name}
+              tutorialId="education.progress"
               accentColor={accent}
               titleAccessory={(
                 <StatusPill
@@ -323,7 +338,11 @@ export default function EducationScreen() {
                   styles.levelTab,
                   active && { borderColor: accent, backgroundColor: `${accent}14` },
                 ]}
-                onPress={() => setCourseLevel(tab.level)}
+                onPress={() => {
+                  const focus = useTutorialFocusStore.getState();
+                  focus.report(focus.request, 'cancelled');
+                  setCourseLevel(tab.level);
+                }}
               >
                 <Ionicons name={tab.icon} size={15} color={active ? accent : Colors.textMuted} />
                 <Text style={[styles.levelTabText, active && { color: accent }]}>{tab.label}</Text>
@@ -433,6 +452,7 @@ export default function EducationScreen() {
                           compact
                           accentColor={accent}
                           label="Enroll"
+                          tutorialId={course.id === firstGuidedCourseId ? 'education.enroll' : undefined}
                           onPress={() => enrollCourse?.(course.id)}
                           style={styles.enrollButton}
                         />

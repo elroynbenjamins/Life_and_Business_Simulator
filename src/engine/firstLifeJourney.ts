@@ -9,7 +9,7 @@ export type FirstLifeStepId =
   | 'career'
   | 'first_year';
 
-export type FirstLifeRoute = '/tabs/education' | '/tabs/career' | '/tabs/statistics' | '/housing';
+export type FirstLifeRoute = '/tabs/education' | '/tabs/career' | '/tabs/statistics' | '/housing' | '/housing?section=transport';
 
 export interface FirstLifeStep {
   id: FirstLifeStepId;
@@ -112,8 +112,8 @@ export function getFirstLifeJourney(state: FirstLifeJourneyState): FirstLifeJour
       detail: state.pendingCarDelivery
         ? 'Your vehicle is ordered and will arrive after you advance one week.'
         : 'Entry-level career positions require a Used Car or better. Vehicle delivery takes one week.',
-      actionLabel: 'Open Lifestyle',
-      route: '/housing',
+      actionLabel: 'Open Transport',
+      route: '/housing?section=transport',
       complete: transportReady,
     },
     {
