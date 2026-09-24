@@ -445,6 +445,46 @@ export function getAcquisitionFundingSafetyMatrix(
   });
 }
 
+export function getAcquisitionFundingAvailabilityMatrix(
+  target: Pick<BusinessAcquisitionTarget, 'tier' | 'acquisitionTransactionCostRate' | 'weeklyRevenue' | 'weeklyProfit' | 'risk' | 'integrationPenalty'>,
+  purchasePrice: number,
+  sourceCash: number,
+  loanRateReduction = 0,
+  macroInterestRateModifier = 0,
+): Array<{
+  mode: AcquisitionFundingMode;
+  quote: AcquisitionFinancingQuote;
+  safety: ReturnType<typeof getAcquisitionDebtServiceSafety>;
+  transactionCost: number;
+  cashNeeded: number;
+  cashShortfall: number;
+  cashReady: boolean;
+  executable: boolean;
+}> {
+  const cashAvailable = Math.max(0, Math.round(sourceCash));
+  const transactionCost = getAcquisitionTransactionCost(target, purchasePrice);
+  return getAcquisitionFundingSafetyMatrix(
+    target,
+    purchasePrice,
+    loanRateReduction,
+    macroInterestRateModifier,
+  ).map(({ mode, quote, safety }) => {
+    const cashNeeded = quote.cashContribution + transactionCost;
+    const cashShortfall = Math.max(0, cashNeeded - cashAvailable);
+    const cashReady = cashShortfall <= 0;
+    return {
+      mode,
+      quote,
+      safety,
+      transactionCost,
+      cashNeeded,
+      cashShortfall,
+      cashReady,
+      executable: safety.allowed && cashReady,
+    };
+  });
+}
+
 export function getIntegrationStrategyProfile(
   baseWeeks: number,
   basePenalty: number,
