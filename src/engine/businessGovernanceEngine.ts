@@ -8,6 +8,7 @@ import {
   BusinessExecutiveTrait,
   OwnedBusiness,
 } from '../types/game';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 import { getCorporateWorkforceEffects } from './businessWorkforceEngine';
 import { normalizeBusinessInsurancePolicies } from './businessInsuranceEngine';
 
@@ -347,7 +348,7 @@ export function tickBusinessGovernance(
 } {
   const globalWeek = ((currentYear - 1) * 20) + currentWeek;
   const workforceEffects = getCorporateWorkforceEffects(business);
-  const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
+  const debt = getBusinessDebtPrincipal(business);
   const debtToValue = debt / Math.max(1, business.valuation ?? 1);
   const policies = normalizeBusinessInsurancePolicies(business.insurancePolicies);
   const budgetReviewed = (business.budgetPlan?.reviewYear ?? business.foundedYear ?? currentYear) >= currentYear;
