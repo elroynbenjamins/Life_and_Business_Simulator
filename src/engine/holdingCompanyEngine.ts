@@ -1,4 +1,4 @@
-import { HoldingCompany, HoldingSharedServiceId, HoldingSharedServices } from '../types/game';
+import { GameState, HoldingCompany, HoldingSharedServiceId, HoldingSharedServices, OwnedBusiness } from '../types/game';
 
 export const EMPTY_HOLDING_SHARED_SERVICES: HoldingSharedServices = {
   finance: 0,
@@ -156,4 +156,77 @@ export function getHoldingManagementFeeForWeek(
       Math.round(availableCash),
     ),
   );
+}
+
+
+export const HOLDING_COMPANY_SETUP_COST = 500_000;
+
+export function createHoldingCompany(
+  name: string,
+  state: Pick<GameState, 'week' | 'year' | 'generation' | 'playerName' | 'familyTree'>,
+): HoldingCompany {
+  const cleanName = name.trim() || `${state.playerName} Holdings`;
+  return {
+    id: `holding_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    name: cleanName,
+    createdGlobalWeek: ((state.year - 1) * 20 + state.week),
+    founderGeneration: state.generation ?? 1,
+    generationsOwned: 1,
+    controllerName: state.playerName,
+    controllerPersonId: state.familyTree?.currentPlayerId ?? null,
+    cashReserve: 0,
+    totalCapitalDeployed: 0,
+    executiveChildId: null,
+    executiveChildName: null,
+    executivePerformance: 50,
+    designatedSuccessorChildId: null,
+    designatedSuccessorChildName: null,
+    sharedServices: { ...EMPTY_HOLDING_SHARED_SERVICES },
+    managementFeeRate: HOLDING_MANAGEMENT_FEE_DEFAULT,
+    totalManagementFeesCollected: 0,
+    totalDividendsReceived: 0,
+    totalOwnerDistributions: 0,
+  };
+}
+
+export function getHoldingCompanySummary(holding: HoldingCompany, businesses: OwnedBusiness[]) {
+  const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
+  const totalValue = subsidiaries.reduce((sum, business) => sum + Math.max(0, business.valuation ?? 0), 0);
+  const totalDebt = subsidiaries.reduce(
+    (sum, business) => sum + (business.businessLoans ?? []).reduce(
+      (loanSum, loan) => loanSum + Math.max(0, loan.remainingAmount ?? 0),
+      0,
+    ),
+    0,
+  );
+  const weeklyProfit = subsidiaries.reduce((sum, business) => sum + (business.lastWeekProfit ?? 0), 0);
+  const familyControlledValue = subsidiaries.reduce((sum, business) => {
+    const familyPct = business.ownership?.length
+      ? business.ownership
+          .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
+          .reduce((stakeSum, stake) => stakeSum + (stake.percent ?? 0), 0)
+      : 100;
+    const boundedFamilyPct = Math.max(0, Math.min(100, familyPct));
+    return sum + Math.max(0, business.valuation ?? 0) * boundedFamilyPct / 100;
+  }, 0);
+  const protectedAssets = subsidiaries.filter(
+    (business) => business.portfolioIntent === 'long_term_family',
+  ).length;
+
+  return {
+    subsidiaryCount: subsidiaries.length,
+    totalValue,
+    totalDebt,
+    netGroupEquity: Math.max(0, totalValue - totalDebt),
+    weeklyProfit,
+    cashReserve: holding.cashReserve ?? 0,
+    totalCapitalDeployed: holding.totalCapitalDeployed ?? 0,
+    managementFeeRate: normalizeHoldingManagementFeeRate(holding.managementFeeRate),
+    totalManagementFeesCollected: holding.totalManagementFeesCollected ?? 0,
+    totalDividendsReceived: holding.totalDividendsReceived ?? 0,
+    totalOwnerDistributions: holding.totalOwnerDistributions ?? 0,
+    familyControlledValue,
+    familyControlledPct: totalValue > 0 ? familyControlledValue / totalValue * 100 : 0,
+    protectedAssets,
+  };
 }
