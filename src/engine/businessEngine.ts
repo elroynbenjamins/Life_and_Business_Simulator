@@ -2651,6 +2651,9 @@ export function processAllBusinesses(
             ...updatedBusiness,
             balance: Math.max(0, (updatedBusiness.balance ?? 0) - managementFee),
           }),
+          // Parent-company fees are still an economic distribution from the
+          // investment and therefore belong in acquisition return tracking.
+          totalPlayerDistributions: (updatedBusiness.totalPlayerDistributions ?? 0) + managementFee,
         };
       }
       const existingFlow = holdingCashFlowMap.get(parentHolding.id) ?? { dividends: 0, managementFees: 0 };
@@ -2658,12 +2661,6 @@ export function processAllBusinesses(
         dividends: existingFlow.dividends + Math.max(0, result.playerDividend),
         managementFees: existingFlow.managementFees + managementFee,
       });
-      if (result.playerDividend > 0) {
-        updatedBusiness = {
-          ...updatedBusiness,
-          totalPlayerDistributions: Math.max(0, (updatedBusiness.totalPlayerDistributions ?? 0) - result.playerDividend),
-        };
-      }
     }
 
     const createdNewDecision = !managedBiz.pendingDecision && !!updatedBusiness.pendingDecision;
