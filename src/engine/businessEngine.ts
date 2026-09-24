@@ -2720,6 +2720,30 @@ export function getDelegationManagers(biz: OwnedBusiness): BusinessEmployee[] {
   );
 }
 
+export function getDelegationManagerEffectiveness(manager: BusinessEmployee): {
+  score: number;
+  label: 'Developing' | 'Solid' | 'Strong' | 'Elite';
+  reviewWeeks: number;
+  staffingAdjustment: number;
+  maxAdvertising: OwnedBusiness['advertisingLevel'];
+} {
+  const skill = Math.max(0, Math.min(100, manager.skill ?? 0));
+  const morale = Math.max(0, Math.min(100, manager.morale ?? 50));
+  const experience = Math.max(0, Math.min(100, manager.experience ?? 0));
+  const score = Math.round(skill * 0.55 + morale * 0.20 + experience * 0.25);
+
+  if (score >= 85) {
+    return { score, label: 'Elite', reviewWeeks: 3, staffingAdjustment: 0.04, maxAdvertising: 'aggressive' };
+  }
+  if (score >= 70) {
+    return { score, label: 'Strong', reviewWeeks: 4, staffingAdjustment: 0.02, maxAdvertising: 'aggressive' };
+  }
+  if (score >= 55) {
+    return { score, label: 'Solid', reviewWeeks: 4, staffingAdjustment: 0, maxAdvertising: 'moderate' };
+  }
+  return { score, label: 'Developing', reviewWeeks: 5, staffingAdjustment: -0.05, maxAdvertising: 'basic' };
+}
+
 export function applyDelegatedBusinessRoutine(
   biz: OwnedBusiness,
   inflationMultiplier: number,
@@ -2754,9 +2778,10 @@ export function applyDelegatedBusinessRoutine(
     };
   }
 
+  const managerEffectiveness = getDelegationManagerEffectiveness(manager);
   const globalWeek = ((currentYear - 1) * 20) + currentWeek;
   const lastReview = biz.lastDelegationReviewWeek ?? 0;
-  if (lastReview > 0 && globalWeek - lastReview < 4) return biz;
+  if (lastReview > 0 && globalWeek - lastReview < managerEffectiveness.reviewWeeks) return biz;
 
   const type = getBusinessType(biz.typeId);
   if (!type) return biz;
@@ -2775,7 +2800,7 @@ export function applyDelegatedBusinessRoutine(
   const protectedReserve = estimatedWeeklyCosts * protectedReserveWeeks;
   let pricingStrategy = config.pricing;
   let advertisingLevel = config.advertising;
-  const notes: string[] = [];
+  const notes: string[] = [`${manager.name}: ${managerEffectiveness.label.toLowerCase()} management (${managerEffectiveness.score}/100)`];
 
   if ((biz.balance ?? 0) < protectedReserve) {
     advertisingLevel = policy === 'growth' ? 'basic' : 'none';
@@ -2805,12 +2830,20 @@ export function applyDelegatedBusinessRoutine(
     notes.push('reviewed pricing and marketing');
   }
 
+  const advertisingRank: Array<OwnedBusiness['advertisingLevel']> = ['none', 'basic', 'moderate', 'aggressive'];
+  const requestedAdvertisingIndex = advertisingRank.indexOf(advertisingLevel);
+  const maxAdvertisingIndex = advertisingRank.indexOf(managerEffectiveness.maxAdvertising);
+  if (requestedAdvertisingIndex > maxAdvertisingIndex) {
+    advertisingLevel = managerEffectiveness.maxAdvertising;
+    notes.push('kept marketing within manager execution capacity');
+  }
+
   let employees = [...(biz.employees ?? [])];
   let freeRecruits = biz.freeRecruits ?? 3;
   let recruitCharges = biz.recruitCharges ?? 0;
   let balance = biz.balance ?? 0;
   const maxEmployees = type.maxEmployees ?? employees.length;
-  let targetStaffRatio = config.targetStaffRatio;
+  let targetStaffRatio = config.targetStaffRatio + managerEffectiveness.staffingAdjustment;
   if (macroCyclePhase === 'boom') {
     targetStaffRatio += policy === 'growth' ? 0.10 : policy === 'balanced' ? 0.05 : 0;
   } else if (macroCyclePhase === 'recovery') {
@@ -2863,7 +2896,7 @@ export function applyDelegatedBusinessRoutine(
       {
         week: currentWeek,
         year: currentYear,
-        title: `Management review: ${BUSINESS_DELEGATION_POLICIES[policy].label}`,
+        title: `Management review: ${BUSINESS_DELEGATION_POLICIES[policy].label} • ${managerEffectiveness.label} manager`,
         icon: '🧑‍💼',
         kind: 'event' as const,
       },
