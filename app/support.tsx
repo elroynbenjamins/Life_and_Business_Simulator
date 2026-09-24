@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
 import ScreenHeader from '../src/components/ScreenHeader';
+import ScreenTabs from '../src/components/ScreenTabs';
 import GameCard from '../src/components/GameCard';
 import StatusPill from '../src/components/StatusPill';
 import useGameStore from '../src/store/gameStore';
@@ -38,6 +39,7 @@ export default function SupportScreen() {
   const [purchasing, setPurchasing] = useState(false);
   const [privacyMessage, setPrivacyMessage] = useState('');
   const [loginMessage, setLoginMessage] = useState('');
+  const [activeTab, setActiveTab] = useState<'rewards' | 'store' | 'help'>('rewards');
 
   const gems = profile?.gems ?? 0;
   const adUsage = getAdUsage?.() ?? { watchedToday: 0, remaining: 5, limit: 5, limitReached: false };
@@ -225,6 +227,19 @@ export default function SupportScreen() {
           </View>
         </GameCard>
 
+        <ScreenTabs
+          items={[
+            { key: 'rewards', label: 'Rewards', icon: 'gift-outline' },
+            { key: 'store', label: 'Store', icon: 'bag-outline' },
+            { key: 'help', label: 'Help', icon: 'help-circle-outline' },
+          ]}
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          accentColor={Colors.premium}
+        />
+
+        {activeTab === 'rewards' && (
+          <>
         <GameCard title="Daily Login Reward">
           <Text style={styles.desc}>Claim 10 gems once per day.</Text>
           <Pressable style={[styles.adBtn, !loginStatus.available && styles.disabledBtn]} onPress={handleDailyLogin} disabled={!loginStatus.available}>
@@ -300,6 +315,11 @@ export default function SupportScreen() {
           )}
         </GameCard>
 
+          </>
+        )}
+
+        {activeTab === 'store' && (
+          <>
         <GameCard title="Remove Ads">
           <View style={styles.removeAdsRow}>
             <View style={styles.removeAdsCopy}>
@@ -333,6 +353,11 @@ export default function SupportScreen() {
           ))}
         </GameCard>
 
+          </>
+        )}
+
+        {activeTab === 'help' && (
+          <>
         <GameCard title="Advertising Privacy">
           <Text style={styles.desc}>Review or change the consent choices used by Google AdMob.</Text>
           <View style={styles.privacyActions}>
@@ -351,6 +376,8 @@ export default function SupportScreen() {
           </View>
           {privacyMessage !== '' && <Text style={styles.purchaseMessage}>{privacyMessage}</Text>}
         </GameCard>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
