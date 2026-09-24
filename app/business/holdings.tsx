@@ -54,6 +54,7 @@ export default function HoldingCompaniesScreen() {
   const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
   const [holdingView, setHoldingView] = useState<'overview' | 'services' | 'subsidiaries'>('overview');
   const [showCreateHolding, setShowCreateHolding] = useState(holdings.length === 0);
+  const [expandedSubsidiaryId, setExpandedSubsidiaryId] = useState<string | null>(null);
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
@@ -478,6 +479,7 @@ export default function HoldingCompaniesScreen() {
                     ?? business.delegatedManagerEmployeeId
                     ?? managers[0]?.id
                     ?? '';
+                  const expanded = expandedSubsidiaryId === business.id;
                   return (
                     <View key={business.id} style={styles.subsidiaryBlock}>
                       <View style={styles.subsidiaryRow}>
@@ -498,11 +500,22 @@ export default function HoldingCompaniesScreen() {
                             <Text style={styles.longTermText}>◆ Protected long-term family asset</Text>
                           )}
                         </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityState={{ expanded }}
+                          onPress={() => setExpandedSubsidiaryId(expanded ? null : business.id)}
+                          hitSlop={8}
+                          style={styles.subsidiaryManageButton}
+                        >
+                          <Ionicons name={expanded ? 'chevron-up' : 'options-outline'} size={18} color={expanded ? Colors.info : Colors.textMuted} />
+                        </Pressable>
                         <Pressable onPress={() => assignBusinessToHolding(business.id, null)} hitSlop={10} style={styles.removeButton}>
                           <Ionicons name="remove-circle-outline" size={19} color={Colors.textMuted} />
                         </Pressable>
                       </View>
 
+                      {expanded && (
+                        <>
                       <View style={styles.buttonRow}>
                         <Pressable
                           disabled={!canAllocateMillion}
@@ -598,6 +611,8 @@ export default function HoldingCompaniesScreen() {
                           <Text style={styles.delegationSummary}>Last review: {business.lastDelegationSummary}</Text>
                         )}
                       </View>
+                        </>
+                      )}
                     </View>
                   );
                 })}
@@ -727,6 +742,7 @@ const styles = StyleSheet.create({
   emptySubsidiariesText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, textAlign: 'center', marginTop: 3 },
   subsidiaryBlock: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, paddingTop: 10, marginTop: 10 },
   subsidiaryRow: { flexDirection: 'row', alignItems: 'center' },
+  subsidiaryManageButton: { width: 34, height: 34, borderRadius: 9, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   subsidiaryName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   subsidiaryMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
   returnText: { fontSize: 9, fontWeight: '700', marginTop: 3 },
