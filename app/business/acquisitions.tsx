@@ -49,7 +49,7 @@ const SORT_OPTIONS: Array<{ key: AcquisitionTargetSortMode; label: string }> = [
 const FUNDING_FILTERS: Array<{ key: AcquisitionTargetFundingFilter; label: string }> = [
   { key: 'all', label: 'All' },
   { key: 'ready', label: 'Ready now' },
-  { key: 'financeable', label: 'Financeable' },
+  { key: 'financeable', label: 'Debt-ready' },
 ];
 
 export default function BusinessAcquisitionsScreen() {
@@ -305,7 +305,7 @@ export default function BusinessAcquisitionsScreen() {
                     : fundingFilter === 'ready'
                       ? 'No targets are both underwritten and affordable from the selected cash source right now.'
                       : fundingFilter === 'financeable'
-                        ? 'No current target passes acquisition underwriting with any funding structure.'
+                        ? 'No current target passes underwriting for Balanced or Leveraged acquisition debt.'
                         : 'No targets available.'}
                 </Text>
               </GameCard>
