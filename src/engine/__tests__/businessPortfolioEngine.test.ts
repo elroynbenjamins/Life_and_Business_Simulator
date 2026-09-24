@@ -37,19 +37,20 @@ describe('business portfolio engine', () => {
     const quote = getBusinessSaleQuote(business);
 
     expect(quote.grossSalePrice).toBe(300_000);
-    expect(quote.debtSettlement).toBe(50_000);
+    expect(quote.debtSettlement).toBe(54_000);
     expect(quote.saleTransactionCostRate).toBeCloseTo(0.025);
     expect(quote.saleTransactionCost).toBe(7_500);
-    expect(quote.netSaleProceeds).toBe(242_500);
+    expect(quote.netSaleProceeds).toBe(238_500);
     expect(quote.investmentBasis).toBe(100_000);
     expect(quote.totalPlayerDistributions).toBe(20_000);
-    expect(quote.lifetimeCashResult).toBe(162_500);
-    expect(quote.lifetimeReturnPct).toBeCloseTo(162.5);
+    expect(quote.lifetimeCashResult).toBe(158_500);
+    expect(quote.lifetimeReturnPct).toBeCloseTo(158.5);
   });
 
   test('current portfolio ROI values debt-adjusted equity plus distributions', () => {
     const result = getBusinessEquityReturn(makeBusiness());
 
+    expect(result.debt).toBe(50_000);
     expect(result.equityValue).toBe(250_000);
     expect(result.lifetimeValue).toBe(270_000);
     expect(result.gain).toBe(170_000);
@@ -94,8 +95,9 @@ describe('business portfolio engine', () => {
     expect(record.soldGlobalWeek).toBe(46);
     expect(record.heldWeeks).toBe(25);
     expect(record.saleTransactionCost).toBe(7_500);
-    expect(record.netSaleProceeds).toBe(242_500);
-    expect(record.lifetimeCashResult).toBe(162_500);
+    expect(record.debtSettlement).toBe(54_000);
+    expect(record.netSaleProceeds).toBe(238_500);
+    expect(record.lifetimeCashResult).toBe(158_500);
     expect(record.holdingCompanyName).toBe('Family Holdings');
   });
 
