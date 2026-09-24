@@ -122,6 +122,13 @@ export function getBusinessWeeklyDebtService(business: OwnedBusiness): number {
   ));
 }
 
+export function getBusinessWeeklyInterestExpense(business: OwnedBusiness): number {
+  return Math.round((business.businessLoans ?? []).reduce(
+    (sum, loan) => sum + getBusinessLoanPaymentSplit(loan).interest,
+    0,
+  ));
+}
+
 
 export interface BusinessLoanPrincipalPaymentResult {
   loan: BusinessLoan | null;
