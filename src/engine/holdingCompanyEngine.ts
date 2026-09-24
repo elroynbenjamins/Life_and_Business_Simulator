@@ -3,6 +3,7 @@ import {
   applyBusinessDebtPrincipalPrepayment,
   getBusinessDebtPrincipal,
   getBusinessWeeklyDebtService,
+  getBusinessWeeklyInterestExpense,
 } from './businessDebtEngine';
 import { getBusinessProtectedCash } from './businessBudgetEngine';
 import { getPlayerEquityOwnershipPct } from './businessOwnershipEngine';
@@ -411,6 +412,23 @@ export function getHoldingSubsidiaryHealthSnapshot(
     : 1;
   const debtPrincipal = getBusinessDebtPrincipal(business);
   const weeklyDebtService = getBusinessWeeklyDebtService(business);
+  const scheduledInterestExpense = getBusinessWeeklyInterestExpense(business);
+  const reportedInterestExpense = Math.max(
+    0,
+    business.lastExpenseBreakdown?.loanInterest ?? scheduledInterestExpense,
+  );
+  const cashAvailableForDebtService = Math.max(0, weeklyProfit + reportedInterestExpense);
+  const debtServiceCoverage = weeklyDebtService > 0
+    ? cashAvailableForDebtService / weeklyDebtService
+    : null;
+  const valuation = Math.max(0, business.valuation ?? 0);
+  const debtToValue = valuation > 0
+    ? debtPrincipal / valuation
+    : debtPrincipal > 0 ? 1 : 0;
+  const materialDebt = debtPrincipal > 0 && (
+    debtToValue > 0.30
+    || (debtServiceCoverage != null && debtServiceCoverage < 1.5)
+  );
   const integrationPending = business.acquisition?.integrationStrategy === 'pending';
   const decisionPending = Boolean(business.pendingDecision);
 
@@ -421,6 +439,17 @@ export function getHoldingSubsidiaryHealthSnapshot(
   if (cash < 0) criticalReasons.push('Negative cash');
   if (decisionPending) watchReasons.push('Decision pending');
   if (weeklyProfit < 0) watchReasons.push('Weekly loss');
+  if (materialDebt) {
+    if (debtServiceCoverage != null && debtServiceCoverage < 1) {
+      criticalReasons.push(`Debt coverage ${debtServiceCoverage.toFixed(2)}×`);
+    } else if (debtToValue > 0.50) {
+      criticalReasons.push(`Debt ${Math.round(debtToValue * 100)}% of value`);
+    } else if (debtServiceCoverage != null && debtServiceCoverage < 1.5) {
+      watchReasons.push(`Debt coverage ${debtServiceCoverage.toFixed(2)}×`);
+    } else {
+      watchReasons.push(`Debt ${Math.round(debtToValue * 100)}% of value`);
+    }
+  }
   if (protectedCashGap > 0) {
     const label = `Reserve gap ${Math.round(protectedCashCoverage * 100)}% funded`;
     if (protectedCashCoverage < 0.5) criticalReasons.push(label);
@@ -443,6 +472,9 @@ export function getHoldingSubsidiaryHealthSnapshot(
     protectedCashCoverage,
     debtPrincipal,
     weeklyDebtService,
+    debtServiceCoverage,
+    debtToValue,
+    materialDebt,
     integrationPending,
     decisionPending,
   };
@@ -451,7 +483,7 @@ export function getHoldingSubsidiaryHealthSnapshot(
 export type HoldingSubsidiaryAttentionAction =
   | { kind: 'business_overview'; focus: 'integration' | 'decision'; label: string; detail: string }
   | { kind: 'business_finance'; focus: 'cash-management' | 'budget'; label: string; detail: string }
-  | { kind: 'holding_capital'; label: string; detail: string };
+  | { kind: 'holding_capital'; focus: 'growth' | 'debt'; label: string; detail: string };
 
 export function getHoldingSubsidiaryAttentionAction(
   business: OwnedBusiness,
@@ -486,8 +518,9 @@ export function getHoldingSubsidiaryAttentionAction(
   if (health.protectedCashGap > 0 && health.protectedCashCoverage < 0.5) {
     return {
       kind: 'holding_capital',
+      focus: 'growth',
       label: 'Fund reserve',
-      detail: 'Expand Holding capital allocation for this subsidiary.',
+      detail: 'Expand Growth Capital for this subsidiary.',
     };
   }
   if (health.weeklyProfit < 0) {
@@ -501,8 +534,17 @@ export function getHoldingSubsidiaryAttentionAction(
   if (health.protectedCashGap > 0) {
     return {
       kind: 'holding_capital',
+      focus: 'growth',
       label: 'Fund reserve',
-      detail: 'Expand Holding capital allocation for this subsidiary.',
+      detail: 'Expand Growth Capital for this subsidiary.',
+    };
+  }
+  if (health.materialDebt) {
+    return {
+      kind: 'holding_capital',
+      focus: 'debt',
+      label: 'Review debt',
+      detail: 'Expand Debt Paydown for this subsidiary.',
     };
   }
   return null;
