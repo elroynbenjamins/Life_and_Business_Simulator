@@ -236,7 +236,8 @@ export function getSuccessionPreview(
       .filter((stake) => stake.ownerType === 'child' && stake.ownerId === child.id)
       .reduce((stakeSum, stake) => stakeSum + (stake.percent ?? 0), 0);
     const debt = getBusinessDebtPrincipal(business);
-    return sum + ((business.valuation ?? 0) - debt) * childPct / 100;
+    const equity = Math.max(0, (business.valuation ?? 0) - debt);
+    return sum + equity * childPct / 100;
   }, 0);
   const inheritsFamilyBusinesses = getEstateSuccessorId(state) === child.id;
   const inheritedBusinessValue = inheritsFamilyBusinesses ? Math.min(estate.businessValue, estate.netEstate) : 0;
