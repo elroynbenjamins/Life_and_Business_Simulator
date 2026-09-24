@@ -144,7 +144,7 @@ describe('holding shared services and delegated management', () => {
         weeklyPayment: 55_000,
         weeksRemaining: 10,
         interestRate: 0.10,
-        purpose: 'operating',
+        purpose: 'operating' as const,
       }],
     };
 
