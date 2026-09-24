@@ -856,7 +856,8 @@ export interface WeekSummary {
   newWeek: number;
   happiness: number;
   newAchievements: string[];
-  /** Account-wide Gem rewards actually settled for this week's newly unlocked achievements. */
+  /** Account-wide achievement rewards actually settled for this week's local unlocks. */
+  achievementRewardedIds?: string[];
   achievementGemRewards?: Record<string, number>;
   isTaxWeek: boolean;
   taxAmount: number;
@@ -1887,7 +1888,9 @@ export interface PlayerProfile {
   adFreeEducationRewardClaimDate?: string;
   /** Account-wide number of concurrently owned businesses allowed (2-10). */
   businessCapacity?: number;
-  /** Achievement Gem rewards are account-wide and can only be earned once per achievement ID. */
+  /** All achievement rewards (XP, PP and Gems) are account-wide and paid once per achievement ID. */
+  rewardedAchievementIds?: string[];
+  /** Transitional alias from the pre-release Gem-only ledger. */
   rewardedAchievementGemIds?: string[];
 }
 
@@ -1905,7 +1908,7 @@ export const INITIAL_PROFILE: PlayerProfile = {
   adFreeSlotRewardClaimDate: '',
   adFreeEducationRewardClaimDate: '',
   businessCapacity: 2,
-  rewardedAchievementGemIds: [],
+  rewardedAchievementIds: [],
 };
 
 /** Save slot metadata */
