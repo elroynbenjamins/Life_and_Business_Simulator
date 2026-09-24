@@ -230,7 +230,7 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
           <>
         {annualReports.length > 0 && (
           <GameCard compact eyebrow="HISTORY" title="Annual Reports" accentColor={Colors.info}>
-            {annualReports.slice(0, 5).map((report, index) => {
+            {annualReports.map((report, index) => {
               const netFlow = report.totalIncome - report.totalExpenses - report.totalTax;
               return (
                 <Pressable key={report.toWeek} style={styles.annualRow} onPress={() => openAnnualReport(index)}>
@@ -246,9 +246,7 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
                 </Pressable>
               );
             })}
-            {annualReports.length > 5 && (
-              <Text style={styles.annualArchiveNote}>Latest 5 shown • {annualReports.length} reports saved</Text>
-            )}
+            <Text style={styles.annualArchiveNote}>Up to 10 yearly reports are kept with this save.</Text>
           </GameCard>
         )}
 
