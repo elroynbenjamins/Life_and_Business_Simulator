@@ -1,5 +1,5 @@
 import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany } from '../types/game';
-import { getHoldingSharedServiceEffects } from './holdingCompanyEngine';
+import { getHoldingManagementFeeForWeek, getHoldingSharedServiceEffects } from './holdingCompanyEngine';
 import {
   createDefaultBusinessReinvestmentState,
   getBusinessReinvestmentEffects,
@@ -1159,6 +1159,8 @@ export interface BusinessSimulationModifiers {
   businessCrisisReduction?: number;
   /** Capped portfolio synergy from a parent holding company. */
   holdingRevenueBonus?: number;
+  /** Broad macro-cycle demand multiplier, kept intentionally modest. */
+  macroRevenueMultiplier?: number;
   holdingExpenseReduction?: number;
   holdingCrisisReduction?: number;
 }
@@ -1320,6 +1322,7 @@ export function processBusinessWeek(
   eventRevenueMultiplier *= 1 - reinvestmentEffects.revenuePenalty;
   eventExpenseMultiplier *= 1 + reinvestmentEffects.expenseIncrease;
   eventRevenueMultiplier *= 1 + Math.max(0, Math.min(0.05, modifiers.holdingRevenueBonus ?? 0));
+  eventRevenueMultiplier *= Math.max(0.85, Math.min(1.15, modifiers.macroRevenueMultiplier ?? 1));
   for (const ae of biz.activeEvents ?? []) {
     eventRevenueMultiplier *= ae.revenueMultiplier ?? 1;
     eventExpenseMultiplier *= ae.expenseMultiplier ?? 1;
@@ -2597,6 +2600,7 @@ export function processAllBusinesses(
   totalProfit: number;
   totalDividend: number;
   ownershipDistributions: BusinessTickResult['ownershipDistributions'];
+  holdingCashFlows: Array<{ holdingCompanyId: string; dividends: number; managementFees: number }>;
   totalTaxRefund: number;
   events: { businessName: string; eventTitle: string; icon: string }[];
   retentionEvents: { businessName: string; employeeName: string; type: string }[];
@@ -2605,6 +2609,7 @@ export function processAllBusinesses(
   let totalDividend = 0;
   let totalTaxRefund = 0;
   const ownershipDistributions: BusinessTickResult['ownershipDistributions'] = [];
+  const holdingCashFlowMap = new Map<string, { dividends: number; managementFees: number }>();
   const events: { businessName: string; eventTitle: string; icon: string }[] = [];
   const retentionEvents: { businessName: string; employeeName: string; type: string }[] = [];
   const updatedBusinesses: OwnedBusiness[] = [];
@@ -2621,6 +2626,39 @@ export function processAllBusinesses(
       holdingCrisisReduction: holdingSynergy.crisisReduction,
     });
     let updatedBusiness = result.updatedBusiness;
+    const parentHolding = managedBiz.holdingCompanyId
+      ? holdingCompanies.find((holding) => holding.id === managedBiz.holdingCompanyId)
+      : null;
+    let managementFee = 0;
+    if (parentHolding) {
+      managementFee = getHoldingManagementFeeForWeek(
+        parentHolding,
+        updatedBusiness.lastWeekRevenue ?? result.weeklyRevenue,
+        updatedBusiness.balance ?? 0,
+        updatedBusiness.lastWeekExpenses ?? result.weeklyExpenses,
+      );
+      if (managementFee > 0) {
+        updatedBusiness = {
+          ...updatedBusiness,
+          balance: Math.max(0, (updatedBusiness.balance ?? 0) - managementFee),
+          valuation: calculateValuation({
+            ...updatedBusiness,
+            balance: Math.max(0, (updatedBusiness.balance ?? 0) - managementFee),
+          }),
+        };
+      }
+      const existingFlow = holdingCashFlowMap.get(parentHolding.id) ?? { dividends: 0, managementFees: 0 };
+      holdingCashFlowMap.set(parentHolding.id, {
+        dividends: existingFlow.dividends + Math.max(0, result.playerDividend),
+        managementFees: existingFlow.managementFees + managementFee,
+      });
+      if (result.playerDividend > 0) {
+        updatedBusiness = {
+          ...updatedBusiness,
+          totalPlayerDistributions: Math.max(0, (updatedBusiness.totalPlayerDistributions ?? 0) - result.playerDividend),
+        };
+      }
+    }
 
     const createdNewDecision = !managedBiz.pendingDecision && !!updatedBusiness.pendingDecision;
     if (createdNewDecision) {
@@ -2643,14 +2681,19 @@ export function processAllBusinesses(
 
     updatedBusinesses.push(updatedBusiness);
     totalProfit += result.weeklyProfit;
-    totalDividend += result.playerDividend;
+    totalDividend += parentHolding ? 0 : result.playerDividend;
     ownershipDistributions.push(...result.ownershipDistributions);
     totalTaxRefund += result.taxRefund;
     if (result.newEvent) events.push(result.newEvent);
     if (result.newRetention) retentionEvents.push(result.newRetention);
   }
 
-  return { updatedBusinesses, totalProfit, totalDividend, ownershipDistributions, totalTaxRefund, events, retentionEvents };
+  const holdingCashFlows = [...holdingCashFlowMap.entries()].map(([holdingCompanyId, flow]) => ({
+    holdingCompanyId,
+    dividends: Math.round(flow.dividends),
+    managementFees: Math.round(flow.managementFees),
+  }));
+  return { updatedBusinesses, totalProfit, totalDividend, ownershipDistributions, holdingCashFlows, totalTaxRefund, events, retentionEvents };
 }
 
 export function getTotalBusinessValue(businesses: OwnedBusiness[]): number {
