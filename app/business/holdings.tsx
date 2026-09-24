@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
+import ScreenTabs from '../../src/components/ScreenTabs';
 import { showGameDialog } from '../../src/components/GameDialog';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
@@ -51,6 +52,8 @@ export default function HoldingCompaniesScreen() {
   const [managerSelections, setManagerSelections] = useState<Record<string, string>>({});
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
   const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
+  const [holdingView, setHoldingView] = useState<'overview' | 'services' | 'subsidiaries'>('overview');
+  const [showCreateHolding, setShowCreateHolding] = useState(holdings.length === 0);
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
@@ -113,6 +116,7 @@ export default function HoldingCompaniesScreen() {
       onConfirm: () => {
         createHoldingCompany(cleanName);
         setName('');
+        setShowCreateHolding(false);
       },
     });
   };
@@ -153,27 +157,43 @@ export default function HoldingCompaniesScreen() {
           </GameCard>
         ) : (
           <>
-            <GameCard>
-              <Text style={styles.sectionTitle}>Create Holding</Text>
-              <Text style={styles.sectionSub}>One-time setup: {formatCurrency(setupCost)} • Personal cash: {formatCurrency(cash)}</Text>
-              <View style={styles.createRow}>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="e.g. Benjamins Group"
-                  placeholderTextColor={Colors.textMuted}
-                  style={styles.input}
-                  maxLength={36}
-                />
-                <Pressable
-                  onPress={createHolding}
-                  disabled={!name.trim() || cash < setupCost}
-                  style={[styles.createButton, (!name.trim() || cash < setupCost) && styles.disabledButton]}
-                >
-                  <Ionicons name="add" size={18} color={name.trim() && cash >= setupCost ? Colors.white : Colors.textMuted} />
-                </Pressable>
-              </View>
-            </GameCard>
+            {showCreateHolding ? (
+              <GameCard>
+                <View style={styles.createHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitle}>{holdings.length === 0 ? 'Create Holding' : 'Create Another Holding'}</Text>
+                    <Text style={styles.sectionSub}>One-time setup: {formatCurrency(setupCost)} • Personal cash: {formatCurrency(cash)}</Text>
+                  </View>
+                  {holdings.length > 0 && (
+                    <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setShowCreateHolding(false)}>
+                      <Ionicons name="close" size={19} color={Colors.textMuted} />
+                    </Pressable>
+                  )}
+                </View>
+                <View style={styles.createRow}>
+                  <TextInput
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="e.g. Benjamins Group"
+                    placeholderTextColor={Colors.textMuted}
+                    style={styles.input}
+                    maxLength={36}
+                  />
+                  <Pressable
+                    onPress={createHolding}
+                    disabled={!name.trim() || cash < setupCost}
+                    style={[styles.createButton, (!name.trim() || cash < setupCost) && styles.disabledButton]}
+                  >
+                    <Ionicons name="add" size={18} color={name.trim() && cash >= setupCost ? Colors.white : Colors.textMuted} />
+                  </Pressable>
+                </View>
+              </GameCard>
+            ) : (
+              <Pressable style={styles.createAnotherButton} onPress={() => setShowCreateHolding(true)}>
+                <Ionicons name="add-circle-outline" size={17} color={Colors.info} />
+                <Text style={styles.createAnotherText}>Create another holding</Text>
+              </Pressable>
+            )}
 
             {summaries.length > 1 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.holdingSelector}>
@@ -184,7 +204,7 @@ export default function HoldingCompaniesScreen() {
                       key={summary.holding.id}
                       accessibilityRole="tab"
                       accessibilityState={{ selected: active }}
-                      onPress={() => setSelectedHoldingId(summary.holding.id)}
+                      onPress={() => { setSelectedHoldingId(summary.holding.id); setHoldingView('overview'); }}
                       style={[styles.holdingSelectorChip, active && styles.holdingSelectorChipActive]}
                     >
                       <Ionicons name="business-outline" size={14} color={active ? Colors.info : Colors.textMuted} />
@@ -197,7 +217,7 @@ export default function HoldingCompaniesScreen() {
               </ScrollView>
             )}
 
-            {hasManagementReports && (
+            {holdingView === 'overview' && !!selectedSummary?.quarterlyManagementReport && !!selectedSummary?.annualManagementReport && (
               <View style={styles.reportingToolbar}>
                 <View>
                   <Text style={styles.reportingToolbarTitle}>Group reporting period</Text>
@@ -249,6 +269,17 @@ export default function HoldingCompaniesScreen() {
                   </View>
                 </View>
 
+                <ScreenTabs
+                  items={[
+                    { key: 'overview', label: 'Overview', icon: 'speedometer-outline' },
+                    { key: 'services', label: 'Services', icon: 'git-network-outline' },
+                    { key: 'subsidiaries', label: 'Companies', icon: 'business-outline' },
+                  ]}
+                  activeKey={holdingView}
+                  onChange={setHoldingView}
+                  accentColor={Colors.info}
+                />
+
                 <View style={styles.statsRow}>
                   <View style={styles.stat}>
                     <Text style={styles.statLabel}>Group Value</Text>
@@ -280,6 +311,8 @@ export default function HoldingCompaniesScreen() {
                   </View>
                 </View>
 
+                {holdingView === 'overview' && (
+                  <>
                 <View style={styles.familyControl}>
                   <Ionicons name="people" size={14} color={Colors.warning} />
                   <Text style={styles.familyControlText}>
@@ -314,6 +347,11 @@ export default function HoldingCompaniesScreen() {
                   </View>
                 )}
 
+                  </>
+                )}
+
+                {holdingView === 'services' && (
+                  <>
                 <View style={styles.servicesBox}>
                   <View style={styles.servicesHeader}>
                     <View style={{ flex: 1 }}>
@@ -360,6 +398,11 @@ export default function HoldingCompaniesScreen() {
                   })}
                 </View>
 
+                  </>
+                )}
+
+                {holdingView === 'overview' && (
+                  <>
                 <View style={styles.capitalBox}>
                   <View style={styles.capitalHeader}>
                     <View>
@@ -417,6 +460,11 @@ export default function HoldingCompaniesScreen() {
                   </View>
                 )}
 
+                  </>
+                )}
+
+                {holdingView === 'subsidiaries' && (
+                  <>
                 {subsidiaries.map((business) => {
                   const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
                   const acquisitionReturn = getAcquisitionReturn(business);
@@ -549,10 +597,12 @@ export default function HoldingCompaniesScreen() {
                     </View>
                   );
                 })}
+                  </>
+                )}
               </GameCard>
             ))}
 
-            {holdings.length > 0 && unassigned.length > 0 && (
+            {holdingView === 'subsidiaries' && holdings.length > 0 && unassigned.length > 0 && (
               <GameCard>
                 <Text style={styles.sectionTitle}>Unassigned Companies</Text>
                 <Text style={styles.sectionSub}>Move existing businesses into a group to activate portfolio synergies.</Text>
@@ -606,6 +656,9 @@ const styles = StyleSheet.create({
   lockedTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
   lockedText: { color: Colors.textSecondary, fontSize: 12 },
   sectionTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
+  createHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  createAnotherButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: `${Colors.info}55`, backgroundColor: `${Colors.info}0D`, borderRadius: 10, marginBottom: 10 },
+  createAnotherText: { color: Colors.info, fontSize: 11, fontWeight: '800' },
   sectionSub: { color: Colors.textMuted, fontSize: 11, marginTop: 4 },
   reportingToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 11, padding: 10 },
   reportingToolbarTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900' },
