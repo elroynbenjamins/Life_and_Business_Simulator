@@ -2063,13 +2063,19 @@ export function processBusinessWeek(
       }
     }
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextStrategicDecisionWeek) {
-    const strategicDecision = makeStrategicDecision(biz, globalWeek);
-    nextStrategicDecisionWeek = scheduleNextStrategicDecisionWeek(globalWeek);
-    if (applyAutomaticStrategicChoice(strategicDecision)) {
-      pendingDecision = null;
-      autoResolvedDecision = true;
+    const activeStrategicPrograms = strategyModifiers.filter((modifier) => modifier.id.startsWith('strategy_'));
+    if (activeStrategicPrograms.length > 0) {
+      const shortestRemaining = Math.min(...activeStrategicPrograms.map((modifier) => Math.max(1, modifier.weeksRemaining ?? 1)));
+      nextStrategicDecisionWeek = globalWeek + Math.max(2, shortestRemaining);
     } else {
-      pendingDecision = strategicDecision;
+      const strategicDecision = makeStrategicDecision(biz, globalWeek);
+      nextStrategicDecisionWeek = scheduleNextStrategicDecisionWeek(globalWeek);
+      if (applyAutomaticStrategicChoice(strategicDecision)) {
+        pendingDecision = null;
+        autoResolvedDecision = true;
+      } else {
+        pendingDecision = strategicDecision;
+      }
     }
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextCrisisCheckWeek) {
     const corporateTier = getCorporateScaleTier(biz);
