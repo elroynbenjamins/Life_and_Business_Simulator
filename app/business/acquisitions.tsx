@@ -11,10 +11,12 @@ import { formatCurrency } from '../../src/utils/format';
 import {
   ACQUISITION_MARKET_REFRESH_WEEKS,
   ACQUISITION_UNLOCK_NET_WORTH,
+  AcquisitionTargetFundingFilter,
   AcquisitionTargetSortMode,
   getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
   getAcquisitionFundingAvailabilityMatrix,
+  filterAcquisitionTargetsByFunding,
   getAcquisitionPrice,
   getAcquisitionTransactionCost,
   sortAcquisitionTargets,
@@ -44,6 +46,12 @@ const SORT_OPTIONS: Array<{ key: AcquisitionTargetSortMode; label: string }> = [
   { key: 'risk', label: 'Risk' },
 ];
 
+const FUNDING_FILTERS: Array<{ key: AcquisitionTargetFundingFilter; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'ready', label: 'Ready now' },
+  { key: 'financeable', label: 'Financeable' },
+];
+
 export default function BusinessAcquisitionsScreen() {
   const router = useRouter();
   const acquisitionTargets = useGameStore((s) => s.acquisitionTargets ?? []);
@@ -63,6 +71,7 @@ export default function BusinessAcquisitionsScreen() {
   const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
   const [fundingMode, setFundingMode] = useState<AcquisitionFundingMode>('balanced');
   const [sortMode, setSortMode] = useState<AcquisitionTargetSortMode>('price');
+  const [fundingFilter, setFundingFilter] = useState<AcquisitionTargetFundingFilter>('all');
   const [expandedTargetId, setExpandedTargetId] = useState<string | null>(null);
 
   const netWorth = getNetWorthValue();
@@ -86,9 +95,21 @@ export default function BusinessAcquisitionsScreen() {
     if (unlocked) ensureAcquisitionMarket();
   }, [unlocked, globalWeek, ensureAcquisitionMarket]);
 
+  const filteredTargets = useMemo(
+    () => filterAcquisitionTargetsByFunding(
+      acquisitionTargets,
+      fundingFilter,
+      sourceCash,
+      negotiationBonus,
+      loanRateReduction,
+      macroRateModifier,
+    ),
+    [acquisitionTargets, fundingFilter, sourceCash, negotiationBonus, loanRateReduction, macroRateModifier],
+  );
+
   const sortedTargets = useMemo(
-    () => sortAcquisitionTargets(acquisitionTargets, sortMode, negotiationBonus),
-    [acquisitionTargets, sortMode, negotiationBonus],
+    () => sortAcquisitionTargets(filteredTargets, sortMode, negotiationBonus),
+    [filteredTargets, sortMode, negotiationBonus],
   );
 
   const confirmAcquire = (targetId: string) => {
@@ -243,6 +264,21 @@ export default function BusinessAcquisitionsScreen() {
               )}
             </View>
 
+            <View style={styles.marketFilterRow}>
+              {FUNDING_FILTERS.map((option) => {
+                const active = fundingFilter === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    onPress={() => setFundingFilter(option.key)}
+                    style={[styles.marketFilterChip, active && styles.marketFilterChipActive]}
+                  >
+                    <Text style={[styles.marketFilterText, active && styles.marketFilterTextActive]}>{option.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             {sortedTargets.length > 1 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
                 {SORT_OPTIONS.map((option) => {
@@ -263,7 +299,15 @@ export default function BusinessAcquisitionsScreen() {
             {sortedTargets.length === 0 ? (
               <GameCard>
                 <Text style={styles.emptyTitle}>No targets available</Text>
-                <Text style={styles.emptyText}>The current market has been cleared. A new batch arrives at the next refresh.</Text>
+                <Text style={styles.emptyText}>
+                  {acquisitionTargets.length === 0
+                    ? 'The current market has been cleared. A new batch arrives at the next refresh.'
+                    : fundingFilter === 'ready'
+                      ? 'No targets are both underwritten and affordable from the selected cash source right now.'
+                      : fundingFilter === 'financeable'
+                        ? 'No current target passes acquisition underwriting with any funding structure.'
+                        : 'No targets available.'}
+                </Text>
               </GameCard>
             ) : sortedTargets.map((target) => {
               const risk = RISK_LABELS[target.risk];
@@ -571,6 +615,11 @@ const styles = StyleSheet.create({
   marketHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 4 },
   marketTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
   marketSub: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
+  marketFilterRow: { flexDirection: 'row', gap: 6, marginTop: 7 },
+  marketFilterChip: { minHeight: 28, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  marketFilterChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}12` },
+  marketFilterText: { color: Colors.textMuted, fontSize: 9, fontWeight: '800' },
+  marketFilterTextActive: { color: Colors.primary },
   sortRow: { gap: 6, paddingVertical: 7, paddingRight: 6 },
   sortChip: { minHeight: 29, borderRadius: 15, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
   sortChipActive: { borderColor: Colors.info, backgroundColor: `${Colors.info}14` },
