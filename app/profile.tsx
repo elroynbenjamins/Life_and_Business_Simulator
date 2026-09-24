@@ -118,6 +118,7 @@ export default function ProfileScreen() {
             </View>
             <Pressable
               disabled={relationshipModeEnabled && personalLifeHasCommitments}
+              hitSlop={{ top: 8, bottom: 8 }}
               style={[styles.modeToggle, relationshipModeEnabled && styles.modeToggleOn, relationshipModeEnabled && personalLifeHasCommitments && { opacity: 0.45 }]}
               onPress={() => setRelationshipModeEnabled?.(!relationshipModeEnabled)}
               accessibilityRole="switch"
