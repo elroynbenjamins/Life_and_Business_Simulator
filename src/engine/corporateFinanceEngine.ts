@@ -75,24 +75,26 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
   const debtToValue = totalDebt / valuation;
   const revenue = Math.max(1, business.lastWeekRevenue ?? 0);
   const profit = business.lastWeekProfit ?? 0;
-  const weeklyInterestExpense = Math.max(
+  const scheduledInterestExpense = getBusinessWeeklyInterestExpense(business);
+  const reportedInterestExpense = Math.max(
     0,
     business.lastExpenseBreakdown?.loanInterest
-      ?? getBusinessWeeklyInterestExpense(business),
+      ?? scheduledInterestExpense,
   );
   const weeklyTaxes = Math.max(0, business.lastExpenseBreakdown?.taxes ?? 0);
-  // Profit is after interest and tax. Add interest back for cash available to
-  // service principal, and add tax as well for an EBIT-style interest cover.
-  const cashAvailableForDebtService = Math.max(0, profit + weeklyInterestExpense);
+  // Reconstruct last week's operating earnings from reported accounting results,
+  // then compare them with the CURRENT debt schedule. This keeps the ratios
+  // correct immediately after a loan is drawn, prepaid or fully repaid.
+  const cashAvailableForDebtService = Math.max(0, profit + reportedInterestExpense);
   const earningsBeforeInterestAndTax = Math.max(
     0,
-    profit + weeklyInterestExpense + weeklyTaxes,
+    profit + reportedInterestExpense + weeklyTaxes,
   );
   const debtServiceCoverage = weeklyDebtService > 0
     ? cashAvailableForDebtService / weeklyDebtService
     : cashAvailableForDebtService > 0 ? 10 : 1;
-  const interestCoverage = weeklyInterestExpense > 0
-    ? earningsBeforeInterestAndTax / weeklyInterestExpense
+  const interestCoverage = scheduledInterestExpense > 0
+    ? earningsBeforeInterestAndTax / scheduledInterestExpense
     : earningsBeforeInterestAndTax > 0 ? 10 : 1;
 
   const scaleTier = getCorporateScaleTier(business);
@@ -209,14 +211,14 @@ function buildDebtQuote(
     reason = 'This would exceed the company’s principal debt capacity.';
   }
 
-  const weeklyInterestExpense = Math.max(
+  const reportedInterestExpense = Math.max(
     0,
     business.lastExpenseBreakdown?.loanInterest
       ?? getBusinessWeeklyInterestExpense(business),
   );
   const cashAvailableForDebtService = Math.max(
     0,
-    (business.lastWeekProfit ?? 0) + weeklyInterestExpense,
+    (business.lastWeekProfit ?? 0) + reportedInterestExpense,
   );
   const projectedDebtService = profile.weeklyDebtService + weeklyPayment;
   if (allowed && cashAvailableForDebtService <= 0) {
@@ -334,14 +336,14 @@ export function getProjectFinanceQuote(
   }
   // Avoid financing structures where scheduled debt service would absorb almost
   // all current operating profit before construction disruption.
-  const weeklyInterestExpense = Math.max(
+  const reportedInterestExpense = Math.max(
     0,
     business.lastExpenseBreakdown?.loanInterest
       ?? getBusinessWeeklyInterestExpense(business),
   );
   const cashAvailableForDebtService = Math.max(
     0,
-    (business.lastWeekProfit ?? 0) + weeklyInterestExpense,
+    (business.lastWeekProfit ?? 0) + reportedInterestExpense,
   );
   const projectedDebtService = profile.weeklyDebtService + weeklyPayment;
   if (allowed && projectedDebtService > Math.max(1, cashAvailableForDebtService) * 0.70) {
