@@ -1,4 +1,12 @@
-import { HoldingCompany, HoldingSharedServiceId, HoldingSharedServices } from '../types/game';
+import { GameState, HoldingCompany, HoldingSharedServiceId, HoldingSharedServices, OwnedBusiness } from '../types/game';
+import {
+  applyBusinessDebtPrincipalPrepayment,
+  getBusinessDebtPrincipal,
+  getBusinessWeeklyDebtService,
+  getBusinessWeeklyInterestExpense,
+} from './businessDebtEngine';
+import { getBusinessProtectedCash } from './businessBudgetEngine';
+import { getPlayerEquityOwnershipPct } from './businessOwnershipEngine';
 
 export const EMPTY_HOLDING_SHARED_SERVICES: HoldingSharedServices = {
   finance: 0,
@@ -125,5 +133,741 @@ export function getHoldingSharedServiceEffects(holding: HoldingCompany | null | 
     crisisReduction: Math.max(0, Math.min(0.08, crisisReduction)),
     totalLevels: Object.values(services).reduce((sum, level) => sum + level, 0),
     services,
+  };
+}
+
+
+export const HOLDING_MANAGEMENT_FEE_DEFAULT = 0.01;
+export const HOLDING_MANAGEMENT_FEE_MAX = 0.03;
+export const HOLDING_RESERVE_TARGET_DEFAULT_WEEKS = 4;
+export const HOLDING_RESERVE_TARGET_MAX_WEEKS = 20;
+
+export function normalizeHoldingReserveTargetWeeks(weeks: number | null | undefined): number {
+  const value = Number.isFinite(weeks as number)
+    ? Math.round(Number(weeks))
+    : HOLDING_RESERVE_TARGET_DEFAULT_WEEKS;
+  return Math.max(0, Math.min(HOLDING_RESERVE_TARGET_MAX_WEEKS, value));
+}
+
+export function getHoldingReserveTarget(
+  holding: HoldingCompany,
+  businesses: OwnedBusiness[],
+): number {
+  const reserveWeeks = normalizeHoldingReserveTargetWeeks(holding.reserveTargetWeeks);
+  if (reserveWeeks <= 0) return 0;
+  const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
+  const weeklyOperatingExpenses = subsidiaries.reduce(
+    (sum, business) => sum + Math.max(0, business.lastWeekExpenses ?? 0),
+    0,
+  );
+  return Math.round(weeklyOperatingExpenses * reserveWeeks);
+}
+
+export function getHoldingAvailableDistributionCash(
+  holding: HoldingCompany,
+  businesses: OwnedBusiness[],
+): number {
+  return Math.max(
+    0,
+    Math.round((holding.cashReserve ?? 0) - getHoldingReserveTarget(holding, businesses)),
+  );
+}
+
+export function getHoldingReservePolicyPreview(
+  holding: HoldingCompany,
+  businesses: OwnedBusiness[],
+  nextWeeks: number,
+) {
+  const currentWeeks = normalizeHoldingReserveTargetWeeks(holding.reserveTargetWeeks);
+  const normalizedNextWeeks = normalizeHoldingReserveTargetWeeks(nextWeeks);
+  const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
+  const weeklyOperatingExpensesRaw = subsidiaries.reduce(
+    (sum, business) => sum + Math.max(0, business.lastWeekExpenses ?? 0),
+    0,
+  );
+  const weeklyOperatingExpenses = Math.round(weeklyOperatingExpensesRaw);
+  const cashReserve = Math.max(0, Math.round(holding.cashReserve ?? 0));
+  const currentTarget = Math.round(weeklyOperatingExpensesRaw * currentWeeks);
+  const nextTarget = Math.round(weeklyOperatingExpensesRaw * normalizedNextWeeks);
+  const currentAvailableDistributionCash = Math.max(0, cashReserve - currentTarget);
+  const nextAvailableDistributionCash = Math.max(0, cashReserve - nextTarget);
+
+  return {
+    currentWeeks,
+    nextWeeks: normalizedNextWeeks,
+    weeklyOperatingExpenses,
+    cashReserve,
+    currentTarget,
+    nextTarget,
+    currentAvailableDistributionCash,
+    nextAvailableDistributionCash,
+    distributionHeadroomDelta: nextAvailableDistributionCash - currentAvailableDistributionCash,
+  };
+}
+
+export type HoldingTreasuryAction = 'fund' | 'distribution';
+
+export function getHoldingTreasuryTransactionPreview({
+  action,
+  personalCash,
+  cashReserve,
+  amount,
+  reserveTarget = 0,
+}: {
+  action: HoldingTreasuryAction;
+  personalCash: number;
+  cashReserve: number;
+  amount: number;
+  reserveTarget?: number;
+}) {
+  const personalBefore = Math.max(0, Math.round(Number.isFinite(personalCash) ? personalCash : 0));
+  const reserveBefore = Math.max(0, Math.round(Number.isFinite(cashReserve) ? cashReserve : 0));
+  const target = Math.max(0, Math.round(Number.isFinite(reserveTarget) ? reserveTarget : 0));
+  const requestedAmount = Math.max(0, Math.round(Number.isFinite(amount) ? amount : 0));
+  const maxAmount = action === 'fund'
+    ? personalBefore
+    : Math.max(0, reserveBefore - target);
+  const transactionAmount = Math.min(requestedAmount, maxAmount);
+  const canExecute = requestedAmount > 0 && transactionAmount === requestedAmount;
+
+  const personalAfter = action === 'fund'
+    ? personalBefore - transactionAmount
+    : personalBefore + transactionAmount;
+  const reserveAfter = action === 'fund'
+    ? reserveBefore + transactionAmount
+    : reserveBefore - transactionAmount;
+
+  return {
+    action,
+    requestedAmount,
+    transactionAmount,
+    canExecute,
+    personalCashBefore: personalBefore,
+    personalCashAfter: personalAfter,
+    cashReserveBefore: reserveBefore,
+    cashReserveAfter: reserveAfter,
+    reserveTarget: target,
+    cashAboveTargetBefore: Math.max(0, reserveBefore - target),
+    cashAboveTargetAfter: Math.max(0, reserveAfter - target),
+  };
+}
+
+
+export function canChargeHoldingManagementFee(
+  business: OwnedBusiness,
+): boolean {
+  // Management fees are a parent-level cash extraction. Once another owner has
+  // economic rights in the subsidiary, cash must leave through pro-rata dividends
+  // instead of bypassing minority shareholders.
+  return getPlayerEquityOwnershipPct(business) >= 99.999;
+}
+
+export function normalizeHoldingManagementFeeRate(rate: number | null | undefined): number {
+  const value = Number.isFinite(rate as number) ? Number(rate) : HOLDING_MANAGEMENT_FEE_DEFAULT;
+  return Math.max(0, Math.min(HOLDING_MANAGEMENT_FEE_MAX, value));
+}
+
+export function getHoldingManagementFeeForWeek(
+  holding: HoldingCompany,
+  subsidiaryWeeklyRevenue: number,
+  subsidiaryBalance: number,
+  subsidiaryWeeklyExpenses: number,
+  protectedCashOverride?: number,
+): number {
+  const rate = normalizeHoldingManagementFeeRate(holding.managementFeeRate);
+  const revenue = Math.max(0, subsidiaryWeeklyRevenue);
+  const expenses = Math.max(0, subsidiaryWeeklyExpenses);
+  const weeklyProfitBeforeFee = Math.max(0, revenue - expenses);
+  if (rate <= 0 || revenue <= 0 || weeklyProfitBeforeFee <= 0) return 0;
+
+  // Management fees remain revenue-based, but they cannot turn an otherwise
+  // profitable subsidiary into a cash-extraction vehicle during weak weeks.
+  // At most 35% of pre-fee weekly profit can be upstreamed as a management fee.
+  const operatingBuffer = expenses * 4;
+  const protectedCash = Math.max(
+    operatingBuffer,
+    Math.max(0, protectedCashOverride ?? 0),
+  );
+  const availableCash = Math.max(0, subsidiaryBalance - protectedCash);
+  const revenueFee = Math.round(revenue * rate);
+  const profitCap = Math.round(weeklyProfitBeforeFee * 0.35);
+  return Math.max(
+    0,
+    Math.min(
+      revenueFee,
+      profitCap,
+      Math.round(availableCash),
+    ),
+  );
+}
+
+
+export function getHoldingManagementFeePolicyPreview(
+  holding: HoldingCompany,
+  businesses: OwnedBusiness[],
+  inflationMultiplier: number,
+  nextRate: number,
+) {
+  const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
+  const currentRate = normalizeHoldingManagementFeeRate(holding.managementFeeRate);
+  const normalizedNextRate = normalizeHoldingManagementFeeRate(nextRate);
+
+  const estimateAtRate = (rate: number) => {
+    let eligibleCount = 0;
+    let excludedMinorityCount = 0;
+    let eligibleRevenue = 0;
+    let eligiblePreFeeProfit = 0;
+    let grossRevenueFee = 0;
+    let afterProfitCapFee = 0;
+    let estimatedFee = 0;
+    let profitLimitedCount = 0;
+    let reserveLimitedCount = 0;
+
+    for (const business of subsidiaries) {
+      if (!canChargeHoldingManagementFee(business)) {
+        excludedMinorityCount += 1;
+        continue;
+      }
+
+      eligibleCount += 1;
+      const revenue = Math.max(0, business.lastWeekRevenue ?? 0);
+      const expenses = Math.max(0, business.lastWeekExpenses ?? 0);
+      const balance = Math.max(0, business.balance ?? 0);
+      const preFeeProfit = Math.max(0, revenue - expenses);
+      const protectedCash = getBusinessProtectedCash(
+        business,
+        inflationMultiplier,
+        expenses,
+      );
+      const revenueFee = Math.round(revenue * rate);
+      const profitCap = Math.round(preFeeProfit * 0.35);
+      const profitCappedFee = Math.min(revenueFee, profitCap);
+      const finalFee = getHoldingManagementFeeForWeek(
+        { ...holding, managementFeeRate: rate },
+        revenue,
+        balance,
+        expenses,
+        protectedCash,
+      );
+
+      eligibleRevenue += revenue;
+      eligiblePreFeeProfit += preFeeProfit;
+      grossRevenueFee += revenueFee;
+      afterProfitCapFee += profitCappedFee;
+      estimatedFee += finalFee;
+      if (revenueFee > profitCappedFee) profitLimitedCount += 1;
+      if (profitCappedFee > finalFee) reserveLimitedCount += 1;
+    }
+
+    return {
+      rate,
+      eligibleCount,
+      excludedMinorityCount,
+      eligibleRevenue: Math.round(eligibleRevenue),
+      eligiblePreFeeProfit: Math.round(eligiblePreFeeProfit),
+      grossRevenueFee: Math.round(grossRevenueFee),
+      afterProfitCapFee: Math.round(afterProfitCapFee),
+      estimatedFee: Math.round(estimatedFee),
+      profitCapReduction: Math.max(0, Math.round(grossRevenueFee - afterProfitCapFee)),
+      reserveProtectionReduction: Math.max(0, Math.round(afterProfitCapFee - estimatedFee)),
+      profitLimitedCount,
+      reserveLimitedCount,
+    };
+  };
+
+  const current = estimateAtRate(currentRate);
+  const next = estimateAtRate(normalizedNextRate);
+
+  return {
+    currentRate,
+    nextRate: normalizedNextRate,
+    subsidiaryCount: subsidiaries.length,
+    current,
+    next,
+    estimatedFeeDelta: next.estimatedFee - current.estimatedFee,
+  };
+}
+
+
+export type HoldingSubsidiaryAttentionLevel = 'critical' | 'watch' | 'stable';
+export type HoldingSubsidiaryFilter = 'all' | 'attention' | 'critical' | 'watch' | 'loss' | 'reserve' | 'material-debt' | 'debt' | 'manual' | 'delegated';
+export type HoldingSubsidiarySort = 'attention' | 'profit' | 'cash' | 'debt' | 'name';
+
+
+export function getHoldingSubsidiaryHealthSnapshot(
+  business: OwnedBusiness,
+  inflationMultiplier = 1,
+) {
+  const cash = Math.round(business.balance ?? 0);
+  const weeklyProfit = Math.round(business.lastWeekProfit ?? 0);
+  const weeklyExpenses = Math.max(0, business.lastWeekExpenses ?? 0);
+  const protectedCash = getBusinessProtectedCash(
+    business,
+    inflationMultiplier,
+    weeklyExpenses,
+  );
+  const protectedCashGap = Math.max(0, protectedCash - cash);
+  const protectedCashCoverage = protectedCash > 0
+    ? Math.max(0, Math.min(1, cash / protectedCash))
+    : 1;
+  const debtPrincipal = getBusinessDebtPrincipal(business);
+  const weeklyDebtService = getBusinessWeeklyDebtService(business);
+  const scheduledInterestExpense = getBusinessWeeklyInterestExpense(business);
+  const reportedInterestExpense = Math.max(
+    0,
+    business.lastExpenseBreakdown?.loanInterest ?? scheduledInterestExpense,
+  );
+  const cashAvailableForDebtService = Math.max(0, weeklyProfit + reportedInterestExpense);
+  const debtServiceCoverage = weeklyDebtService > 0
+    ? cashAvailableForDebtService / weeklyDebtService
+    : null;
+  const valuation = Math.max(0, business.valuation ?? 0);
+  const debtToValue = valuation > 0
+    ? debtPrincipal / valuation
+    : debtPrincipal > 0 ? 1 : 0;
+  const materialDebt = debtPrincipal > 0 && (
+    debtToValue > 0.30
+    || (debtServiceCoverage != null && debtServiceCoverage < 1.5)
+  );
+  const integrationPending = business.acquisition?.integrationStrategy === 'pending';
+  const decisionPending = Boolean(business.pendingDecision);
+
+  const criticalReasons: string[] = [];
+  const watchReasons: string[] = [];
+
+  if (integrationPending) criticalReasons.push('Integration decision');
+  if (cash < 0) criticalReasons.push('Negative cash');
+  if (decisionPending) watchReasons.push('Decision pending');
+  if (weeklyProfit < 0) watchReasons.push('Weekly loss');
+  if (materialDebt) {
+    if (debtServiceCoverage != null && debtServiceCoverage < 1) {
+      criticalReasons.push(`Debt coverage ${debtServiceCoverage.toFixed(2)}×`);
+    } else if (debtToValue > 0.50) {
+      criticalReasons.push(`Debt ${Math.round(debtToValue * 100)}% of value`);
+    } else if (debtServiceCoverage != null && debtServiceCoverage < 1.5) {
+      watchReasons.push(`Debt coverage ${debtServiceCoverage.toFixed(2)}×`);
+    } else {
+      watchReasons.push(`Debt ${Math.round(debtToValue * 100)}% of value`);
+    }
+  }
+  if (protectedCashGap > 0) {
+    const label = `Reserve gap ${Math.round(protectedCashCoverage * 100)}% funded`;
+    if (protectedCashCoverage < 0.5) criticalReasons.push(label);
+    else watchReasons.push(label);
+  }
+
+  const attention: HoldingSubsidiaryAttentionLevel = criticalReasons.length > 0
+    ? 'critical'
+    : watchReasons.length > 0
+      ? 'watch'
+      : 'stable';
+
+  return {
+    attention,
+    attentionReasons: [...criticalReasons, ...watchReasons],
+    cash,
+    weeklyProfit,
+    protectedCash,
+    protectedCashGap,
+    protectedCashCoverage,
+    debtPrincipal,
+    weeklyDebtService,
+    debtServiceCoverage,
+    debtToValue,
+    materialDebt,
+    integrationPending,
+    decisionPending,
+  };
+}
+
+export type HoldingSubsidiaryAttentionAction =
+  | { kind: 'business_overview'; focus: 'integration' | 'decision'; label: string; detail: string }
+  | { kind: 'business_finance'; focus: 'cash-management' | 'budget'; label: string; detail: string }
+  | { kind: 'holding_capital'; focus: 'growth' | 'debt'; label: string; detail: string };
+
+export function getHoldingSubsidiaryAttentionAction(
+  business: OwnedBusiness,
+  inflationMultiplier = 1,
+): HoldingSubsidiaryAttentionAction | null {
+  const health = getHoldingSubsidiaryHealthSnapshot(business, inflationMultiplier);
+
+  if (health.integrationPending) {
+    return {
+      kind: 'business_overview',
+      focus: 'integration',
+      label: 'Choose integration',
+      detail: 'Open the acquisition integration choices.',
+    };
+  }
+  if (health.decisionPending) {
+    return {
+      kind: 'business_overview',
+      focus: 'decision',
+      label: 'Resolve decision',
+      detail: 'Open the pending business decision.',
+    };
+  }
+  if (health.cash < 0) {
+    return {
+      kind: 'business_finance',
+      focus: 'cash-management',
+      label: 'Repair cash',
+      detail: 'Open Cash Management for funding and owner-cash controls.',
+    };
+  }
+  if (health.protectedCashGap > 0 && health.protectedCashCoverage < 0.5) {
+    return {
+      kind: 'holding_capital',
+      focus: 'growth',
+      label: 'Fund reserve',
+      detail: 'Expand Growth Capital for this subsidiary.',
+    };
+  }
+  if (health.weeklyProfit < 0) {
+    return {
+      kind: 'business_finance',
+      focus: 'budget',
+      label: 'Review loss',
+      detail: 'Open the Annual Cash Plan to review reserves and profit allocation.',
+    };
+  }
+  if (health.protectedCashGap > 0) {
+    return {
+      kind: 'holding_capital',
+      focus: 'growth',
+      label: 'Fund reserve',
+      detail: 'Expand Growth Capital for this subsidiary.',
+    };
+  }
+  if (health.materialDebt) {
+    return {
+      kind: 'holding_capital',
+      focus: 'debt',
+      label: 'Review debt',
+      detail: 'Expand Debt Paydown for this subsidiary.',
+    };
+  }
+  return null;
+}
+
+export function getHoldingSubsidiaryAttentionSummary(
+  businesses: OwnedBusiness[],
+  inflationMultiplier = 1,
+) {
+  const summary = {
+    total: 0,
+    critical: 0,
+    watch: 0,
+    stable: 0,
+    loss: 0,
+    reserve: 0,
+    debt: 0,
+    materialDebt: 0,
+    manual: 0,
+    delegated: 0,
+  };
+
+  for (const business of businesses ?? []) {
+    const health = getHoldingSubsidiaryHealthSnapshot(business, inflationMultiplier);
+    summary.total += 1;
+    summary[health.attention] += 1;
+    if (health.weeklyProfit < 0) summary.loss += 1;
+    if (health.protectedCashGap > 0) summary.reserve += 1;
+    if (health.debtPrincipal > 0) summary.debt += 1;
+    if (health.materialDebt) summary.materialDebt += 1;
+    if (!business.delegationPolicy || business.delegationPolicy === 'manual') summary.manual += 1;
+    else summary.delegated += 1;
+  }
+
+  return {
+    ...summary,
+    attention: summary.critical + summary.watch,
+  };
+}
+
+export function getHoldingDebtOverview(
+  businesses: OwnedBusiness[],
+  inflationMultiplier = 1,
+) {
+  const rows = (businesses ?? []).map((business) => ({
+    business,
+    health: getHoldingSubsidiaryHealthSnapshot(business, inflationMultiplier),
+  }));
+  const indebted = rows.filter(({ health }) => health.debtPrincipal > 0);
+  const totalDebt = indebted.reduce((sum, { health }) => sum + health.debtPrincipal, 0);
+  const weeklyDebtService = indebted.reduce((sum, { health }) => sum + health.weeklyDebtService, 0);
+  const totalValue = rows.reduce((sum, { business }) => sum + Math.max(0, business.valuation ?? 0), 0);
+  const materialDebtCount = indebted.filter(({ health }) => health.materialDebt).length;
+  const debtServiceCoverageNumerator = indebted.reduce((sum, { business, health }) => {
+    const scheduledInterest = getBusinessWeeklyInterestExpense(business);
+    const reportedInterest = Math.max(
+      0,
+      business.lastExpenseBreakdown?.loanInterest ?? scheduledInterest,
+    );
+    return sum + Math.max(0, (business.lastWeekProfit ?? 0) + reportedInterest);
+  }, 0);
+  const groupDebtServiceCoverage = weeklyDebtService > 0
+    ? debtServiceCoverageNumerator / weeklyDebtService
+    : null;
+
+  const topRisks = indebted
+    .filter(({ health }) => health.materialDebt)
+    .sort((a, b) => {
+      const aCritical = a.health.debtServiceCoverage != null && a.health.debtServiceCoverage < 1
+        || a.health.debtToValue > 0.50;
+      const bCritical = b.health.debtServiceCoverage != null && b.health.debtServiceCoverage < 1
+        || b.health.debtToValue > 0.50;
+      if (aCritical !== bCritical) return aCritical ? -1 : 1;
+
+      const aCoverage = a.health.debtServiceCoverage ?? Number.POSITIVE_INFINITY;
+      const bCoverage = b.health.debtServiceCoverage ?? Number.POSITIVE_INFINITY;
+      if (aCoverage !== bCoverage) return aCoverage - bCoverage;
+      if (a.health.debtToValue !== b.health.debtToValue) return b.health.debtToValue - a.health.debtToValue;
+      return b.health.debtPrincipal - a.health.debtPrincipal;
+    })
+    .slice(0, 3)
+    .map(({ business, health }) => ({
+      businessId: business.id,
+      businessName: business.name,
+      debtPrincipal: health.debtPrincipal,
+      weeklyDebtService: health.weeklyDebtService,
+      debtServiceCoverage: health.debtServiceCoverage,
+      debtToValue: health.debtToValue,
+      severity: (
+        (health.debtServiceCoverage != null && health.debtServiceCoverage < 1)
+        || health.debtToValue > 0.50
+      ) ? 'critical' as const : 'watch' as const,
+    }));
+
+  return {
+    subsidiaryCount: rows.length,
+    indebtedCount: indebted.length,
+    totalDebt: Math.round(totalDebt),
+    weeklyDebtService: Math.round(weeklyDebtService),
+    totalValue: Math.round(totalValue),
+    groupDebtToValue: totalValue > 0 ? totalDebt / totalValue : totalDebt > 0 ? 1 : 0,
+    groupDebtServiceCoverage,
+    materialDebtCount,
+    topRisks,
+  };
+}
+
+export function filterAndSortHoldingSubsidiaries(
+  businesses: OwnedBusiness[],
+  inflationMultiplier = 1,
+  filter: HoldingSubsidiaryFilter = 'all',
+  sort: HoldingSubsidiarySort = 'attention',
+): OwnedBusiness[] {
+  const rows = (businesses ?? []).map((business) => ({
+    business,
+    health: getHoldingSubsidiaryHealthSnapshot(business, inflationMultiplier),
+  }));
+
+  const filtered = rows.filter(({ business, health }) => {
+    if (filter === 'attention') return health.attention !== 'stable';
+    if (filter === 'critical') return health.attention === 'critical';
+    if (filter === 'watch') return health.attention === 'watch';
+    if (filter === 'loss') return health.weeklyProfit < 0;
+    if (filter === 'reserve') return health.protectedCashGap > 0;
+    if (filter === 'material-debt') return health.materialDebt;
+    if (filter === 'debt') return health.debtPrincipal > 0;
+    if (filter === 'manual') return !business.delegationPolicy || business.delegationPolicy === 'manual';
+    if (filter === 'delegated') return Boolean(business.delegationPolicy && business.delegationPolicy !== 'manual');
+    return true;
+  });
+
+  const attentionRank: Record<HoldingSubsidiaryAttentionLevel, number> = {
+    critical: 0,
+    watch: 1,
+    stable: 2,
+  };
+
+  filtered.sort((a, b) => {
+    if (sort === 'profit') {
+      const diff = a.health.weeklyProfit - b.health.weeklyProfit;
+      if (diff !== 0) return diff;
+    } else if (sort === 'cash') {
+      const diff = a.health.cash - b.health.cash;
+      if (diff !== 0) return diff;
+    } else if (sort === 'debt') {
+      const diff = b.health.debtPrincipal - a.health.debtPrincipal;
+      if (diff !== 0) return diff;
+    } else if (sort === 'name') {
+      return (a.business.name ?? '').localeCompare(b.business.name ?? '');
+    } else {
+      const rankDiff = attentionRank[a.health.attention] - attentionRank[b.health.attention];
+      if (rankDiff !== 0) return rankDiff;
+      const coverageDiff = a.health.protectedCashCoverage - b.health.protectedCashCoverage;
+      if (coverageDiff !== 0) return coverageDiff;
+      const profitDiff = a.health.weeklyProfit - b.health.weeklyProfit;
+      if (profitDiff !== 0) return profitDiff;
+    }
+
+    return (a.business.name ?? '').localeCompare(b.business.name ?? '');
+  });
+
+  return filtered.map(({ business }) => business);
+}
+
+export function getHoldingCapitalAllocationPreview(
+  business: OwnedBusiness,
+  requestedAmount: number,
+  inflationMultiplier = 1,
+) {
+  const amount = Math.max(0, Math.round(requestedAmount ?? 0));
+  const currentBalance = Math.max(0, business.balance ?? 0);
+  const weeklyExpenses = Math.max(0, business.lastWeekExpenses ?? 0);
+  const playerOwnershipPct = getPlayerEquityOwnershipPct(business);
+  const minorityOwnershipPct = Math.max(0, 100 - playerOwnershipPct) / 100;
+  const protectedCash = getBusinessProtectedCash(
+    business,
+    inflationMultiplier,
+    weeklyExpenses,
+  );
+  const reserveGapBefore = Math.max(0, protectedCash - currentBalance);
+  const growthPostBalance = currentBalance + amount;
+  const reserveGapAfter = Math.max(0, protectedCash - growthPostBalance);
+  const growthCashAboveProtected = Math.max(0, growthPostBalance - protectedCash);
+  const additionalRunwayWeeks = weeklyExpenses > 0 ? amount / weeklyExpenses : null;
+
+  const debtPrincipalBefore = getBusinessDebtPrincipal(business);
+  const debtServiceBefore = getBusinessWeeklyDebtService(business);
+  const debtPayment = applyBusinessDebtPrincipalPrepayment(
+    business.businessLoans ?? [],
+    amount,
+  );
+  const debtBusinessAfter: OwnedBusiness = {
+    ...business,
+    businessLoans: debtPayment.loans,
+  };
+  const debtPrincipalAfter = getBusinessDebtPrincipal(debtBusinessAfter);
+  const debtServiceAfter = getBusinessWeeklyDebtService(debtBusinessAfter);
+  const futureInterestAvoided = Math.max(
+    0,
+    debtPayment.scheduledBalanceReduced - debtPayment.principalRepaid,
+  );
+
+  return {
+    requestedAmount: amount,
+    growth: {
+      cashAdded: amount,
+      postBalance: Math.round(growthPostBalance),
+      protectedCash,
+      reserveGapBefore: Math.round(reserveGapBefore),
+      reserveGapAfter: Math.round(reserveGapAfter),
+      reserveGapReduction: Math.round(Math.max(0, reserveGapBefore - reserveGapAfter)),
+      cashAboveProtected: Math.round(growthCashAboveProtected),
+      protectedCoverageBefore: protectedCash > 0 ? Math.min(1, currentBalance / protectedCash) : 1,
+      protectedCoverageAfter: protectedCash > 0 ? Math.min(1, growthPostBalance / protectedCash) : 1,
+      additionalRunwayWeeks,
+      minorityValueTransfer: Math.round(amount * minorityOwnershipPct),
+    },
+    debt: {
+      cashUsed: debtPayment.cashUsed,
+      principalRepaid: debtPayment.principalRepaid,
+      principalBefore: debtPrincipalBefore,
+      principalAfter: debtPrincipalAfter,
+      futureInterestAvoided: Math.round(futureInterestAvoided),
+      weeklyDebtServiceBefore: debtServiceBefore,
+      weeklyDebtServiceAfter: debtServiceAfter,
+      weeklyDebtServiceReduction: Math.max(0, debtServiceBefore - debtServiceAfter),
+      principalReductionPct: debtPrincipalBefore > 0
+        ? Math.min(1, debtPayment.principalRepaid / debtPrincipalBefore)
+        : 0,
+      minorityValueTransfer: Math.round(debtPayment.cashUsed * minorityOwnershipPct),
+    },
+    ownership: {
+      playerOwnershipPct,
+      minorityOwnershipPct: 100 - playerOwnershipPct,
+    },
+  };
+}
+
+export const HOLDING_COMPANY_SETUP_COST = 500_000;
+
+export function createHoldingCompany(
+  name: string,
+  state: Pick<GameState, 'week' | 'year' | 'generation' | 'playerName' | 'familyTree'>,
+): HoldingCompany {
+  const cleanName = name.trim() || `${state.playerName} Holdings`;
+  return {
+    id: `holding_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    name: cleanName,
+    createdGlobalWeek: ((state.year - 1) * 20 + state.week),
+    founderGeneration: state.generation ?? 1,
+    generationsOwned: 1,
+    controllerName: state.playerName,
+    controllerPersonId: state.familyTree?.currentPlayerId ?? null,
+    cashReserve: 0,
+    totalCapitalDeployed: 0,
+    executiveChildId: null,
+    executiveChildName: null,
+    executivePerformance: 50,
+    designatedSuccessorChildId: null,
+    designatedSuccessorChildName: null,
+    sharedServices: { ...EMPTY_HOLDING_SHARED_SERVICES },
+    managementFeeRate: HOLDING_MANAGEMENT_FEE_DEFAULT,
+    reserveTargetWeeks: HOLDING_RESERVE_TARGET_DEFAULT_WEEKS,
+    totalManagementFeesCollected: 0,
+    totalDividendsReceived: 0,
+    totalOwnerDistributions: 0,
+  };
+}
+
+export function getHoldingCompanySummary(holding: HoldingCompany, businesses: OwnedBusiness[]) {
+  const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
+  const totalValue = subsidiaries.reduce((sum, business) => sum + Math.max(0, business.valuation ?? 0), 0);
+  const totalDebt = subsidiaries.reduce(
+    (sum, business) => sum + getBusinessDebtPrincipal(business),
+    0,
+  );
+  const weeklyProfit = subsidiaries.reduce((sum, business) => sum + (business.lastWeekProfit ?? 0), 0);
+  const ownerNetEquity = subsidiaries.reduce((sum, business) => {
+    const equity = Math.max(0, Math.max(0, business.valuation ?? 0) - getBusinessDebtPrincipal(business));
+    return sum + equity * getPlayerEquityOwnershipPct(business) / 100;
+  }, 0);
+  const familyControlledValue = subsidiaries.reduce((sum, business) => {
+    const familyPct = business.ownership?.length
+      ? business.ownership
+          .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
+          .reduce((stakeSum, stake) => stakeSum + (stake.percent ?? 0), 0)
+      : 100;
+    const boundedFamilyPct = Math.max(0, Math.min(100, familyPct));
+    return sum + Math.max(0, business.valuation ?? 0) * boundedFamilyPct / 100;
+  }, 0);
+  const protectedAssets = subsidiaries.filter(
+    (business) => business.portfolioIntent === 'long_term_family',
+  ).length;
+  const reserveTargetWeeks = normalizeHoldingReserveTargetWeeks(holding.reserveTargetWeeks);
+  const reserveTarget = getHoldingReserveTarget(holding, businesses);
+  const availableDistributionCash = getHoldingAvailableDistributionCash(holding, businesses);
+  const cashReserve = Math.max(0, holding.cashReserve ?? 0);
+  const totalManagementFeesCollected = Math.max(0, holding.totalManagementFeesCollected ?? 0);
+  const totalDividendsReceived = Math.max(0, holding.totalDividendsReceived ?? 0);
+  const totalOwnerDistributions = Math.max(0, holding.totalOwnerDistributions ?? 0);
+  const totalHoldingInflows = totalManagementFeesCollected + totalDividendsReceived;
+  const ownerGroupValue = Math.max(0, Math.round(ownerNetEquity) + cashReserve);
+
+  return {
+    subsidiaryCount: subsidiaries.length,
+    totalValue,
+    totalDebt,
+    netGroupEquity: Math.max(0, totalValue - totalDebt),
+    ownerNetEquity: Math.round(ownerNetEquity),
+    weeklyProfit,
+    cashReserve,
+    ownerGroupValue,
+    totalCapitalDeployed: Math.max(0, holding.totalCapitalDeployed ?? 0),
+    managementFeeRate: normalizeHoldingManagementFeeRate(holding.managementFeeRate),
+    reserveTargetWeeks,
+    reserveTarget,
+    availableDistributionCash,
+    totalManagementFeesCollected,
+    totalDividendsReceived,
+    totalHoldingInflows,
+    totalOwnerDistributions,
+    familyControlledValue,
+    familyControlledPct: totalValue > 0 ? familyControlledValue / totalValue * 100 : 0,
+    protectedAssets,
   };
 }

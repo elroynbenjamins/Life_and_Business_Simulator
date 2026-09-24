@@ -1,136 +1,78 @@
-import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import useGameStore from '../store/gameStore';
+import { useTutorialStore } from '../store/tutorialStore';
+import { tutorialSnapshot } from './TutorialDock';
 import { Colors } from '../theme/colors';
 
-const STEPS = [
-  {
-    icon: 'time-outline' as const,
-    color: Colors.primary,
-    title: 'Build your life, one week at a time',
-    text: 'Choose your actions, then use Advance to Next Week on the Dashboard. Income, bills, education, investments, businesses, events and markets are processed each week.',
-    tip: 'Every 20 weeks is one year and ends with a financial report and tax bill.',
-  },
-  {
-    icon: 'school-outline' as const,
-    color: Colors.info,
-    title: 'Learn, then build a career',
-    text: 'Start with Education to unlock a career path and gain skills and knowledge. A part-time job can provide income while studying, but you cannot keep it after starting a normal career.',
-    tip: 'Higher career levels can require experience, education, a Sedan or SUV, and better housing.',
-  },
-  {
-    icon: 'wallet-outline' as const,
-    color: Colors.warning,
-    title: 'Protect your cash flow',
-    text: 'Housing, utilities, food, vehicles, courses and loans create recurring expenses. Keep cash available before advancing, especially when the 20-week tax bill is approaching.',
-    tip: 'Tap Weekly Expenses on the Dashboard for a detailed breakdown in Statistics.',
-  },
-  {
-    icon: 'trending-up-outline' as const,
-    color: '#8B5CF6',
-    title: 'Invest for the long term',
-    text: 'Stocks, ETFs and commodities react to news, sentiment and sector events. Properties can appreciate and earn rent, but maintenance is charged every week.',
-    tip: 'Diversification reduces the impact of one poor investment or market event.',
-  },
-  {
-    icon: 'business-outline' as const,
-    color: Colors.happiness,
-    title: 'Build a business carefully',
-    text: 'A new business has its own balance, three competitors and 10% market share. Inject personal cash before recruiting. Employees determine operating scale, while pricing, upgrades, reputation and market share determine growth. Strong reputation unlocks higher levels and new locations around the world.',
-    tip: 'Business purchases use business cash—not your personal cash.',
-  },
-  {
-    icon: 'trophy-outline' as const,
-    color: '#D4A843',
-    title: 'Create your empire',
-    text: 'Balance career income, lifestyle, investments and businesses to grow net worth. Achievements award Prestige Points and sometimes gems for permanent progress.',
-    tip: 'You can replay this tutorial from the How To Play screen at any time.',
-  },
-];
-
 export default function TutorialModal() {
+  const router = useRouter();
   const visible = useGameStore((state) => state.showTutorial);
-  const dismissTutorial = useGameStore((state) => state.dismissTutorial);
-  const [step, setStep] = useState(0);
+  const ready = useTutorialStore((state) => state.ready);
+  const hydrate = useTutorialStore((state) => state.hydrate);
+  useEffect(() => { void hydrate(); }, [hydrate]);
 
-  useEffect(() => {
-    if (visible) setStep(0);
-  }, [visible]);
-
+  const dismiss = () => {
+    const state = useGameStore.getState();
+    // Clear the old secondary prompt first so it cannot flash between renders.
+    state.dismissEducationOnboarding();
+    state.dismissTutorial();
+  };
+  const explore = () => {
+    const isNewLife = useGameStore.getState().showEducationOnboarding;
+    const scope = tutorialSnapshot().scope;
+    useTutorialStore.getState().pause();
+    // New Game + the same name/slot must not inherit the previous life's guide.
+    // Merely replaying the welcome from help should not erase existing lessons.
+    if (isNewLife) void useTutorialStore.getState().forget(scope);
+    dismiss();
+  };
+  const start = () => {
+    if (!useTutorialStore.getState().ready) return;
+    useTutorialStore.getState().start(tutorialSnapshot(), true);
+    dismiss();
+    router.navigate('/tabs');
+  };
   if (!visible) return null;
-  const current = STEPS[step];
-  const isLast = step === STEPS.length - 1;
-
   return (
-    <Modal visible animationType="fade">
+    <Modal visible animationType="fade" onRequestClose={explore}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.topRow}>
-          <Text style={styles.counter}>{step + 1} / {STEPS.length}</Text>
-          <Pressable onPress={dismissTutorial} hitSlop={12} accessibilityRole="button">
-            <Text style={styles.skip}>Skip tutorial</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.content}>
-          <View style={[styles.iconCircle, { backgroundColor: `${current.color}22`, borderColor: current.color }]}>
-            <Ionicons name={current.icon} size={54} color={current.color} />
-          </View>
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.iconCircle}><Ionicons name="compass-outline" size={48} color={Colors.primary} /></View>
           <Text style={styles.eyebrow}>WELCOME TO LIFE EMPIRE</Text>
-          <Text style={styles.title}>{current.title}</Text>
-          <Text style={styles.text}>{current.text}</Text>
-          <View style={styles.tipCard}>
-            <Ionicons name="bulb-outline" size={21} color={Colors.warning} />
-            <Text style={styles.tip}>{current.tip}</Text>
-          </View>
-        </View>
-
-        <View style={styles.footer}>
-          <View style={styles.dots}>
-            {STEPS.map((_, index) => (
-              <View key={index} style={[styles.dot, index === step && styles.activeDot]} />
-            ))}
-          </View>
+          <Text style={styles.title}>Build your life, one choice at a time.</Text>
+          <Text style={styles.body}>Learn on the real screens: review your cash flow, choose education and income, then see the result of one week.</Text>
+          <Text style={styles.hint}>Every lesson can be skipped or paused. No purchases, ads or particular career choices are required.</Text>
           <View style={styles.actions}>
-            {step > 0 && (
-              <Pressable style={styles.backButton} onPress={() => setStep((value) => value - 1)}>
-                <Text style={styles.backText}>Back</Text>
-              </Pressable>
-            )}
-            <Pressable
-              style={[styles.nextButton, step === 0 && styles.fullButton]}
-              onPress={() => isLast ? dismissTutorial() : setStep((value) => value + 1)}
-            >
-              <Text style={styles.nextText}>{isLast ? 'Start playing' : 'Next'}</Text>
-              <Ionicons name={isLast ? 'play' : 'arrow-forward'} size={19} color={Colors.white} />
+            <Pressable accessibilityRole="button" accessibilityState={{ disabled: !ready }} disabled={!ready} onPress={start} style={[styles.primary, !ready && styles.disabled]}>
+              <Text style={styles.primaryText}>{ready ? 'Guide me' : 'Loading guidance...'}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={explore} style={styles.secondary}>
+              <Text style={styles.secondaryText}>Explore freely</Text>
             </Pressable>
           </View>
-        </View>
+          <Text style={styles.footer}>Resume or replay from How To Play. Your game progress is never reset.</Text>
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
 }
-
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 24 },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14 },
-  counter: { color: Colors.textMuted, fontSize: 13, fontWeight: '700' },
-  skip: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600' },
-  content: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%', maxWidth: 480, alignSelf: 'center' },
-  iconCircle: { width: 106, height: 106, borderRadius: 53, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 28 },
-  eyebrow: { color: Colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.5, marginBottom: 10 },
-  title: { color: Colors.textPrimary, fontSize: 27, lineHeight: 34, fontWeight: '800', textAlign: 'center' },
-  text: { color: Colors.textSecondary, fontSize: 16, lineHeight: 24, textAlign: 'center', marginTop: 16 },
-  tipCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 14, padding: 15, marginTop: 24 },
-  tip: { flex: 1, color: Colors.textPrimary, fontSize: 14, lineHeight: 20 },
-  footer: { paddingBottom: 20, width: '100%', maxWidth: 480, alignSelf: 'center' },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginBottom: 20 },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.cardBorder },
-  activeDot: { width: 22, backgroundColor: Colors.primary },
-  actions: { flexDirection: 'row', gap: 12 },
-  backButton: { flex: 1, minHeight: 54, borderRadius: 13, borderWidth: 1, borderColor: Colors.cardBorder, alignItems: 'center', justifyContent: 'center' },
-  backText: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
-  nextButton: { flex: 2, minHeight: 54, borderRadius: 13, backgroundColor: Colors.primary, flexDirection: 'row', gap: 9, alignItems: 'center', justifyContent: 'center' },
-  fullButton: { flex: 1 },
-  nextText: { color: Colors.white, fontSize: 16, fontWeight: '800' },
+  safeArea: { flex: 1, backgroundColor: Colors.background },
+  content: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 28, maxWidth: 480, width: '100%', alignSelf: 'center' },
+  iconCircle: { width: 96, height: 96, borderRadius: 48, backgroundColor: `${Colors.primary}18`, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  eyebrow: { color: Colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.3, textAlign: 'center' },
+  title: { color: Colors.textPrimary, fontSize: 27, lineHeight: 34, fontWeight: '800', textAlign: 'center', marginTop: 12 },
+  body: { color: Colors.textSecondary, fontSize: 16, lineHeight: 24, textAlign: 'center', marginTop: 16 },
+  hint: { color: Colors.textSecondary, fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 18 },
+  actions: { width: '100%', gap: 10, marginTop: 26 },
+  primary: { minHeight: 52, borderRadius: 12, backgroundColor: Colors.primary, padding: 14, alignItems: 'center', justifyContent: 'center' },
+  primaryText: { color: Colors.white, fontSize: 16, fontWeight: '800' },
+  secondary: { minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, padding: 12, alignItems: 'center', justifyContent: 'center' },
+  secondaryText: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  footer: { color: Colors.textMuted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 16 },
+  disabled: { opacity: 0.5 },
 });

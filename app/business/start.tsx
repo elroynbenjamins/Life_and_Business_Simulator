@@ -10,12 +10,16 @@ import { formatCurrency } from '../../src/utils/format';
 import { inflated } from '../../src/engine/economyEngine';
 import businessTypesData from '../../src/data/business_types.json';
 import { businessTypeImages } from '../../src/assets/progressionImages';
+import BusinessCapacityPanel from '../../src/components/BusinessCapacityPanel';
+import { getBusinessCapacity } from '../../src/engine/businessCapacityEngine';
 
 const INDUSTRIES = [...new Set((businessTypesData ?? []).map((t) => t.industry))];
 
 export default function StartBusinessScreen() {
   const router = useRouter();
   const cash = useGameStore((s) => s?.cash ?? 0);
+  const businesses = useGameStore((s) => s?.businesses ?? []);
+  const profile = useGameStore((s) => s.profile);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const foundBusiness = useGameStore((s) => s?.foundBusiness);
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
@@ -29,9 +33,11 @@ export default function StartBusinessScreen() {
   const selectedBizType = selectedType ? (businessTypesData ?? []).find((t) => t.id === selectedType) : null;
   const startupCost = selectedBizType ? inflated(selectedBizType.startupCost ?? 0, inflationMultiplier) : 0;
   const canAfford = cash >= startupCost;
+  const businessCapacity = getBusinessCapacity(profile);
+  const atCapacity = businesses.length >= businessCapacity;
 
   const handleFound = () => {
-    if (!selectedType || !canAfford) return;
+    if (!selectedType || !canAfford || atCapacity) return;
     foundBusiness?.(selectedType, customName || null);
     const created = useGameStore.getState().businesses.slice(-1)[0];
     if (created) router.replace({ pathname: '/business/[id]', params: { id: created.id, newBusiness: '1' } });
@@ -49,6 +55,8 @@ export default function StartBusinessScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionTitle}>Available Cash: <Text style={{ color: Colors.primary }}>{formatCurrency(cash)}</Text></Text>
+
+        <BusinessCapacityPanel />
 
         {/* Industry Filter */}
         <Text style={styles.label}>Industry</Text>
@@ -134,12 +142,14 @@ export default function StartBusinessScreen() {
               </View>
             </View>
             <Pressable
-              style={[styles.foundButton, !canAfford && styles.foundButtonDisabled]}
+              style={[styles.foundButton, (!canAfford || atCapacity) && styles.foundButtonDisabled]}
               onPress={handleFound}
-              disabled={!canAfford}
+              disabled={!canAfford || atCapacity}
             >
-              <Ionicons name="rocket" size={20} color={Colors.white} />
-              <Text style={styles.foundButtonText}>Found Business</Text>
+              <Ionicons name={atCapacity ? 'lock-closed' : 'rocket'} size={20} color={Colors.white} />
+              <Text style={styles.foundButtonText}>
+                {atCapacity ? (businessCapacity >= 10 ? 'Maximum Company Capacity' : `Unlock Slot ${businessCapacity + 1} Above`) : 'Found Business'}
+              </Text>
             </Pressable>
           </View>
         )}

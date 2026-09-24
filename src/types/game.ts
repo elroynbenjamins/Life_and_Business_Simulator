@@ -64,6 +64,7 @@ export interface RelationshipConnection extends RelationshipCandidate {
 
 export type ChildIndependence = 'close' | 'balanced' | 'independent';
 export type ChildResilience = 'fragile' | 'balanced' | 'resilient';
+export type ChildLifePath = 'balanced' | 'academic' | 'creative' | 'athletic' | 'entrepreneurial' | 'practical';
 export type AdultChildStatus = 'employed' | 'unemployed' | 'entrepreneur';
 
 export interface ChildPersonality {
@@ -109,6 +110,9 @@ export interface RelationshipChild {
   failureCount?: number;
   businessValue?: number;
   lastAdultEventYear?: number;
+  lifePath?: ChildLifePath;
+  developmentScore?: number;
+  lastLifeArcEventAge?: number;
 }
 
 export type RelationshipObligationType = 'divorce_settlement' | 'legal_fees';
@@ -228,6 +232,30 @@ export interface RelationshipTimelineEntry {
   title: string;
 }
 
+export type RelationshipMemoryTag =
+  | 'intimate_wedding'
+  | 'standard_wedding'
+  | 'luxury_wedding'
+  | 'world_travellers'
+  | 'big_family_celebration'
+  | 'simple_family_tradition'
+  | 'showed_up_for_family'
+  | 'balanced_work_family'
+  | 'career_first'
+  | 'supported_child_path'
+  | 'child_independence';
+
+export interface RelationshipMemory {
+  id: string;
+  tag: RelationshipMemoryTag;
+  label: string;
+  sentiment: 'positive' | 'mixed' | 'negative';
+  globalWeek: number;
+  partnerId?: string | null;
+  childId?: string | null;
+  sourceEventId?: string | null;
+}
+
 export interface RelationshipFinancialSnapshot {
   globalWeek: number;
   netWorth: number;
@@ -241,6 +269,7 @@ export interface RelationshipFinancialSnapshot {
 
 export interface RelationshipEventChoice {
   text: string;
+  personalityHint?: string;
   cost?: number;
   cash?: number;
   relationship?: number;
@@ -248,7 +277,20 @@ export interface RelationshipEventChoice {
   happinessDuration?: number;
   childId?: string;
   childSavings?: number;
+  childEducationFund?: number;
   childRelationship?: number;
+  /** Starts unpaid couple travel for this many weekly ticks. */
+  travelWeeks?: number;
+  memoryTag?: RelationshipMemoryTag;
+  memoryLabel?: string;
+  memorySentiment?: RelationshipMemory['sentiment'];
+  childLifePath?: ChildLifePath;
+  childDevelopment?: number;
+  careerPerformanceDelta?: number;
+  businessId?: string;
+  businessReputationDelta?: number;
+  businessMoraleDelta?: number;
+  businessCashCost?: number;
 }
 
 export interface RelationshipEvent {
@@ -257,6 +299,8 @@ export interface RelationshipEvent {
   description: string;
   icon: string;
   choices: RelationshipEventChoice[];
+  /** Persistent one-time milestone marker. */
+  milestoneKey?: string;
 }
 
 export interface RelationshipState {
@@ -288,6 +332,11 @@ export interface RelationshipState {
   lastFamilyAttemptWeek: number;
   lastRelationshipEventWeek: number;
   recentRelationshipEventIds: string[];
+  celebratedMilestones?: string[];
+  memories?: RelationshipMemory[];
+  lastWorkFamilyConflictWeek?: number;
+  coupleTripWeeksRemaining?: number;
+  lastCoupleTripWeek?: number;
   pendingEvent: RelationshipEvent | null;
   financialSnapshot: RelationshipFinancialSnapshot | null;
   sharedGoal: RelationshipSharedGoal | null;
@@ -322,6 +371,11 @@ export const INITIAL_RELATIONSHIP_STATE: RelationshipState = {
   lastFamilyAttemptWeek: 0,
   lastRelationshipEventWeek: 0,
   recentRelationshipEventIds: [],
+  celebratedMilestones: [],
+  memories: [],
+  lastWorkFamilyConflictWeek: 0,
+  coupleTripWeeksRemaining: 0,
+  lastCoupleTripWeek: 0,
   pendingEvent: null,
   financialSnapshot: null,
   sharedGoal: null,
@@ -585,12 +639,32 @@ export interface JobData {
   requiredExperienceWeeks: number;
 }
 
+export type MarketCompanyStage = 'established' | 'emerging' | 'growth' | 'mature' | 'failed';
+export type MarketCompanyStatus = 'listed' | 'delisted';
+export type MarketCompanyDelistingReason = 'failure' | 'acquisition';
+
+export interface MarketCompanyEvent {
+  ticker: string;
+  company: string;
+  kind: 'ipo' | 'matured' | 'delisted' | 'company_event' | 'acquired';
+  title?: string;
+  description: string;
+  settlementCash?: number;
+  realizedProfitLoss?: number;
+  impactPercent?: number;
+  acquirerTicker?: string;
+  acquirerCompany?: string;
+}
+
 export interface StockData {
   ticker: string;
   company: string;
   sector: string;
   startPrice: number;
   type: string;
+  marketRole?: 'core' | 'emerging';
+  ipoWeight?: number;
+  emergingVolatility?: number;
   cryptoStyle?: 'reserve' | 'utility' | 'speculative';
   annualTrend?: number;
   baseVolatility?: number;
@@ -645,6 +719,16 @@ export interface LoanTemplate {
   durationWeeks: number;
 }
 
+export type AchievementCategory =
+  | 'Career'
+  | 'Education'
+  | 'Investing'
+  | 'Business'
+  | 'Real Estate'
+  | 'Family'
+  | 'Wealth'
+  | 'Lifestyle';
+
 export interface AchievementData {
   id: string;
   name: string;
@@ -652,6 +736,7 @@ export interface AchievementData {
   xpReward: number;
   gemReward?: number;
   icon: string;
+  category: AchievementCategory;
 }
 
 export interface NewsEvent {
@@ -669,6 +754,22 @@ export interface StockState {
   ticker: string;
   currentPrice: number;
   priceHistory: number[];
+  marketStatus?: MarketCompanyStatus;
+  listedWeek?: number;
+  delistedWeek?: number;
+  delistingReason?: MarketCompanyDelistingReason;
+  acquiredByTicker?: string;
+  companyStage?: MarketCompanyStage;
+  companyQuality?: number;
+  lastCompanyEventWeek?: number;
+  companyEventHistory?: string[];
+  activeCompanyEvent?: {
+    id: string;
+    title: string;
+    weeklyEffect: number;
+    weeksRemaining: number;
+  } | null;
+  dividendYieldOverride?: number;
 }
 
 export interface CareerHistoryEntry {
@@ -766,6 +867,9 @@ export interface WeekSummary {
   newWeek: number;
   happiness: number;
   newAchievements: string[];
+  /** Account-wide achievement rewards actually settled for this week's local unlocks. */
+  achievementRewardedIds?: string[];
+  achievementGemRewards?: Record<string, number>;
   isTaxWeek: boolean;
   taxAmount: number;
   earningsForTaxPeriod: number;
@@ -789,6 +893,7 @@ export interface WeekSummary {
   // Market events
   marketSentimentName: string | null;
   marketEventTitle: string | null;
+  marketCompanyEvents: MarketCompanyEvent[];
   // D20 performance event
   performanceEventResult: { roll: number; needed: number; success: boolean } | null;
   // Realized P/L this week
@@ -929,6 +1034,8 @@ export interface ActiveBusinessProject {
   neededRoll?: number;
   actualRoll?: number;
   projectName?: string;
+  /** True only for a project started using a one-use rewarded-ad second slot. */
+  usesTemporarySlot?: boolean;
 }
 
 export type CorporateScaleTier = 'local' | 'corporate' | 'major' | 'global';
@@ -1133,6 +1240,19 @@ export interface FamilyBusinessState {
   designatedYear: number;
 }
 
+export type BusinessIdentityTraitId =
+  | 'premium_brand'
+  | 'efficient_operator'
+  | 'employee_favorite'
+  | 'innovation_leader'
+  | 'debt_heavy'
+  | 'family_institution';
+
+export interface BusinessIdentityTrait {
+  id: BusinessIdentityTraitId;
+  earnedGlobalWeek: number;
+}
+
 export type BusinessStrategicFocus = 'balanced' | 'growth' | 'margin' | 'premium' | 'automation' | 'rd';
 export type BusinessDecisionKind = 'strategy' | 'crisis';
 export type BusinessGovernanceRole = 'manager' | 'executive' | 'board' | 'successor';
@@ -1215,6 +1335,8 @@ export interface CorporateKpiHistoryPoint {
   productivityIndex: number;
   departmentProductivity: Record<CorporateDepartmentId, number>;
   debtService: number;
+  /** Cash generated before scheduled interest/principal payments; optional for legacy history. */
+  cashAvailableForDebtService?: number;
   /** Outstanding business debt at the end of this reporting week. */
   debtBalance?: number;
   averageMaintenanceCondition: number;
@@ -1321,6 +1443,7 @@ export interface BusinessAcquisitionTarget {
   diligenceScore: number;
   risk: AcquisitionRisk;
   diligenceNotes: string[];
+  marketCondition?: 'normal' | 'distressed' | 'competitive';
   /** Generated operating history/personality for established acquisition targets. */
   companyAgeYears?: number;
   sellerReason?: string;
@@ -1375,6 +1498,15 @@ export interface BusinessAcquisitionState {
   referenceExpenseMultiplier?: number;
 }
 
+export type EconomicCyclePhase = 'expansion' | 'boom' | 'slowdown' | 'recession' | 'recovery';
+
+export interface EconomicCycleState {
+  phase: EconomicCyclePhase;
+  weeksRemaining: number;
+  totalWeeks: number;
+  startedGlobalWeek: number;
+}
+
 export interface HoldingCompany {
   id: string;
   name: string;
@@ -1391,6 +1523,13 @@ export interface HoldingCompany {
   designatedSuccessorChildId: string | null;
   designatedSuccessorChildName: string | null;
   sharedServices?: HoldingSharedServices;
+  /** Weekly management fee as a share of eligible subsidiary revenue (0-3%). */
+  managementFeeRate?: number;
+  /** Parent liquidity target measured in weeks of subsidiary operating expenses. */
+  reserveTargetWeeks?: number;
+  totalManagementFeesCollected?: number;
+  totalDividendsReceived?: number;
+  totalOwnerDistributions?: number;
 }
 
 export interface BusinessOwnershipStake {
@@ -1468,12 +1607,21 @@ export interface OwnedBusiness {
   lastWeekRevenue: number;
   lastWeekExpenses: number;
   lastWeekProfit: number;
+  /** Cash generated after scheduled debt principal repayment. */
+  lastWeekCashFlow?: number;
+  /** Total scheduled business debt service paid this week. */
+  lastWeekDebtService?: number;
+  /** Principal component of scheduled debt service paid this week. */
+  lastWeekPrincipalRepayment?: number;
   // Status
   reputation: number; // 0-100
   level: number; // 0-7 index into levelThresholds
   valuation: number;
   /** Persistent percentage-point adjustment earned or lost through decisions. */
   marketShareModifier?: number;
+  /** Emergent, persistent identity traits earned from sustained management behaviour. */
+  identityTraits?: BusinessIdentityTrait[];
+  identityProgress?: Partial<Record<BusinessIdentityTraitId, number>>;
   // Settings
   pricingStrategy: 'budget' | 'standard' | 'premium' | 'luxury';
   advertisingLevel: 'none' | 'basic' | 'moderate' | 'aggressive';
@@ -1482,6 +1630,14 @@ export interface OwnedBusiness {
   // Upgrades
   purchasedUpgrades: string[];
   activeUpgrade?: { upgradeId: string; weeksRemaining: number } | null;
+  /** Optional second concurrent upgrade. Existing saves default to one slot. */
+  secondaryActiveUpgrade?: { upgradeId: string; weeksRemaining: number } | null;
+  /** Permanent second slots are purchased per business and capped at two total. */
+  upgradeSlot2Unlocked?: boolean;
+  projectSlot2Unlocked?: boolean;
+  /** Rewarded ads grant one temporary second-slot task, consumed on completion. */
+  temporaryUpgradeSlot2?: boolean;
+  temporaryProjectSlot2?: boolean;
   locations?: BusinessLocation[];
   activeExpansion?: { templateId: string; weeksRemaining: number } | null;
   // Long-horizon corporate capital expenditure
@@ -1531,6 +1687,8 @@ export interface OwnedBusiness {
   businessEventCooldowns?: Record<string, number>;
   familyBusiness?: FamilyBusinessState | null;
   strategicFocus?: BusinessStrategicFocus;
+  /** Automatically resolves routine strategic and corporate-HR choices. Crises remain manual. */
+  autoStrategicDecisions?: boolean;
   strategyModifiers?: BusinessStrategyModifier[];
   pendingDecision?: BusinessPendingDecision | null;
   nextStrategicDecisionWeek?: number;
@@ -1552,7 +1710,7 @@ export interface OwnedBusiness {
   capitalInvested?: number | null;
   /** Lifetime distributions paid specifically to the player from this business. */
   totalPlayerDistributions?: number;
-  /** Routine management automation. Strategic decisions/crises always remain manual. */
+  /** Routine pricing/staffing automation. Strategic choices use autoStrategicDecisions; crises stay manual. */
   delegationPolicy?: BusinessDelegationPolicy;
   delegatedManagerEmployeeId?: string | null;
   delegatedManagerName?: string | null;
@@ -1599,6 +1757,8 @@ export interface TriggeredEvent {
   }>;
 }
 
+export type StudentWorkTier = 'flexible' | 'high_hours';
+
 export interface GameState {
   playerName: string;
   week: number;
@@ -1619,6 +1779,8 @@ export interface GameState {
   careerHistory: CareerHistoryEntry[];
   totalWeeksWorked: number;
   stocks: StockState[];
+  /** Save-specific emerging companies that are allowed to list during this world. */
+  marketCompanyPool: string[];
   holdings: StockHolding[];
   loans: ActiveLoan[];
   bankDeposits: BankDeposit[];
@@ -1658,8 +1820,10 @@ export interface GameState {
   totalRealizedProfitLoss: number;
   // News history (last ~40 headlines)
   newsHistory?: string[];
-  // Part-time job flag (mutually exclusive with full career)
+  // Student work remains mutually exclusive with a full-time career.
+  // partTimeJob is retained as a backwards-compatible active flag for older saves.
   partTimeJob?: boolean;
+  studentWorkTier?: StudentWorkTier | null;
   adWatchedToday: number;
   adLastWatchDate: string; // YYYY-MM-DD
   relationshipModeEnabled: boolean;
@@ -1667,11 +1831,30 @@ export interface GameState {
   lifecycle: LifecycleState;
   lastMacroCrashWeek: number;
   activeMacroCrash: ActiveMacroCrash | null;
+  economicCycle: EconomicCycleState;
   generation: number;
   familyLegacy: FamilyLegacyEntry[];
   familyTree: FamilyTreeState;
   contentUpdateSeenId: string;
   reviewPromptedWeeks: number[];
+  /** Passive annual reports retained for later review; newest first. */
+  annualReports?: PeriodReport[];
+  annualReportUnread?: boolean;
+  /** Optional achievement milestones pinned by the player as personal goals. */
+  pinnedAchievementGoals?: string[];
+  /** Persisted annual-report accumulators so mid-year app restarts do not lose progress. */
+  periodIncome?: number;
+  periodExpenses?: number;
+  periodTax?: number;
+  periodWeeksEmployed?: number;
+  periodWeeksUnemployed?: number;
+  periodJobChanges?: number;
+  periodCoursesCompleted?: number;
+  periodStocksPurchased?: number;
+  periodLoansTaken?: number;
+  periodLoansRepaid?: number;
+  periodAchievements?: number;
+  periodStartWeek?: number;
 }
 
 export const INITIAL_GAME_STATE: GameState = {
@@ -1694,6 +1877,7 @@ export const INITIAL_GAME_STATE: GameState = {
   careerHistory: [],
   totalWeeksWorked: 0,
   stocks: [],
+  marketCompanyPool: [],
   holdings: [],
   loans: [],
   bankDeposits: [],
@@ -1725,6 +1909,7 @@ export const INITIAL_GAME_STATE: GameState = {
   totalRealizedProfitLoss: 0,
   newsHistory: [],
   partTimeJob: false,
+  studentWorkTier: null,
   adWatchedToday: 0,
   adLastWatchDate: '',
   relationshipModeEnabled: false,
@@ -1732,11 +1917,27 @@ export const INITIAL_GAME_STATE: GameState = {
   lifecycle: { ...INITIAL_LIFECYCLE_STATE },
   lastMacroCrashWeek: 0,
   activeMacroCrash: null,
+  economicCycle: { phase: 'expansion', weeksRemaining: 12, totalWeeks: 12, startedGlobalWeek: 1 },
   generation: 1,
   familyLegacy: [],
   familyTree: { ...INITIAL_FAMILY_TREE_STATE },
   contentUpdateSeenId: '',
   reviewPromptedWeeks: [],
+  annualReports: [],
+  annualReportUnread: false,
+  pinnedAchievementGoals: [],
+  periodIncome: 0,
+  periodExpenses: 0,
+  periodTax: 0,
+  periodWeeksEmployed: 0,
+  periodWeeksUnemployed: 0,
+  periodJobChanges: 0,
+  periodCoursesCompleted: 0,
+  periodStocksPurchased: 0,
+  periodLoansTaken: 0,
+  periodLoansRepaid: 0,
+  periodAchievements: 0,
+  periodStartWeek: 1,
 };
 
 /** Player profile — persists prestige points and gems across all games/save slots */
@@ -1749,6 +1950,21 @@ export interface PlayerProfile {
   unlockedPrestige: string[];
   lastLoginClaimDate: string;
   loginStreak: number;
+  /** Account-wide rewarded-gem usage shared by all save slots. */
+  rewardedGemClaimDate?: string;
+  rewardedGemClaimsToday?: number;
+  /** Remove Ads owners receive one ad-free temporary business Slot 2 claim per day. */
+  adFreeSlotRewardClaimDate?: string;
+  /** Remove Ads owners receive one ad-free instant education completion per day. */
+  adFreeEducationRewardClaimDate?: string;
+  /** Account-wide number of concurrently owned businesses allowed (2-10). */
+  businessCapacity?: number;
+  /** One permanent rewarded/ad-free company-capacity unlock may be claimed per local day. */
+  businessCapacityRewardClaimDate?: string;
+  /** All achievement rewards (XP, PP and Gems) are account-wide and paid once per achievement ID. */
+  rewardedAchievementIds?: string[];
+  /** Transitional alias from the pre-release Gem-only ledger. */
+  rewardedAchievementGemIds?: string[];
 }
 
 export const INITIAL_PROFILE: PlayerProfile = {
@@ -1760,6 +1976,13 @@ export const INITIAL_PROFILE: PlayerProfile = {
   unlockedPrestige: [],
   lastLoginClaimDate: '',
   loginStreak: 0,
+  rewardedGemClaimDate: '',
+  rewardedGemClaimsToday: 0,
+  adFreeSlotRewardClaimDate: '',
+  adFreeEducationRewardClaimDate: '',
+  businessCapacity: 2,
+  businessCapacityRewardClaimDate: '',
+  rewardedAchievementIds: [],
 };
 
 /** Save slot metadata */

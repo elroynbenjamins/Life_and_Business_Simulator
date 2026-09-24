@@ -3,17 +3,24 @@ import {
   ACQUISITION_UNLOCK_NET_WORTH,
   applyIntegrationStrategy,
   createAcquiredBusiness,
-  createHoldingCompany,
   generateAcquisitionTargets,
+  getAcquisitionDebtServiceSafety,
+  getAcquisitionIntegrationDecisionPreview,
   getAcquisitionFinancingQuote,
+  filterAcquisitionTargetsByFunding,
+  getAcquisitionFundingAvailabilityMatrix,
+  getAcquisitionFundingSafetyMatrix,
+  getAcquisitionUnderwrittenProfit,
   getAcquisitionPrice,
   getAcquisitionReturn,
   getAcquisitionTransactionCost,
-  getHoldingCompanySummary,
   migrateAcquiredBusinessAssets,
+  sortAcquisitionTargets,
 } from '../acquisitionEngine';
 import { getAllBusinessLocationTemplates, getBusinessType, getHoldingSynergyProfile, processBusinessWeek } from '../businessEngine';
 import { getNetWorth } from '../financeEngine';
+import { getBusinessEquityReturn } from '../businessPortfolioEngine';
+import { createHoldingCompany, getHoldingCompanySummary } from '../holdingCompanyEngine';
 import { INITIAL_GAME_STATE } from '../../types/game';
 
 describe('business acquisitions and holding companies', () => {
@@ -75,6 +82,29 @@ describe('business acquisitions and holding companies', () => {
       expect(priceToValue).toBeGreaterThanOrEqual(1.10);
       expect(priceToValue).toBeLessThanOrEqual(1.30);
     }
+  });
+
+  test('recession markets include balanced distressed targets without below-value arbitrage', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const targets = generateAcquisitionTargets(120, 1, ACQUISITION_TARGET_COUNT, 'recession');
+    const distressed = targets.filter((target) => target.marketCondition === 'distressed');
+
+    expect(distressed.length).toBeGreaterThanOrEqual(1);
+    for (const target of distressed) {
+      const priceToValue = target.askingPrice / target.estimatedValue;
+      expect(priceToValue).toBeGreaterThanOrEqual(1.10);
+      expect(priceToValue).toBeLessThanOrEqual(1.14);
+      expect(target.diligenceScore).toBeLessThanOrEqual(78);
+      expect(target.sellerReason).toContain('liquidity pressure');
+    }
+  });
+
+  test('boom acquisition markets are seller-friendly and marked competitive', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const targets = generateAcquisitionTargets(120, 1, ACQUISITION_TARGET_COUNT, 'boom');
+
+    expect(targets.every((target) => target.marketCondition === 'competitive')).toBe(true);
+    expect(targets.every((target) => target.askingPrice / target.estimatedValue >= 1.12)).toBe(true);
   });
 
   test('targets have persistent history, traits, diligence findings, and bounded operating modifiers', () => {
@@ -185,6 +215,153 @@ describe('business acquisitions and holding companies', () => {
     expect(migrateAcquiredBusinessAssets(migrated, 1, 160)).toBe(migrated);
   });
 
+  test('risk-sensitive underwriting requires more debt-service headroom for weaker targets', () => {
+    const baseTarget = {
+      weeklyRevenue: 300_000,
+      weeklyProfit: 100_000,
+      integrationPenalty: 0,
+    };
+    const quote = { weeklyPayment: 55_000 };
+
+    expect(getAcquisitionDebtServiceSafety({ ...baseTarget, risk: 'low' }, quote).allowed).toBe(true);
+    expect(getAcquisitionDebtServiceSafety({ ...baseTarget, risk: 'medium' }, quote).allowed).toBe(false);
+    expect(getAcquisitionDebtServiceSafety({ ...baseTarget, risk: 'high' }, quote).allowed).toBe(false);
+
+    const saferQuote = { weeklyPayment: 40_000 };
+    expect(getAcquisitionDebtServiceSafety({ ...baseTarget, risk: 'high' }, saferQuote).allowed).toBe(true);
+    expect(getAcquisitionDebtServiceSafety({ ...baseTarget, risk: 'high' }, saferQuote).coverageRatio).toBeCloseTo(2.5);
+  });
+
+  test('acquisition underwriting uses integration-stressed profit instead of seller headline profit', () => {
+    const target = {
+      weeklyRevenue: 500_000,
+      weeklyProfit: 100_000,
+      integrationPenalty: 0.05,
+      risk: 'low' as const,
+    };
+
+    expect(getAcquisitionUnderwrittenProfit(target)).toBe(76_000);
+
+    const safety = getAcquisitionDebtServiceSafety(target, { weeklyPayment: 35_000 });
+    expect(safety.quotedWeeklyProfit).toBe(100_000);
+    expect(safety.underwritingIntegrationPenalty).toBeCloseTo(0.03);
+    expect(safety.underwrittenWeeklyProfit).toBe(76_000);
+    expect(safety.profitHaircutPct).toBeCloseTo(0.24);
+    expect(safety.debtServiceShare).toBeCloseTo(35_000 / 76_000);
+    expect(safety.allowed).toBe(true);
+
+    const highDisruption = getAcquisitionDebtServiceSafety(
+      { ...target, weeklyProfit: 70_000, integrationPenalty: 0.16, risk: 'high' },
+      { weeklyPayment: 1_000 },
+    );
+    expect(highDisruption.underwritingIntegrationPenalty).toBeCloseTo(0.096);
+    expect(highDisruption.underwrittenWeeklyProfit).toBe(0);
+    expect(highDisruption.allowed).toBe(false);
+  });
+
+  test('acquisition market sorting stays factual and deterministic', () => {
+    const base = generateAcquisitionTargets(500, 1, 3)[0];
+    const targets = [
+      { ...base, id: 'a', askingPrice: 12_000_000, estimatedValue: 10_000_000, weeklyProfit: 100_000, diligenceScore: 70, risk: 'medium' as const },
+      { ...base, id: 'b', askingPrice: 11_000_000, estimatedValue: 10_000_000, weeklyProfit: 80_000, diligenceScore: 90, risk: 'low' as const },
+      { ...base, id: 'c', askingPrice: 13_000_000, estimatedValue: 12_500_000, weeklyProfit: 150_000, diligenceScore: 60, risk: 'high' as const },
+    ];
+
+    expect(sortAcquisitionTargets(targets, 'price').map((target) => target.id)).toEqual(['b', 'a', 'c']);
+    expect(sortAcquisitionTargets(targets, 'premium').map((target) => target.id)).toEqual(['c', 'b', 'a']);
+    expect(sortAcquisitionTargets(targets, 'profit').map((target) => target.id)).toEqual(['c', 'a', 'b']);
+    expect(sortAcquisitionTargets(targets, 'diligence').map((target) => target.id)).toEqual(['b', 'a', 'c']);
+    expect(sortAcquisitionTargets(targets, 'risk').map((target) => target.id)).toEqual(['b', 'a', 'c']);
+  });
+
+  test('funding safety matrix exposes executable structures for each target', () => {
+    const target = {
+      weeklyRevenue: 1_000_000,
+      weeklyProfit: 600_000,
+      integrationPenalty: 0.05,
+      risk: 'low' as const,
+    };
+
+    const matrix = getAcquisitionFundingSafetyMatrix(target, 100_000_000, 0, 0);
+    expect(matrix.map((entry) => entry.mode)).toEqual(['cash', 'balanced', 'leveraged']);
+    expect(matrix.find((entry) => entry.mode === 'cash')?.safety.allowed).toBe(true);
+    expect(matrix.find((entry) => entry.mode === 'balanced')?.safety.allowed).toBe(true);
+    expect(matrix.find((entry) => entry.mode === 'leveraged')?.safety.allowed).toBe(false);
+    expect(matrix.find((entry) => entry.mode === 'leveraged')?.quote.interestRate).toBeCloseTo(0.15);
+  });
+
+  test('funding availability separates underwriting failure from cash shortfall', () => {
+    const target = {
+      tier: 'regional' as const,
+      acquisitionTransactionCostRate: 0.015,
+      weeklyRevenue: 1_000_000,
+      weeklyProfit: 600_000,
+      integrationPenalty: 0.05,
+      risk: 'low' as const,
+    };
+
+    const matrix = getAcquisitionFundingAvailabilityMatrix(
+      target,
+      100_000_000,
+      35_000_000,
+      0,
+      0,
+    );
+    const cash = matrix.find((entry) => entry.mode === 'cash')!;
+    const balanced = matrix.find((entry) => entry.mode === 'balanced')!;
+    const leveraged = matrix.find((entry) => entry.mode === 'leveraged')!;
+
+    expect(cash.safety.allowed).toBe(true);
+    expect(cash.cashReady).toBe(false);
+    expect(cash.cashShortfall).toBeGreaterThan(0);
+    expect(cash.executable).toBe(false);
+
+    expect(balanced.safety.allowed).toBe(true);
+    expect(balanced.cashReady).toBe(false);
+    expect(balanced.executable).toBe(false);
+
+    expect(leveraged.safety.allowed).toBe(false);
+    expect(leveraged.executable).toBe(false);
+  });
+
+  test('funding readiness filter distinguishes ready deals from merely financeable deals', () => {
+    const base = generateAcquisitionTargets(700, 1, 1)[0];
+    const readyTarget = {
+      ...base,
+      id: 'ready',
+      askingPrice: 20_000_000,
+      estimatedValue: 18_000_000,
+      weeklyRevenue: 1_000_000,
+      weeklyProfit: 500_000,
+      integrationPenalty: 0.05,
+      risk: 'low' as const,
+    };
+    const cashHungryTarget = {
+      ...readyTarget,
+      id: 'cash-hungry',
+      askingPrice: 100_000_000,
+      estimatedValue: 90_000_000,
+    };
+    const unfinanceableTarget = {
+      ...readyTarget,
+      id: 'blocked',
+      askingPrice: 100_000_000,
+      estimatedValue: 90_000_000,
+      weeklyRevenue: 1_000_000,
+      weeklyProfit: 120_000,
+      integrationPenalty: 0.16,
+      risk: 'high' as const,
+    };
+    const targets = [readyTarget, cashHungryTarget, unfinanceableTarget];
+
+    expect(filterAcquisitionTargetsByFunding(targets, 'all', 15_000_000).map((target) => target.id))
+      .toEqual(['ready', 'cash-hungry', 'blocked']);
+    expect(filterAcquisitionTargetsByFunding(targets, 'ready', 15_000_000).map((target) => target.id))
+      .toEqual(['ready']);
+    expect(filterAcquisitionTargetsByFunding(targets, 'financeable', 15_000_000).map((target) => target.id))
+      .toEqual(['ready', 'cash-hungry']);
+  });
+
   test('supports all-cash, balanced, and leveraged acquisition structures', () => {
     const cash = getAcquisitionFinancingQuote(100_000_000, 'cash', 0);
     const balanced = getAcquisitionFinancingQuote(100_000_000, 'balanced', 0.03);
@@ -194,9 +371,10 @@ describe('business acquisitions and holding companies', () => {
     expect(cash.debtPrincipal).toBe(0);
     expect(balanced.cashContribution).toBe(60_000_000);
     expect(balanced.debtPrincipal).toBe(40_000_000);
-    expect(balanced.interestRate).toBeCloseTo(0.05);
+    expect(balanced.interestRate).toBeCloseTo(0.07);
     expect(leveraged.cashContribution).toBe(30_000_000);
     expect(leveraged.debtPrincipal).toBe(70_000_000);
+    expect(leveraged.interestRate).toBeCloseTo(0.15);
     expect(leveraged.weeklyPayment).toBeGreaterThan(0);
   });
 
@@ -236,6 +414,78 @@ describe('business acquisitions and holding companies', () => {
     expect(waitingTick.updatedBusiness.acquisition?.integrationWeeksRemaining).toBe(before);
   });
 
+  test('acquisition ROI stays aligned with canonical portfolio return math', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const target = generateAcquisitionTargets(121, 1, 1)[0];
+    const business = createAcquiredBusiness(
+      target,
+      { ...INITIAL_GAME_STATE, week: 1, year: 7, inflationMultiplier: 1 },
+      null,
+      target.askingPrice,
+      'balanced',
+      0,
+    )!;
+
+    const acquisitionReturn = getAcquisitionReturn(business)!;
+    const portfolioReturn = getBusinessEquityReturn(business);
+
+    expect(acquisitionReturn.debt).toBe(portfolioReturn.debt);
+    expect(acquisitionReturn.equityValue).toBe(portfolioReturn.equityValue);
+    expect(acquisitionReturn.investedCapital).toBe(portfolioReturn.investmentBasis);
+    expect(acquisitionReturn.returnPct).toBe(portfolioReturn.returnPct);
+  });
+
+  test('bullish 20-week acquisition stress matrix stays below extreme owner returns', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const generated = generateAcquisitionTargets(121, 1, 1)[0];
+    // Use a deliberately strong, clean target so every financing structure is
+    // actually executable under the underwriting rules. This makes the matrix a
+    // genuine upside stress case instead of silently testing impossible deals.
+    const target = {
+      ...generated,
+      risk: 'low' as const,
+      diligenceScore: 90,
+      integrationPenalty: 0.05,
+      weeklyRevenue: Math.round(generated.weeklyProfit / 0.20),
+    };
+    const fundingModes = ['cash', 'balanced', 'leveraged'] as const;
+    const strategies = ['independent', 'integrate', 'turnaround'] as const;
+
+    for (const fundingMode of fundingModes) {
+      const quote = getAcquisitionFinancingQuote(target.askingPrice, fundingMode, 0);
+      expect(getAcquisitionDebtServiceSafety(target, quote).allowed).toBe(true);
+
+      for (const strategy of strategies) {
+        let business = createAcquiredBusiness(
+          target,
+          { ...INITIAL_GAME_STATE, week: 1, year: 7, inflationMultiplier: 1 },
+          null,
+          target.askingPrice,
+          fundingMode,
+          0,
+        )!;
+        business = applyIntegrationStrategy(business, strategy);
+        business.nextStrategicDecisionWeek = 999;
+        business.nextCrisisCheckWeek = 999;
+
+        const startGlobalWeek = ((7 - 1) * 20) + 1;
+        for (let offset = 1; offset <= 20; offset += 1) {
+          const globalWeek = startGlobalWeek + offset;
+          const year = Math.floor((globalWeek - 1) / 20) + 1;
+          const week = ((globalWeek - 1) % 20) + 1;
+          business = processBusinessWeek(business, 1, week, year).updatedBusiness;
+        }
+
+        const returnInfo = getAcquisitionReturn(business)!;
+        expect(Number.isFinite(returnInfo.returnPct)).toBe(true);
+        expect(returnInfo.returnPct).toBeGreaterThanOrEqual(-100);
+        expect(returnInfo.returnPct).toBeLessThan(150);
+        expect(returnInfo.debt).toBeGreaterThanOrEqual(0);
+        expect(Number.isFinite(business.valuation)).toBe(true);
+      }
+    }
+  });
+
   test('baseline acquired company does not reach triple-digit return within one game year', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const target = generateAcquisitionTargets(121, 1, 1)[0];
@@ -261,6 +511,42 @@ describe('business acquisitions and holding companies', () => {
     expect(returnInfo.returnPct).toBeLessThan(100);
   });
 
+  test('integration decision preview ranks temporary disruption and exposes expected outcomes', () => {
+    const independent = getAcquisitionIntegrationDecisionPreview(
+      8,
+      0.08,
+      70,
+      'independent',
+      1_000_000,
+      150_000,
+    );
+    const integrate = getAcquisitionIntegrationDecisionPreview(
+      8,
+      0.08,
+      70,
+      'integrate',
+      1_000_000,
+      150_000,
+    );
+    const turnaround = getAcquisitionIntegrationDecisionPreview(
+      8,
+      0.08,
+      70,
+      'turnaround',
+      1_000_000,
+      150_000,
+    );
+
+    expect(independent.estimatedWeeklyProfitDuringIntegration)
+      .toBeGreaterThan(integrate.estimatedWeeklyProfitDuringIntegration);
+    expect(integrate.estimatedWeeklyProfitDuringIntegration)
+      .toBeGreaterThan(turnaround.estimatedWeeklyProfitDuringIntegration);
+    expect(independent.expectedRevenueBonus).toBe(0);
+    expect(integrate.probabilities.failed).toBeGreaterThan(0);
+    expect(turnaround.probabilities.failed).toBeGreaterThan(integrate.probabilities.failed);
+    expect(turnaround.expectedRevenueBonus).toBeGreaterThan(integrate.expectedRevenueBonus);
+  });
+
   test('integration strategy resolves into persistent operating effects', () => {
     const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const target = generateAcquisitionTargets(120, 1, 1)[0];
@@ -277,6 +563,9 @@ describe('business acquisitions and holding companies', () => {
     expect(result.updatedBusiness.acquisition?.integrationOutcome).toBe('success');
     expect(result.updatedBusiness.acquisition?.postIntegrationRevenueBonus).toBeCloseTo(0.04);
     expect(result.updatedBusiness.acquisition?.postIntegrationExpenseReduction).toBeCloseTo(0.04);
+    expect(result.newEvent?.businessName).toBe(finalWeek.name);
+    expect(result.newEvent?.eventTitle).toBe('Integration success: Aggressive Turnaround');
+    expect(result.newEvent?.icon).toBe('✅');
   });
 
   test('holding synergies are capped and reward concentration plus diversification', () => {
@@ -293,6 +582,7 @@ describe('business acquisitions and holding companies', () => {
       0,
     )!).map((business, index) => ({
       ...business,
+      id: `holding-synergy-${index}`,
       acquisition: {
         ...business.acquisition!,
         integrationStrategy: index === 0 ? 'independent' as const : 'integrate' as const,
@@ -310,10 +600,44 @@ describe('business acquisitions and holding companies', () => {
     expect(synergy.crisisReduction).toBeLessThanOrEqual(0.18);
   });
 
+  test('holding summary separates group equity from the player-owned subsidiary stake', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const state = { ...INITIAL_GAME_STATE, playerName: 'Elroy', year: 9, week: 3, generation: 3 };
+    const holding = createHoldingCompany('Benjamins Group', state);
+    const target = generateAcquisitionTargets(163, 1, 1)[0];
+    const business = createAcquiredBusiness(target, state, holding.id, target.askingPrice, 'cash', 0)!;
+    business.valuation = 1_000_000;
+    business.businessLoans = [{
+      id: 'debt',
+      amount: 400_000,
+      remainingAmount: 440_000,
+      weeklyPayment: 11_000,
+      weeksRemaining: 40,
+      interestRate: 0.10,
+      purpose: 'operating',
+    }];
+    business.ownership = [
+      { ownerType: 'player', ownerId: 'player', ownerName: 'Player', percent: 60, votingPercent: 60 },
+      { ownerType: 'investor', ownerId: 'outside', ownerName: 'Outside', percent: 40, votingPercent: 40 },
+    ];
+
+    const summary = getHoldingCompanySummary(holding, [business]);
+
+    expect(summary.netGroupEquity).toBe(600_000);
+    expect(summary.ownerNetEquity).toBe(360_000);
+  });
+
   test('holding cash remains in net worth and summaries include group debt', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const state = { ...INITIAL_GAME_STATE, playerName: 'Elroy', year: 9, week: 3, generation: 3, cash: 2_000_000 };
-    const holding = { ...createHoldingCompany('Benjamins Group', state), cashReserve: 5_000_000 };
+    const holding = {
+      ...createHoldingCompany('Benjamins Group', state),
+      cashReserve: 5_000_000,
+      totalCapitalDeployed: 3_000_000,
+      totalDividendsReceived: 2_000_000,
+      totalManagementFeesCollected: 1_000_000,
+      totalOwnerDistributions: 500_000,
+    };
     const target = generateAcquisitionTargets(163, 1, 1)[0];
     const business = createAcquiredBusiness(target, state, holding.id, target.askingPrice, 'balanced', 0)!;
 
@@ -323,7 +647,13 @@ describe('business acquisitions and holding companies', () => {
 
     expect(summary.subsidiaryCount).toBe(1);
     expect(summary.totalDebt).toBeGreaterThan(0);
+    expect(summary.ownerNetEquity).toBeGreaterThan(0);
+    expect(summary.ownerNetEquity).toBeLessThanOrEqual(summary.netGroupEquity);
     expect(summary.cashReserve).toBe(5_000_000);
+    expect(summary.ownerGroupValue).toBe(summary.ownerNetEquity + 5_000_000);
+    expect(summary.totalCapitalDeployed).toBe(3_000_000);
+    expect(summary.totalHoldingInflows).toBe(3_000_000);
+    expect(summary.totalOwnerDistributions).toBe(500_000);
     expect(returnInfo?.investedCapital).toBeGreaterThan(0);
     expect(netWorth).toBeGreaterThan(state.cash);
   });

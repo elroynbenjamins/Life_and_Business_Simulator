@@ -62,7 +62,7 @@ export default function BusinessSaleScreen() {
     if (!canSell) return;
     showGameDialog({
       title: 'Confirm Business Sale',
-      message: `Sell ${business.name} for ${formatCurrency(quote.netSaleProceeds)} net proceeds after repaying ${formatCurrency(quote.debtSettlement)} of business debt and ${formatCurrency(quote.saleTransactionCost)} of transaction costs? The company will move to Deal History.`,
+      message: `Sell ${business.name} for ${formatCurrency(quote.netSaleProceeds)} net proceeds after repaying ${formatCurrency(quote.debtSettlement)} of outstanding loan principal and ${formatCurrency(quote.saleTransactionCost)} of transaction costs? Future scheduled interest is cancelled at payoff. The company will move to Deal History.`,
       confirmText: 'Sell Business',
       cancelText: 'Keep Business',
       destructive: true,
@@ -112,7 +112,7 @@ export default function BusinessSaleScreen() {
 
         <GameCard>
           <Text style={styles.sectionTitle}>Sale Breakdown</Text>
-          <Text style={styles.sectionSub}>Debt and transaction costs are settled automatically at closing.</Text>
+          <Text style={styles.sectionSub}>Outstanding loan principal is repaid at closing; unearned future scheduled interest is cancelled. Transaction costs are deducted automatically.</Text>
           {business.acquisition && (quote.heldWeeks ?? 40) < 40 && (
             <Text style={styles.shortHoldNote}>
               Recent acquisition: exit costs decline toward 2.5% as ownership approaches 40 weeks.
@@ -124,7 +124,7 @@ export default function BusinessSaleScreen() {
               <Text style={styles.rowValue}>{formatCurrency(quote.grossSalePrice)}</Text>
             </View>
             <View style={styles.row}>
-              <Text style={styles.rowLabel}>Business debt repaid</Text>
+              <Text style={styles.rowLabel}>Loan principal repaid</Text>
               <Text style={[styles.rowValue, quote.debtSettlement > 0 && { color: Colors.negative }]}>
                 {quote.debtSettlement > 0 ? '-' : ''}{formatCurrency(quote.debtSettlement)}
               </Text>
@@ -149,37 +149,39 @@ export default function BusinessSaleScreen() {
           </View>
         </GameCard>
 
-        <GameCard>
-          <Text style={styles.sectionTitle}>Lifetime Deal Result</Text>
-          <Text style={styles.sectionSub}>
-            Includes tracked distributions already paid to you plus the cash you receive at closing.
-          </Text>
-          <View style={styles.rows}>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>{business.acquisition ? 'Equity invested' : 'Initial investment'}</Text>
-              <Text style={styles.rowValue}>
-                {quote.investmentBasis == null ? 'Legacy save — not tracked' : formatCurrency(quote.investmentBasis)}
-              </Text>
+        {playerOwnershipPct >= 99.9 && (
+          <GameCard>
+            <Text style={styles.sectionTitle}>Owner Deal Result</Text>
+            <Text style={styles.sectionSub}>
+              Includes tracked owner or holding distributions already received plus the cash delivered to the sale destination at closing.
+            </Text>
+            <View style={styles.rows}>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>{business.acquisition ? 'Equity invested' : 'Initial investment'}</Text>
+                <Text style={styles.rowValue}>
+                  {quote.investmentBasis == null ? 'Legacy save — not tracked' : formatCurrency(quote.investmentBasis)}
+                </Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>{holding ? 'Holding distributions received' : 'Owner distributions received'}</Text>
+                <Text style={styles.rowValue}>{formatCurrency(quote.totalPlayerDistributions)}</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.row}>
+                <Text style={styles.netLabel}>Owner cash result</Text>
+                <Text style={[styles.netValue, quote.lifetimeCashResult != null && { color: resultPositive ? Colors.primary : Colors.negative }]}>
+                  {quote.lifetimeCashResult == null ? 'Not tracked' : `${quote.lifetimeCashResult >= 0 ? '+' : ''}${formatCurrency(quote.lifetimeCashResult)}`}
+                </Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Owner return</Text>
+                <Text style={[styles.returnValue, quote.lifetimeReturnPct != null && { color: resultPositive ? Colors.primary : Colors.negative }]}>
+                  {formatReturn(quote.lifetimeReturnPct)}
+                </Text>
+              </View>
             </View>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>Player distributions received</Text>
-              <Text style={styles.rowValue}>{formatCurrency(quote.totalPlayerDistributions)}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.row}>
-              <Text style={styles.netLabel}>Lifetime cash result</Text>
-              <Text style={[styles.netValue, quote.lifetimeCashResult != null && { color: resultPositive ? Colors.primary : Colors.negative }]}>
-                {quote.lifetimeCashResult == null ? 'Not tracked' : `${quote.lifetimeCashResult >= 0 ? '+' : ''}${formatCurrency(quote.lifetimeCashResult)}`}
-              </Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>Lifetime return</Text>
-              <Text style={[styles.returnValue, quote.lifetimeReturnPct != null && { color: resultPositive ? Colors.primary : Colors.negative }]}>
-                {formatReturn(quote.lifetimeReturnPct)}
-              </Text>
-            </View>
-          </View>
-        </GameCard>
+          </GameCard>
+        )}
 
         {business.acquisition && (
           <GameCard>
@@ -230,7 +232,9 @@ export default function BusinessSaleScreen() {
           onPress={confirmSale}
         >
           <Ionicons name="cash-outline" size={20} color={Colors.white} />
-          <Text style={styles.sellButtonText}>Sell for {formatCurrency(quote.netSaleProceeds)}</Text>
+          <Text style={styles.sellButtonText}>
+            {playerOwnershipPct < 99.9 ? '100% ownership required' : protectedAsset ? 'Remove family-asset protection first' : `Sell for ${formatCurrency(quote.netSaleProceeds)}`}
+          </Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>

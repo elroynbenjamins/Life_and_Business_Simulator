@@ -4,7 +4,8 @@ import { weeklyTick } from '../weeklyTick';
 import { initializeStocks } from '../stockEngine';
 import { getNetWorth } from '../financeEngine';
 import { getPrestigeEffects, getPrestigeBonuses } from '../prestigeEngine';
-import { createAcquiredBusiness, createHoldingCompany, generateAcquisitionTargets, getAcquisitionFinancingQuote, applyIntegrationStrategy } from '../acquisitionEngine';
+import { createAcquiredBusiness, generateAcquisitionTargets, getAcquisitionFinancingQuote, applyIntegrationStrategy } from '../acquisitionEngine';
+import { createHoldingCompany } from '../holdingCompanyEngine';
 import { calculateEstateSettlement, getSuccessionPreview } from '../lifecycleEngine';
 
 jest.mock('../../components/GameDialog', () => ({ showGameDialog: jest.fn() }));

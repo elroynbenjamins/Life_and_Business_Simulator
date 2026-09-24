@@ -119,7 +119,7 @@ describe('corporate group management reporting', () => {
     dominant.businessLoans = [{
       id: 'dominant-debt',
       amount: 450_000_000,
-      remainingAmount: 450_000_000,
+      remainingAmount: 486_000_000,
       weeklyPayment: 0,
       weeksRemaining: 50,
       interestRate: 0.08,

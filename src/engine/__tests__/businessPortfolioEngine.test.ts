@@ -22,7 +22,7 @@ function makeBusiness(): OwnedBusiness {
     businessLoans: [{
       id: 'loan_test',
       amount: 60_000,
-      remainingAmount: 50_000,
+      remainingAmount: 54_000,
       weeklyPayment: 2_000,
       weeksRemaining: 25,
       interestRate: 0.08,
@@ -47,13 +47,86 @@ describe('business portfolio engine', () => {
     expect(quote.lifetimeReturnPct).toBeCloseTo(162.5);
   });
 
+  test('selling uses the same principal-only early payoff semantics as manual prepayment', () => {
+    const quote = getBusinessSaleQuote(makeBusiness());
+
+    expect(quote.debtSettlement).toBe(50_000);
+    expect(quote.debtSettlement).toBeLessThan(54_000);
+  });
+
   test('current portfolio ROI values debt-adjusted equity plus distributions', () => {
     const result = getBusinessEquityReturn(makeBusiness());
 
+    expect(result.debt).toBe(50_000);
     expect(result.equityValue).toBe(250_000);
     expect(result.lifetimeValue).toBe(270_000);
     expect(result.gain).toBe(170_000);
     expect(result.returnPct).toBeCloseTo(170);
+  });
+
+  test('portfolio ROI values only the player-owned share after outside dilution', () => {
+    const business = {
+      ...makeBusiness(),
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside Investors', percent: 20, votingPercent: 20 },
+      ],
+    };
+
+    const result = getBusinessEquityReturn(business);
+
+    expect(result.totalCompanyEquity).toBe(250_000);
+    expect(result.playerOwnershipPct).toBe(80);
+    expect(result.equityValue).toBe(200_000);
+    expect(result.investmentBasis).toBe(100_000);
+    expect(result.lifetimeValue).toBe(220_000);
+    expect(result.gain).toBe(120_000);
+    expect(result.returnPct).toBeCloseTo(120);
+  });
+
+  test('fair outside equity issuance does not create player return from investor cash', () => {
+    const before = {
+      ...makeBusiness(),
+      valuation: 300_000,
+      businessLoans: [],
+      totalPlayerDistributions: 0,
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 100, votingPercent: 100 },
+      ],
+    };
+    const after = {
+      ...before,
+      valuation: 375_000,
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside Investors', percent: 20, votingPercent: 20 },
+      ],
+    };
+
+    expect(getBusinessEquityReturn(before).equityValue).toBe(300_000);
+    expect(getBusinessEquityReturn(after).equityValue).toBe(300_000);
+    expect(getBusinessEquityReturn(after).returnPct).toBeCloseTo(getBusinessEquityReturn(before).returnPct!);
+  });
+
+  test('gifting shares reduces lifetime player return because no sale proceeds are received', () => {
+    const before = {
+      ...makeBusiness(),
+      valuation: 300_000,
+      businessLoans: [],
+      totalPlayerDistributions: 0,
+    };
+    const afterGift = {
+      ...before,
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'child' as const, ownerId: 'child_1', ownerName: 'Child', percent: 20, votingPercent: 20 },
+      ],
+    };
+
+    expect(getBusinessEquityReturn(before).returnPct).toBeCloseTo(200);
+    expect(getBusinessEquityReturn(afterGift).investmentBasis).toBe(100_000);
+    expect(getBusinessEquityReturn(afterGift).equityValue).toBe(240_000);
+    expect(getBusinessEquityReturn(afterGift).returnPct).toBeCloseTo(140);
   });
 
   test('legacy acquisition basis falls back to shareholder cash contribution plus later capital', () => {
@@ -94,6 +167,7 @@ describe('business portfolio engine', () => {
     expect(record.soldGlobalWeek).toBe(46);
     expect(record.heldWeeks).toBe(25);
     expect(record.saleTransactionCost).toBe(7_500);
+    expect(record.debtSettlement).toBe(50_000);
     expect(record.netSaleProceeds).toBe(242_500);
     expect(record.lifetimeCashResult).toBe(162_500);
     expect(record.holdingCompanyName).toBe('Family Holdings');
@@ -199,6 +273,51 @@ describe('business portfolio engine', () => {
     expect(getBusinessEmpireSummary([business], [], 4).attentionCount).toBe(1);
   });
 
+  test('empire summary separates gross group scale from the player-owned stake', () => {
+    const business = {
+      ...makeBusiness(),
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 60, votingPercent: 60 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside', percent: 40, votingPercent: 40 },
+      ],
+    };
+
+    const summary = getBusinessEmpireSummary([business]);
+
+    expect(summary.totalValue).toBe(300_000);
+    expect(summary.totalDebt).toBe(50_000);
+    expect(summary.netBusinessEquity).toBe(250_000);
+    expect(summary.playerBusinessValue).toBe(180_000);
+    expect(summary.playerBusinessDebt).toBe(30_000);
+    expect(summary.playerNetBusinessEquity).toBe(150_000);
+  });
+
+  test('player empire equity floors an underwater ownership stake at zero', () => {
+    const business = {
+      ...makeBusiness(),
+      valuation: 50_000,
+      businessLoans: [{
+        id: 'underwater',
+        amount: 100_000,
+        remainingAmount: 110_000,
+        weeklyPayment: 5_500,
+        weeksRemaining: 20,
+        interestRate: 0.10,
+        purpose: 'operating' as const,
+      }],
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 60, votingPercent: 60 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside', percent: 40, votingPercent: 40 },
+      ],
+    };
+
+    const summary = getBusinessEmpireSummary([business]);
+
+    expect(summary.playerBusinessValue).toBe(30_000);
+    expect(summary.playerBusinessDebt).toBe(60_000);
+    expect(summary.playerNetBusinessEquity).toBe(0);
+  });
+
   test('summarizes empire debt, cash and attention without double counting', () => {
     const business = {
       ...makeBusiness(),
@@ -234,6 +353,9 @@ describe('business portfolio engine', () => {
     expect(summary.totalValue).toBe(300_000);
     expect(summary.totalDebt).toBe(50_000);
     expect(summary.netBusinessEquity).toBe(250_000);
+    expect(summary.playerBusinessValue).toBe(300_000);
+    expect(summary.playerBusinessDebt).toBe(50_000);
+    expect(summary.playerNetBusinessEquity).toBe(250_000);
     expect(summary.operatingCash).toBe(25_000);
     expect(summary.holdingCash).toBe(75_000);
     expect(summary.totalEmpireCash).toBe(100_000);

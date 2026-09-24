@@ -5,6 +5,8 @@ import { isBusinessBudgetReviewDue } from './businessBudgetEngine';
 import { getBusinessGovernanceAttentionReason } from './businessGovernanceEngine';
 import { getCorporateWorkforceAttentionReason } from './businessWorkforceEngine';
 import { getCorporateManagementAttentionReason } from './corporateReportingEngine';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
+import { getPlayerEquityOwnershipPct } from './businessOwnershipEngine';
 
 export interface BusinessSaleQuote {
   grossSalePrice: number;
@@ -23,6 +25,9 @@ export interface BusinessEmpireSummary {
   totalValue: number;
   totalDebt: number;
   netBusinessEquity: number;
+  playerBusinessValue: number;
+  playerBusinessDebt: number;
+  playerNetBusinessEquity: number;
   weeklyProfit: number;
   operatingCash: number;
   holdingCash: number;
@@ -33,10 +38,7 @@ export interface BusinessEmpireSummary {
 }
 
 export function getBusinessDebt(business: OwnedBusiness): number {
-  return (business.businessLoans ?? []).reduce(
-    (sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0),
-    0,
-  );
+  return getBusinessDebtPrincipal(business);
 }
 
 export function getBusinessInvestmentBasis(business: OwnedBusiness): number | null {
@@ -55,7 +57,12 @@ export function getBusinessInvestmentBasis(business: OwnedBusiness): number | nu
 
 export function getBusinessEquityReturn(business: OwnedBusiness) {
   const debt = getBusinessDebt(business);
-  const equityValue = Math.max(0, (business.valuation ?? 0) - debt);
+  const totalCompanyEquity = Math.max(0, (business.valuation ?? 0) - debt);
+  const playerOwnershipPct = getPlayerEquityOwnershipPct(business);
+  // capitalInvested and totalPlayerDistributions are player/holding-side values.
+  // Match them with only the player's current share of company equity so issuing
+  // new shares cannot make the player's ROI jump simply by adding outside capital.
+  const equityValue = Math.round(totalCompanyEquity * playerOwnershipPct / 100);
   const investmentBasis = getBusinessInvestmentBasis(business);
   const totalPlayerDistributions = Math.max(0, business.totalPlayerDistributions ?? 0);
   const lifetimeValue = equityValue + totalPlayerDistributions;
@@ -66,6 +73,8 @@ export function getBusinessEquityReturn(business: OwnedBusiness) {
 
   return {
     debt,
+    totalCompanyEquity,
+    playerOwnershipPct,
     equityValue,
     investmentBasis,
     totalPlayerDistributions,
@@ -108,7 +117,10 @@ export function getBusinessSaleQuote(
   year?: number,
 ): BusinessSaleQuote {
   const grossSalePrice = Math.max(0, business.valuation ?? 0);
-  const debtSettlement = getBusinessDebt(business);
+  // Selling the company closes its debt through the same early-payoff path
+  // available elsewhere: outstanding principal is repaid and unearned future
+  // interest is cancelled.
+  const debtSettlement = getBusinessDebtPrincipal(business);
   const heldWeeks = getBusinessHoldWeeks(business, week, year);
   const saleTransactionCostRate = getBusinessSaleTransactionCostRate(business, week, year);
   const saleTransactionCost = Math.round(grossSalePrice * saleTransactionCostRate);
@@ -183,6 +195,20 @@ export function getBusinessEmpireSummary(
 ): BusinessEmpireSummary {
   const totalValue = (businesses ?? []).reduce((sum, business) => sum + Math.max(0, business.valuation ?? 0), 0);
   const totalDebt = (businesses ?? []).reduce((sum, business) => sum + getBusinessDebt(business), 0);
+  const playerBusinessValue = (businesses ?? []).reduce(
+    (sum, business) => sum + Math.max(0, business.valuation ?? 0) * getPlayerEquityOwnershipPct(business) / 100,
+    0,
+  );
+  const playerBusinessDebt = (businesses ?? []).reduce(
+    (sum, business) => sum + getBusinessDebt(business) * getPlayerEquityOwnershipPct(business) / 100,
+    0,
+  );
+  const playerNetBusinessEquity = (businesses ?? []).reduce(
+    (sum, business) => sum
+      + Math.max(0, Math.max(0, business.valuation ?? 0) - getBusinessDebt(business))
+        * getPlayerEquityOwnershipPct(business) / 100,
+    0,
+  );
   const weeklyProfit = (businesses ?? []).reduce((sum, business) => sum + (business.lastWeekProfit ?? 0), 0);
   const operatingCash = (businesses ?? []).reduce((sum, business) => sum + Math.max(0, business.balance ?? 0), 0);
   const holdingCash = (holdingCompanies ?? []).reduce((sum, holding) => sum + Math.max(0, holding.cashReserve ?? 0), 0);
@@ -207,6 +233,9 @@ export function getBusinessEmpireSummary(
     totalValue,
     totalDebt,
     netBusinessEquity: Math.max(0, totalValue - totalDebt),
+    playerBusinessValue: Math.round(playerBusinessValue),
+    playerBusinessDebt: Math.round(playerBusinessDebt),
+    playerNetBusinessEquity: Math.round(playerNetBusinessEquity),
     weeklyProfit,
     operatingCash,
     holdingCash,

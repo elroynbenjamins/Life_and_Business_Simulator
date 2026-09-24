@@ -1,9 +1,10 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import useGameStore from '../store/gameStore';
 import { Colors } from '../theme/colors';
+import GameButton from './GameButton';
 
 export default function EducationCareerReminderModal() {
   const router = useRouter();
@@ -35,8 +36,10 @@ export default function EducationCareerReminderModal() {
               {reminder.missingRequirements.map((item) => <Text key={item} style={styles.requirement}>• {item}</Text>)}
             </View>
           )}
-          <Pressable style={styles.primaryButton} onPress={openCareer}><Text style={styles.primaryText}>Open Career</Text></Pressable>
-          <Pressable style={styles.secondaryButton} onPress={dismiss}><Text style={styles.secondaryText}>Later</Text></Pressable>
+          <View style={styles.actions}>
+            <GameButton accentColor={Colors.education} label="Open Career" icon="briefcase-outline" onPress={openCareer} />
+            <GameButton variant="ghost" label="Later" onPress={dismiss} />
+          </View>
         </View>
       </View>
     </Modal>
@@ -46,15 +49,12 @@ export default function EducationCareerReminderModal() {
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 24 },
   card: { backgroundColor: Colors.card, borderColor: Colors.cardBorder, borderWidth: 1, borderRadius: 18, padding: 22 },
-  icon: { alignSelf: 'center', width: 58, height: 58, borderRadius: 29, backgroundColor: '#10382D', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  icon: { alignSelf: 'center', width: 58, height: 58, borderRadius: 18, backgroundColor: `${Colors.education}12`, borderWidth: 1, borderColor: `${Colors.education}44`, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   title: { color: Colors.textPrimary, fontSize: 22, fontWeight: '800', textAlign: 'center' },
   message: { color: Colors.textSecondary, fontSize: 15, textAlign: 'center', marginTop: 8 },
-  ready: { color: Colors.primary, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 14 },
+  ready: { color: Colors.education, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 14 },
   requirements: { backgroundColor: Colors.background, borderRadius: 10, padding: 12, marginTop: 14 },
   requirementTitle: { color: Colors.warning, fontSize: 14, fontWeight: '700', marginBottom: 6 },
   requirement: { color: Colors.textSecondary, fontSize: 14, lineHeight: 21 },
-  primaryButton: { backgroundColor: Colors.primary, minHeight: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 18 },
-  primaryText: { color: Colors.white, fontSize: 16, fontWeight: '800' },
-  secondaryButton: { minHeight: 42, alignItems: 'center', justifyContent: 'center' },
-  secondaryText: { color: Colors.textMuted, fontSize: 14, fontWeight: '600' },
+  actions: { marginTop: 18, gap: 6 },
 });

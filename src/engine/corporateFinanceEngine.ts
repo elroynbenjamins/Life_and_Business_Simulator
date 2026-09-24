@@ -7,6 +7,7 @@ import {
 import { getCorporateScaleTier } from './corporateScaleEngine';
 import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
 import { getCorporateWorkforceEffects } from './businessWorkforceEngine';
+import { getBusinessDebtPrincipal, getBusinessLoanOutstandingPrincipal, getBusinessWeeklyDebtService, getBusinessWeeklyInterestExpense } from './businessDebtEngine';
 
 export interface CorporateCreditProfile {
   rating: CorporateCreditRating;
@@ -14,6 +15,7 @@ export interface CorporateCreditProfile {
   totalDebt: number;
   debtToValue: number;
   weeklyDebtService: number;
+  debtServiceCoverage: number;
   interestCoverage: number;
   maxDebtCapacity: number;
   remainingDebtCapacity: number;
@@ -50,17 +52,11 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function getCorporateDebt(business: OwnedBusiness): number {
-  return (business.businessLoans ?? []).reduce(
-    (sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0),
-    0,
-  );
+  return getBusinessDebtPrincipal(business);
 }
 
 export function getCorporateWeeklyDebtService(business: OwnedBusiness): number {
-  return (business.businessLoans ?? []).reduce(
-    (sum, loan) => sum + Math.max(0, loan.weeklyPayment ?? 0),
-    0,
-  );
+  return getBusinessWeeklyDebtService(business);
 }
 
 function ratingFromScore(score: number): CorporateCreditRating {
@@ -79,10 +75,27 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
   const debtToValue = totalDebt / valuation;
   const revenue = Math.max(1, business.lastWeekRevenue ?? 0);
   const profit = business.lastWeekProfit ?? 0;
-  const operatingCashFlowBeforeDebt = profit + weeklyDebtService;
-  const interestCoverage = weeklyDebtService > 0
-    ? operatingCashFlowBeforeDebt / weeklyDebtService
-    : operatingCashFlowBeforeDebt > 0 ? 10 : 1;
+  const scheduledInterestExpense = getBusinessWeeklyInterestExpense(business);
+  const reportedInterestExpense = Math.max(
+    0,
+    business.lastExpenseBreakdown?.loanInterest
+      ?? scheduledInterestExpense,
+  );
+  const weeklyTaxes = Math.max(0, business.lastExpenseBreakdown?.taxes ?? 0);
+  // Reconstruct last week's operating earnings from reported accounting results,
+  // then compare them with the CURRENT debt schedule. This keeps the ratios
+  // correct immediately after a loan is drawn, prepaid or fully repaid.
+  const cashAvailableForDebtService = Math.max(0, profit + reportedInterestExpense);
+  const earningsBeforeInterestAndTax = Math.max(
+    0,
+    profit + reportedInterestExpense + weeklyTaxes,
+  );
+  const debtServiceCoverage = weeklyDebtService > 0
+    ? cashAvailableForDebtService / weeklyDebtService
+    : cashAvailableForDebtService > 0 ? 10 : 1;
+  const interestCoverage = scheduledInterestExpense > 0
+    ? earningsBeforeInterestAndTax / scheduledInterestExpense
+    : earningsBeforeInterestAndTax > 0 ? 10 : 1;
 
   const scaleTier = getCorporateScaleTier(business);
   const scaleScore = scaleTier === 'global' ? 20 : scaleTier === 'major' ? 17 : scaleTier === 'corporate' ? 14 : 5;
@@ -99,10 +112,10 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
         : debtToValue <= 0.40 ? 10
           : debtToValue <= 0.50 ? 5
             : 0;
-  const coverageScore = interestCoverage >= 4 ? 10
-    : interestCoverage >= 2.5 ? 8
-      : interestCoverage >= 1.5 ? 5
-        : interestCoverage >= 1 ? 2
+  const coverageScore = debtServiceCoverage >= 2 ? 10
+    : debtServiceCoverage >= 1.5 ? 8
+      : debtServiceCoverage >= 1.25 ? 5
+        : debtServiceCoverage >= 1 ? 2
           : 0;
 
   const governance = getBusinessGovernanceEffects(business);
@@ -137,7 +150,7 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
   const revolverLimit = Math.round(Math.min(25_000_000, Math.max(1_000_000, revolverBase)));
   const revolverOutstanding = (business.businessLoans ?? [])
     .filter((loan) => loan.purpose === 'corporate_revolver')
-    .reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
+    .reduce((sum, loan) => sum + getBusinessLoanOutstandingPrincipal(loan), 0);
   const revolverAvailable = Math.max(0, Math.min(revolverLimit - revolverOutstanding, remainingDebtCapacity));
 
   return {
@@ -146,6 +159,7 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
     totalDebt,
     debtToValue,
     weeklyDebtService,
+    debtServiceCoverage,
     interestCoverage,
     maxDebtCapacity,
     remainingDebtCapacity,
@@ -167,6 +181,7 @@ function buildDebtQuote(
   ratePremium: number,
   arrangementFeeRate: number,
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): CorporateFinancingQuote {
   const profile = getCorporateCreditProfile(business);
   const requested = Math.max(0, Math.round(amount));
@@ -175,6 +190,7 @@ function buildDebtQuote(
     0.03,
     getCorporateBaseRate(profile.rating)
       + ratePremium
+      + clamp(macroInterestRateModifier, -0.025, 0.035)
       - clamp(loanRateReduction, 0, 0.05)
       - governance.financingRateReduction,
   );
@@ -190,20 +206,25 @@ function buildDebtQuote(
   } else if (requested <= 0) {
     allowed = false;
     reason = 'Choose a positive financing amount.';
-  } else if (totalRepayment > profile.remainingDebtCapacity) {
+  } else if (requested > profile.remainingDebtCapacity) {
     allowed = false;
-    reason = 'This would exceed the company’s credit capacity after scheduled interest.';
+    reason = 'This would exceed the company’s principal debt capacity.';
   }
 
-  const operatingCashFlowBeforeDebt = Math.max(
+  const reportedInterestExpense = Math.max(
     0,
-    (business.lastWeekProfit ?? 0) + profile.weeklyDebtService,
+    business.lastExpenseBreakdown?.loanInterest
+      ?? getBusinessWeeklyInterestExpense(business),
+  );
+  const cashAvailableForDebtService = Math.max(
+    0,
+    (business.lastWeekProfit ?? 0) + reportedInterestExpense,
   );
   const projectedDebtService = profile.weeklyDebtService + weeklyPayment;
-  if (allowed && operatingCashFlowBeforeDebt <= 0) {
+  if (allowed && cashAvailableForDebtService <= 0) {
     allowed = false;
     reason = 'The company needs positive operating cash flow before taking new corporate debt.';
-  } else if (allowed && projectedDebtService > operatingCashFlowBeforeDebt * 0.65) {
+  } else if (allowed && projectedDebtService > cashAvailableForDebtService * 0.65) {
     allowed = false;
     reason = 'Projected debt service would consume too much current operating cash flow.';
   }
@@ -227,9 +248,19 @@ export function getRevolverDrawQuote(
   business: OwnedBusiness,
   amount: number,
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): CorporateFinancingQuote {
   const profile = getCorporateCreditProfile(business);
-  const quote = buildDebtQuote(business, 'revolver', amount, 60, 0.025, 0.005, loanRateReduction);
+  const quote = buildDebtQuote(
+    business,
+    'revolver',
+    amount,
+    60,
+    0.025,
+    0.005,
+    loanRateReduction,
+    macroInterestRateModifier,
+  );
   if (quote.allowed && quote.amount > profile.revolverAvailable) {
     return { ...quote, allowed: false, reason: 'Requested draw exceeds the available revolving credit line.' };
   }
@@ -243,9 +274,19 @@ export function getBondQuote(
   business: OwnedBusiness,
   amount: number,
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): CorporateFinancingQuote {
   const profile = getCorporateCreditProfile(business);
-  const quote = buildDebtQuote(business, 'bond', amount, 200, 0.005, 0.0075, loanRateReduction);
+  const quote = buildDebtQuote(
+    business,
+    'bond',
+    amount,
+    200,
+    0.005,
+    0.0075,
+    loanRateReduction,
+    macroInterestRateModifier,
+  );
   const tier = getCorporateScaleTier(business);
   if (quote.allowed && tier !== 'major' && tier !== 'global') {
     return { ...quote, allowed: false, reason: 'Corporate bonds unlock at €75M company value.' };
@@ -264,6 +305,7 @@ export function getProjectFinanceQuote(
   business: OwnedBusiness,
   projectCost: number,
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): CorporateFinancingQuote {
   const profile = getCorporateCreditProfile(business);
   const debtPrincipal = Math.round(Math.max(0, projectCost) * 0.60);
@@ -273,6 +315,7 @@ export function getProjectFinanceQuote(
     0.03,
     getCorporateBaseRate(profile.rating)
       + 0.015
+      + clamp(macroInterestRateModifier, -0.025, 0.035)
       - clamp(loanRateReduction, 0, 0.05)
       - governance.financingRateReduction,
   );
@@ -287,16 +330,25 @@ export function getProjectFinanceQuote(
     allowed = false;
     reason = 'A BB credit rating or better is required for project finance.';
   }
-  if (allowed && totalRepayment > profile.remainingDebtCapacity) {
+  if (allowed && debtPrincipal > profile.remainingDebtCapacity) {
     allowed = false;
-    reason = 'This project would exceed the company’s credit capacity after scheduled interest.';
+    reason = 'This project would exceed the company’s principal debt capacity.';
   }
   // Avoid financing structures where scheduled debt service would absorb almost
   // all current operating profit before construction disruption.
+  const reportedInterestExpense = Math.max(
+    0,
+    business.lastExpenseBreakdown?.loanInterest
+      ?? getBusinessWeeklyInterestExpense(business),
+  );
+  const cashAvailableForDebtService = Math.max(
+    0,
+    (business.lastWeekProfit ?? 0) + reportedInterestExpense,
+  );
   const projectedDebtService = profile.weeklyDebtService + weeklyPayment;
-  if (allowed && projectedDebtService > Math.max(1, business.lastWeekProfit ?? 0) * 0.70) {
+  if (allowed && projectedDebtService > Math.max(1, cashAvailableForDebtService) * 0.70) {
     allowed = false;
-    reason = 'Projected debt service is too high for current earnings.';
+    reason = 'Projected debt service is too high for current operating cash generation.';
   }
 
   return {

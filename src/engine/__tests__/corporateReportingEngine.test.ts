@@ -176,6 +176,25 @@ describe('corporate management reporting', () => {
     expect(report.overallStatus).toBe('critical');
   });
 
+  test('debt coverage does not add principal repayment back into earnings', () => {
+    const business = makeCorporateBusiness();
+    business.corporateKpiHistory = Array.from({ length: 5 }, (_, index) => point(21 + index, {
+      revenue: 1_000_000,
+      expenses: 900_000,
+      profit: 100_000,
+      debtService: 100_000,
+      cashAvailableForDebtService: 110_000,
+    }));
+    business.lastWeekRevenue = 1_000_000;
+    business.lastWeekExpenses = 900_000;
+    business.lastWeekProfit = 100_000;
+
+    const report = getCorporateManagementReport(business, 25, 'quarter', 1)!;
+
+    expect(report.debtCoverage).toBeCloseTo(1.1, 4);
+    expect(report.debtCoverageStatus).toBe('watch');
+  });
+
   test('explains period variance from tracked operating drivers', () => {
     const business = makeCorporateBusiness();
     const rich = {
@@ -334,6 +353,7 @@ describe('corporate management reporting', () => {
     expect(snapshot?.averageDepartmentSkill).toBeDefined();
     expect(snapshot?.averageDepartmentMorale).toBeDefined();
     expect(snapshot?.employeeRelations).toBe(61);
+    expect(snapshot?.cashAvailableForDebtService).toBeDefined();
     expect(snapshot?.maintenanceRevenuePenalty).toBeGreaterThan(0);
     expect(snapshot?.maintenanceExpenseIncrease).toBeGreaterThan(0);
     expect(snapshot?.reputation).toBe(80);

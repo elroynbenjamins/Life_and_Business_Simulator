@@ -1,12 +1,15 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
+import ScrollView from '../../src/components/TutorialScrollView';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
-import GameStatusBar from '../../src/components/StatusBar';
+import ScreenHeader from '../../src/components/ScreenHeader';
 import GameCard from '../../src/components/GameCard';
 import ProgressBar from '../../src/components/ProgressBar';
+import GameButton from '../../src/components/GameButton';
+import StatusPill from '../../src/components/StatusPill';
 import useGameStore from '../../src/store/gameStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
@@ -14,10 +17,14 @@ import { getWeeklySalary, getWeeklyRent, getWeeklyUtilityCost, getWeeklyCarCost,
 import { getCareerSalary } from '../../src/engine/careerEngine';
 import { calculatePartnerContribution } from '../../src/engine/relationshipEngine';
 import coursesData from '../../src/data/courses.json';
+import FirstStepsCard from '../../src/components/FirstStepsCard';
+import { averageStudentWorkIncome, getStudentStudyDuration, getStudentWorkOption, getStudentWorkTier } from '../../src/engine/studentWork';
+import achievementsData from '../../src/data/achievements.json';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const advanceWeek = useGameStore((s) => s?.advanceWeek);
+  const [advancingWeek, setAdvancingWeek] = useState(false);
   const currentJobId = useGameStore((s) => s?.currentJobId);
   const currentCourseId = useGameStore((s) => s?.currentCourseId);
   const courseWeeksCompleted = useGameStore((s) => s?.courseWeeksCompleted ?? 0);
@@ -29,8 +36,12 @@ export default function DashboardScreen() {
   const career = useGameStore((s) => s?.career);
   const getPortfolioValueTotal = useGameStore((s) => s?.getPortfolioValueTotal);
   const gems = useGameStore((s) => s?.profile?.gems ?? 0);
-  const prestigePoints = useGameStore((s) => s?.profile?.prestigePoints ?? 0);
   const loginRewardAvailable = useGameStore((s) => s.getDailyLoginStatus().available);
+  const annualReports = useGameStore((s) => s.annualReports ?? []);
+  const annualReportUnread = useGameStore((s) => s.annualReportUnread ?? false);
+  const openAnnualReport = useGameStore((s) => s.openAnnualReport);
+  const pinnedAchievementGoals = useGameStore((s) => s.pinnedAchievementGoals ?? []);
+  const unlockedAchievements = useGameStore((s) => s.unlockedAchievements ?? []);
   const state = useGameStore(useShallow((s) => ({
     currentJobId: s.currentJobId,
     currentCourseId: s.currentCourseId,
@@ -44,19 +55,30 @@ export default function DashboardScreen() {
     relationshipModeEnabled: s.relationshipModeEnabled,
     relationshipState: s.relationshipState,
     partTimeJob: s.partTimeJob,
+    studentWorkTier: s.studentWorkTier,
   }))) as ReturnType<typeof useGameStore.getState>;
   const relationshipModeEnabled = useGameStore((s) => s?.relationshipModeEnabled ?? false);
   const relationshipState = useGameStore((s) => s?.relationshipState);
   const lifecycle = useGameStore((s) => s?.lifecycle);
   const partner = (relationshipState?.activeConnections ?? []).find((item) => item.id === relationshipState?.partnerId) ?? null;
 
-  const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
+  const partTimeJob = useGameStore((s) => s?.partTimeJob ?? false);
+  const studentWorkTier = useGameStore((s) => s?.studentWorkTier ?? null);
+  const studentWork = getStudentWorkOption(getStudentWorkTier({ partTimeJob, studentWorkTier }));
   const course = (coursesData ?? []).find((c) => c?.id === currentCourseId);
   const portfolioValue = getPortfolioValueTotal?.() ?? 0;
   const hasHoldings = (holdings?.length ?? 0) > 0;
   const totalLoanDebt = (loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
   const businessAttentionCount = businesses.filter((business) => !!business.pendingDecision).length;
   const businessCrisisCount = businesses.filter((business) => business.pendingDecision?.kind === 'crisis').length;
+  const latestAnnualReport = annualReports[0] ?? null;
+  const latestAnnualNetFlow = latestAnnualReport
+    ? latestAnnualReport.totalIncome - latestAnnualReport.totalExpenses - latestAnnualReport.totalTax
+    : 0;
+  const activePinnedGoals = pinnedAchievementGoals
+    .filter((id) => !unlockedAchievements.includes(id))
+    .map((id) => (achievementsData as any[]).find((achievement) => achievement.id === id))
+    .filter(Boolean);
 
   // Use career v2 salary if available, otherwise legacy
   const hasCareerV2 = !!career?.companyId;
@@ -66,6 +88,7 @@ export default function DashboardScreen() {
   const weeklyExpenses = getWeeklyRent(state) + getWeeklyUtilityCost(state) + getWeeklyCarCost(state) + getWeeklyFoodCost(state) + getWeeklyCourseCost(state) + loanPayments + household.householdExtraCost + household.familyCost + household.obligationCost;
 
   const isEmployed = hasCareerV2 || !!currentJobId;
+  const coupleTripActive = (state.relationshipState?.coupleTripWeeksRemaining ?? 0) > 0;
   const hasIncome = isEmployed || partTimeJob;
   const jobTitle = hasCareerV2
     ? (() => {
@@ -76,8 +99,10 @@ export default function DashboardScreen() {
       })()
     : (currentJobId
         ? require('../../src/data/jobs.json')?.find((j: any) => j?.id === currentJobId)?.title
-        : (partTimeJob ? 'Part-Time' : null));
-  const displayIncome = isEmployed ? weeklyIncome : (partTimeJob ? 350 : 0);
+        : (partTimeJob ? (studentWork?.shortName ?? 'Part-Time') : null));
+  const displayIncome = coupleTripActive ? 0 : (isEmployed ? weeklyIncome : (partTimeJob ? averageStudentWorkIncome(studentWork?.id ?? null) : 0));
+  const effectivePartnerContribution = coupleTripActive ? 0 : household.contribution;
+  const projectedWeeklyFlow = displayIncome + effectivePartnerContribution - weeklyExpenses;
   const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
   const weeksUntilTax = 20 - (globalWeek % 20);
 
@@ -91,91 +116,192 @@ export default function DashboardScreen() {
   };
 
   const handleNextWeek = () => {
-    if (lifecycle?.isDead) return;
-    tryHaptic();
-    advanceWeek?.();
+    if (lifecycle?.isDead || advancingWeek) return;
+    setAdvancingWeek(true);
+    void tryHaptic();
+
+    const runAfterPaint = typeof requestAnimationFrame === 'function'
+      ? (callback: () => void) => requestAnimationFrame(callback)
+      : (callback: () => void) => setTimeout(callback, 0);
+
+    runAfterPaint(() => {
+      try {
+        advanceWeek?.();
+      } finally {
+        setAdvancingWeek(false);
+      }
+    });
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Dashboard</Text>
-        <View style={styles.headerRight}>
-          <Pressable style={styles.gemsBadge} onPress={() => router.push('/support')} hitSlop={8}>
-            <Ionicons name="diamond" size={14} color="#8B5CF6" />
-            <Text style={styles.gemsText}>{gems}</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push('/profile')} hitSlop={12}>
-            <Ionicons name="settings-outline" size={24} color={Colors.textSecondary} />
-          </Pressable>
-        </View>
-      </View>
-      <GameStatusBar />
+      <ScreenHeader
+        title="Dashboard"
+        accentColor={Colors.primary}
+        right={(
+          <>
+            <Pressable style={styles.gemsBadge} onPress={() => router.push('/support')} hitSlop={8}>
+              <Ionicons name="diamond" size={14} color={Colors.premium} />
+              <Text style={styles.gemsText}>{gems}</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/profile')} hitSlop={12}>
+              <Ionicons name="settings-outline" size={22} color={Colors.textSecondary} />
+            </Pressable>
+          </>
+        )}
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* News */}
-        <GameCard>
-          <View style={styles.newsRow}>
-            <Ionicons name="newspaper-outline" size={20} color={Colors.warning} />
-            <Text style={styles.newsText}>{currentHeadline}</Text>
-          </View>
-        </GameCard>
-
-        {/* Income vs Expenses */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCardWrap}><GameCard style={styles.statCard} onPress={() => router.push('/tabs/career')}>
-            <Text style={styles.statLabel}>Weekly Income</Text>
-            <Text style={[styles.statValue, { color: hasIncome ? Colors.primary : Colors.warning }]}>
-              {hasIncome ? (isEmployed ? formatCurrency(weeklyIncome) : '~' + formatCurrency(displayIncome)) : 'Unemployed'}
+        <GameCard
+          variant="hero"
+          eyebrow="THIS WEEK"
+          title="Weekly cash flow"
+          tutorialId="home.cashflow"
+          accentColor={projectedWeeklyFlow >= 0 ? Colors.primary : Colors.negative}
+          titleAccessory={(
+            <StatusPill
+              compact
+              icon="receipt-outline"
+              label={`Tax in ${weeksUntilTax}w`}
+              color={weeksUntilTax <= 3 ? Colors.negative : Colors.warning}
+            />
+          )}
+        >
+          <View style={styles.flowHero}>
+            <Text style={styles.flowLabel}>PROJECTED NET</Text>
+            <Text style={[styles.flowValue, { color: projectedWeeklyFlow >= 0 ? Colors.primary : Colors.negative }]}>
+              {projectedWeeklyFlow >= 0 ? '+' : ''}{formatCurrency(projectedWeeklyFlow)}
+              <Text style={styles.flowPerWeek}> /wk</Text>
             </Text>
-            <Text style={styles.statCaption}>{jobTitle ?? 'No job'}</Text>
-          </GameCard></View>
-          <View style={styles.statCardWrap}><GameCard style={styles.statCard} onPress={() => router.push('/tabs/statistics')}>
-            <Text style={styles.statLabel}>Weekly Expenses</Text>
-            <Text style={[styles.statValue, { color: Colors.negative }]}>{formatCurrency(weeklyExpenses)}</Text>
-            <Text style={styles.statCaption}>Rent + Utils + Food + Car{loanPayments > 0 ? ' + Loans' : ''}</Text>
-          </GameCard></View>
-        </View>
-
-        {/* Tax reminder */}
-        <GameCard onPress={() => router.push('/info')}>
-          <View style={styles.taxReminderRow}>
-            <Ionicons name="receipt-outline" size={22} color={weeksUntilTax <= 3 ? Colors.negative : Colors.warning} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.taxReminderTitle}>Tax assessment in {weeksUntilTax} week{weeksUntilTax !== 1 ? 's' : ''}</Text>
-              <Text style={styles.taxReminderText}>A tax bill is calculated from your career salary every 20 weeks. Keep enough cash available.</Text>
-            </View>
+            <Text style={styles.flowHint}>Income and household contribution minus recurring weekly costs. Tax settles separately.</Text>
           </View>
+
+          <View style={styles.weeklyMetrics}>
+            <Pressable style={styles.weeklyMetric} onPress={() => router.push('/tabs/career')}>
+              <View style={styles.metricHeader}>
+                <Ionicons name="arrow-up-circle-outline" size={15} color={hasIncome ? Colors.primary : Colors.warning} />
+                <Text style={styles.metricLabel}>Income</Text>
+              </View>
+              <Text style={[styles.metricValue, { color: hasIncome ? Colors.primary : Colors.warning }]}>
+                {hasIncome ? formatCurrency(displayIncome) : 'Unemployed'}
+              </Text>
+              <Text style={styles.metricCaption} numberOfLines={1}>
+                {coupleTripActive ? `World trip • ${state.relationshipState?.coupleTripWeeksRemaining ?? 0}w unpaid` : (jobTitle ?? 'No active job')}
+              </Text>
+            </Pressable>
+
+            <Pressable style={styles.weeklyMetric} onPress={() => router.push('/tabs/statistics')}>
+              <View style={styles.metricHeader}>
+                <Ionicons name="arrow-down-circle-outline" size={15} color={Colors.negative} />
+                <Text style={styles.metricLabel}>Expenses</Text>
+              </View>
+              <Text style={[styles.metricValue, { color: Colors.negative }]}>{formatCurrency(weeklyExpenses)}</Text>
+              <Text style={styles.metricCaption} numberOfLines={1}>Recurring household costs</Text>
+            </Pressable>
+          </View>
+
+          {effectivePartnerContribution > 0 && (
+            <View style={styles.sharedContribution}>
+              <Ionicons name="heart-outline" size={14} color={Colors.family} />
+              <Text style={styles.sharedContributionText}>
+                {partner?.name ?? 'Partner'} contributes {formatCurrency(effectivePartnerContribution)}/wk to shared costs
+              </Text>
+            </View>
+          )}
+
+          <GameButton
+            tutorialId="home.advance"
+            label={lifecycle?.isDead ? 'Life Complete' : advancingWeek ? 'Processing Week...' : 'Advance to Next Week'}
+            icon={advancingWeek ? 'hourglass-outline' : undefined}
+            trailingIcon={lifecycle?.isDead || advancingWeek ? undefined : 'arrow-forward'}
+            disabled={!!lifecycle?.isDead || advancingWeek}
+            onPress={handleNextWeek}
+            style={styles.advanceButton}
+          />
         </GameCard>
 
-        {/* Course Progress */}
+        <FirstStepsCard />
+
+        {latestAnnualReport && (
+          <GameCard
+            variant="subtle"
+            eyebrow="YEARLY REPORT"
+            title={`Year ${Math.floor(latestAnnualReport.toWeek / 20)} Summary`}
+            accentColor={latestAnnualNetFlow >= 0 ? Colors.primary : Colors.negative}
+            onPress={() => openAnnualReport(0)}
+            titleAccessory={annualReportUnread
+              ? <StatusPill compact label="NEW" color={Colors.info} />
+              : <StatusPill compact label="Saved" color={Colors.textSecondary} />}
+          >
+            <View style={styles.annualReportRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.annualReportLabel}>NET CASH FLOW</Text>
+                <Text style={[styles.annualReportValue, { color: latestAnnualNetFlow >= 0 ? Colors.primary : Colors.negative }]}>
+                  {latestAnnualNetFlow >= 0 ? '+' : ''}{formatCurrency(latestAnnualNetFlow)}
+                </Text>
+              </View>
+              <View style={styles.annualReportMetric}>
+                <Text style={styles.annualReportLabel}>NET WORTH</Text>
+                <Text style={styles.annualReportMetricValue}>{formatCurrency(latestAnnualReport.currentNetWorth)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color={Colors.textMuted} />
+            </View>
+            <Text style={styles.annualReportHint}>Saved automatically. Open only when you want the full breakdown.</Text>
+          </GameCard>
+        )}
+
+        {activePinnedGoals.length > 0 && (
+          <GameCard
+            variant="subtle"
+            eyebrow="PERSONAL GOALS"
+            title="Pinned Milestones"
+            accentColor={Colors.warning}
+            onPress={() => router.push('/achievements')}
+            titleAccessory={<StatusPill compact label={`${activePinnedGoals.length}/3`} color={Colors.warning} />}
+          >
+            <View style={styles.goalList}>
+              {activePinnedGoals.map((goal: any) => (
+                <View key={goal.id} style={styles.goalRow}>
+                  <View style={styles.goalIcon}>
+                    <Ionicons name="flag-outline" size={15} color={Colors.warning} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.goalTitle}>{goal.name}</Text>
+                    <Text style={styles.goalDesc} numberOfLines={1}>{goal.description}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.goalHint}>Manage pinned goals from Achievements.</Text>
+          </GameCard>
+        )}
+
         {course ? (() => {
           const baseDur = course?.duration ?? 1;
-          const adjustedDur = partTimeJob ? Math.ceil(baseDur * 1.25) : baseDur;
+          const adjustedDur = getStudentStudyDuration(baseDur, studentWork?.id ?? null);
           return (
-            <GameCard title="Course Progress" onPress={() => router.push('/tabs/education')}>
-              <Text style={styles.courseTitle}>{course?.name}</Text>
-              <ProgressBar progress={courseWeeksCompleted / adjustedDur} />
+            <GameCard
+              eyebrow="EDUCATION"
+              title={course?.name}
+              accentColor={Colors.education}
+              onPress={() => router.push('/tabs/education')}
+              titleAccessory={<StatusPill compact label={`${courseWeeksCompleted}/${adjustedDur} wk`} color={Colors.education} />}
+            >
+              <ProgressBar progress={courseWeeksCompleted / adjustedDur} color={Colors.education} />
               <Text style={styles.courseCaption}>
-                Week {courseWeeksCompleted}/{adjustedDur}{partTimeJob ? ' (slower — part-time)' : ''}
+                {studentWork
+                  ? `${studentWork.shortName} increases study time by ${Math.round((studentWork.studyDurationMultiplier - 1) * 100)}%`
+                  : `${Math.max(0, adjustedDur - courseWeeksCompleted)} week${Math.max(0, adjustedDur - courseWeeksCompleted) === 1 ? '' : 's'} remaining`}
               </Text>
             </GameCard>
           );
         })() : null}
 
-        {/* Primary action sits immediately above the Portfolio section. */}
-        <View style={styles.primaryActionWrap}>
-          <Pressable
-            disabled={lifecycle?.isDead}
-            style={({ pressed }) => [
-              styles.nextWeekButton,
-              lifecycle?.isDead && { opacity: 0.45 },
-              { transform: [{ scale: pressed ? 0.98 : 1 }] },
-            ]}
-            onPress={handleNextWeek}
-          >
-            <Text style={styles.nextWeekText}>{lifecycle?.isDead ? 'Life Complete' : 'Advance to Next Week →'}</Text>
-          </Pressable>
-        </View>
+        <GameCard variant="subtle" compact>
+          <View style={styles.newsRow}>
+            <Ionicons name="newspaper-outline" size={17} color={Colors.warning} />
+            <Text style={styles.newsText} numberOfLines={2}>{currentHeadline}</Text>
+          </View>
+        </GameCard>
 
         {/* Personal Life */}
         {relationshipModeEnabled && (
@@ -183,7 +309,7 @@ export default function DashboardScreen() {
             {partner ? (
               <>
                 <Text style={[styles.statValue, { color: Colors.happiness }]}>{partner.name} • {partner.stage === 'married' ? 'Married' : partner.stage === 'engaged' ? 'Engaged' : (partner.isCohabiting || partner.stage === 'living_together') ? 'Living Together' : 'Partner'}</Text>
-                <Text style={styles.statCaption}>Relationship: {Math.round(partner.relationship ?? 0)}%{household.contribution > 0 ? ` • +${formatCurrency(household.contribution)}/wk shared costs` : ''}</Text>
+                <Text style={styles.statCaption}>Relationship: {Math.round(partner.relationship ?? 0)}%{effectivePartnerContribution > 0 ? ` • +${formatCurrency(effectivePartnerContribution)}/wk shared costs` : ''}</Text>
               </>
             ) : (
               <>
@@ -240,20 +366,15 @@ export default function DashboardScreen() {
           </GameCard>
         ) : null}
 
-        {/* Quick Links */}
+        {/* Utility Links */}
+        <Text style={styles.sectionLabel}>More</Text>
         <View style={styles.linksRow}>
           <QuickLink icon="home" label="Lifestyle" onPress={() => router.push('/housing')} />
-          {relationshipModeEnabled && <QuickLink icon="heart" label="Personal Life" onPress={() => router.push('/relationships')} color={Colors.happiness} notification={!!relationshipState?.pendingEvent} />}
-          <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} />
-          <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} />
-          <QuickLink icon="pie-chart" label="Portfolio" onPress={() => router.push('/portfolio')} />
-          <QuickLink icon="business" label="Business" onPress={() => router.push('/business')} color="#06B6D4" notification={businessAttentionCount > 0} />
-          <QuickLink icon="home-outline" label="Properties" onPress={() => router.push('/properties')} color="#06B6D4" />
-          <QuickLink icon="ribbon" label="Prestige" onPress={() => router.push('/prestige')} color="#EC4899" />
-          <QuickLink icon="diamond" label="Support" onPress={() => router.push('/support')} color="#8B5CF6" notification={loginRewardAvailable} />
-          <QuickLink icon="information-circle" label="Info" onPress={() => router.push('/info')} color="#3B82F6" />
-          <QuickLink icon="stats-chart" label="Statistics" onPress={() => router.push('/tabs/statistics')} color="#10B981" />
-          <QuickLink icon="newspaper" label="News" onPress={() => router.push('/news')} color="#F59E0B" />
+          <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} color={Colors.warning} />
+          <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} color={Colors.info} />
+          <QuickLink icon="ribbon" label="Prestige" onPress={() => router.push('/prestige')} color={Colors.family} />
+          <QuickLink icon="diamond" label="Support" onPress={() => router.push('/support')} color={Colors.premium} notification={loginRewardAvailable} />
+          <QuickLink icon="newspaper" label="News" onPress={() => router.push('/news')} color={Colors.warning} />
         </View>
 
       </ScrollView>
@@ -273,31 +394,44 @@ function QuickLink({ icon, label, onPress, color, notification }: { icon: string
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 24, fontWeight: '700' },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  gemsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#8B5CF620', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
-  gemsText: { color: '#8B5CF6', fontSize: 14, fontWeight: '700' },
+  gemsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.premium}20`, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  gemsText: { color: Colors.premium, fontSize: 14, fontWeight: '700' },
   scroll: { flex: 1 },
-  scrollContent: { padding: 16 },
-  primaryActionWrap: { marginBottom: 10 },
-  newsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  newsText: { color: Colors.warning, fontSize: 14, fontStyle: 'italic', flex: 1 },
-  statsRow: { flexDirection: 'row', gap: 12 },
-  statCard: { flex: 1 },
-  statCardWrap: { flex: 1, minWidth: 0 },
-  statLabel: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
+  scrollContent: { padding: 16, paddingBottom: 28 },
+  flowHero: { marginBottom: 13 },
+  flowLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  flowValue: { fontSize: 28, lineHeight: 34, fontWeight: '900', marginTop: 1 },
+  flowPerWeek: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
+  flowHint: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  weeklyMetrics: { flexDirection: 'row', gap: 8, marginBottom: 9 },
+  weeklyMetric: { flex: 1, minWidth: 0, backgroundColor: Colors.elevated, borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, padding: 10 },
+  metricHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 },
+  metricLabel: { color: Colors.textSecondary, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  metricValue: { fontSize: 16, fontWeight: '800' },
+  metricCaption: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
+  sharedContribution: { minHeight: 30, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 8, backgroundColor: `${Colors.family}10`, marginBottom: 10 },
+  sharedContributionText: { flex: 1, color: Colors.textSecondary, fontSize: 11, fontWeight: '600' },
+  advanceButton: { marginTop: 2 },
+  newsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  newsText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, flex: 1 },
   statValue: { fontSize: 20, fontWeight: '700' },
   statCaption: { color: Colors.textMuted, fontSize: 12, marginTop: 4 },
-  taxReminderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  taxReminderTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
-  taxReminderText: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 3 },
-  courseTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', marginBottom: 8 },
-  courseCaption: { color: Colors.textSecondary, fontSize: 12, marginTop: 6 },
+  courseCaption: { color: Colors.textSecondary, fontSize: 11, marginTop: 7 },
+  annualReportRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  annualReportLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  annualReportValue: { fontSize: 18, fontWeight: '900', marginTop: 2 },
+  annualReportMetric: { alignItems: 'flex-end' },
+  annualReportMetricValue: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800', marginTop: 2 },
+  annualReportHint: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 7 },
+  goalList: { gap: 4 },
+  goalRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  goalIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: `${Colors.warning}12`, alignItems: 'center', justifyContent: 'center' },
+  goalTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  goalDesc: { color: Colors.textMuted, fontSize: 9, marginTop: 1 },
+  goalHint: { color: Colors.textMuted, fontSize: 9, marginTop: 5 },
+  sectionLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', marginTop: 4, marginBottom: 8 },
   linksRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginVertical: 4 },
-  quickLink: { flexBasis: '30%', flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 12, borderWidth: 1, borderColor: Colors.cardBorder },
+  quickLink: { flexBasis: '31%', flexGrow: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   quickLinkText: { color: Colors.textPrimary, fontSize: 13, fontWeight: '500' },
   notificationDot: { position: 'absolute', top: 7, right: 7, width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.negative },
-  nextWeekButton: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  nextWeekText: { color: Colors.white, fontSize: 17, fontWeight: '700' },
 });

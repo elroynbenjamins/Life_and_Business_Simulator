@@ -1,4 +1,5 @@
 // Web stub — ads not available on web
+import type { RewardedAdPlacement } from './adConfig';
 
 type AdState = 'idle' | 'loading' | 'ready' | 'showing' | 'error';
 type Listener = (state: AdState) => void;
@@ -14,7 +15,7 @@ export function subscribeAdState(fn: Listener): () => void {
   return () => { listeners = listeners.filter((l) => l !== fn); };
 }
 
-export async function loadRewardedAd(_placement: 'gems' | 'education'): Promise<boolean> {
+export async function loadRewardedAd(_placement: RewardedAdPlacement): Promise<boolean> {
   return false;
 }
 

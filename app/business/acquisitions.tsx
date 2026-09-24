@@ -11,12 +11,20 @@ import { formatCurrency } from '../../src/utils/format';
 import {
   ACQUISITION_MARKET_REFRESH_WEEKS,
   ACQUISITION_UNLOCK_NET_WORTH,
+  AcquisitionTargetFundingFilter,
+  AcquisitionTargetSortMode,
+  getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
+  getAcquisitionFundingAvailabilityMatrix,
+  filterAcquisitionTargetsByFunding,
   getAcquisitionPrice,
   getAcquisitionTransactionCost,
+  sortAcquisitionTargets,
 } from '../../src/engine/acquisitionEngine';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
 import { AcquisitionFundingMode } from '../../src/types/game';
+import { getBusinessCapacity } from '../../src/engine/businessCapacityEngine';
+import { getEconomicCycleDescription, getEconomicCycleEffects } from '../../src/engine/economyEngine';
 
 const RISK_LABELS = {
   low: { label: 'Low risk', color: Colors.primary },
@@ -30,15 +38,31 @@ const FUNDING_OPTIONS: Array<{ key: AcquisitionFundingMode; label: string; desc:
   { key: 'leveraged', label: 'Leveraged', desc: '30% cash • 70% acquisition debt' },
 ];
 
+const SORT_OPTIONS: Array<{ key: AcquisitionTargetSortMode; label: string }> = [
+  { key: 'price', label: 'Price' },
+  { key: 'premium', label: 'Premium' },
+  { key: 'profit', label: 'Profit' },
+  { key: 'diligence', label: 'Diligence' },
+  { key: 'risk', label: 'Risk' },
+];
+
+const FUNDING_FILTERS: Array<{ key: AcquisitionTargetFundingFilter; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'ready', label: 'Ready now' },
+  { key: 'financeable', label: 'Debt-ready' },
+];
+
 export default function BusinessAcquisitionsScreen() {
   const router = useRouter();
   const acquisitionTargets = useGameStore((s) => s.acquisitionTargets ?? []);
+  const businesses = useGameStore((s) => s.businesses ?? []);
   const holdingCompanies = useGameStore((s) => s.holdingCompanies ?? []);
   const lastRefreshWeek = useGameStore((s) => s.lastAcquisitionRefreshWeek ?? 0);
   const cash = useGameStore((s) => s.cash ?? 0);
   const week = useGameStore((s) => s.week ?? 1);
   const year = useGameStore((s) => s.year ?? 1);
   const profile = useGameStore((s) => s.profile);
+  const economicCycle = useGameStore((s) => s.economicCycle);
   const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
   const ensureAcquisitionMarket = useGameStore((s) => s.ensureAcquisitionMarket);
   const refreshAcquisitionMarket = useGameStore((s) => s.refreshAcquisitionMarket);
@@ -46,12 +70,18 @@ export default function BusinessAcquisitionsScreen() {
 
   const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
   const [fundingMode, setFundingMode] = useState<AcquisitionFundingMode>('balanced');
+  const [sortMode, setSortMode] = useState<AcquisitionTargetSortMode>('price');
+  const [fundingFilter, setFundingFilter] = useState<AcquisitionTargetFundingFilter>('all');
+  const [expandedTargetId, setExpandedTargetId] = useState<string | null>(null);
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
   const effects = getPrestigeEffects(profile);
+  const companyCapacity = getBusinessCapacity(profile);
+  const capacityFull = businesses.length >= companyCapacity;
   const negotiationBonus = effects.negotiation ?? 0;
   const loanRateReduction = effects.loan_rate_reduction ?? 0;
+  const macroRateModifier = getEconomicCycleEffects(economicCycle?.phase ?? 'expansion').interestRateModifier;
   const globalWeek = ((year - 1) * 20) + week;
   const weeksUntilRefresh = lastRefreshWeek <= 0
     ? 0
@@ -65,21 +95,35 @@ export default function BusinessAcquisitionsScreen() {
     if (unlocked) ensureAcquisitionMarket();
   }, [unlocked, globalWeek, ensureAcquisitionMarket]);
 
+  const filteredTargets = useMemo(
+    () => filterAcquisitionTargetsByFunding(
+      acquisitionTargets,
+      fundingFilter,
+      sourceCash,
+      negotiationBonus,
+      loanRateReduction,
+      macroRateModifier,
+    ),
+    [acquisitionTargets, fundingFilter, sourceCash, negotiationBonus, loanRateReduction, macroRateModifier],
+  );
+
   const sortedTargets = useMemo(
-    () => [...acquisitionTargets].sort((a, b) => a.askingPrice - b.askingPrice),
-    [acquisitionTargets]
+    () => sortAcquisitionTargets(filteredTargets, sortMode, negotiationBonus),
+    [filteredTargets, sortMode, negotiationBonus],
   );
 
   const confirmAcquire = (targetId: string) => {
     const target = acquisitionTargets.find((item) => item.id === targetId);
-    if (!target) return;
+    if (!target || capacityFull) return;
     const price = getAcquisitionPrice(target, negotiationBonus);
-    const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction);
+    const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction, macroRateModifier);
+    const debtServiceSafety = getAcquisitionDebtServiceSafety(target, quote);
+    if (!debtServiceSafety.allowed) return;
     const transactionCost = getAcquisitionTransactionCost(target, price);
     const totalCashNeeded = quote.cashContribution + transactionCost;
     const destination = selectedHolding?.name ?? 'your direct portfolio';
     const debtText = quote.debtPrincipal > 0
-      ? ` + ${formatCurrency(quote.debtPrincipal)} acquisition debt (${formatCurrency(quote.weeklyPayment)}/wk)`
+      ? ` + ${formatCurrency(quote.debtPrincipal)} acquisition debt at ${(quote.interestRate * 100).toFixed(1)}% (${formatCurrency(quote.weeklyPayment)}/wk; underwritten against ${formatCurrency(debtServiceSafety.underwrittenWeeklyProfit)}/wk stressed profit)`
       : '';
 
     showGameDialog({
@@ -121,6 +165,18 @@ export default function BusinessAcquisitionsScreen() {
             <Text style={styles.summaryValue}>{formatCurrency(sourceCash)}</Text>
           </View>
         </View>
+
+        {unlocked && capacityFull && (
+          <GameCard variant="attention" eyebrow="COMPANY CAPACITY" title="Unlock another company slot" accentColor={Colors.warning}>
+            <Text style={styles.capacityText}>
+              You currently own {businesses.length} of {companyCapacity} companies. Starting or acquiring another company requires a permanent capacity unlock.
+            </Text>
+            <Pressable style={styles.capacityLink} onPress={() => router.push('/business/start')}>
+              <Text style={styles.capacityLinkText}>Open company slot unlocks</Text>
+              <Ionicons name="arrow-forward" size={14} color={Colors.business} />
+            </Pressable>
+          </GameCard>
+        )}
 
         {!unlocked ? (
           <GameCard>
@@ -174,7 +230,7 @@ export default function BusinessAcquisitionsScreen() {
             <GameCard>
               <Text style={styles.sectionTitle}>Financing</Text>
               <Text style={styles.sectionSub}>
-                Acquisition debt stays on the acquired company and reduces net worth until repaid.
+                Acquisition debt stays on the acquired company. Underwriting first stresses post-close profit for integration disruption, then caps debt service at 60% / 50% / 40% for low / medium / high-risk targets.
               </Text>
               <View style={styles.fundingGrid}>
                 {FUNDING_OPTIONS.map((option) => (
@@ -196,6 +252,9 @@ export default function BusinessAcquisitionsScreen() {
                 <Text style={styles.marketSub}>
                   {weeksUntilRefresh > 0 ? `New targets in ${weeksUntilRefresh} week${weeksUntilRefresh === 1 ? '' : 's'}` : 'Market can refresh now'}
                 </Text>
+                <Text style={styles.marketSub}>
+                  {(economicCycle?.phase ?? 'expansion').replace('_', ' ').replace(/^./, (char) => char.toUpperCase())} • {getEconomicCycleDescription(economicCycle?.phase ?? 'expansion')}
+                </Text>
               </View>
               {negotiationBonus > 0 && (
                 <View style={styles.negotiationBadge}>
@@ -205,26 +264,80 @@ export default function BusinessAcquisitionsScreen() {
               )}
             </View>
 
+            <View style={styles.marketFilterRow}>
+              {FUNDING_FILTERS.map((option) => {
+                const active = fundingFilter === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    onPress={() => setFundingFilter(option.key)}
+                    style={[styles.marketFilterChip, active && styles.marketFilterChipActive]}
+                  >
+                    <Text style={[styles.marketFilterText, active && styles.marketFilterTextActive]}>{option.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {sortedTargets.length > 1 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+                {SORT_OPTIONS.map((option) => {
+                  const active = sortMode === option.key;
+                  return (
+                    <Pressable
+                      key={option.key}
+                      onPress={() => setSortMode(option.key)}
+                      style={[styles.sortChip, active && styles.sortChipActive]}
+                    >
+                      <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>{option.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+
             {sortedTargets.length === 0 ? (
               <GameCard>
                 <Text style={styles.emptyTitle}>No targets available</Text>
-                <Text style={styles.emptyText}>The current market has been cleared. A new batch arrives at the next refresh.</Text>
+                <Text style={styles.emptyText}>
+                  {acquisitionTargets.length === 0
+                    ? 'The current market has been cleared. A new batch arrives at the next refresh.'
+                    : fundingFilter === 'ready'
+                      ? 'No targets are both underwritten and affordable from the selected cash source right now.'
+                      : fundingFilter === 'financeable'
+                        ? 'No current target passes underwriting for Balanced or Leveraged acquisition debt.'
+                        : 'No targets available.'}
+                </Text>
               </GameCard>
             ) : sortedTargets.map((target) => {
               const risk = RISK_LABELS[target.risk];
               const price = getAcquisitionPrice(target, negotiationBonus);
-              const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction);
+              const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction, macroRateModifier);
+              const debtServiceSafety = getAcquisitionDebtServiceSafety(target, quote);
+              const fundingAvailabilityMatrix = getAcquisitionFundingAvailabilityMatrix(
+                target,
+                price,
+                sourceCash,
+                loanRateReduction,
+                macroRateModifier,
+              );
               const transactionCost = getAcquisitionTransactionCost(target, price);
               const totalCashNeeded = quote.cashContribution + transactionCost;
               const premiumPct = target.estimatedValue > 0
                 ? Math.round((price / target.estimatedValue - 1) * 100)
                 : 0;
-              const debtServiceSafe = quote.weeklyPayment <= Math.max(1, target.weeklyProfit) * 0.80;
-              const canAfford = sourceCash >= totalCashNeeded && debtServiceSafe;
+              const debtServiceSafe = debtServiceSafety.allowed;
+              const canAfford = sourceCash >= totalCashNeeded && debtServiceSafe && !capacityFull;
+              const expanded = expandedTargetId === target.id;
 
               return (
                 <GameCard key={target.id}>
-                  <View style={styles.targetHeader}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    style={styles.targetHeader}
+                    onPress={() => setExpandedTargetId(expanded ? null : target.id)}
+                  >
                     <View style={styles.targetIcon}>
                       <Ionicons name="business" size={23} color={Colors.info} />
                     </View>
@@ -233,11 +346,17 @@ export default function BusinessAcquisitionsScreen() {
                       <Text style={styles.targetMeta}>
                         {target.industry} • {target.tier.toUpperCase()} • {target.companyAgeYears ?? 8}y operating history
                       </Text>
+                      {target.marketCondition === 'distressed' && (
+                        <Text style={styles.distressedText}>DISTRESSED • lower seller premium, weaker earnings, higher diligence risk</Text>
+                      )}
                     </View>
-                    <View style={[styles.riskBadge, { borderColor: risk.color }]}>
-                      <Text style={[styles.riskText, { color: risk.color }]}>{risk.label}</Text>
+                    <View style={styles.targetHeaderRight}>
+                      <View style={[styles.riskBadge, { borderColor: risk.color }]}>
+                        <Text style={[styles.riskText, { color: risk.color }]}>{risk.label}</Text>
+                      </View>
+                      <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={17} color={Colors.textMuted} />
                     </View>
-                  </View>
+                  </Pressable>
 
                   <View style={styles.metrics}>
                     <View style={styles.metric}>
@@ -256,6 +375,58 @@ export default function BusinessAcquisitionsScreen() {
                     </View>
                   </View>
 
+                  <View style={styles.fundingSafetyRow}>
+                    <Text style={styles.fundingSafetyLabel}>Underwriting</Text>
+                    {fundingAvailabilityMatrix.map(({ mode, safety, cashReady, cashShortfall }) => {
+                      const option = FUNDING_OPTIONS.find((item) => item.key === mode)!;
+                      const selected = fundingMode === mode;
+                      const blocked = !safety.allowed;
+                      const needsCash = safety.allowed && !cashReady;
+                      const label = option.label === 'All Cash' ? 'Cash' : option.label;
+                      return (
+                        <Pressable
+                          key={mode}
+                          disabled={blocked}
+                          onPress={() => setFundingMode(mode)}
+                          style={[
+                            styles.fundingSafetyChip,
+                            blocked
+                              ? styles.fundingSafetyChipBlocked
+                              : needsCash
+                                ? styles.fundingSafetyChipNeedsCash
+                                : styles.fundingSafetyChipSafe,
+                            selected && !blocked && styles.fundingSafetyChipSelected,
+                          ]}
+                        >
+                          <Ionicons
+                            name={blocked ? 'close-circle' : needsCash ? 'wallet-outline' : 'checkmark-circle'}
+                            size={11}
+                            color={blocked ? Colors.negative : selected ? Colors.white : needsCash ? Colors.warning : Colors.primary}
+                          />
+                          <Text style={[
+                            styles.fundingSafetyText,
+                            blocked && { color: Colors.negative },
+                            needsCash && { color: selected ? Colors.white : Colors.warning },
+                            !blocked && !needsCash && { color: selected ? Colors.white : Colors.primary },
+                          ]}>
+                            {label}{needsCash ? ` +${formatCurrency(cashShortfall)}` : ''}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {!expanded && (
+                    <View style={styles.compactDealSummary}>
+                      <Text style={styles.compactDealText}>
+                        Profit {formatCurrency(target.weeklyProfit)}/wk • Cash {formatCurrency(totalCashNeeded)} • Diligence {target.diligenceScore}/100
+                      </Text>
+                      <Text style={styles.compactDealAction}>Details</Text>
+                    </View>
+                  )}
+
+                  {expanded && (
+                    <>
                   <View style={styles.metrics}>
                     <View style={styles.metric}>
                       <Text style={styles.metricLabel}>Cash at closing</Text>
@@ -263,7 +434,9 @@ export default function BusinessAcquisitionsScreen() {
                     </View>
                     <View style={styles.metric}>
                       <Text style={styles.metricLabel}>Financed</Text>
-                      <Text style={styles.metricValue}>{formatCurrency(quote.debtPrincipal)}</Text>
+                      <Text style={styles.metricValue}>
+                        {quote.debtPrincipal > 0 ? `${formatCurrency(quote.debtPrincipal)} @ ${(quote.interestRate * 100).toFixed(1)}%` : 'None'}
+                      </Text>
                     </View>
 
                     <View style={styles.metric}>
@@ -273,6 +446,12 @@ export default function BusinessAcquisitionsScreen() {
                       </Text>
                     </View>
                   </View>
+
+                  {quote.weeklyPayment > 0 && (
+                    <Text style={[styles.underwritingText, { color: debtServiceSafe ? Colors.textSecondary : Colors.negative }]}>
+                      Underwriting: {Math.round(debtServiceSafety.underwritingIntegrationPenalty * 100)}% integration stress → {formatCurrency(debtServiceSafety.underwrittenWeeklyProfit)}/wk profit ({Math.round(debtServiceSafety.profitHaircutPct * 100)}% below seller quote) • debt service uses {Number.isFinite(debtServiceSafety.debtServiceShare) ? Math.round(debtServiceSafety.debtServiceShare * 100) : '∞'}% • max {Math.round(debtServiceSafety.maxDebtServiceShare * 100)}% for {target.risk} risk • {debtServiceSafety.coverageRatio?.toFixed(1)}× cover
+                    </Text>
+                  )}
 
                   <View style={styles.metrics}>
                     <View style={styles.metric}>
@@ -368,6 +547,8 @@ export default function BusinessAcquisitionsScreen() {
                       Base integration: {target.integrationWeeks} weeks • {Math.round(target.integrationPenalty * 100)}% disruption. You choose the integration approach after closing.
                     </Text>
                   </View>
+                    </>
+                  )}
 
                   <View style={styles.sellerRow}>
                     <Text style={styles.sellerText}>{target.sellerName}</Text>
@@ -377,7 +558,7 @@ export default function BusinessAcquisitionsScreen() {
                       style={[styles.acquireButton, !canAfford && styles.acquireButtonDisabled]}
                     >
                       <Text style={[styles.acquireText, !canAfford && styles.acquireTextDisabled]}>
-                        {!debtServiceSafe ? 'Too leveraged' : sourceCash < totalCashNeeded ? 'Need cash' : 'Acquire'}
+                        {capacityFull ? 'Need slot' : !debtServiceSafe ? 'Too leveraged' : sourceCash < totalCashNeeded ? 'Need cash' : 'Acquire'}
                       </Text>
                     </Pressable>
                   </View>
@@ -401,6 +582,9 @@ const styles = StyleSheet.create({
   summaryCard: { flex: 1, backgroundColor: Colors.card, borderColor: Colors.cardBorder, borderWidth: 1, borderRadius: 12, padding: 13 },
   summaryLabel: { color: Colors.textMuted, fontSize: 11 },
   summaryValue: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800', marginTop: 4 },
+  capacityText: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16 },
+  capacityLink: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 10 },
+  capacityLinkText: { color: Colors.business, fontSize: 11, fontWeight: '800' },
   locked: { alignItems: 'center', paddingVertical: 18, gap: 9 },
   lockedTitle: { color: Colors.textPrimary, fontSize: 19, fontWeight: '800' },
   lockedText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19, textAlign: 'center' },
@@ -419,18 +603,42 @@ const styles = StyleSheet.create({
   fundingOptionActive: { borderColor: Colors.primary, backgroundColor: '#10382D' },
   fundingLabel: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   fundingDesc: { color: Colors.textMuted, fontSize: 10, marginTop: 3 },
+  underwritingText: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 7 },
+  fundingSafetyRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginTop: 8 },
+  fundingSafetyLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', marginRight: 1 },
+  fundingSafetyChip: { minHeight: 24, borderRadius: 12, borderWidth: 1, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', gap: 3 },
+  fundingSafetyChipSafe: { borderColor: `${Colors.primary}55`, backgroundColor: `${Colors.primary}0D` },
+  fundingSafetyChipNeedsCash: { borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}0D` },
+  fundingSafetyChipBlocked: { borderColor: `${Colors.negative}44`, backgroundColor: `${Colors.negative}0A`, opacity: 0.72 },
+  fundingSafetyChipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  fundingSafetyText: { fontSize: 8, fontWeight: '900' },
   marketHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 4 },
   marketTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
   marketSub: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
+  marketFilterRow: { flexDirection: 'row', gap: 6, marginTop: 7 },
+  marketFilterChip: { minHeight: 28, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  marketFilterChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}12` },
+  marketFilterText: { color: Colors.textMuted, fontSize: 9, fontWeight: '800' },
+  marketFilterTextActive: { color: Colors.primary },
+  sortRow: { gap: 6, paddingVertical: 7, paddingRight: 6 },
+  sortChip: { minHeight: 29, borderRadius: 15, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  sortChipActive: { borderColor: Colors.info, backgroundColor: `${Colors.info}14` },
+  sortChipText: { color: Colors.textMuted, fontSize: 9, fontWeight: '800' },
+  sortChipTextActive: { color: Colors.info },
   negotiationBadge: { flexDirection: 'row', gap: 5, alignItems: 'center', backgroundColor: '#10382D', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8 },
   negotiationText: { color: Colors.primary, fontSize: 10, fontWeight: '800' },
   emptyTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   emptyText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 5 },
   targetHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  targetHeaderRight: { alignItems: 'flex-end', gap: 5 },
+  compactDealSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 9, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  compactDealText: { flex: 1, color: Colors.textMuted, fontSize: 9, lineHeight: 13 },
+  compactDealAction: { color: Colors.info, fontSize: 9, fontWeight: '900' },
   targetIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#17263A', alignItems: 'center', justifyContent: 'center' },
   targetNameWrap: { flex: 1 },
   targetName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   targetMeta: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
+  distressedText: { color: Colors.warning, fontSize: 9, fontWeight: '800', marginTop: 3, letterSpacing: 0.25 },
   riskBadge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 4 },
   riskText: { fontSize: 9, fontWeight: '900' },
   metrics: { flexDirection: 'row', gap: 8, marginTop: 12 },

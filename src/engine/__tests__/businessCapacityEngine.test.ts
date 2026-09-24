@@ -1,0 +1,87 @@
+import { INITIAL_PROFILE, PlayerProfile } from '../../types/game';
+import {
+  canClaimBusinessCapacityReward,
+  claimBusinessCapacityReward,
+  getBusinessCapacity,
+  getNextBusinessCapacityCost,
+  purchaseBusinessCapacity,
+  unlockBusinessCapacity,
+} from '../businessCapacityEngine';
+
+describe('businessCapacityEngine', () => {
+  test('starts with two account-wide company slots', () => {
+    expect(getBusinessCapacity({ ...INITIAL_PROFILE })).toBe(2);
+    expect(getNextBusinessCapacityCost({ ...INITIAL_PROFILE })).toEqual({
+      nextCapacity: 3,
+      prestigePoints: 10,
+      gems: 10,
+    });
+  });
+
+  test('uses the requested 10/10, 25/25, then 50/50 permanent cost curve', () => {
+    expect(getNextBusinessCapacityCost({ ...INITIAL_PROFILE, businessCapacity: 3 })).toEqual({
+      nextCapacity: 4,
+      prestigePoints: 25,
+      gems: 25,
+    });
+    expect(getNextBusinessCapacityCost({ ...INITIAL_PROFILE, businessCapacity: 4 })).toEqual({
+      nextCapacity: 5,
+      prestigePoints: 50,
+      gems: 50,
+    });
+    expect(getNextBusinessCapacityCost({ ...INITIAL_PROFILE, businessCapacity: 9 })).toEqual({
+      nextCapacity: 10,
+      prestigePoints: 50,
+      gems: 50,
+    });
+    expect(getNextBusinessCapacityCost({ ...INITIAL_PROFILE, businessCapacity: 10 })).toBeNull();
+  });
+
+  test('PP and Gems must both be available and are both deducted', () => {
+    const profile = {
+      ...INITIAL_PROFILE,
+      prestigePoints: 10,
+      gems: 10,
+      businessCapacity: 2,
+    };
+    const upgraded = purchaseBusinessCapacity(profile);
+    expect(upgraded?.businessCapacity).toBe(3);
+    expect(upgraded?.prestigePoints).toBe(0);
+    expect(upgraded?.gems).toBe(0);
+
+    expect(purchaseBusinessCapacity({ ...profile, prestigePoints: 9 })).toBeNull();
+    expect(purchaseBusinessCapacity({ ...profile, gems: 9 })).toBeNull();
+  });
+
+  test('daily rewarded capacity unlock can only be claimed once per local day', () => {
+    const day = '2026-09-24';
+    const profile = { ...INITIAL_PROFILE, businessCapacity: 2 };
+    expect(canClaimBusinessCapacityReward(profile, day)).toBe(true);
+
+    const claimed = claimBusinessCapacityReward(profile, day);
+    expect(claimed?.businessCapacity).toBe(3);
+    expect(claimed?.businessCapacityRewardClaimDate).toBe(day);
+    expect(canClaimBusinessCapacityReward(claimed!, day)).toBe(false);
+    expect(claimBusinessCapacityReward(claimed!, day)).toBeNull();
+
+    expect(canClaimBusinessCapacityReward(claimed!, '2026-09-25')).toBe(true);
+    expect(claimBusinessCapacityReward(claimed!, '2026-09-25')?.businessCapacity).toBe(4);
+  });
+
+  test('rewarded unlocks add exactly one permanent slot and stop at ten', () => {
+    const nine = { ...INITIAL_PROFILE, businessCapacity: 9 };
+    expect(unlockBusinessCapacity(nine)?.businessCapacity).toBe(10);
+    expect(unlockBusinessCapacity({ ...nine, businessCapacity: 10 })).toBeNull();
+  });
+
+  test('repeated rewarded unlocks can progress from two slots all the way to ten', () => {
+    let profile: PlayerProfile = { ...INITIAL_PROFILE, businessCapacity: 2 };
+    for (let expected = 3; expected <= 10; expected++) {
+      const unlocked = unlockBusinessCapacity(profile);
+      expect(unlocked?.businessCapacity).toBe(expected);
+      if (!unlocked) throw new Error('capacity unlock unexpectedly failed');
+      profile = unlocked;
+    }
+    expect(unlockBusinessCapacity(profile)).toBeNull();
+  });
+});

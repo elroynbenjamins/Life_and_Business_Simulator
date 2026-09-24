@@ -1,9 +1,10 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, StyleSheet, Text, View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import { Colors } from '../theme/colors';
 import useGameStore from '../store/gameStore';
 import { formatCurrency } from '../utils/format';
+import GameButton from './GameButton';
 
 export default function DeathModal() {
   const router = useRouter();
@@ -39,15 +40,11 @@ export default function DeathModal() {
             Estate distribution, heir selection, inheritance tax and asset choices are handled in the succession flow.
           </Text>
 
-          <Pressable style={styles.primary} onPress={() => router.replace('/succession')}>
-            <Text style={styles.primaryText}>Manage Estate & Succession</Text>
-          </Pressable>
-          <Pressable style={styles.secondary} onPress={() => router.push('/family-tree')}>
-            <Text style={styles.secondaryText}>View Family Tree</Text>
-          </Pressable>
-          <Pressable style={styles.secondary} onPress={beginNewGame}>
-            <Text style={styles.secondaryText}>Start New Life</Text>
-          </Pressable>
+          <View style={styles.actions}>
+            <GameButton label="Manage Estate & Succession" icon="documents-outline" trailingIcon="arrow-forward" onPress={() => router.replace('/succession')} />
+            <GameButton variant="secondary" label="View Family Tree" icon="git-network-outline" onPress={() => router.push('/family-tree')} />
+            <GameButton variant="ghost" label="Start New Life" icon="refresh-outline" onPress={beginNewGame} />
+          </View>
         </View>
       </View>
     </Modal>
@@ -65,8 +62,5 @@ const styles = StyleSheet.create({
   legacyValue: { color: Colors.primary, fontSize: 24, fontWeight: '800', marginTop: 4 },
   legacyMeta: { color: Colors.textSecondary, fontSize: 12, marginTop: 3 },
   note: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, textAlign: 'center', marginVertical: 16 },
-  primary: { backgroundColor: Colors.primary, borderRadius: 11, minHeight: 48, justifyContent: 'center', alignItems: 'center' },
-  primaryText: { color: Colors.white, fontSize: 14, fontWeight: '800' },
-  secondary: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 11, minHeight: 46, justifyContent: 'center', alignItems: 'center', marginTop: 9 },
-  secondaryText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
+  actions: { gap: 7 },
 });

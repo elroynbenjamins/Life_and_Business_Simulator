@@ -101,7 +101,7 @@ export default function BusinessDealHistoryScreen() {
                     <Text style={styles.metricValue}>{deal.heldWeeks}w</Text>
                   </View>
                   <View style={styles.metric}>
-                    <Text style={styles.metricLabel}>Lifetime ROI</Text>
+                    <Text style={styles.metricLabel}>Owner ROI</Text>
                     <Text style={[styles.metricValue, deal.lifetimeReturnPct != null && { color: resultPositive ? Colors.primary : Colors.negative }]}>
                       {deal.lifetimeReturnPct == null ? '—' : formatReturn(deal.lifetimeReturnPct)}
                     </Text>
@@ -128,7 +128,7 @@ export default function BusinessDealHistoryScreen() {
                     </View>
                   )}
                   <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Cash distributions</Text>
+                    <Text style={styles.breakdownLabel}>Owner distributions</Text>
                     <Text style={styles.breakdownValue}>{formatCurrency(deal.totalPlayerDistributions)}</Text>
                   </View>
                   <View style={styles.breakdownRow}>
@@ -145,7 +145,7 @@ export default function BusinessDealHistoryScreen() {
 
                 {deal.lifetimeCashResult != null && (
                   <View style={styles.resultRow}>
-                    <Text style={styles.resultLabel}>Lifetime cash result</Text>
+                    <Text style={styles.resultLabel}>Owner cash result</Text>
                     <Text style={[styles.resultValue, { color: resultPositive ? Colors.primary : Colors.negative }]}>
                       {deal.lifetimeCashResult >= 0 ? '+' : ''}{formatCurrency(deal.lifetimeCashResult)}
                     </Text>

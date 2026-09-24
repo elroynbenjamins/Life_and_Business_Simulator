@@ -1,4 +1,4 @@
-import { getLatestStockChanges, mergeStocks, processDividends, processStocks } from '../stockEngine';
+import { getCryptoRiskProfile, getLatestStockChanges, initializeMarketCompanyPool, initializeStocks, mergeStocks, processDividends, processMarketCompanyLifecycle, processPublicCompanyEvents, processStocks } from '../stockEngine';
 import { GameState, INITIAL_GAME_STATE } from '../../types/game';
 import marketSectorEvents from '../../data/market_sector_events.json';
 import stocksData from '../../data/stocks.json';
@@ -58,6 +58,162 @@ describe('stockEngine market reporting and type events', () => {
     expect((marketSectorEvents as any[]).some((event) => event.assetTypes?.includes('etf'))).toBe(false);
   });
 
+  test('selects only a subset of emerging companies for each save', () => {
+    const pool = initializeMarketCompanyPool(() => 0.42);
+    const unique = new Set(pool);
+    const emergingTickers = new Set(
+      (stocksData as any[]).filter((stock) => stock.marketRole === 'emerging').map((stock) => stock.ticker),
+    );
+
+    expect(pool).toHaveLength(8);
+    expect(unique.size).toBe(8);
+    expect(pool.every((ticker) => emergingTickers.has(ticker))).toBe(true);
+    expect(pool.length).toBeLessThan(emergingTickers.size);
+  });
+
+  test('starts a save with only three companies from its emerging pool listed', () => {
+    const pool = ['QNTM', 'NOVA', 'RIVO', 'VYBE', 'FARO', 'ORBT', 'NEON', 'FLUX'];
+    const initialized = initializeStocks(pool, () => 0.5);
+    const listedEmerging = initialized.filter((stock) =>
+      (stocksData as any[]).find((definition) => definition.ticker === stock.ticker)?.marketRole === 'emerging'
+    );
+
+    expect(listedEmerging.map((stock) => stock.ticker)).toEqual(pool.slice(0, 3));
+    expect(initialized.some((stock) => stock.ticker === 'MCRS')).toBe(true);
+    expect(initialized.some((stock) => stock.ticker === 'VYBE')).toBe(false);
+  });
+
+  test('can introduce a later IPO from the save-specific pool', () => {
+    const pool = ['QNTM', 'NOVA', 'RIVO', 'VYBE', 'FARO', 'ORBT', 'NEON', 'FLUX'];
+    const stocks = initializeStocks(pool, () => 0.5);
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      year: 2,
+      week: 1,
+      stocks,
+      marketCompanyPool: pool,
+    };
+
+    const result = processMarketCompanyLifecycle(state, 21, () => 0);
+    expect(result.events.some((event) => event.kind === 'ipo')).toBe(true);
+    expect(result.stocks.length).toBe(stocks.length + 1);
+    expect(result.stocks.some((stock) => stock.ticker === 'VYBE' && stock.companyStage === 'emerging')).toBe(true);
+  });
+
+  test('successful emerging companies can mature into established listings', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [{
+        ticker: 'QNTM',
+        currentPrice: 42,
+        priceHistory: [28, 34, 42],
+        marketStatus: 'listed',
+        listedWeek: 1,
+        companyStage: 'growth',
+        companyQuality: 0.82,
+      }],
+      marketCompanyPool: [],
+    };
+
+    const result = processMarketCompanyLifecycle(state, 62, () => 0.99);
+    expect(result.stocks[0].companyStage).toBe('mature');
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ticker: 'QNTM', kind: 'matured' }),
+    ]));
+  });
+
+  test('fragile emerging companies can fail and automatically settle holdings', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [{
+        ticker: 'QNTM',
+        currentPrice: 5,
+        priceHistory: [28, 12, 5],
+        marketStatus: 'listed',
+        listedWeek: 1,
+        companyStage: 'emerging',
+        companyQuality: 0.10,
+      }],
+      marketCompanyPool: [],
+      holdings: [{ ticker: 'QNTM', shares: 10, avgBuyPrice: 28 }],
+    };
+
+    const result = processMarketCompanyLifecycle(state, 20, () => 0);
+    expect(result.stocks[0].marketStatus).toBe('delisted');
+    expect(result.stocks[0].companyStage).toBe('failed');
+    expect(result.holdings).toHaveLength(0);
+    expect(result.settlementCash).toBeGreaterThan(0);
+    expect(result.realizedProfitLoss).toBeLessThan(0);
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ticker: 'QNTM', kind: 'delisted' }),
+    ]));
+  });
+
+  test('company-specific stories can move one ticker and create a temporary company effect', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [{
+        ticker: 'MCRS',
+        currentPrice: 100,
+        priceHistory: [95, 100],
+        marketStatus: 'listed',
+        listedWeek: 1,
+        companyStage: 'established',
+      }],
+      holdings: [],
+    };
+
+    const result = processPublicCompanyEvents(state, 10, () => 0);
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ticker: 'MCRS', kind: 'company_event', title: 'Breakthrough Product' }),
+    ]));
+    expect(result.stocks[0].currentPrice).toBeGreaterThan(100);
+    expect(result.stocks[0].activeCompanyEvent?.title).toBe('Breakthrough Product');
+  });
+
+  test('rare public acquisition cashes out target shareholders at a premium and delists the target', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [
+        {
+          ticker: 'MCRS',
+          currentPrice: 300,
+          priceHistory: [295, 300],
+          marketStatus: 'listed',
+          listedWeek: 1,
+          companyStage: 'established',
+        },
+        {
+          ticker: 'QNTM',
+          currentPrice: 40,
+          priceHistory: [35, 40],
+          marketStatus: 'listed',
+          listedWeek: 1,
+          companyStage: 'growth',
+          companyQuality: 0.75,
+        },
+      ],
+      holdings: [{ ticker: 'QNTM', shares: 10, avgBuyPrice: 30 }],
+      marketCompanyPool: ['QNTM'],
+    };
+
+    const result = processPublicCompanyEvents(state, 40, () => 0);
+    const target = result.stocks.find((stock) => stock.ticker === 'QNTM');
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        ticker: 'QNTM',
+        kind: 'acquired',
+        acquirerTicker: 'MCRS',
+      }),
+    ]));
+    expect(target?.marketStatus).toBe('delisted');
+    expect(target?.delistingReason).toBe('acquisition');
+    expect(target?.acquiredByTicker).toBe('MCRS');
+    expect(result.holdings.some((holding) => holding.ticker === 'QNTM')).toBe(false);
+    expect(result.settlementCash).toBeCloseTo(472, 4);
+    expect(result.realizedProfitLoss).toBeCloseTo(172, 4);
+  });
+
   test('merges all three new cryptocurrencies into existing saves', () => {
     const merged = mergeStocks([{ ticker: 'MCRS', currentPrice: 312, priceHistory: [312] }]);
     const tickers = new Set(merged.map((asset) => asset.ticker));
@@ -65,6 +221,7 @@ describe('stockEngine market reporting and type events', () => {
     expect(tickers.has('AURX')).toBe(true);
     expect(tickers.has('NEXA')).toBe(true);
     expect(tickers.has('MOJO')).toBe(true);
+    expect(tickers.has('QNTM')).toBe(false);
   });
 
   test('NEXA pays its configured annual staking reward', () => {
@@ -95,7 +252,7 @@ describe('stockEngine market reporting and type events', () => {
     random.mockRestore();
   });
 
-  test('MOJO keeps ordinary quiet-week moves below the old extreme range', () => {
+  test('MOJO keeps ordinary quiet-week moves below eight percent', () => {
     const random = jest.spyOn(Math, 'random').mockReturnValue(0.99);
     const result = processStocks({
       ...INITIAL_GAME_STATE,
@@ -103,8 +260,59 @@ describe('stockEngine market reporting and type events', () => {
     }, { headline: 'Quiet week', effects: {} });
 
     const move = Math.abs((result.stocks[0].currentPrice - 5) / 5);
-    expect(move).toBeLessThan(0.15);
+    expect(move).toBeLessThan(0.08);
     random.mockRestore();
+  });
+
+  test('MOJO hype bursts stay rare and bounded below old circuit-breaker extremes', () => {
+    const random = jest.spyOn(Math, 'random');
+    random
+      .mockReturnValueOnce(0.99) // high ordinary move
+      .mockReturnValueOnce(0.0)  // trigger the rare mania branch
+      .mockReturnValueOnce(0.0)  // positive burst
+      .mockReturnValueOnce(0.99); // near-max configured burst
+
+    const result = processStocks({
+      ...INITIAL_GAME_STATE,
+      stocks: [{ ticker: 'MOJO', currentPrice: 5, priceHistory: [5] }],
+    }, { headline: 'Quiet week', effects: {} });
+
+    const move = (result.stocks[0].currentPrice - 5) / 5;
+    expect(move).toBeGreaterThan(0.10);
+    expect(move).toBeLessThan(0.22);
+    random.mockRestore();
+  });
+
+  test('MOJO risk metadata keeps the speculative profile bounded', () => {
+    const mojo = (stocksData as any[]).find((asset) => asset.ticker === 'MOJO');
+    const aurx = (stocksData as any[]).find((asset) => asset.ticker === 'AURX');
+    const nexa = (stocksData as any[]).find((asset) => asset.ticker === 'NEXA');
+
+    expect(mojo.baseVolatility).toBeCloseTo(0.11);
+    expect(mojo.momentumFactor).toBeCloseTo(0.05);
+    expect(mojo.momentumCap).toBeCloseTo(0.035);
+    expect(mojo.maniaChance).toBeCloseTo(0.0075);
+    expect(mojo.maniaMinMove).toBeCloseTo(0.05);
+    expect(mojo.maniaMaxMove).toBeCloseTo(0.12);
+    expect(mojo.minWeeklyChange).toBeCloseTo(-0.22);
+    expect(mojo.maxWeeklyChange).toBeCloseTo(0.25);
+    expect(aurx.baseVolatility * 0.85).toBeLessThan(nexa.baseVolatility);
+    expect(nexa.baseVolatility).toBeLessThan(mojo.baseVolatility * 1.15);
+  });
+
+  test('crypto risk profile uses the same configured bounds shown to players', () => {
+    const aurx = getCryptoRiskProfile((stocksData as any[]).find((asset) => asset.ticker === 'AURX'));
+    const nexa = getCryptoRiskProfile((stocksData as any[]).find((asset) => asset.ticker === 'NEXA'));
+    const mojo = getCryptoRiskProfile((stocksData as any[]).find((asset) => asset.ticker === 'MOJO'));
+
+    expect(aurx?.label).toBe('Moderate');
+    expect(nexa?.label).toBe('High');
+    expect(mojo?.label).toBe('Very High');
+    expect(aurx!.ordinaryRandomMovePct).toBeLessThan(nexa!.ordinaryRandomMovePct);
+    expect(nexa!.ordinaryRandomMovePct).toBeLessThan(mojo!.ordinaryRandomMovePct);
+    expect(mojo?.maniaChance).toBeCloseTo(0.0075);
+    expect(mojo?.minWeeklyChange).toBeCloseTo(-0.22);
+    expect(mojo?.maxWeeklyChange).toBeCloseTo(0.25);
   });
 
   test('MOJO carries strong short-term momentum in both directions', () => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
 import GameStatusBar from '../src/components/StatusBar';
 import GameCard from '../src/components/GameCard';
+import ScreenTabs from '../src/components/ScreenTabs';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { INITIAL_STATISTICS } from '../src/types/game';
@@ -15,6 +16,8 @@ import { ThemePreference, useThemePreference } from '../src/theme/ThemeProvider'
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'account' | 'progress' | 'history'>('account');
+  const [showAllCourses, setShowAllCourses] = useState(false);
   const playerName = useGameStore((s) => s?.playerName ?? 'Player');
   const age = useGameStore((s) => s?.age ?? 22);
   const week = useGameStore((s) => s?.week ?? 1);
@@ -69,6 +72,19 @@ export default function ProfileScreen() {
           </View>
         </GameCard>
 
+        <ScreenTabs
+          items={[
+            { key: 'account', label: 'Account', icon: 'person-outline' },
+            { key: 'progress', label: 'Progress', icon: 'stats-chart-outline' },
+            { key: 'history', label: 'History', icon: 'time-outline' },
+          ]}
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          accentColor={Colors.info}
+        />
+
+        {activeTab === 'account' && (
+          <>
         {/* Player Profile (cross-game) */}
         <GameCard title="Player Profile">
           <View style={styles.profileRow}>
@@ -118,6 +134,7 @@ export default function ProfileScreen() {
             </View>
             <Pressable
               disabled={relationshipModeEnabled && personalLifeHasCommitments}
+              hitSlop={{ top: 8, bottom: 8 }}
               style={[styles.modeToggle, relationshipModeEnabled && styles.modeToggleOn, relationshipModeEnabled && personalLifeHasCommitments && { opacity: 0.45 }]}
               onPress={() => setRelationshipModeEnabled?.(!relationshipModeEnabled)}
               accessibilityRole="switch"
@@ -141,6 +158,11 @@ export default function ProfileScreen() {
           </GameCard>
         )}
 
+          </>
+        )}
+
+        {activeTab === 'progress' && (
+          <>
         {familyLegacy.length > 0 && (
           <GameCard title="Family Legacy">
             {[...familyLegacy].reverse().slice(0, 6).map((entry) => (
@@ -190,6 +212,20 @@ export default function ProfileScreen() {
           <Text style={styles.xpText}>Total XP: {profile?.totalXp ?? 0}</Text>
         </GameCard>
 
+          </>
+        )}
+
+        {activeTab === 'history' && (
+          <>
+        {careerHistory.length === 0 && completedCourses.length === 0 && (
+          <GameCard variant="subtle">
+            <View style={styles.emptyHistory}>
+              <Ionicons name="time-outline" size={26} color={Colors.textMuted} />
+              <Text style={styles.emptyHistoryTitle}>No history yet</Text>
+              <Text style={styles.emptyHistoryText}>Career moves and completed education will appear here as this life develops.</Text>
+            </View>
+          </GameCard>
+        )}
         {/* Career History */}
         {careerHistory.length > 0 && (
           <GameCard title="Career History">
@@ -207,15 +243,35 @@ export default function ProfileScreen() {
         {/* Completed Courses */}
         {completedCourses.length > 0 && (
           <GameCard title="Completed Courses">
-            {completedCourses.map((c, i) => (
-              <View key={i} style={styles.historyRow}>
-                <Text style={styles.historyTitle}>{c?.name}</Text>
-                <Text style={styles.historyMeta}>Completed Week {c?.completedWeek}</Text>
-              </View>
-            ))}
+            {[...completedCourses]
+              .reverse()
+              .slice(0, showAllCourses ? completedCourses.length : 8)
+              .map((course, i) => (
+                <View key={`${course?.courseId ?? course?.name}_${i}`} style={styles.historyRow}>
+                  <Text style={styles.historyTitle}>{course?.name}</Text>
+                  <Text style={styles.historyMeta}>Completed Week {course?.completedWeek}</Text>
+                </View>
+              ))}
+            {completedCourses.length > 8 && (
+              <Pressable
+                accessibilityRole="button"
+                style={styles.historyDisclosure}
+                onPress={() => setShowAllCourses((value) => !value)}
+              >
+                <Text style={styles.historyDisclosureText}>
+                  {showAllCourses ? 'Show recent courses' : `Show all ${completedCourses.length} courses`}
+                </Text>
+                <Ionicons name={showAllCourses ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.info} />
+              </Pressable>
+            )}
           </GameCard>
         )}
 
+          </>
+        )}
+
+        {activeTab === 'account' && (
+          <>
         {/* Actions */}
         <Pressable style={styles.slotBtn} onPress={openSlotPicker}>
           <Ionicons name="save-outline" size={18} color={Colors.info} />
@@ -235,6 +291,8 @@ export default function ProfileScreen() {
         <Pressable style={styles.newGameBtn} onPress={handleNewGame}>
           <Text style={styles.newGameText}>New Game</Text>
         </Pressable>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -297,9 +355,14 @@ const styles = StyleSheet.create({
   achText: { color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
   xpText: { color: Colors.warning, fontSize: 14, fontWeight: '600', marginTop: 4 },
   treeLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  emptyHistory: { alignItems: 'center', paddingVertical: 18, paddingHorizontal: 12 },
+  emptyHistoryTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800', marginTop: 7 },
+  emptyHistoryText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 4 },
   historyRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   historyTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   historyMeta: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
+  historyDisclosure: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 6 },
+  historyDisclosureText: { color: Colors.info, fontSize: 11, fontWeight: '800' },
   slotBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: Colors.info, borderRadius: 12, padding: 16, marginTop: 16 },
   slotBtnText: { color: Colors.info, fontSize: 16, fontWeight: '600' },
   supportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#8B5CF6', borderRadius: 12, padding: 16, marginTop: 10 },

@@ -1,11 +1,12 @@
 import { GameState, WeekSummary, LifetimeStatistics, INITIAL_STATISTICS, INITIAL_CAREER_STATE, TriggeredEvent, TempHappinessEffect, PendingInvestment, AuctionResult, RealEstateAuction } from '../types/game';
-import { processEconomy } from './economyEngine';
+import { getEconomicCycleDescription, processEconomy } from './economyEngine';
 import { getPlayerFamilyWorkFraction, processRelationships } from './relationshipEngine';
 import { processLifecycle } from './lifecycleEngine';
 import { syncFamilyTree } from './familyTreeEngine';
 import { processNews } from './newsEngine';
-import { processStocks, rollMarketSentiment, rollMarketEvent, processDividends } from './stockEngine';
+import { getLatestStockChanges, processMarketCompanyLifecycle, processPublicCompanyEvents, processStocks, rollMarketSentiment, rollMarketEvent, processDividends } from './stockEngine';
 import { processEducation } from './educationEngine';
+import { getStudentWorkTier, rollStudentWorkIncome } from './studentWork';
 import { processJobs } from './jobEngine';
 import { processIncome, processExpenses, processLoans, processTaxes, getNetWorth, getPortfolioValue, isSalaryReduced } from './financeEngine';
 import { calculateHappiness } from './happinessEngine';
@@ -36,10 +37,11 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     newAge += 1;
   }
   const globalWeek = ((newYear - 1) * 20) + newWeek;
-  const partTimeActive = !!state?.partTimeJob && !state?.currentJobId && !state?.career?.companyId;
+  const studentWorkTier = getStudentWorkTier(state);
+  const partTimeActive = !!studentWorkTier && !state?.currentJobId && !state?.career?.companyId;
 
   // ---------- Step 2: Economy (Inflation) ----------
-  const economy = processEconomy(state, newWeek);
+  const economy = processEconomy(state, newWeek, newYear);
   const stateWithInflation: GameState = {
     ...(state ?? ({} as GameState)),
     inflationMultiplier: economy.inflationMultiplier,
@@ -48,6 +50,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     age: newAge,
     lastMacroCrashWeek: economy.crashStarted ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
     activeMacroCrash: economy.activeMacroCrash,
+    economicCycle: economy.economicCycle,
   };
 
   // Purchased vehicles arrive after this week's progression has completed.
@@ -67,21 +70,55 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
 
   // ---------- Step 3: News ----------
   const news = processNews();
+  const previousCyclePhase = state?.economicCycle?.phase ?? 'expansion';
+  const cycleChanged = previousCyclePhase !== economy.economicCycle.phase;
+  const cycleLabel = economy.economicCycle.phase.charAt(0).toUpperCase() + economy.economicCycle.phase.slice(1);
+  const cycleHeadline = cycleChanged
+    ? `Economy enters ${cycleLabel}: ${getEconomicCycleDescription(economy.economicCycle.phase)}`
+    : news.headline;
 
   // ---------- Step 4: Stocks ----------
   const stockResult = processStocks(
     stateWithInflation,
     news,
-    economy.crashEvent?.stockShock ?? 0,
+    (economy.crashEvent?.stockShock ?? 0) + economy.stockDrift,
     prestigeEffects.crypto_downside_reduction ?? 0,
   );
 
+  // ---------- Step 4.25: Dynamic public-company lifecycle ----------
+  const marketLifecycle = processMarketCompanyLifecycle(
+    {
+      ...stateWithInflation,
+      stocks: stockResult.stocks,
+      holdings: state?.holdings ?? [],
+    },
+    globalWeek,
+  );
+
+  // ---------- Step 4.35: Company-specific stories and rare M&A ----------
+  const publicCompanyEvents = processPublicCompanyEvents(
+    {
+      ...stateWithInflation,
+      stocks: marketLifecycle.stocks,
+      holdings: marketLifecycle.holdings,
+    },
+    globalWeek,
+  );
+  const combinedMarketCompanyEvents = [...marketLifecycle.events, ...publicCompanyEvents.events];
+  const marketSettlementCash = marketLifecycle.settlementCash + publicCompanyEvents.settlementCash;
+  const marketRealizedProfitLoss = marketLifecycle.realizedProfitLoss + publicCompanyEvents.realizedProfitLoss;
+  const finalStockChanges = getLatestStockChanges(publicCompanyEvents.stocks);
+
   // ---------- Step 4.5: Dividends ----------
-  const baseDividendIncome = processDividends({ ...stateWithInflation, stocks: stockResult.stocks }, globalWeek);
+  const baseDividendIncome = processDividends({
+    ...stateWithInflation,
+    stocks: publicCompanyEvents.stocks,
+    holdings: publicCompanyEvents.holdings,
+  }, globalWeek);
   const dividendIncome = Math.round(baseDividendIncome * (1 + (prestigeEffects.dividend_boost ?? 0)));
 
   // ---------- Step 5: Education ----------
-  const edu = processEducation(stateWithInflation, newWeek, partTimeActive);
+  const edu = processEducation(stateWithInflation, newWeek, partTimeActive ? studentWorkTier : null);
 
   // ---------- Step 5.5: Apply Education Rewards ----------
   let updatedSkills = { ...(state?.skills ?? {}) };
@@ -111,10 +148,12 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const compResult = processCompetitors(
     state?.businesses ?? [],
     state?.competitors ?? {},
-    globalWeek
+    globalWeek,
+    economy.economicCycle.phase,
   );
 
   // ---------- Step 7.5: Personal Life ----------
+  const coupleTripActive = (stateWithInflation.relationshipState?.coupleTripWeeksRemaining ?? 0) > 0;
   const relationshipTick = processRelationships(stateWithInflation);
 
   // ---------- Step 8: Income ----------
@@ -126,8 +165,8 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const legacyIncome = processIncome(stateWithInflation);
   const hasCareerV2 = !!careerTick.updatedCareer.companyId;
   const fullTimeSalary = hasCareerV2 ? careerTick.salary : legacyIncome.salary;
-  const salary = Math.round(fullTimeSalary * playerFamilyWorkFraction);
-  const salaryReduced = isSalaryReduced(stateWithInflation) || playerFamilyWorkFraction < 1;
+  const salary = coupleTripActive ? 0 : Math.round(fullTimeSalary * playerFamilyWorkFraction);
+  const salaryReduced = coupleTripActive || isSalaryReduced(stateWithInflation) || playerFamilyWorkFraction < 1;
 
   // ---------- Step 9: Expenses ----------
   const expenses = processExpenses(stateWithInflation);
@@ -139,7 +178,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const taxes = processTaxes({ ...stateWithInflation, career: careerTick.updatedCareer }, salary, globalWeek);
 
   // ---------- Step 11.5: Part-Time Income ----------
-  const partTimeIncome = partTimeActive ? Math.floor(275 + Math.random() * 151) : 0;
+  const partTimeIncome = partTimeActive && !coupleTripActive ? rollStudentWorkIncome(studentWorkTier) : 0;
 
   // ---------- Step 11.6: Mature fixed-term bank deposits ----------
   let bankDepositMaturityIncome = 0;
@@ -161,11 +200,18 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     + bankDepositMaturityIncome
     + relationshipTick.partnerContribution
     + relationshipTick.partnerInheritance
+    + marketSettlementCash
     - totalExpenses
     - taxes.taxAmount;
 
   // ---------- Step 12.3: Property Income ----------
-  const propResult = processProperties(state?.properties ?? [], economy.inflationMultiplier, prestigeEffects.property_income ?? 0);
+  const propResult = processProperties(
+    state?.properties ?? [],
+    economy.inflationMultiplier,
+    prestigeEffects.property_income ?? 0,
+    economy.propertyValueWeeklyAdjustment,
+    economy.propertyIncomeMultiplier,
+  );
   const propertyNetIncome = propResult.totalIncome - propResult.totalMaintenance;
   newCash += propertyNetIncome;
 
@@ -237,10 +283,27 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     businessCostReduction: prestigeEffects.business_cost_reduction ?? 0,
     competitorRevenueMultipliers: compResult.competitorRevenueMultipliers,
     businessCrisisReduction: prestigeEffects.business_crisis_reduction ?? 0,
+    macroRevenueMultiplier: economy.businessRevenueMultiplier,
+    macroCyclePhase: economy.economicCycle.phase,
   }, state?.holdingCompanies ?? []);
   const adjustedBizProfit = bizResult.totalProfit;
   const adjustedBusinesses = bizResult.updatedBusinesses;
   newCash += bizResult.totalDividend;
+  const holdingCashFlowMap = new Map(
+    (bizResult.holdingCashFlows ?? []).map((flow) => [flow.holdingCompanyId, flow])
+  );
+  const adjustedHoldingCompanies = (state?.holdingCompanies ?? []).map((holding) => {
+    const flow = holdingCashFlowMap.get(holding.id);
+    if (!flow) return holding;
+    const dividends = Math.max(0, flow.dividends ?? 0);
+    const managementFees = Math.max(0, flow.managementFees ?? 0);
+    return {
+      ...holding,
+      cashReserve: (holding.cashReserve ?? 0) + dividends + managementFees,
+      totalDividendsReceived: (holding.totalDividendsReceived ?? 0) + dividends,
+      totalManagementFeesCollected: (holding.totalManagementFeesCollected ?? 0) + managementFees,
+    };
+  });
 
   const childDividendMap = new Map<string, number>();
   const currentChildIds = new Set((relationshipTick.state.children ?? []).map((child) => child.id));
@@ -303,7 +366,8 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     inflationMultiplier: economy.inflationMultiplier,
     currentCarId: stateWithInflation.currentCarId,
     pendingCarDelivery: stateWithInflation.pendingCarDelivery,
-    stocks: stockResult.stocks,
+    stocks: publicCompanyEvents.stocks,
+    holdings: publicCompanyEvents.holdings,
     currentCourseId: edu.currentCourseId,
     courseWeeksCompleted: edu.courseWeeksCompleted,
     completedCourses: edu.completedCourses,
@@ -312,12 +376,13 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     bankDeposits: updatedBankDeposits,
     earningsSinceLastTax: taxes.newEarningsSinceLastTax,
     totalTaxPaid: (state?.totalTaxPaid ?? 0) + taxes.taxAmount,
-    currentHeadline: news.headline,
+    currentHeadline: cycleHeadline,
     initialized: true,
     tempHappinessEffects: updatedTempEffects,
     pendingInvestments: updatedInvestments,
     recentEventIds: newRecentEventIds,
     businesses: adjustedBusinesses,
+    holdingCompanies: adjustedHoldingCompanies,
     skills: updatedSkills,
     knowledge: updatedKnowledge,
     career: careerTick.updatedCareer,
@@ -327,18 +392,20 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     competitors: compResult.updatedCompetitors,
     activeMarketSentiment: newSentiment,
     activeMarketEvents: newMarketEvents,
-    totalRealizedProfitLoss: state?.totalRealizedProfitLoss ?? 0,
+    totalRealizedProfitLoss: (state?.totalRealizedProfitLoss ?? 0) + marketRealizedProfitLoss,
     newsHistory: (() => {
       const prev = state?.newsHistory ?? [];
-      const next = [...prev, news.headline];
+      const next = [...prev, cycleHeadline];
       return next.length > 40 ? next.slice(next.length - 40) : next;
     })(),
     partTimeJob: partTimeActive,
+    studentWorkTier: partTimeActive ? studentWorkTier : null,
     relationshipState: relationshipStateAfterBusiness,
     familyTree: familyTreeAfterBusiness,
     lifecycle: state?.lifecycle,
     lastMacroCrashWeek: economy.crashStarted ? globalWeek : (state?.lastMacroCrashWeek ?? 0),
     activeMacroCrash: economy.activeMacroCrash,
+    economicCycle: economy.economicCycle,
   };
 
   const happiness = calculateHappiness(tempState);
@@ -376,8 +443,8 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     totalLivingCosts: prevStats.totalLivingCosts + livingCosts,
     highestCash: Math.max(prevStats.highestCash, newCash),
     highestNetWorth: Math.max(prevStats.highestNetWorth, nw),
-    largestStockGain: Math.max(prevStats.largestStockGain, ...stockResult.stockChanges.map((sc) => sc.change)),
-    largestStockLoss: Math.min(prevStats.largestStockLoss, ...stockResult.stockChanges.map((sc) => sc.change)),
+    largestStockGain: Math.max(prevStats.largestStockGain, ...finalStockChanges.map((sc) => sc.change), prevStats.largestStockGain),
+    largestStockLoss: Math.min(prevStats.largestStockLoss, ...finalStockChanges.map((sc) => sc.change), prevStats.largestStockLoss),
     stocksPurchased: prevStats.stocksPurchased,
     coursesCompleted: prevStats.coursesCompleted + (edu.justCompleted ? 1 : 0),
     jobsWorked: prevStats.jobsWorked,
@@ -385,7 +452,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     weeksUnemployed: prevStats.weeksUnemployed + (isEmployed ? 0 : 1),
     loansTaken: prevStats.loansTaken,
     loansRepaid: prevStats.loansRepaid + loanResult.loansRepaid,
-    totalRealizedProfitLoss: prevStats.totalRealizedProfitLoss ?? 0,
+    totalRealizedProfitLoss: (prevStats.totalRealizedProfitLoss ?? 0) + marketRealizedProfitLoss,
     totalDividendsReceived: (prevStats.totalDividendsReceived ?? 0) + dividendIncome,
     highestSoldStockProfitPercent: prevStats.highestSoldStockProfitPercent ?? 0,
     highestStockPortfolioValue: Math.max(
@@ -427,9 +494,9 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     carCost: expenses.carCost,
     courseCost: expenses.courseCost,
     loanPayments: loanResult.totalPaid,
-    stockChanges: stockResult.stockChanges,
+    stockChanges: finalStockChanges,
     courseProgress: edu.courseProgress,
-    headline: news.headline,
+    headline: cycleHeadline,
     newWeek,
     happiness,
     newAchievements,
@@ -452,8 +519,9 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     skillGains,
     marketSentimentName: newSentiment && globalWeek % 20 === 0 ? newSentiment.name : null,
     marketEventTitle: newMarketEvent?.title ?? null,
+    marketCompanyEvents: combinedMarketCompanyEvents,
     performanceEventResult: careerTick.performanceEvent,
-    realizedProfitLoss: 0,
+    realizedProfitLoss: marketRealizedProfitLoss,
     dividendIncome,
     partTimeIncome,
     partnerContribution: relationshipTick.partnerContribution,

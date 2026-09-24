@@ -25,11 +25,11 @@ export default function EducationOnboardingModal() {
           <Text style={styles.eyebrow}>YOUR FIRST STEP</Text>
           <Text style={styles.title}>Choose your education</Text>
           <Text style={styles.text}>
-            Education unlocks career paths. Pick the Basic course that matches the career you want—such as Technology, Finance, Marketing or Sales.
+            Education unlocks career paths. Pick the Basic course that matches the career you want—such as Technology, Finance, Marketing or Sales. This completes the first objective in Your First Steps on Home.
           </Text>
           <View style={styles.tip}>
             <Ionicons name="bulb-outline" size={20} color={Colors.warning} />
-            <Text style={styles.tipText}>You can choose freely. After completing it, the game will remind you which career becomes available.</Text>
+            <Text style={styles.tipText}>After enrolling, Career lets you choose Flexible Part-Time (+25% study time) or higher-paying High-Hours Part-Time (+60%). Both student jobs are tax-free.</Text>
           </View>
           <Pressable style={styles.primaryButton} onPress={chooseEducation}>
             <Text style={styles.primaryText}>Choose an education</Text>

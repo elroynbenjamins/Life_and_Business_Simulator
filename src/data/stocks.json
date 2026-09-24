@@ -4,42 +4,48 @@
     "company": "MacroSoft",
     "sector": "Tech",
     "startPrice": 312,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "core"
   },
   {
     "ticker": "PEAR",
     "company": "Pear Systems",
     "sector": "Tech",
     "startPrice": 187,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "core"
   },
   {
     "ticker": "SRCH",
     "company": "Searchly",
     "sector": "Tech",
     "startPrice": 142,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "core"
   },
   {
     "ticker": "AMZN",
     "company": "Amazeon",
     "sector": "E-Commerce",
     "startPrice": 178,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "core"
   },
   {
     "ticker": "VLTR",
     "company": "Voltra Motors",
     "sector": "EV",
     "startPrice": 245,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "core"
   },
   {
     "ticker": "META",
     "company": "MetaSphere",
     "sector": "Social Media",
     "startPrice": 312,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "core"
   },
   {
     "ticker": "GCAP",
@@ -47,7 +53,8 @@
     "sector": "Banking",
     "startPrice": 89,
     "type": "stock",
-    "dividendYield": 0.045
+    "dividendYield": 0.045,
+    "marketRole": "core"
   },
   {
     "ticker": "GVLT",
@@ -55,7 +62,8 @@
     "sector": "Energy",
     "startPrice": 67,
     "type": "stock",
-    "dividendYield": 0.038
+    "dividendYield": 0.038,
+    "marketRole": "core"
   },
   {
     "ticker": "MEDI",
@@ -63,7 +71,8 @@
     "sector": "Healthcare",
     "startPrice": 134,
     "type": "stock",
-    "dividendYield": 0.022
+    "dividendYield": 0.022,
+    "marketRole": "core"
   },
   {
     "ticker": "MMART",
@@ -71,28 +80,32 @@
     "sector": "Retail",
     "startPrice": 56,
     "type": "stock",
-    "dividendYield": 0.032
+    "dividendYield": 0.032,
+    "marketRole": "core"
   },
   {
     "ticker": "NVDV",
     "company": "NV Devices",
     "sector": "Semiconductors",
     "startPrice": 480,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "core"
   },
   {
     "ticker": "STRM",
     "company": "StreamBox",
     "sector": "Entertainment",
     "startPrice": 95,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "core"
   },
   {
     "ticker": "SKYJ",
     "company": "SkyJet",
     "sector": "Airlines",
     "startPrice": 42,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "core"
   },
   {
     "ticker": "PAUT",
@@ -100,7 +113,8 @@
     "sector": "Automotive",
     "startPrice": 168,
     "type": "stock",
-    "dividendYield": 0.028
+    "dividendYield": 0.028,
+    "marketRole": "core"
   },
   {
     "ticker": "STWK",
@@ -108,7 +122,8 @@
     "sector": "Industrial",
     "startPrice": 74,
     "type": "stock",
-    "dividendYield": 0.035
+    "dividendYield": 0.035,
+    "marketRole": "core"
   },
   {
     "ticker": "BIOH",
@@ -116,7 +131,8 @@
     "sector": "Pharma",
     "startPrice": 210,
     "type": "stock",
-    "dividendYield": 0.025
+    "dividendYield": 0.025,
+    "marketRole": "core"
   },
   {
     "ticker": "CONE",
@@ -124,7 +140,8 @@
     "sector": "Telecom",
     "startPrice": 58,
     "type": "stock",
-    "dividendYield": 0.052
+    "dividendYield": 0.052,
+    "marketRole": "core"
   },
   {
     "ticker": "UBNK",
@@ -132,7 +149,8 @@
     "sector": "Banking",
     "startPrice": 112,
     "type": "stock",
-    "dividendYield": 0.048
+    "dividendYield": 0.048,
+    "marketRole": "core"
   },
   {
     "ticker": "FFDS",
@@ -140,7 +158,8 @@
     "sector": "Consumer Goods",
     "startPrice": 34,
     "type": "stock",
-    "dividendYield": 0.034
+    "dividendYield": 0.034,
+    "marketRole": "core"
   },
   {
     "ticker": "ALPH",
@@ -148,14 +167,18 @@
     "sector": "Finance",
     "startPrice": 156,
     "type": "stock",
-    "dividendYield": 0.038
+    "dividendYield": 0.038,
+    "marketRole": "core"
   },
   {
     "ticker": "CYBD",
     "company": "CyberDefend",
     "sector": "Tech",
     "startPrice": 98,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 1,
+    "emergingVolatility": 0.12
   },
   {
     "ticker": "SOLR",
@@ -163,14 +186,20 @@
     "sector": "Energy",
     "startPrice": 72,
     "type": "stock",
-    "dividendYield": 0.03
+    "dividendYield": 0.03,
+    "marketRole": "emerging",
+    "ipoWeight": 1,
+    "emergingVolatility": 0.12
   },
   {
     "ticker": "LUXR",
     "company": "LuxeRetail",
     "sector": "Retail",
     "startPrice": 45,
-    "type": "stock"
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 1,
+    "emergingVolatility": 0.12
   },
   {
     "ticker": "NXBN",
@@ -178,7 +207,10 @@
     "sector": "Banking",
     "startPrice": 65,
     "type": "stock",
-    "dividendYield": 0.042
+    "dividendYield": 0.042,
+    "marketRole": "emerging",
+    "ipoWeight": 1,
+    "emergingVolatility": 0.12
   },
   {
     "ticker": "ARSP",
@@ -186,7 +218,10 @@
     "sector": "Industrial",
     "startPrice": 220,
     "type": "stock",
-    "dividendYield": 0.02
+    "dividendYield": 0.02,
+    "marketRole": "emerging",
+    "ipoWeight": 1,
+    "emergingVolatility": 0.12
   },
   {
     "ticker": "HLTH",
@@ -194,7 +229,110 @@
     "sector": "Healthcare",
     "startPrice": 88,
     "type": "stock",
-    "dividendYield": 0.026
+    "dividendYield": 0.026,
+    "marketRole": "emerging",
+    "ipoWeight": 1,
+    "emergingVolatility": 0.12
+  },
+  {
+    "ticker": "QNTM",
+    "company": "QuantumArc",
+    "sector": "Tech",
+    "startPrice": 28,
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 1.15,
+    "emergingVolatility": 0.14
+  },
+  {
+    "ticker": "NOVA",
+    "company": "NovaCell Therapeutics",
+    "sector": "Pharma",
+    "startPrice": 26,
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 0.95,
+    "emergingVolatility": 0.15
+  },
+  {
+    "ticker": "RIVO",
+    "company": "Rivo Mobility",
+    "sector": "EV",
+    "startPrice": 18,
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 1.05,
+    "emergingVolatility": 0.15
+  },
+  {
+    "ticker": "VYBE",
+    "company": "VibeLoop",
+    "sector": "Social Media",
+    "startPrice": 14,
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 1.1,
+    "emergingVolatility": 0.16
+  },
+  {
+    "ticker": "FARO",
+    "company": "Faro Commerce",
+    "sector": "E-Commerce",
+    "startPrice": 16,
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 1,
+    "emergingVolatility": 0.13
+  },
+  {
+    "ticker": "ORBT",
+    "company": "Orbital Frontier",
+    "sector": "Industrial",
+    "startPrice": 31,
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 0.9,
+    "emergingVolatility": 0.14
+  },
+  {
+    "ticker": "NEON",
+    "company": "NeonGrid",
+    "sector": "Energy",
+    "startPrice": 22,
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 1.05,
+    "emergingVolatility": 0.13
+  },
+  {
+    "ticker": "FLUX",
+    "company": "FluxPay",
+    "sector": "Finance",
+    "startPrice": 24,
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 1.1,
+    "emergingVolatility": 0.14
+  },
+  {
+    "ticker": "CURA",
+    "company": "CuraWave",
+    "sector": "Healthcare",
+    "startPrice": 20,
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 0.95,
+    "emergingVolatility": 0.13
+  },
+  {
+    "ticker": "BITE",
+    "company": "BiteBox Foods",
+    "sector": "Consumer Goods",
+    "startPrice": 12,
+    "type": "stock",
+    "marketRole": "emerging",
+    "ipoWeight": 0.85,
+    "emergingVolatility": 0.12
   },
   {
     "ticker": "GOLD",
@@ -276,7 +414,7 @@
     "type": "crypto",
     "cryptoStyle": "utility",
     "annualTrend": 0.04,
-    "baseVolatility": 0.16,
+    "baseVolatility": 0.12,
     "momentumFactor": 0.08,
     "techSensitivity": 0.45,
     "stakingYield": 0.04,
@@ -292,11 +430,16 @@
     "type": "crypto",
     "cryptoStyle": "speculative",
     "annualTrend": 0.01,
-    "baseVolatility": 0.16,
-    "momentumFactor": 0.08,
+    "baseVolatility": 0.11,
+    "momentumFactor": 0.05,
+    "momentumCap": 0.035,
     "macroShockMultiplier": 1.15,
-    "maniaChance": 0.0125,
+    "maniaChance": 0.0075,
+    "maniaMinMove": 0.05,
+    "maniaMaxMove": 0.12,
+    "minWeeklyChange": -0.22,
+    "maxWeeklyChange": 0.25,
     "description": "A culture-driven speculative coin powered by hype, momentum and retail sentiment.",
-    "mechanic": "High volatility, moderate short-term momentum, rare mania/crash bursts, and no yield."
+    "mechanic": "Highest crypto volatility, lighter short-term momentum, occasional bounded hype/crash bursts, and no yield."
   }
 ]

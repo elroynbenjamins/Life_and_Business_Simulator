@@ -11,7 +11,22 @@ export default function BusinessBalanceWarning() {
   const [amount, setAmount] = useState('25000');
   const keyFor = (id: string) => `${state.activeSlot}:${state.year}:${state.week}:${id}`;
   const business = state.businesses.find(b => b.balance < -15000 && !dismissed.includes(keyFor(b.id)));
-  const blocked = state.showMainMenu || state.showTutorial || state.showNameModal || state.showSlotPicker || state.showSummary || state.showEventModal || state.showPeriodReport || state.showScheduledAd || state.showEducationCareerReminder || state.showNegativeCashModal;
+  const blocked =
+    state.showMainMenu ||
+    state.showTutorial ||
+    state.showEducationOnboarding ||
+    state.showContentUpdateModal ||
+    state.showReviewPrompt ||
+    state.showNameModal ||
+    state.showSlotPicker ||
+    state.showSummary ||
+    state.showEventModal ||
+    state.showRelationshipEventModal ||
+    state.showPeriodReport ||
+    state.showScheduledAd ||
+    state.showEducationCareerReminder ||
+    state.showNegativeCashModal ||
+    !!state.lifecycle?.isDead;
   if (!business || blocked) return null;
   const dismiss = () => setDismissed(previous => [...previous, keyFor(business.id)]);
   const cashAmount = Number(amount);

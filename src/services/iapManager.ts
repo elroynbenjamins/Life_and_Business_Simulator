@@ -6,8 +6,6 @@ export const GEM_PRODUCTS = [
   { id: 'gems_100', gems: 100, fallbackPrice: '$0.99' },
   { id: 'gems_250', gems: 250, fallbackPrice: '$2.49' },
   { id: 'gems_500', gems: 500, fallbackPrice: '$4.99' },
-  { id: 'gems_1000', gems: 1000, fallbackPrice: '$8.99' },
-  { id: 'gems_2500', gems: 2500, fallbackPrice: '$19.99' },
 ] as const;
 
 export type StoreProduct = { id: string; displayPrice: string };

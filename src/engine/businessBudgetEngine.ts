@@ -8,6 +8,7 @@ import {
 } from '../types/game';
 import { BUSINESS_REINVESTMENT_AREAS, getBusinessReinvestmentCost } from './businessReinvestmentEngine';
 import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
+import { applyBusinessDebtPrincipalPrepayment } from './businessDebtEngine';
 
 export const BUSINESS_BUDGET_PRESETS: Record<BusinessBudgetProfile, {
   profile: BusinessBudgetProfile;
@@ -19,15 +20,17 @@ export const BUSINESS_BUDGET_PRESETS: Record<BusinessBudgetProfile, {
   reinvestmentPct: number;
   growthPct: number;
 }> = {
+  // Legacy save alias. Runtime normalization maps this to Balanced so there is
+  // no second "default" policy that actually behaves like Shareholder Returns.
   standard: {
     profile: 'standard',
-    label: 'Standard',
-    description: 'Legacy-style cash policy: strong dividends with a six-week operating buffer.',
-    targetReserveWeeks: 6,
-    dividendPct: 0.70,
-    debtPaydownPct: 0,
-    reinvestmentPct: 0.15,
-    growthPct: 0.15,
+    label: 'Legacy Standard',
+    description: 'Legacy policy retained only for save compatibility; it normalizes to Balanced.',
+    targetReserveWeeks: 8,
+    dividendPct: 0.25,
+    debtPaydownPct: 0.20,
+    reinvestmentPct: 0.25,
+    growthPct: 0.30,
   },
   balanced: {
     profile: 'balanced',
@@ -86,12 +89,13 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function createBusinessBudgetPlan(
-  profile: BusinessBudgetProfile = 'standard',
+  profile: BusinessBudgetProfile = 'balanced',
   reviewYear = 1,
 ): BusinessBudgetPlan {
-  const preset = BUSINESS_BUDGET_PRESETS[profile] ?? BUSINESS_BUDGET_PRESETS.standard;
+  const normalizedProfile: BusinessBudgetProfile = profile === 'standard' ? 'balanced' : profile;
+  const preset = BUSINESS_BUDGET_PRESETS[normalizedProfile] ?? BUSINESS_BUDGET_PRESETS.balanced;
   return {
-    profile,
+    profile: normalizedProfile,
     targetReserveWeeks: preset.targetReserveWeeks,
     dividendPct: preset.dividendPct,
     debtPaydownPct: preset.debtPaydownPct,
@@ -105,17 +109,22 @@ export function normalizeBusinessBudgetPlan(
   plan: Partial<BusinessBudgetPlan> | null | undefined,
   reviewYear = 1,
 ): BusinessBudgetPlan {
-  const profile = plan?.profile && BUSINESS_BUDGET_PRESETS[plan.profile]
+  const requestedProfile = plan?.profile && BUSINESS_BUDGET_PRESETS[plan.profile]
     ? plan.profile
-    : 'standard';
+    : 'balanced';
+  const legacyStandard = requestedProfile === 'standard';
+  const profile: BusinessBudgetProfile = legacyStandard ? 'balanced' : requestedProfile;
   const preset = BUSINESS_BUDGET_PRESETS[profile];
   const normalized = {
     profile,
-    targetReserveWeeks: clamp(Math.round(plan?.targetReserveWeeks ?? preset.targetReserveWeeks), 4, 20),
-    dividendPct: clamp(plan?.dividendPct ?? preset.dividendPct, 0, 0.80),
-    debtPaydownPct: clamp(plan?.debtPaydownPct ?? preset.debtPaydownPct, 0, 0.70),
-    reinvestmentPct: clamp(plan?.reinvestmentPct ?? preset.reinvestmentPct, 0, 0.70),
-    growthPct: clamp(plan?.growthPct ?? preset.growthPct, 0, 0.80),
+    // Old "Standard" saves represented a different 70%-dividend policy. When
+    // reconciling that legacy alias into Balanced, migrate the values as well as
+    // the name so the old behavior cannot survive under a misleading label.
+    targetReserveWeeks: clamp(Math.round(legacyStandard ? preset.targetReserveWeeks : (plan?.targetReserveWeeks ?? preset.targetReserveWeeks)), 4, 20),
+    dividendPct: clamp(legacyStandard ? preset.dividendPct : (plan?.dividendPct ?? preset.dividendPct), 0, 0.80),
+    debtPaydownPct: clamp(legacyStandard ? preset.debtPaydownPct : (plan?.debtPaydownPct ?? preset.debtPaydownPct), 0, 0.70),
+    reinvestmentPct: clamp(legacyStandard ? preset.reinvestmentPct : (plan?.reinvestmentPct ?? preset.reinvestmentPct), 0, 0.70),
+    growthPct: clamp(legacyStandard ? preset.growthPct : (plan?.growthPct ?? preset.growthPct), 0, 0.80),
     reviewYear: Math.max(1, Math.round(plan?.reviewYear ?? reviewYear)),
   };
   const sum = normalized.dividendPct + normalized.debtPaydownPct + normalized.reinvestmentPct + normalized.growthPct;
@@ -170,39 +179,8 @@ function applyExtraDebtPayment(
   loans: BusinessLoan[],
   amount: number,
 ): { loans: BusinessLoan[]; paid: number } {
-  let remainingPayment = Math.max(0, Math.round(amount));
-  if (remainingPayment <= 0) return { loans, paid: 0 };
-
-  const ordered = [...loans].sort((a, b) => (b.interestRate ?? 0) - (a.interestRate ?? 0));
-  const updates = new Map<string, BusinessLoan | null>();
-  let paid = 0;
-
-  for (const loan of ordered) {
-    if (remainingPayment <= 0) break;
-    const currentRemaining = Math.max(0, loan.remainingAmount ?? 0);
-    if (currentRemaining <= 0) continue;
-    const payment = Math.min(remainingPayment, currentRemaining);
-    remainingPayment -= payment;
-    paid += payment;
-    const newRemaining = Math.max(0, currentRemaining - payment);
-    if (newRemaining <= 0) {
-      updates.set(loan.id, null);
-      continue;
-    }
-    const weeksRemaining = Math.max(1, loan.weeksRemaining ?? 1);
-    updates.set(loan.id, {
-      ...loan,
-      remainingAmount: newRemaining,
-      weeklyPayment: Math.ceil(newRemaining / weeksRemaining),
-    });
-  }
-
-  return {
-    loans: loans
-      .map((loan) => updates.has(loan.id) ? updates.get(loan.id)! : loan)
-      .filter((loan): loan is BusinessLoan => !!loan),
-    paid,
-  };
+  const result = applyBusinessDebtPrincipalPrepayment(loans, amount);
+  return { loans: result.loans, paid: result.cashUsed };
 }
 
 export function applyBusinessBudgetWeek(args: {
@@ -329,4 +307,37 @@ export function isBusinessBudgetReviewDue(
   if ((business.level ?? 0) < 3) return false;
   const plan = normalizeBusinessBudgetPlan(business.budgetPlan, business.foundedYear ?? currentYear);
   return plan.reviewYear < currentYear;
+}
+
+
+export function getBusinessProtectedCash(
+  business: OwnedBusiness,
+  inflationMultiplier = 1,
+  totalExpenses = Math.max(0, business.lastWeekExpenses ?? 0),
+): number {
+  const targets = getBusinessBudgetReserveTargets(
+    business,
+    Math.max(0, totalExpenses),
+    inflationMultiplier,
+  );
+  const reserves = normalizeBusinessBudgetReserves(business.budgetReserves);
+  return Math.round(
+    targets.operatingReserveTarget
+      + reserves.reinvestment
+      + reserves.growth,
+  );
+}
+
+export function getBusinessAvailableOwnerDistributionCash(
+  business: OwnedBusiness,
+  inflationMultiplier = 1,
+  totalExpenses = Math.max(0, business.lastWeekExpenses ?? 0),
+): number {
+  return Math.max(
+    0,
+    Math.round(
+      Math.max(0, business.balance ?? 0)
+        - getBusinessProtectedCash(business, inflationMultiplier, totalExpenses),
+    ),
+  );
 }

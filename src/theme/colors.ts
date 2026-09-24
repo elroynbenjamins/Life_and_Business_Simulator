@@ -63,6 +63,7 @@ export const Colors = {
   background: adaptiveColor('background'), card: adaptiveColor('card'), cardBorder: adaptiveColor('cardBorder'),
   elevated: adaptiveColor('elevated'), statusBar: adaptiveColor('statusBar'), tabBar: adaptiveColor('tabBar'),
   primary: '#10B981', negative: '#EF4444', warning: '#F59E0B', info: '#3B82F6', happiness: '#EC4899',
+  business: '#06B6D4', premium: '#8B5CF6', family: '#EC4899', education: '#3B82F6',
   textPrimary: adaptiveColor('textPrimary'), textSecondary: adaptiveColor('textSecondary'), textMuted: adaptiveColor('textMuted'), white: '#FFFFFF',
   sectorColors: {
     Tech: '#3B82F6', 'E-Commerce': '#F59E0B', EV: '#10B981', 'Social Media': '#8B5CF6', Banking: '#6B7280',

@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Modal, ScrollView, Pressable } from 'react-nati
 import { Colors } from '../theme/colors';
 import { formatCurrency } from '../utils/format';
 import useGameStore from '../store/gameStore';
+import GameButton from './GameButton';
+import StatusPill from './StatusPill';
 
 export default function PeriodReportModal() {
   const showPeriodReport = useGameStore((s) => s?.showPeriodReport);
@@ -19,25 +21,46 @@ export default function PeriodReportModal() {
     <Modal visible transparent animationType="slide">
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <Text style={styles.title}>📊 Year {yearNumber} Summary</Text>
-          <Text style={styles.subtitle}>Weeks {r.fromWeek} – {r.toWeek} • Yearly Report + Tax</Text>
-          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.sheetHeader}>
+            <View>
+              <Text style={styles.eyebrow}>YEARLY REPORT</Text>
+              <Text style={styles.title}>Year {yearNumber} Summary</Text>
+              <Text style={styles.subtitle}>Weeks {r.fromWeek} – {r.toWeek}</Text>
+            </View>
+            <StatusPill
+              compact
+              icon={netFlow >= 0 ? 'trending-up-outline' : 'trending-down-outline'}
+              label={netFlow >= 0 ? 'Positive year' : 'Negative year'}
+              color={netFlow >= 0 ? Colors.primary : Colors.negative}
+            />
+          </View>
 
-            {/* Financial Overview */}
-            <Text style={styles.sectionLabel}>Financial Overview</Text>
-            <Row label="Total Income" value={r.totalIncome} positive />
-            <Row label="Total Expenses" value={r.totalExpenses} />
-            <Row label="Tax Paid" value={r.totalTax} />
-            <View style={styles.divider} />
-            <View style={styles.row}>
-              <Text style={[styles.rowLabel, { fontWeight: '700' }]}>Net Cash Flow</Text>
-              <Text style={[styles.rowValue, { color: netFlow >= 0 ? Colors.primary : Colors.negative, fontWeight: '700' }]}>
+          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+            <View style={styles.resultHero}>
+              <Text style={styles.resultLabel}>NET CASH FLOW</Text>
+              <Text style={[styles.resultValue, { color: netFlow >= 0 ? Colors.primary : Colors.negative }]}>
                 {netFlow >= 0 ? '+' : ''}{formatCurrency(netFlow)}
               </Text>
+
+              <View style={styles.resultMetrics}>
+                <View style={styles.resultMetric}>
+                  <Text style={styles.resultMetricLabel}>Income</Text>
+                  <Text style={[styles.resultMetricValue, { color: Colors.primary }]}>{formatCurrency(r.totalIncome)}</Text>
+                </View>
+                <View style={styles.resultMetric}>
+                  <Text style={styles.resultMetricLabel}>Expenses</Text>
+                  <Text style={[styles.resultMetricValue, { color: Colors.negative }]}>{formatCurrency(r.totalExpenses)}</Text>
+                </View>
+                <View style={styles.resultMetric}>
+                  <Text style={styles.resultMetricLabel}>Tax</Text>
+                  <Text style={[styles.resultMetricValue, { color: Colors.warning }]}>{formatCurrency(r.totalTax)}</Text>
+                </View>
+              </View>
             </View>
 
-            {/* Investment Performance */}
             <Text style={styles.sectionLabel}>Investment Performance</Text>
+
+            {/* Investment Performance */}
             <View style={styles.row}>
               <Text style={styles.rowLabel}>Realized P/L</Text>
               <Text style={[styles.rowValue, { color: (r.totalRealizedProfitLoss ?? 0) >= 0 ? Colors.primary : Colors.negative }]}>
@@ -93,9 +116,7 @@ export default function PeriodReportModal() {
             )}
           </ScrollView>
 
-          <Pressable style={styles.button} onPress={dismissPeriodReport}>
-            <Text style={styles.buttonText}>Continue</Text>
-          </Pressable>
+          <GameButton label="Close Report" icon="close-outline" onPress={dismissPeriodReport} />
         </View>
       </View>
     </Modal>
@@ -123,15 +144,22 @@ function Row({ label, value, positive, count }: { label: string; value: number; 
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '85%' },
-  title: { color: Colors.textPrimary, fontSize: 22, fontWeight: '700' },
-  subtitle: { color: Colors.textMuted, fontSize: 14, marginBottom: 12, marginTop: 4 },
+  sheet: { backgroundColor: Colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '86%' },
+  sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 12 },
+  eyebrow: { color: Colors.info, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  title: { color: Colors.textPrimary, fontSize: 21, fontWeight: '900', marginTop: 2 },
+  subtitle: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
+  resultHero: { backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 14, padding: 14, marginBottom: 8 },
+  resultLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  resultValue: { fontSize: 28, lineHeight: 34, fontWeight: '900', marginTop: 1, marginBottom: 11 },
+  resultMetrics: { flexDirection: 'row', gap: 7 },
+  resultMetric: { flex: 1, minWidth: 0, backgroundColor: Colors.card, borderRadius: 9, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 8, paddingVertical: 7 },
+  resultMetricLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', textTransform: 'uppercase' },
+  resultMetricValue: { fontSize: 11, fontWeight: '900', marginTop: 2 },
   scroll: { marginBottom: 16 },
-  sectionLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600', marginTop: 14, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 },
+  sectionLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '900', marginTop: 13, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8 },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
   rowLabel: { color: Colors.textSecondary, fontSize: 14 },
   rowValue: { fontSize: 14, fontWeight: '600' },
   divider: { height: 1, backgroundColor: Colors.cardBorder, marginVertical: 8 },
-  button: { backgroundColor: Colors.primary, borderRadius: 12, padding: 16, alignItems: 'center' },
-  buttonText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
 });

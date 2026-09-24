@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
+import ScrollView from '../../src/components/TutorialScrollView';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
+import ScreenHeader from '../../src/components/ScreenHeader';
 import ProgressBar from '../../src/components/ProgressBar';
+import GameButton from '../../src/components/GameButton';
+import StatusPill from '../../src/components/StatusPill';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
 import { inflated } from '../../src/engine/economyEngine';
@@ -14,6 +18,9 @@ import { loadRewardedAd, showRewardedAd } from '../../src/services/adManager';
 import { shouldSimulateNativeFeatures } from '../../src/services/runtimeEnvironment';
 import { disciplineImages } from '../../src/assets/progressionImages';
 import { getEducationAvailabilityNotice } from '../../src/engine/playerNotificationEngine';
+import { getStudentStudyDuration, getStudentWorkOption, getStudentWorkTier } from '../../src/engine/studentWork';
+
+import { useTutorialFocusStore } from '../../src/store/tutorialFocusStore';
 
 const CATEGORIES = ['Sales', 'Administration', 'Finance', 'Marketing', 'Technology', 'Healthcare', 'Legal', 'Logistics', 'Hospitality'];
 const CATEGORY_ICONS: Record<string, string> = {
@@ -28,6 +35,18 @@ const CATEGORY_ICONS: Record<string, string> = {
   Hospitality: 'bed',
 };
 
+function levelAccent(level: number): string {
+  if (level >= 3) return Colors.premium;
+  if (level >= 2) return Colors.education;
+  return Colors.primary;
+}
+
+function levelLabel(level: number): string {
+  if (level >= 3) return 'Expert';
+  if (level >= 2) return 'Advanced';
+  return 'Basics';
+}
+
 export default function EducationScreen() {
   const cash = useGameStore((s) => s?.cash ?? 0);
   const currentCourseId = useGameStore((s) => s?.currentCourseId);
@@ -36,13 +55,24 @@ export default function EducationScreen() {
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const enrollCourse = useGameStore((s) => s?.enrollCourse);
   const speedUpEducationWithAd = useGameStore((s) => s?.speedUpEducationWithAd);
+  const getAdFreeEducationRewardUsage = useGameStore((s) => s.getAdFreeEducationRewardUsage);
+  const claimAdFreeEducationReward = useGameStore((s) => s.claimAdFreeEducationReward);
   const [adMessage, setAdMessage] = useState('');
   const [simulatedAdReady, setSimulatedAdReady] = useState(false);
   const [simulatedAdPlaying, setSimulatedAdPlaying] = useState(false);
+  const [nativeAdPhase, setNativeAdPhase] = useState<'idle' | 'loading' | 'showing'>('idle');
   const [courseLevel, setCourseLevel] = useState<1 | 2 | 3>(1);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const guidedEnrollmentRequest = useTutorialFocusStore((s) => s.target === 'education.enroll' && s.status === 'locating' ? s.request : null);
+  useEffect(() => {
+    if (guidedEnrollmentRequest !== null) setCourseLevel(1);
+  }, [guidedEnrollmentRequest]);
   const weeksEmployed = useGameStore((s) => s?.statistics?.weeksEmployed ?? 0);
-  const partTimeJob = useGameStore((s) => (s as any)?.partTimeJob ?? false);
+  const partTimeJob = useGameStore((s) => s?.partTimeJob ?? false);
+  const studentWorkTier = useGameStore((s) => s?.studentWorkTier ?? null);
+  const studentWork = getStudentWorkOption(getStudentWorkTier({ partTimeJob, studentWorkTier }));
   const adsRemoved = useGameStore((s) => s.profile?.adsRemoved ?? false);
+  const adFreeEducationReward = getAdFreeEducationRewardUsage();
   const educationNotice = getEducationAvailabilityNotice({
     currentCourseId: currentCourseId ?? null,
     completedCourses,
@@ -57,7 +87,14 @@ export default function EducationScreen() {
     : null;
 
   const speedUp = async () => {
-    setAdMessage('Loading advertisement...');
+    if (adsRemoved) {
+      const claimed = claimAdFreeEducationReward();
+      setAdMessage(claimed
+        ? 'Daily ad-free education boost claimed.'
+        : 'Today’s ad-free education boost has already been used.');
+      return;
+    }
+
     const grant = () => { speedUpEducationWithAd?.(); setAdMessage('Education completed!'); };
     if (shouldSimulateNativeFeatures()) {
       if (simulatedAdReady) {
@@ -75,9 +112,24 @@ export default function EducationScreen() {
       }, 5000);
       return;
     }
-    const loaded = await loadRewardedAd('education');
-    if (!loaded) { setAdMessage('Ad unavailable. Please try again later.'); return; }
-    if (!(await showRewardedAd(grant))) setAdMessage('No reward earned. Watch the complete ad to finish your education.');
+
+    if (nativeAdPhase !== 'idle') return;
+    setNativeAdPhase('loading');
+    setAdMessage('Loading advertisement...');
+    try {
+      const loaded = await loadRewardedAd('education');
+      if (!loaded) {
+        setAdMessage('Ad unavailable or another rewarded ad is already active. Please try again.');
+        return;
+      }
+      setNativeAdPhase('showing');
+      setAdMessage('Advertisement is playing...');
+      if (!(await showRewardedAd(grant))) {
+        setAdMessage('No reward earned. Watch the complete ad to finish your education.');
+      }
+    } finally {
+      setNativeAdPhase('idle');
+    }
   };
 
   const groupedCourses: Record<string, any[]> = {};
@@ -88,75 +140,243 @@ export default function EducationScreen() {
     groupedCourses[cat].push(course);
   }
 
+  const firstGuidedCourseId = CATEGORIES.flatMap((category) => groupedCourses[category] ?? []).find((course) =>
+    course.level === 1 && !currentCourseId && !completedIds.has(course.id)
+      && (!course.prerequisite || completedIds.has(course.prerequisite))
+      && meetsExperienceRequirement(course.level, weeksEmployed)
+      && (course.cost > 0 ? inflated(course.cost, inflationMultiplier) : 0) <= cash
+  )?.id;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Education</Text>
-      </View>
+      <ScreenHeader
+        title="Education"
+        subtitle="Build skills and unlock career paths"
+        accentColor={Colors.education}
+      />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {educationNotice.available && (
-          <GameCard>
-            <Text style={styles.currentLabel}>NEW EDUCATION AVAILABLE</Text>
-            <Text style={styles.currentTitle}>{educationNotice.courseName}</Text>
-            <Text style={styles.hint}>You now meet the requirements and have enough cash to begin this {educationNotice.level === 3 ? 'Expert' : 'Advanced'} education.</Text>
-          </GameCard>
-        )}
-        {/* Current Course */}
-        {currentCourse ? (
-          <GameCard style={styles.currentCard}>
-            <Text style={styles.currentLabel}>Currently Studying</Text>
-            <Text style={styles.currentTitle}>{currentCourse.name}</Text>
-            <Text style={styles.currentCategory}>{currentCourse.category} • Level {currentCourse.level}</Text>
-            {(() => {
-              const adjDur = partTimeJob ? Math.ceil((currentCourse.duration ?? 1) * 1.25) : (currentCourse.duration ?? 1);
-              return (<>
-                <ProgressBar progress={courseWeeksCompleted / adjDur} />
-                <Text style={styles.progressText}>Week {courseWeeksCompleted}/{adjDur}{partTimeJob ? ' (slower — part-time)' : ''}</Text>
-                {!adsRemoved && <Pressable style={[styles.adButton, simulatedAdPlaying && { opacity: 0.55 }]} onPress={speedUp} disabled={simulatedAdPlaying}>
-                  <Ionicons name="play-circle" size={18} color={Colors.white} />
-                  <Text style={styles.enrollBtnText}>{simulatedAdReady ? 'Claim reward: complete education' : simulatedAdPlaying ? 'Watching ad...' : 'Watch ad: complete education'}</Text>
-                </Pressable>}
-                {!adsRemoved && <Text style={styles.adMessage}>Reward: finish this education. No gems are awarded.</Text>}
-                {!!adMessage && <Text style={styles.adMessage}>{adMessage}</Text>}
-              </>);
-            })()}
-          </GameCard>
-        ) : (
-          <GameCard style={styles.currentCard}>
-            <Text style={styles.currentLabel}>Not Studying</Text>
-            <Text style={styles.hint}>Enroll in a course below to build skills and advance your career.</Text>
+          <GameCard
+            variant="attention"
+            eyebrow="NEW EDUCATION AVAILABLE"
+            title={educationNotice.courseName ?? 'New course unlocked'}
+            accentColor={educationNotice.level === 3 ? Colors.premium : Colors.education}
+            titleAccessory={(
+              <StatusPill
+                compact
+                icon="sparkles-outline"
+                label={educationNotice.level === 3 ? 'Expert' : 'Advanced'}
+                color={educationNotice.level === 3 ? Colors.premium : Colors.education}
+              />
+            )}
+          >
+            <Text style={styles.noticeText}>
+              You now meet the requirements and have enough cash to start this course.
+            </Text>
           </GameCard>
         )}
 
-        {/* Completed Courses */}
+        {currentCourse ? (() => {
+          const adjDur = getStudentStudyDuration((currentCourse.duration ?? 1), studentWork?.id ?? null);
+          const remaining = Math.max(0, adjDur - courseWeeksCompleted);
+          const accent = levelAccent(currentCourse.level ?? 1);
+          const nativeAdBusy = nativeAdPhase !== 'idle';
+          const rewardDisabled = simulatedAdPlaying || nativeAdBusy || (adsRemoved && !adFreeEducationReward.available);
+          const rewardLabel = adsRemoved
+            ? (adFreeEducationReward.available ? 'Claim Daily Instant Completion' : 'Daily Instant Completion Used')
+            : nativeAdPhase === 'loading'
+              ? 'Loading Ad...'
+              : nativeAdPhase === 'showing'
+                ? 'Ad Playing...'
+                : simulatedAdReady
+                  ? 'Claim Reward • Finish Education'
+                  : simulatedAdPlaying
+                    ? 'Watching Ad...'
+                    : 'Watch Ad • Finish Education';
+
+          return (
+            <GameCard
+              variant="hero"
+              eyebrow="CURRENT EDUCATION"
+              title={currentCourse.name}
+              tutorialId="education.progress"
+              accentColor={accent}
+              titleAccessory={(
+                <StatusPill
+                  compact
+                  icon="school-outline"
+                  label={levelLabel(currentCourse.level ?? 1)}
+                  color={accent}
+                />
+              )}
+            >
+              <View style={styles.currentHeroRow}>
+                <Image
+                  source={disciplineImages[currentCourse.baseId] ?? disciplineImages[(currentCourse.category ?? '').toLowerCase()]}
+                  style={styles.currentArtwork}
+                  resizeMode="contain"
+                  accessibilityLabel={`${currentCourse.name} pixel art`}
+                />
+                <View style={styles.currentHeroCopy}>
+                  <Text style={styles.currentCategory}>{currentCourse.category}</Text>
+                  <Text style={styles.currentRemaining}>
+                    {remaining === 0 ? 'Completes next update' : `${remaining} week${remaining === 1 ? '' : 's'} remaining`}
+                  </Text>
+                  {studentWork && (
+                    <StatusPill
+                      compact
+                      icon="briefcase-outline"
+                      label={`${studentWork.shortName} • +${Math.round((studentWork.studyDurationMultiplier - 1) * 100)}% study time`}
+                      color={Colors.warning}
+                    />
+                  )}
+                </View>
+              </View>
+
+              <ProgressBar progress={courseWeeksCompleted / adjDur} color={accent} />
+              <View style={styles.progressMeta}>
+                <Text style={styles.progressText}>Week {courseWeeksCompleted} of {adjDur}</Text>
+                <Text style={[styles.progressPercent, { color: accent }]}>
+                  {Math.round(Math.max(0, Math.min(1, courseWeeksCompleted / Math.max(1, adjDur))) * 100)}%
+                </Text>
+              </View>
+
+              <View style={styles.boostPanel}>
+                <View style={styles.boostHeader}>
+                  <View style={styles.boostIcon}>
+                    <Ionicons name={adsRemoved ? 'gift-outline' : 'play-circle-outline'} size={18} color={Colors.education} />
+                  </View>
+                  <View style={styles.boostCopy}>
+                    <Text style={styles.boostTitle}>Daily Education Boost</Text>
+                    <Text style={styles.boostText}>
+                      {adsRemoved
+                        ? 'Remove Ads benefit • one instant completion per day across all save slots.'
+                        : 'Optional rewarded ad • instantly completes the current education.'}
+                    </Text>
+                  </View>
+                </View>
+                <GameButton
+                  accentColor={Colors.education}
+                  icon={adsRemoved
+                    ? 'gift-outline'
+                    : nativeAdPhase !== 'idle'
+                      ? 'hourglass-outline'
+                      : simulatedAdReady
+                        ? 'checkmark-circle-outline'
+                        : 'play-circle'}
+                  label={rewardLabel}
+                  onPress={speedUp}
+                  disabled={rewardDisabled}
+                  style={styles.boostAction}
+                />
+                {!!adMessage && <Text style={styles.adMessage}>{adMessage}</Text>}
+              </View>
+            </GameCard>
+          );
+        })() : (
+          <GameCard
+            variant="subtle"
+            eyebrow="CURRENT EDUCATION"
+            title="Not studying"
+            accentColor={Colors.education}
+          >
+            <View style={styles.emptyCurrentRow}>
+              <View style={styles.emptyCurrentIcon}>
+                <Ionicons name="school-outline" size={23} color={Colors.education} />
+              </View>
+              <Text style={styles.hint}>Choose a course below to build skills and unlock better career opportunities.</Text>
+            </View>
+          </GameCard>
+        )}
+
         {completedCourses.length > 0 && (
-          <GameCard style={styles.completedCard}>
-            <Text style={styles.completedTitle}>✅ {completedCourses.length} Course{completedCourses.length !== 1 ? 's' : ''} Completed</Text>
-            {completedCourses.map((c) => (
-              <Text key={c.courseId} style={styles.completedItem}>• {c.name}</Text>
-            ))}
+          <GameCard variant="subtle" compact>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.completedHeader}
+              onPress={() => setShowCompleted((value) => !value)}
+            >
+              <View style={styles.completedHeaderLeft}>
+                <View style={styles.completedIcon}>
+                  <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                </View>
+                <View>
+                  <Text style={styles.completedTitle}>
+                    {completedCourses.length} course{completedCourses.length === 1 ? '' : 's'} completed
+                  </Text>
+                  <Text style={styles.completedSubtitle}>Education history</Text>
+                </View>
+              </View>
+              <Ionicons name={showCompleted ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textMuted} />
+            </Pressable>
+            {showCompleted && (
+              <View style={styles.completedList}>
+                {completedCourses.map((completed) => (
+                  <View key={completed.courseId} style={styles.completedRow}>
+                    <Ionicons name="checkmark" size={13} color={Colors.primary} />
+                    <Text style={styles.completedItem}>{completed.name}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </GameCard>
         )}
 
         <View style={styles.levelTabs}>
-          {([{ level: 1, label: 'Basics' }, { level: 2, label: 'Advanced' }, { level: 3, label: 'Expert' }] as const).map((tab) => (
-            <Pressable key={tab.level} style={[styles.levelTab, courseLevel === tab.level && styles.levelTabActive]} onPress={() => setCourseLevel(tab.level)}>
-              <Text style={[styles.levelTabText, courseLevel === tab.level && styles.levelTabTextActive]}>{tab.label}</Text>
-            </Pressable>
-          ))}
+          {([
+            { level: 1, label: 'Basics', icon: 'leaf-outline' },
+            { level: 2, label: 'Advanced', icon: 'school-outline' },
+            { level: 3, label: 'Expert', icon: 'diamond-outline' },
+          ] as const).map((tab) => {
+            const accent = levelAccent(tab.level);
+            const active = courseLevel === tab.level;
+            return (
+              <Pressable
+                key={tab.level}
+                style={[
+                  styles.levelTab,
+                  active && { borderColor: accent, backgroundColor: `${accent}14` },
+                ]}
+                onPress={() => {
+                  const focus = useTutorialFocusStore.getState();
+                  focus.report(focus.request, 'cancelled');
+                  setCourseLevel(tab.level);
+                }}
+              >
+                <Ionicons name={tab.icon} size={15} color={active ? accent : Colors.textMuted} />
+                <Text style={[styles.levelTabText, active && { color: accent }]}>{tab.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        {/* Course Categories */}
+        <View style={styles.catalogHeader}>
+          <View>
+            <Text style={styles.catalogTitle}>{levelLabel(courseLevel)} Courses</Text>
+            <Text style={styles.catalogSubtitle}>Choose a discipline to continue your progression.</Text>
+          </View>
+          <StatusPill
+            compact
+            label={`${(coursesData as any[]).filter((course) => course.level === courseLevel).length} courses`}
+            color={levelAccent(courseLevel)}
+          />
+        </View>
+
         {CATEGORIES.map((cat) => {
           const courses = (groupedCourses[cat] ?? []).filter((course) => course.level === courseLevel);
           if (courses.length === 0) return null;
+          const categoryAccent = levelAccent(courseLevel);
+
           return (
             <View key={cat}>
               <View style={styles.catHeader}>
-                <Ionicons name={(CATEGORY_ICONS[cat] ?? 'school') as any} size={18} color={Colors.primary} />
+                <View style={[styles.catIcon, { backgroundColor: `${categoryAccent}12`, borderColor: `${categoryAccent}33` }]}>
+                  <Ionicons name={(CATEGORY_ICONS[cat] ?? 'school') as any} size={16} color={categoryAccent} />
+                </View>
                 <Text style={styles.catTitle}>{cat}</Text>
               </View>
+
               {courses.map((course: any) => {
                 const isDone = completedIds.has(course.id);
                 const isCurrent = currentCourseId === course.id;
@@ -165,35 +385,78 @@ export default function EducationScreen() {
                 const cost = course.cost > 0 ? inflated(course.cost, inflationMultiplier) : 0;
                 const canAfford = cost <= cash;
                 const canEnroll = !currentCourseId && !isDone && hasPrereq && hasExp && canAfford;
+                const accent = levelAccent(course.level);
+                const displayDuration = getStudentStudyDuration(course.duration ?? 1, studentWork?.id ?? null);
+                const requiredWeeks = course.level === 2 ? 75 : course.level >= 3 ? 150 : 0;
+                const missingExperience = Math.max(0, requiredWeeks - weeksEmployed);
+                const missingCash = Math.max(0, cost - cash);
+                const prereq = course.prerequisite
+                  ? (coursesData as any[]).find((item) => item.id === course.prerequisite)
+                  : null;
 
                 return (
-                  <GameCard key={course.id} style={[styles.courseCard, isDone && styles.courseDone]}>
+                  <GameCard
+                    key={course.id}
+                    compact
+                    variant={isDone ? 'subtle' : 'standard'}
+                    style={[styles.courseCard, isDone && styles.courseDone]}
+                  >
                     <View style={styles.courseRow}>
-                      <Image source={disciplineImages[course.baseId] ?? disciplineImages[cat.toLowerCase()]} style={[styles.courseArtwork, isDone && styles.courseArtworkDone]} resizeMode="contain" accessibilityLabel={`${course.name} pixel art`} />
-                      <View style={{ flex: 1 }}>
+                      <View style={[styles.artworkWrap, { borderColor: `${accent}33`, backgroundColor: `${accent}0D` }]}>
+                        <Image
+                          source={disciplineImages[course.baseId] ?? disciplineImages[cat.toLowerCase()]}
+                          style={[styles.courseArtwork, isDone && styles.courseArtworkDone]}
+                          resizeMode="contain"
+                          accessibilityLabel={`${course.name} pixel art`}
+                        />
+                      </View>
+
+                      <View style={styles.courseCopy}>
                         <View style={styles.courseTitleRow}>
-                          <Text style={[styles.courseName, isDone && styles.courseDoneText]}>{course.name}</Text>
-                          <Text style={styles.courseLevel}>Lvl {course.level}</Text>
+                          <Text style={[styles.courseName, isDone && styles.courseDoneText]} numberOfLines={2}>{course.name}</Text>
+                          <StatusPill compact label={levelLabel(course.level)} color={accent} />
                         </View>
-                        <Text style={styles.courseDuration}>{course.duration} weeks • {cost > 0 ? formatCurrency(cost) : 'Free'}{course.weeklyCost > 0 ? ` + ${formatCurrency(course.weeklyCost)}/wk` : ''}{!hasExp ? ` • Requires ${course.level === 2 ? 75 : 150}wks exp` : ''}</Text>
+                        <View style={styles.courseMetaRow}>
+                          <Text style={styles.courseMeta}>{displayDuration}w{studentWork ? ' with work' : ''}</Text>
+                          <Text style={styles.metaDot}>•</Text>
+                          <Text style={styles.courseMeta}>{cost > 0 ? formatCurrency(cost) : 'Free'}</Text>
+                          {course.weeklyCost > 0 && (
+                            <>
+                              <Text style={styles.metaDot}>•</Text>
+                              <Text style={styles.courseMeta}>{formatCurrency(course.weeklyCost)}/wk</Text>
+                            </>
+                          )}
+                        </View>
+
+                        <View style={styles.courseStatusRow}>
+                          {isDone ? (
+                            <StatusPill compact icon="checkmark-circle-outline" label="Completed" color={Colors.primary} />
+                          ) : isCurrent ? (
+                            <StatusPill compact icon="book-outline" label="Studying" color={accent} />
+                          ) : !hasPrereq ? (
+                            <StatusPill compact icon="lock-closed-outline" label={`Need ${prereq?.name ?? 'prerequisite'}`} color={Colors.warning} />
+                          ) : !hasExp ? (
+                            <StatusPill compact icon="time-outline" label={`Need ${missingExperience}w experience`} color={Colors.warning} />
+                          ) : !canAfford ? (
+                            <StatusPill compact icon="wallet-outline" label={`Need ${formatCurrency(missingCash)} more`} color={Colors.warning} />
+                          ) : currentCourseId ? (
+                            <StatusPill compact icon="hourglass-outline" label="Finish current course first" color={Colors.textMuted} />
+                          ) : (
+                            <StatusPill compact icon="checkmark-outline" label="Ready" color={Colors.primary} />
+                          )}
+                        </View>
                       </View>
-                      <View style={styles.courseRight}>
-                        {isDone ? (
-                          <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
-                        ) : isCurrent ? (
-                          <Text style={styles.studyingBadge}>Studying</Text>
-                        ) : canEnroll ? (
-                          <Pressable style={styles.enrollBtn} onPress={() => enrollCourse?.(course.id)}>
-                            <Text style={styles.enrollBtnText}>Enroll</Text>
-                          </Pressable>
-                        ) : !hasPrereq ? (
-                          <Text style={styles.lockText}>🔒 Prereq</Text>
-                        ) : !hasExp ? (
-                          <Text style={styles.lockText}>🔒 Need exp</Text>
-                        ) : !canAfford ? (
-                          <Text style={styles.lockText}>Can't afford</Text>
-                        ) : null}
-                      </View>
+
+                      {canEnroll && (
+                        <GameButton
+                          compact
+                          accentColor={accent}
+                          label="Enroll"
+                          tutorialId={course.id === firstGuidedCourseId ? 'education.enroll' : undefined}
+                          onPress={() => enrollCourse?.(course.id)}
+                          style={styles.enrollButton}
+                        />
+                      )}
                     </View>
                   </GameCard>
                 );
@@ -208,47 +471,58 @@ export default function EducationScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 24, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 40 },
-  currentCard: { marginBottom: 16 },
-  currentLabel: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
-  currentTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
-  currentCategory: { color: Colors.textSecondary, fontSize: 13, marginBottom: 8 },
-  progressText: { color: Colors.textSecondary, fontSize: 12, marginTop: 6, textAlign: 'right' },
-  rewardsPreview: { marginTop: 12, borderTopWidth: 1, borderTopColor: Colors.cardBorder, paddingTop: 8 },
-  rewardsLabel: { color: Colors.textMuted, fontSize: 12, marginBottom: 4 },
-  rewardItem: { color: Colors.primary, fontSize: 12, marginTop: 2 },
-  hint: { color: Colors.textMuted, fontSize: 13 },
-  completedCard: { marginBottom: 16, borderColor: Colors.primary, borderWidth: 1 },
-  completedTitle: { color: Colors.primary, fontSize: 15, fontWeight: '600', marginBottom: 8 },
-  completedItem: { color: Colors.textSecondary, fontSize: 13, marginTop: 2 },
-  catHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, marginBottom: 8 },
-  catTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '700' },
+  noticeText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
+  currentHeroRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 13 },
+  currentArtwork: { width: 64, height: 64 },
+  currentHeroCopy: { flex: 1, minWidth: 0, gap: 4 },
+  currentCategory: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
+  currentRemaining: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800', marginBottom: 2 },
+  progressMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  progressText: { color: Colors.textMuted, fontSize: 10, fontWeight: '700' },
+  progressPercent: { fontSize: 11, fontWeight: '900' },
+  boostPanel: { marginTop: 13, paddingTop: 11, borderTopWidth: 1, borderTopColor: Colors.cardBorder },
+  boostHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 9 },
+  boostIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: `${Colors.education}12`, borderWidth: 1, borderColor: `${Colors.education}33`, alignItems: 'center', justifyContent: 'center' },
+  boostCopy: { flex: 1, minWidth: 0 },
+  boostTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
+  boostText: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 2 },
+  boostAction: { minHeight: 46 },
+  adMessage: { color: Colors.textSecondary, textAlign: 'center', marginTop: 6, fontSize: 10, lineHeight: 14 },
+  emptyCurrentRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  emptyCurrentIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: `${Colors.education}12`, borderWidth: 1, borderColor: `${Colors.education}33`, alignItems: 'center', justifyContent: 'center' },
+  hint: { flex: 1, color: Colors.textMuted, fontSize: 12, lineHeight: 17 },
+  completedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  completedHeaderLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  completedIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center' },
+  completedTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
+  completedSubtitle: { color: Colors.textMuted, fontSize: 9, marginTop: 1 },
+  completedList: { marginTop: 9, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.cardBorder, gap: 5 },
+  completedRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  completedItem: { flex: 1, color: Colors.textSecondary, fontSize: 11 },
+  levelTabs: { flexDirection: 'row', gap: 7, marginTop: 4, marginBottom: 14 },
+  levelTab: { flex: 1, minHeight: 42, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, borderRadius: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 6 },
+  levelTabText: { color: Colors.textSecondary, fontWeight: '800', fontSize: 11 },
+  catalogHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 },
+  catalogTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '900' },
+  catalogSubtitle: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
+  catHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 15, marginBottom: 8 },
+  catIcon: { width: 30, height: 30, borderRadius: 9, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  catTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800' },
   courseCard: { marginBottom: 8 },
-  courseDone: { opacity: 0.6 },
-  courseRow: { flexDirection: 'row', alignItems: 'center' },
-  courseArtwork: { width: 58, height: 58, marginRight: 10 },
-  courseArtworkDone: { opacity: 0.6 },
-  courseTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  courseName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
-  courseDoneText: { textDecorationLine: 'line-through' },
-  courseLevel: { color: Colors.textMuted, fontSize: 11, backgroundColor: Colors.cardBorder, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  courseDuration: { color: Colors.textSecondary, fontSize: 12, marginTop: 4 },
-  rewardTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
-  rewardTag: { color: '#F59E0B', fontSize: 10, backgroundColor: '#F59E0B15', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  knowledgeTag: { color: '#3B82F6', backgroundColor: '#3B82F615' },
-  courseRight: { marginLeft: 12, alignItems: 'center' },
-  enrollBtn: { backgroundColor: Colors.primary, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
-  enrollBtnText: { color: Colors.white, fontSize: 13, fontWeight: '700' },
-  studyingBadge: { color: '#F59E0B', fontSize: 12, fontWeight: '600' },
-  adButton: { marginTop: 10, backgroundColor: '#3B82F6', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
-  adMessage: { color: Colors.textSecondary, textAlign: 'center', marginTop: 6, fontSize: 12 },
-  lockText: { color: Colors.textMuted, fontSize: 11 },
-  levelTabs: { flexDirection: 'row', backgroundColor: Colors.card, padding: 4, borderRadius: 10, marginTop: 8, marginBottom: 4 },
-  levelTab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8 },
-  levelTabActive: { backgroundColor: Colors.primary },
-  levelTabText: { color: Colors.textSecondary, fontWeight: '700', fontSize: 13 },
-  levelTabTextActive: { color: Colors.white },
+  courseDone: { opacity: 0.65 },
+  courseRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  artworkWrap: { width: 54, height: 54, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  courseArtwork: { width: 48, height: 48 },
+  courseArtworkDone: { opacity: 0.55 },
+  courseCopy: { flex: 1, minWidth: 0 },
+  courseTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  courseName: { flex: 1, color: Colors.textPrimary, fontSize: 13, lineHeight: 16, fontWeight: '800' },
+  courseDoneText: { color: Colors.textMuted },
+  courseMetaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginTop: 4 },
+  courseMeta: { color: Colors.textSecondary, fontSize: 10, fontWeight: '600' },
+  metaDot: { color: Colors.textMuted, fontSize: 8 },
+  courseStatusRow: { marginTop: 6 },
+  enrollButton: { minWidth: 66 },
 });

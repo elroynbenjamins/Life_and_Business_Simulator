@@ -1,25 +1,148 @@
-import { ActiveMacroCrash, GameState } from '../types/game';
+import { ActiveMacroCrash, EconomicCyclePhase, EconomicCycleState, GameState } from '../types/game';
 
-/**
- * Step 2: Economy Update
- * Processes yearly inflation every 20 weeks.
- * Random rate: 1-5%. Compounds onto existing multiplier.
- * Display as yearly % (not cumulative).
- */
 export interface EconomyResult {
   inflationMultiplier: number;
   inflationEvent: boolean;
-  inflationRate: number; // This year's rate as decimal
+  inflationRate: number;
   crashEvent: { title: string; inflationReduction: number; stockShock: number; isAftershock?: boolean; weeksRemaining?: number; totalWeeks?: number } | null;
   activeMacroCrash: ActiveMacroCrash | null;
   crashStarted: boolean;
+  economicCycle: EconomicCycleState;
+  businessRevenueMultiplier: number;
+  stockDrift: number;
+  propertyIncomeMultiplier: number;
+  interestRateModifier: number;
+  propertyValueWeeklyAdjustment: number;
 }
 
-export function processEconomy(state: GameState, newWeek: number): EconomyResult {
-  const currentMultiplier = state?.inflationMultiplier ?? 1.0;
+const CYCLE_ORDER: EconomicCyclePhase[] = ['expansion', 'boom', 'slowdown', 'recession', 'recovery'];
 
-  // Some recessions unfold over several weekly market waves. The total decline
-  // is chosen when the recession starts and divided into equal compounded shocks.
+const CYCLE_RANGES: Record<EconomicCyclePhase, [number, number]> = {
+  expansion: [12, 20],
+  boom: [6, 12],
+  slowdown: [8, 14],
+  recession: [6, 12],
+  recovery: [8, 14],
+};
+
+const CYCLE_EFFECTS: Record<EconomicCyclePhase, {
+  businessRevenueMultiplier: number;
+  stockDrift: number;
+  propertyIncomeMultiplier: number;
+  interestRateModifier: number;
+  propertyValueWeeklyAdjustment: number;
+}> = {
+  expansion: { businessRevenueMultiplier: 1.04, stockDrift: 0.004, propertyIncomeMultiplier: 1.02, interestRateModifier: 0.005, propertyValueWeeklyAdjustment: 0.0005 },
+  boom: { businessRevenueMultiplier: 1.08, stockDrift: 0.008, propertyIncomeMultiplier: 1.05, interestRateModifier: 0.0125, propertyValueWeeklyAdjustment: 0.0015 },
+  slowdown: { businessRevenueMultiplier: 0.98, stockDrift: -0.002, propertyIncomeMultiplier: 0.99, interestRateModifier: 0.005, propertyValueWeeklyAdjustment: -0.0005 },
+  recession: { businessRevenueMultiplier: 0.90, stockDrift: -0.010, propertyIncomeMultiplier: 0.94, interestRateModifier: -0.005, propertyValueWeeklyAdjustment: -0.0040 },
+  recovery: { businessRevenueMultiplier: 1.02, stockDrift: 0.003, propertyIncomeMultiplier: 1.01, interestRateModifier: -0.0025, propertyValueWeeklyAdjustment: 0.0008 },
+};
+
+const INDUSTRY_CYCLE_SENSITIVITY: Record<string, number> = {
+  Healthcare: 0.25,
+  'Food & Beverage': 0.60,
+  Automotive: 0.85,
+  Technology: 1.10,
+  Retail: 1.15,
+  Hospitality: 1.20,
+  Entertainment: 1.20,
+  Construction: 1.40,
+  'Real Estate': 1.50,
+  Real_Estate: 1.50,
+  Manufacturing: 1.15,
+  Services: 0.90,
+};
+
+export function getIndustryEconomicCycleMultiplier(
+  phase: EconomicCyclePhase,
+  industry: string,
+): number {
+  const broad = CYCLE_EFFECTS[phase]?.businessRevenueMultiplier ?? 1;
+  const sensitivity = INDUSTRY_CYCLE_SENSITIVITY[industry] ?? 1;
+  return Math.max(0.72, Math.min(1.18, 1 + (broad - 1) * sensitivity));
+}
+
+export function getEconomicCycleDescription(phase: EconomicCyclePhase): string {
+  switch (phase) {
+    case 'boom':
+      return 'Demand and asset prices are strong, but financing is more expensive.';
+    case 'slowdown':
+      return 'Growth is cooling. Rate-sensitive and discretionary industries feel pressure first.';
+    case 'recession':
+      return 'Demand and asset values are under pressure, creating cheaper acquisition opportunities.';
+    case 'recovery':
+      return 'Demand is returning while financing remains relatively supportive.';
+    case 'expansion':
+    default:
+      return 'Broad demand is growing, valuations are firm, and financing costs are gradually rising.';
+  }
+}
+
+export function getAcquisitionCycleValueMultiplier(phase: EconomicCyclePhase): number {
+  switch (phase) {
+    case 'boom': return 1.10;
+    case 'slowdown': return 0.96;
+    case 'recession': return 0.86;
+    case 'recovery': return 0.95;
+    case 'expansion':
+    default: return 1.04;
+  }
+}
+
+export function getPropertyCyclePurchaseMultiplier(phase: EconomicCyclePhase): number {
+  switch (phase) {
+    case 'boom': return 1.08;
+    case 'slowdown': return 0.98;
+    case 'recession': return 0.90;
+    case 'recovery': return 0.96;
+    case 'expansion':
+    default: return 1.03;
+  }
+}
+
+function rollCycleDuration(phase: EconomicCyclePhase): number {
+  const [min, max] = CYCLE_RANGES[phase];
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function advanceEconomicCycle(
+  current: EconomicCycleState | null | undefined,
+  globalWeek: number,
+): EconomicCycleState {
+  const fallback: EconomicCycleState = {
+    phase: 'expansion',
+    weeksRemaining: 12,
+    totalWeeks: 12,
+    startedGlobalWeek: Math.max(1, globalWeek),
+  };
+  const active = current ?? fallback;
+  if ((active.weeksRemaining ?? 0) > 1) {
+    return { ...active, weeksRemaining: active.weeksRemaining - 1 };
+  }
+
+  const index = CYCLE_ORDER.indexOf(active.phase);
+  const nextPhase = CYCLE_ORDER[(index + 1 + CYCLE_ORDER.length) % CYCLE_ORDER.length];
+  const duration = rollCycleDuration(nextPhase);
+  return {
+    phase: nextPhase,
+    weeksRemaining: duration,
+    totalWeeks: duration,
+    startedGlobalWeek: globalWeek,
+  };
+}
+
+/**
+ * Economy update.
+ * 20 weeks = one game year. Inflation remains annual, while the macro cycle moves
+ * on a slower multi-week cadence and feeds the rest of the simulation.
+ */
+export function processEconomy(state: GameState, newWeek: number, newYear = state?.year ?? 1): EconomyResult {
+  const currentMultiplier = state?.inflationMultiplier ?? 1.0;
+  const globalWeek = ((newYear ?? 1) - 1) * 20 + newWeek;
+  const economicCycle = advanceEconomicCycle(state?.economicCycle, globalWeek);
+  const cycleEffects = CYCLE_EFFECTS[economicCycle.phase];
+
   const activeCrash = state?.activeMacroCrash ?? null;
   if (activeCrash && activeCrash.weeksRemaining > 0) {
     const nextWeeksRemaining = activeCrash.weeksRemaining - 1;
@@ -38,20 +161,18 @@ export function processEconomy(state: GameState, newWeek: number): EconomyResult
       },
       activeMacroCrash: nextWeeksRemaining > 0 ? { ...activeCrash, weeksRemaining: nextWeeksRemaining } : null,
       crashStarted: false,
+      economicCycle,
+      ...cycleEffects,
     };
   }
 
-  // Inflation triggers every 20 weeks (yearly in our time system)
-  const globalWeek = ((state?.year ?? 1) - 1) * 20 + newWeek;
   const isYearEnd = globalWeek > 0 && globalWeek % 20 === 0;
-
   if (isYearEnd) {
-    // Rare macro crash: only becomes possible after meaningful cumulative inflation,
-    // has a three-year cooldown, and can never push the price index below 1.00.
     const lastCrashWeek = state?.lastMacroCrashWeek ?? 0;
     const cooldownPassed = globalWeek - lastCrashWeek >= 60;
     const inflationPressure = Math.max(0, currentMultiplier - 1.10);
-    const crashChance = Math.min(0.22, 0.06 + inflationPressure * 0.9);
+    const cycleCrashPressure = economicCycle.phase === 'slowdown' ? 0.025 : economicCycle.phase === 'recession' ? 0.04 : 0;
+    const crashChance = Math.min(0.24, 0.05 + inflationPressure * 0.9 + cycleCrashPressure);
     const shouldCrash = currentMultiplier >= 1.12 && cooldownPassed && Math.random() < crashChance;
 
     if (shouldCrash) {
@@ -82,23 +203,45 @@ export function processEconomy(state: GameState, newWeek: number): EconomyResult
         },
         activeMacroCrash: nextActiveCrash,
         crashStarted: true,
+        economicCycle: economicCycle.phase === 'recession'
+          ? economicCycle
+          : { phase: 'recession', weeksRemaining: Math.max(6, totalWeeks + 4), totalWeeks: Math.max(6, totalWeeks + 4), startedGlobalWeek: globalWeek },
+        ...CYCLE_EFFECTS.recession,
       };
     }
 
-    // Normal annual inflation: 1-5%.
+    const phaseInflationBias = economicCycle.phase === 'boom' ? 0.01 : economicCycle.phase === 'recession' ? -0.005 : 0;
     const rates = [0.01, 0.02, 0.03, 0.04, 0.05];
-    const rate = rates[Math.floor(Math.random() * rates.length)];
+    const rate = Math.max(0, rates[Math.floor(Math.random() * rates.length)] + phaseInflationBias);
     const newMultiplier = Math.round((currentMultiplier * (1 + rate)) * 10000) / 10000;
-    return { inflationMultiplier: newMultiplier, inflationEvent: true, inflationRate: rate, crashEvent: null, activeMacroCrash: null, crashStarted: false };
+    return {
+      inflationMultiplier: newMultiplier,
+      inflationEvent: true,
+      inflationRate: rate,
+      crashEvent: null,
+      activeMacroCrash: null,
+      crashStarted: false,
+      economicCycle,
+      ...cycleEffects,
+    };
   }
 
-  return { inflationMultiplier: currentMultiplier, inflationEvent: false, inflationRate: 0, crashEvent: null, activeMacroCrash: null, crashStarted: false };
+  return {
+    inflationMultiplier: currentMultiplier,
+    inflationEvent: false,
+    inflationRate: 0,
+    crashEvent: null,
+    activeMacroCrash: null,
+    crashStarted: false,
+    economicCycle,
+    ...cycleEffects,
+  };
 }
 
-/**
- * Apply inflation to a base value.
- * Always use: baseValue * inflationMultiplier
- */
 export function inflated(baseValue: number, multiplier: number): number {
   return Math.round(baseValue * (multiplier ?? 1));
+}
+
+export function getEconomicCycleEffects(phase: EconomicCyclePhase) {
+  return CYCLE_EFFECTS[phase];
 }

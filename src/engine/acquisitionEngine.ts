@@ -6,18 +6,27 @@ import {
   AcquisitionRisk,
   AcquisitionTier,
   BusinessAcquisitionTarget,
+  EconomicCyclePhase,
   GameState,
-  HoldingCompany,
   OwnedBusiness,
 } from '../types/game';
 import businessTypesData from '../data/business_types.json';
 import { aggregateEmployeeBuffs, candidateToEmployee, createBusiness, generateCandidates, getAllBusinessLocationTemplates, getBusinessType, getBusinessRevenueCapacity, getScaledLocationCosts } from './businessEngine';
 import { createCorporateWorkforce } from './businessWorkforceEngine';
+import { getAcquisitionCycleValueMultiplier } from './economyEngine';
+import { getBusinessEquityReturn } from './businessPortfolioEngine';
+import {
+  ActiveAcquisitionIntegrationStrategy,
+  getAcquisitionIntegrationOutcomeEffect,
+  getAcquisitionIntegrationOutcomeProbabilities,
+} from './acquisitionIntegrationEngine';
 
 export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
-export const HOLDING_COMPANY_SETUP_COST = 500_000;
 export const ACQUISITION_TARGET_COUNT = 6;
+
+export type AcquisitionTargetSortMode = 'price' | 'premium' | 'profit' | 'diligence' | 'risk';
+export type AcquisitionTargetFundingFilter = 'all' | 'ready' | 'financeable';
 
 export interface AcquisitionFinancingQuote {
   mode: AcquisitionFundingMode;
@@ -280,16 +289,117 @@ export function getAcquisitionPrice(target: BusinessAcquisitionTarget, negotiati
   return Math.round(Math.max(target.estimatedValue ?? 0, negotiatedPrice));
 }
 
+export const ACQUISITION_MAX_DEBT_SERVICE_SHARE: Record<AcquisitionRisk, number> = {
+  low: 0.60,
+  medium: 0.50,
+  high: 0.40,
+};
+
+export const ACQUISITION_UNDERWRITING_INTEGRATION_STRESS_FACTOR = 0.60;
+
+export function getAcquisitionUnderwritingIntegrationPenalty(
+  target: Pick<BusinessAcquisitionTarget, 'integrationPenalty'>,
+): number {
+  // Lenders assume meaningful integration disruption, but not the full penalty
+  // of the player's riskiest integration choice. This sits between the safe
+  // independent route (45% of base disruption) and full operational integration.
+  return clamp(
+    (target.integrationPenalty ?? 0) * ACQUISITION_UNDERWRITING_INTEGRATION_STRESS_FACTOR,
+    0,
+    0.15,
+  );
+}
+
+export function getAcquisitionUnderwrittenProfit(
+  target: Pick<BusinessAcquisitionTarget, 'weeklyRevenue' | 'weeklyProfit' | 'integrationPenalty'>,
+): number {
+  const revenue = Math.max(0, target.weeklyRevenue ?? 0);
+  const quotedProfit = Math.max(0, target.weeklyProfit ?? 0);
+  const quotedExpenses = Math.max(0, revenue - quotedProfit);
+  const integrationPenalty = getAcquisitionUnderwritingIntegrationPenalty(target);
+
+  // Stress a meaningful portion of the known integration disruption:
+  // revenue falls by the stress penalty while operating expenses rise by 75% of it.
+  const stressedRevenue = revenue * (1 - integrationPenalty);
+  const stressedExpenses = quotedExpenses * (1 + integrationPenalty * 0.75);
+  return Math.max(0, Math.round(stressedRevenue - stressedExpenses));
+}
+
+export function getAcquisitionDebtServiceSafety(
+  target: Pick<BusinessAcquisitionTarget, 'weeklyRevenue' | 'weeklyProfit' | 'risk' | 'integrationPenalty'>,
+  quote: Pick<AcquisitionFinancingQuote, 'weeklyPayment'>,
+): {
+  quotedWeeklyProfit: number;
+  underwrittenWeeklyProfit: number;
+  profitHaircutPct: number;
+  underwritingIntegrationPenalty: number;
+  debtServiceShare: number;
+  maxDebtServiceShare: number;
+  coverageRatio: number | null;
+  allowed: boolean;
+} {
+  const quotedWeeklyProfit = Math.max(0, target.weeklyProfit ?? 0);
+  const underwritingIntegrationPenalty = getAcquisitionUnderwritingIntegrationPenalty(target);
+  const underwrittenWeeklyProfit = getAcquisitionUnderwrittenProfit(target);
+  const profitHaircutPct = quotedWeeklyProfit > 0
+    ? Math.max(0, Math.min(1, 1 - underwrittenWeeklyProfit / quotedWeeklyProfit))
+    : 1;
+  const weeklyPayment = Math.max(0, quote.weeklyPayment ?? 0);
+  const maxDebtServiceShare = ACQUISITION_MAX_DEBT_SERVICE_SHARE[target.risk] ?? 0.50;
+  if (weeklyPayment <= 0) {
+    return {
+      quotedWeeklyProfit,
+      underwrittenWeeklyProfit,
+      profitHaircutPct,
+      underwritingIntegrationPenalty,
+      debtServiceShare: 0,
+      maxDebtServiceShare,
+      coverageRatio: null,
+      allowed: true,
+    };
+  }
+  if (underwrittenWeeklyProfit <= 0) {
+    return {
+      quotedWeeklyProfit,
+      underwrittenWeeklyProfit,
+      profitHaircutPct,
+      underwritingIntegrationPenalty,
+      debtServiceShare: Number.POSITIVE_INFINITY,
+      maxDebtServiceShare,
+      coverageRatio: 0,
+      allowed: false,
+    };
+  }
+  const debtServiceShare = weeklyPayment / underwrittenWeeklyProfit;
+  return {
+    quotedWeeklyProfit,
+    underwrittenWeeklyProfit,
+    profitHaircutPct,
+    underwritingIntegrationPenalty,
+    debtServiceShare,
+    maxDebtServiceShare,
+    coverageRatio: underwrittenWeeklyProfit / weeklyPayment,
+    allowed: debtServiceShare <= maxDebtServiceShare,
+  };
+}
+
 export function getAcquisitionFinancingQuote(
   purchasePrice: number,
   mode: AcquisitionFundingMode,
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): AcquisitionFinancingQuote {
   const price = Math.max(0, Math.round(purchasePrice));
   const cashRatio = mode === 'cash' ? 1 : mode === 'balanced' ? 0.60 : 0.30;
-  const baseRate = mode === 'cash' ? 0 : mode === 'balanced' ? 0.08 : 0.105;
+  // Acquisition financing uses flat total interest like the rest of the game.
+  // Balanced debt is modestly cheaper than a local operating loan because it is
+  // backed by an established target; 70% leverage carries a meaningful premium.
+  const baseRate = mode === 'cash' ? 0 : mode === 'balanced' ? 0.10 : 0.15;
   const durationWeeks = mode === 'cash' ? 0 : mode === 'balanced' ? 160 : 200;
-  const interestRate = Math.max(0.035, baseRate - clamp(loanRateReduction, 0, 0.05));
+  const interestRate = Math.max(
+    0.025,
+    baseRate + clamp(macroInterestRateModifier, -0.025, 0.035) - clamp(loanRateReduction, 0, 0.05),
+  );
   const cashContribution = Math.round(price * cashRatio);
   const debtPrincipal = Math.max(0, price - cashContribution);
   const totalRepayment = debtPrincipal > 0
@@ -308,6 +418,98 @@ export function getAcquisitionFinancingQuote(
     weeklyPayment,
     leveragePct: price > 0 ? debtPrincipal / price : 0,
   };
+}
+
+export function getAcquisitionFundingSafetyMatrix(
+  target: Pick<BusinessAcquisitionTarget, 'weeklyRevenue' | 'weeklyProfit' | 'risk' | 'integrationPenalty'>,
+  purchasePrice: number,
+  loanRateReduction = 0,
+  macroInterestRateModifier = 0,
+): Array<{
+  mode: AcquisitionFundingMode;
+  quote: AcquisitionFinancingQuote;
+  safety: ReturnType<typeof getAcquisitionDebtServiceSafety>;
+}> {
+  const modes: AcquisitionFundingMode[] = ['cash', 'balanced', 'leveraged'];
+  return modes.map((mode) => {
+    const quote = getAcquisitionFinancingQuote(
+      purchasePrice,
+      mode,
+      loanRateReduction,
+      macroInterestRateModifier,
+    );
+    return {
+      mode,
+      quote,
+      safety: getAcquisitionDebtServiceSafety(target, quote),
+    };
+  });
+}
+
+export function getAcquisitionFundingAvailabilityMatrix(
+  target: Pick<BusinessAcquisitionTarget, 'tier' | 'acquisitionTransactionCostRate' | 'weeklyRevenue' | 'weeklyProfit' | 'risk' | 'integrationPenalty'>,
+  purchasePrice: number,
+  sourceCash: number,
+  loanRateReduction = 0,
+  macroInterestRateModifier = 0,
+): Array<{
+  mode: AcquisitionFundingMode;
+  quote: AcquisitionFinancingQuote;
+  safety: ReturnType<typeof getAcquisitionDebtServiceSafety>;
+  transactionCost: number;
+  cashNeeded: number;
+  cashShortfall: number;
+  cashReady: boolean;
+  executable: boolean;
+}> {
+  const cashAvailable = Math.max(0, Math.round(sourceCash));
+  const transactionCost = getAcquisitionTransactionCost(target, purchasePrice);
+  return getAcquisitionFundingSafetyMatrix(
+    target,
+    purchasePrice,
+    loanRateReduction,
+    macroInterestRateModifier,
+  ).map(({ mode, quote, safety }) => {
+    const cashNeeded = quote.cashContribution + transactionCost;
+    const cashShortfall = Math.max(0, cashNeeded - cashAvailable);
+    const cashReady = cashShortfall <= 0;
+    return {
+      mode,
+      quote,
+      safety,
+      transactionCost,
+      cashNeeded,
+      cashShortfall,
+      cashReady,
+      executable: safety.allowed && cashReady,
+    };
+  });
+}
+
+export function filterAcquisitionTargetsByFunding(
+  targets: BusinessAcquisitionTarget[],
+  filter: AcquisitionTargetFundingFilter,
+  sourceCash: number,
+  negotiationBonus = 0,
+  loanRateReduction = 0,
+  macroInterestRateModifier = 0,
+): BusinessAcquisitionTarget[] {
+  if (filter === 'all') return [...(targets ?? [])];
+
+  return (targets ?? []).filter((target) => {
+    const purchasePrice = getAcquisitionPrice(target, negotiationBonus);
+    const matrix = getAcquisitionFundingAvailabilityMatrix(
+      target,
+      purchasePrice,
+      sourceCash,
+      loanRateReduction,
+      macroInterestRateModifier,
+    );
+    if (filter === 'ready') return matrix.some((entry) => entry.executable);
+    // "Financeable" intentionally means debt-financeable. All-cash has no
+    // underwriting constraint and would otherwise make this filter identical to All.
+    return matrix.some((entry) => entry.mode !== 'cash' && entry.safety.allowed);
+  });
 }
 
 export function getIntegrationStrategyProfile(
@@ -344,6 +546,87 @@ export function getIntegrationStrategyProfile(
   };
 }
 
+export function estimateAcquisitionIntegrationWeeklyProfit(
+  quotedWeeklyRevenue: number,
+  quotedWeeklyProfit: number,
+  integrationPenalty: number,
+): number {
+  const revenue = Math.max(0, quotedWeeklyRevenue);
+  const quotedProfit = Number.isFinite(quotedWeeklyProfit) ? quotedWeeklyProfit : 0;
+  const penalty = clamp(integrationPenalty, 0, 0.25);
+
+  // Acquisition quotes store seller profit after corporate tax and before
+  // buyer-specific financing. Reconstruct the pre-tax operating base, apply the
+  // same temporary integration revenue/expense disruption used in simulation,
+  // then reapply the normal 20% corporate tax on positive profit.
+  const quotedPreTaxProfit = quotedProfit > 0 ? quotedProfit / 0.80 : quotedProfit;
+  const operatingExpenses = Math.max(0, revenue - quotedPreTaxProfit);
+  const stressedRevenue = revenue * (1 - penalty);
+  const stressedOperatingExpenses = operatingExpenses * (1 + penalty * 0.75);
+  const stressedPreTaxProfit = stressedRevenue - stressedOperatingExpenses;
+  const stressedTax = stressedPreTaxProfit > 0 ? stressedPreTaxProfit * 0.20 : 0;
+  return Math.round(stressedPreTaxProfit - stressedTax);
+}
+
+export function getAcquisitionIntegrationDecisionPreview(
+  baseWeeks: number,
+  basePenalty: number,
+  diligenceScore: number,
+  strategy: ActiveAcquisitionIntegrationStrategy,
+  quotedWeeklyRevenue: number,
+  quotedWeeklyProfit: number,
+) {
+  const profile = getIntegrationStrategyProfile(
+    baseWeeks,
+    basePenalty,
+    diligenceScore,
+    strategy,
+  );
+  const probabilities = getAcquisitionIntegrationOutcomeProbabilities(
+    strategy,
+    profile.successChance,
+  );
+  const successEffect = getAcquisitionIntegrationOutcomeEffect(strategy, 'success');
+  const mixedEffect = getAcquisitionIntegrationOutcomeEffect(strategy, 'mixed');
+  const failedEffect = getAcquisitionIntegrationOutcomeEffect(strategy, 'failed');
+
+  const expectedRevenueBonus =
+    probabilities.success * successEffect.revenueBonus
+    + probabilities.mixed * mixedEffect.revenueBonus
+    + probabilities.failed * failedEffect.revenueBonus;
+  const expectedExpenseReduction =
+    probabilities.success * successEffect.expenseReduction
+    + probabilities.mixed * mixedEffect.expenseReduction
+    + probabilities.failed * failedEffect.expenseReduction;
+  const expectedReputationDelta =
+    probabilities.success * successEffect.reputationDelta
+    + probabilities.mixed * mixedEffect.reputationDelta
+    + probabilities.failed * failedEffect.reputationDelta;
+
+  const estimatedWeeklyProfitDuringIntegration = estimateAcquisitionIntegrationWeeklyProfit(
+    quotedWeeklyRevenue,
+    quotedWeeklyProfit,
+    profile.penalty,
+  );
+  const quotedProfit = Number.isFinite(quotedWeeklyProfit) ? quotedWeeklyProfit : 0;
+  const integrationProfitChangePct = quotedProfit > 0
+    ? estimatedWeeklyProfitDuringIntegration / quotedProfit - 1
+    : null;
+
+  return {
+    profile,
+    probabilities,
+    successEffect,
+    mixedEffect,
+    failedEffect,
+    expectedRevenueBonus,
+    expectedExpenseReduction,
+    expectedReputationDelta,
+    estimatedWeeklyProfitDuringIntegration,
+    integrationProfitChangePct,
+  };
+}
+
 export function applyIntegrationStrategy(
   business: OwnedBusiness,
   strategy: Exclude<AcquisitionIntegrationStrategy, 'pending'>,
@@ -373,10 +656,14 @@ export function generateAcquisitionTargets(
   globalWeek: number,
   inflationMultiplier = 1,
   count = ACQUISITION_TARGET_COUNT,
+  economicCyclePhase?: EconomicCyclePhase,
 ): BusinessAcquisitionTarget[] {
   const typeIds = uniqueTypeIds();
   const targets: BusinessAcquisitionTarget[] = [];
   const safeInflation = Math.max(0.5, inflationMultiplier || 1);
+  const cycleValueMultiplier = economicCyclePhase
+    ? getAcquisitionCycleValueMultiplier(economicCyclePhase)
+    : 1;
 
   for (let index = 0; index < Math.max(1, count); index += 1) {
     const band = TARGET_BANDS[index % TARGET_BANDS.length];
@@ -384,22 +671,38 @@ export function generateAcquisitionTargets(
     const type = getBusinessType(typeId);
     if (!type) continue;
 
-    const estimatedValue = Math.round(randomBetween(band.min, band.max) * safeInflation);
-    const reputation = Math.round(randomBetween(52, 92));
+    const estimatedValue = Math.round(randomBetween(band.min, band.max) * safeInflation * cycleValueMultiplier);
+    const isDistressed = economicCyclePhase === 'recession'
+      && (index === 0 || Math.random() < 0.35);
+    const marketCondition: BusinessAcquisitionTarget['marketCondition'] = isDistressed
+      ? 'distressed'
+      : economicCyclePhase === 'boom'
+        ? 'competitive'
+        : 'normal';
+    const reputation = Math.round(randomBetween(isDistressed ? 45 : 52, isDistressed ? 80 : 92));
     const profitMultiple = 2 + (reputation / 100) * 3;
-    const weeklyProfit = Math.max(25_000, Math.round(estimatedValue / (20 * profitMultiple)));
-    const margin = randomBetween(0.09, 0.21);
+    const baselineWeeklyProfit = Math.max(25_000, Math.round(estimatedValue / (20 * profitMultiple)));
+    const weeklyProfit = Math.max(
+      20_000,
+      Math.round(baselineWeeklyProfit * (isDistressed ? randomBetween(0.68, 0.82) : 1)),
+    );
+    const margin = isDistressed ? randomBetween(0.06, 0.14) : randomBetween(0.09, 0.21);
     const weeklyRevenue = Math.round(weeklyProfit / margin);
-    const diligenceScore = Math.round(randomBetween(50, 94));
+    const diligenceScore = Math.round(randomBetween(isDistressed ? 45 : 50, isDistressed ? 78 : 94));
     const risk = riskFromDiligence(diligenceScore);
     const traits = acquisitionTraitsForRisk(risk);
     const traitModifiers = getTraitOperatingModifiers(traits);
     const diligenceFindings = buildDiligenceFindings(diligenceScore, risk, traits);
-    const sellerReasonProfile = SELLER_REASONS[Math.floor(Math.random() * SELLER_REASONS.length)];
-    // Established companies command a control premium. Seller circumstances
-    // alter the premium range, but even pressured sales do not spawn as instant
-    // below-fair-value arbitrage opportunities.
-    const premium = randomBetween(sellerReasonProfile.premiumMin, sellerReasonProfile.premiumMax);
+    const sellerReasonProfile = isDistressed
+      ? { label: 'Recession-driven liquidity pressure', premiumMin: 1.10, premiumMax: 1.14 }
+      : SELLER_REASONS[Math.floor(Math.random() * SELLER_REASONS.length)];
+    // Established companies still command a control premium. Distressed targets
+    // receive a smaller premium, but never spawn below estimated fair value.
+    const boomPremiumLift = economicCyclePhase === 'boom' ? 0.02 : 0;
+    const premium = randomBetween(
+      Math.min(1.30, sellerReasonProfile.premiumMin + boomPremiumLift),
+      Math.min(1.30, sellerReasonProfile.premiumMax + boomPremiumLift),
+    );
     const askingPrice = Math.round(estimatedValue * premium);
     const prefix = COMPANY_PREFIXES[Math.floor(Math.random() * COMPANY_PREFIXES.length)];
     const suffix = COMPANY_SUFFIXES[Math.floor(Math.random() * COMPANY_SUFFIXES.length)];
@@ -418,6 +721,7 @@ export function generateAcquisitionTargets(
       diligenceScore,
       risk,
       diligenceNotes: diligenceFindings.map((finding) => finding.title),
+      marketCondition,
       companyAgeYears: acquisitionCompanyAgeYears(band.tier),
       sellerReason: sellerReasonProfile.label,
       traits,
@@ -433,6 +737,39 @@ export function generateAcquisitionTargets(
   }
 
   return targets;
+}
+
+export function sortAcquisitionTargets(
+  targets: BusinessAcquisitionTarget[],
+  mode: AcquisitionTargetSortMode,
+  negotiationBonus = 0,
+): BusinessAcquisitionTarget[] {
+  const riskRank: Record<AcquisitionRisk, number> = { low: 0, medium: 1, high: 2 };
+  const priceOf = (target: BusinessAcquisitionTarget) => getAcquisitionPrice(target, negotiationBonus);
+  const premiumOf = (target: BusinessAcquisitionTarget) => {
+    const estimatedValue = Math.max(1, target.estimatedValue ?? 0);
+    return priceOf(target) / estimatedValue;
+  };
+
+  return [...(targets ?? [])].sort((a, b) => {
+    if (mode === 'profit') {
+      const difference = (b.weeklyProfit ?? 0) - (a.weeklyProfit ?? 0);
+      return difference || priceOf(a) - priceOf(b);
+    }
+    if (mode === 'diligence') {
+      const difference = (b.diligenceScore ?? 0) - (a.diligenceScore ?? 0);
+      return difference || priceOf(a) - priceOf(b);
+    }
+    if (mode === 'risk') {
+      const difference = riskRank[a.risk] - riskRank[b.risk];
+      return difference || (b.diligenceScore ?? 0) - (a.diligenceScore ?? 0) || priceOf(a) - priceOf(b);
+    }
+    if (mode === 'premium') {
+      const difference = premiumOf(a) - premiumOf(b);
+      return difference || priceOf(a) - priceOf(b);
+    }
+    return priceOf(a) - priceOf(b);
+  });
 }
 
 function acquisitionEmployeeCount(tier: AcquisitionTier, maxEmployees: number): number {
@@ -470,12 +807,18 @@ export function createAcquiredBusiness(
   purchasePrice = target.askingPrice,
   fundingMode: AcquisitionFundingMode = 'cash',
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): OwnedBusiness | null {
   const type = getBusinessType(target.typeId);
   const base = createBusiness(target.typeId, target.name, state.week, state.year, state.inflationMultiplier);
   if (!base || !type) return null;
 
-  const financing = getAcquisitionFinancingQuote(purchasePrice, fundingMode, loanRateReduction);
+  const financing = getAcquisitionFinancingQuote(
+    purchasePrice,
+    fundingMode,
+    loanRateReduction,
+    macroInterestRateModifier,
+  );
   const acquisitionTransactionCost = getAcquisitionTransactionCost(target, financing.purchasePrice);
   const employees = createAcquisitionEmployees(target, state.inflationMultiplier);
   const level = target.tier === 'enterprise' ? 7 : target.tier === 'national' ? 6 : 5;
@@ -670,85 +1013,17 @@ export function migrateAcquiredBusinessAssets(
   };
 }
 
-export function createHoldingCompany(
-  name: string,
-  state: Pick<GameState, 'week' | 'year' | 'generation' | 'playerName' | 'familyTree'>,
-): HoldingCompany {
-  const cleanName = name.trim() || `${state.playerName} Holdings`;
-  return {
-    id: `holding_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-    name: cleanName,
-    createdGlobalWeek: ((state.year - 1) * 20 + state.week),
-    founderGeneration: state.generation ?? 1,
-    generationsOwned: 1,
-    controllerName: state.playerName,
-    controllerPersonId: state.familyTree?.currentPlayerId ?? null,
-    cashReserve: 0,
-    totalCapitalDeployed: 0,
-    executiveChildId: null,
-    executiveChildName: null,
-    executivePerformance: 50,
-    designatedSuccessorChildId: null,
-    designatedSuccessorChildName: null,
-    sharedServices: {
-      finance: 0,
-      hr: 0,
-      procurement: 0,
-      marketing: 0,
-      it: 0,
-    },
-  };
-}
-
 export function getAcquisitionReturn(business: OwnedBusiness) {
   if (!business.acquisition) return null;
-  const investedCapital = Math.max(
-    1,
-    business.capitalInvested
-      ?? ((business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
-        + (business.acquisition.acquisitionTransactionCost ?? 0)
-        + (business.acquisition.additionalCapitalInvested ?? 0)),
-  );
-  const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
-  const equityValue = Math.max(0, (business.valuation ?? 0) - debt);
-  const gain = equityValue + Math.max(0, business.totalPlayerDistributions ?? 0) - investedCapital;
+  const canonical = getBusinessEquityReturn(business);
+  const investedCapital = Math.max(1, canonical.investmentBasis ?? 0);
+  const gain = canonical.gain ?? (canonical.equityValue + canonical.totalPlayerDistributions - investedCapital);
   return {
     investedCapital,
-    debt,
-    equityValue,
+    debt: canonical.debt,
+    playerOwnershipPct: canonical.playerOwnershipPct,
+    equityValue: canonical.equityValue,
     gain,
-    returnPct: investedCapital > 0 ? gain / investedCapital * 100 : 0,
-  };
-}
-
-export function getHoldingCompanySummary(holding: HoldingCompany, businesses: OwnedBusiness[]) {
-  const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
-  const totalValue = subsidiaries.reduce((sum, business) => sum + Math.max(0, business.valuation ?? 0), 0);
-  const totalDebt = subsidiaries.reduce(
-    (sum, business) => sum + (business.businessLoans ?? []).reduce((loanSum, loan) => loanSum + Math.max(0, loan.remainingAmount ?? 0), 0),
-    0,
-  );
-  const weeklyProfit = subsidiaries.reduce((sum, business) => sum + (business.lastWeekProfit ?? 0), 0);
-  const familyControlledValue = subsidiaries.reduce((sum, business) => {
-    const familyPct = business.ownership?.length
-      ? business.ownership
-          .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
-          .reduce((stakeSum, stake) => stakeSum + (stake.percent ?? 0), 0)
-      : 100;
-    return sum + Math.max(0, business.valuation ?? 0) * clamp(familyPct, 0, 100) / 100;
-  }, 0);
-  const protectedAssets = subsidiaries.filter((business) => business.portfolioIntent === 'long_term_family').length;
-
-  return {
-    subsidiaryCount: subsidiaries.length,
-    totalValue,
-    totalDebt,
-    netGroupEquity: Math.max(0, totalValue - totalDebt),
-    weeklyProfit,
-    cashReserve: holding.cashReserve ?? 0,
-    totalCapitalDeployed: holding.totalCapitalDeployed ?? 0,
-    familyControlledValue,
-    familyControlledPct: totalValue > 0 ? familyControlledValue / totalValue * 100 : 0,
-    protectedAssets,
+    returnPct: canonical.returnPct ?? (gain / investedCapital * 100),
   };
 }

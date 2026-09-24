@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, FamilyWorkArrangement, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, CorporateDepartmentId, CorporateCompensationPolicy, CorporateTrainingPolicy, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, BusinessManagementTargetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
-import { initializeStocks, mergeStocks } from '../engine/stockEngine';
+import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INITIAL_CAREER_STATE, INITIAL_RELATIONSHIP_STATE, INITIAL_LIFECYCLE_STATE, WeekSummary, ActiveLoan, LifetimeStatistics, PlayerProfile, SaveSlotMeta, PeriodReport, TriggeredEvent, PendingInvestment, TempHappinessEffect, OwnedBusiness, OwnedProperty, BusinessEmployee, BusinessLoan, CareerState, BankDeposit, EducationCareerReminder, DatingPreference, RelationshipConnection, FamilyPlan, MarriageAgreement, RelationshipFinancialObligation, FamilyWorkArrangement, SharedGoalType, EstatePlanType, EstateStructureType, SuccessionAssetStrategy, BusinessStrategicFocus, BusinessGovernanceRole, BusinessExecutiveRole, BusinessBoardMandate, CorporateDepartmentId, CorporateCompensationPolicy, CorporateTrainingPolicy, BusinessReinvestmentArea, BusinessInsuranceArea, BusinessInsuranceTier, BusinessBudgetProfile, AcquisitionFundingMode, AcquisitionIntegrationStrategy, BusinessDelegationPolicy, HoldingCapitalPurpose, HoldingSharedServiceId } from '../types/game';
+import { getLegacyMarketCompanyPool, initializeMarketCompanyPool, initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
-import { inflated } from '../engine/economyEngine';
-import { getBusinessUpgradeWeeks } from '../engine/businessEngine';
-import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts, getBusinessDecisionChoiceCost } from '../engine/businessEngine';
+import { applyBusinessDebtPrincipalPrepayment, applyBusinessLoanPrincipalPayment, getBusinessLoanOutstandingPrincipal } from '../engine/businessDebtEngine';
+import { getEconomicCycleEffects, getPropertyCyclePurchaseMultiplier, inflated } from '../engine/economyEngine';
+import { BUSINESS_PROJECT_SLOT_2_GEM_COST, BUSINESS_UPGRADE_SLOT_2_GEM_COST, getBusinessUpgradeSlotLimit, getBusinessUpgradeWeeks } from '../engine/businessEngine';
+import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts, getBusinessDecisionChoiceCost, getAutomaticStrategicDecisionChoice } from '../engine/businessEngine';
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
 import { ensureAuctions, getInspectionCost, inspectAuction, leaveAuction, placeAuctionBid } from '../engine/auctionEngine';
 import { unlockPrestige, getPrestigeEffects } from '../engine/prestigeEngine';
@@ -17,37 +18,45 @@ import { createInitialCompetitors, migrateBusinessCompetitors } from '../engine/
 import {
   ACQUISITION_MARKET_REFRESH_WEEKS,
   ACQUISITION_UNLOCK_NET_WORTH,
-  HOLDING_COMPANY_SETUP_COST,
   applyIntegrationStrategy,
   createAcquiredBusiness,
-  createHoldingCompany as buildHoldingCompany,
   generateAcquisitionTargets,
+  getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
   getAcquisitionTransactionCost,
   getAcquisitionTransactionCostRate,
   migrateAcquiredBusinessAssets,
 } from '../engine/acquisitionEngine';
-import { PARTNER_CAREER_SYSTEM_VERSION, generateRelationshipCandidates, getChildFuturePotential, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getFamilyPlanningPreview, getNormalizedDatingAgeBounds, getPartnerCareerStartingLevel, getProposalCost, getWeddingCost, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
+import { PARTNER_CAREER_SYSTEM_VERSION, generateRelationshipCandidates, getChildFuturePotential, getDateConnectionGain, getDateCost, getChildPersonality, getFamilyFormationProfile, getFamilyPlanningPreview, getNormalizedDatingAgeBounds, getPartnerCareerStartingLevel, getProposalCost, getWeddingCost, getWeddingPersonalityFit, isNormalizedAgeMatch, revealNextTrait } from '../engine/relationshipEngine';
 import { saveGame, loadGame, clearGame, getActiveSlot, setActiveSlot, loadAllSlotMeta, loadProfile, saveProfile } from '../utils/storage';
 import coursesData from '../data/courses.json';
 import jobsData from '../data/jobs.json';
 import housingData from '../data/housing.json';
 import carsData from '../data/cars.json';
 import loansData from '../data/loans.json';
-import achievementsData from '../data/achievements.json';
+import { getAchievementRewardSettlement } from '../engine/achievementEngine';
 import relationshipNamesData from '../data/relationship_names.json';
 import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
 import { AD_GEM_REWARD, GEM_CASH_RATE } from '../constants/rewards';
-import { AD_CONFIG } from '../services/adConfig';
+import {
+  REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT,
+  getAdFreeEducationRewardUsage as getProfileAdFreeEducationRewardUsage,
+  getAdFreeSlotRewardUsage as getProfileAdFreeSlotRewardUsage,
+  getGemRewardUsage,
+  getLocalDayKey,
+} from '../services/adRewardEntitlements';
 import { showGameDialog } from '../components/GameDialog';
-import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
-import { getHoldingSharedServiceUpgradeCost, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
+import { buildSoldBusinessRecord, getBusinessInvestmentBasis } from '../engine/businessPortfolioEngine';
+import { getBusinessOwnershipEquityValue, getBusinessOwnershipStakeValue, getBusinessOwnershipTable, getInvestmentForPostMoneyIssuePct, issueNewBusinessEquity } from '../engine/businessOwnershipEngine';
+import { claimBusinessCapacityReward, getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity } from '../engine/businessCapacityEngine';
+import { HOLDING_COMPANY_SETUP_COST, createHoldingCompany as buildHoldingCompany, getHoldingAvailableDistributionCash, getHoldingSharedServiceUpgradeCost, normalizeHoldingManagementFeeRate, normalizeHoldingReserveTargetWeeks, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
 import {
   canStartCorporateCapex,
   getCorporateCapexCost,
   getCorporateCapexProject,
+  getCorporateScaleTier,
 } from '../engine/corporateScaleEngine';
 import {
   createCorporateLoan,
@@ -68,10 +77,11 @@ import {
 import {
   consumeBusinessBudgetReserve,
   createBusinessBudgetPlan,
+  getBusinessAvailableOwnerDistributionCash,
   normalizeBusinessBudgetPlan,
   normalizeBusinessBudgetReserves,
 } from '../engine/businessBudgetEngine';
-import { setBusinessManagementTargetProfile as buildBusinessManagementTargetProfile } from '../engine/businessManagementTargetsEngine';
+import { deriveBusinessManagementTargetProfile, setBusinessManagementTargetProfile as buildBusinessManagementTargetProfile } from '../engine/businessManagementTargetsEngine';
 import {
   BOARD_GOVERNANCE_UNLOCK_VALUATION,
   createDefaultBoardGovernance,
@@ -88,6 +98,7 @@ import {
   setCorporateHrPolicy,
 } from '../engine/businessWorkforceEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
+import { appendAnnualReport, pruneCompletedAchievementGoals, togglePinnedAchievementGoal as buildPinnedAchievementGoals } from '../engine/annualReportEngine';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
 
@@ -140,6 +151,8 @@ interface GameStore extends GameState {
   dismissSummary: () => void;
   dismissNegativeCash: () => void;
   dismissPeriodReport: () => void;
+  openAnnualReport: (reportIndex?: number) => void;
+  togglePinnedAchievementGoal: (achievementId: string) => boolean;
   dismissScheduledAd: () => void;
   dismissEducationCareerReminder: () => void;
   openSlotPicker: () => void;
@@ -167,8 +180,13 @@ interface GameStore extends GameState {
   changeCar: (carId: string) => void;
   changeFoodLevel: (level: string) => void;
   togglePartTimeJob: () => void;
-  grantAdReward: () => void;
-  getAdUsage: () => { watchedToday: number; remaining: number; limitReached: boolean };
+  setStudentWorkTier: (tier: import('../types/game').StudentWorkTier | null) => void;
+  grantAdReward: () => boolean;
+  getAdUsage: () => { watchedToday: number; remaining: number; limit: number; limitReached: boolean };
+  getAdFreeSlotRewardUsage: () => { claimedToday: number; remaining: number; limit: number; available: boolean };
+  claimAdFreeBusinessSlotReward: (businessId: string, kind: 'project' | 'upgrade') => boolean;
+  getAdFreeEducationRewardUsage: () => { claimedToday: number; remaining: number; limit: number; available: boolean };
+  claimAdFreeEducationReward: () => boolean;
   getDailyLoginStatus: () => { available: boolean; streak: number; reward: number };
   claimDailyLoginReward: () => number;
   buyHouseUpgrade: (upgradeId: string) => void;
@@ -234,6 +252,8 @@ interface GameStore extends GameState {
   unlockPrestigeBonus: (bonusId: string) => void;
 
   // Business
+  purchaseBusinessCapacitySlot: () => boolean;
+  grantBusinessCapacityAdUnlock: () => boolean;
   foundBusiness: (typeId: string, customName: string | null) => void;
   ensureAcquisitionMarket: () => void;
   refreshAcquisitionMarket: () => void;
@@ -241,6 +261,9 @@ interface GameStore extends GameState {
   setAcquisitionIntegrationStrategy: (businessId: string, strategy: Exclude<AcquisitionIntegrationStrategy, 'pending'>) => void;
   createHoldingCompany: (name: string) => void;
   fundHoldingCompany: (holdingCompanyId: string, amount: number) => void;
+  distributeHoldingCash: (holdingCompanyId: string, amount: number) => void;
+  setHoldingReserveTargetWeeks: (holdingCompanyId: string, weeks: number) => void;
+  setHoldingManagementFeeRate: (holdingCompanyId: string, rate: number) => void;
   upgradeHoldingSharedService: (holdingCompanyId: string, serviceId: HoldingSharedServiceId) => void;
   allocateHoldingCapital: (holdingCompanyId: string, businessId: string, amount: number, purpose: HoldingCapitalPurpose) => void;
   setBusinessDelegation: (businessId: string, policy: BusinessDelegationPolicy, managerEmployeeId?: string | null) => void;
@@ -250,8 +273,9 @@ interface GameStore extends GameState {
   sellBusiness: (businessId: string) => void;
   designateFamilyBusiness: (businessId: string) => void;
   setBusinessStrategicFocus: (businessId: string, focus: BusinessStrategicFocus) => void;
+  setBusinessDecisionAutomation: (businessId: string, enabled: boolean) => void;
+  setAllBusinessDecisionAutomation: (enabled: boolean) => void;
   setBusinessBudgetProfile: (businessId: string, profile: BusinessBudgetProfile) => void;
-  setBusinessManagementTargetProfile: (businessId: string, profile: BusinessManagementTargetProfile) => void;
   openExecutiveSearch: (businessId: string, role: BusinessExecutiveRole) => void;
   hireExecutiveCandidate: (businessId: string, candidateId: string) => void;
   cancelExecutiveSearch: (businessId: string) => void;
@@ -272,6 +296,10 @@ interface GameStore extends GameState {
   applyMoraleActionToBusiness: (businessId: string, actionId: string) => void;
   startEmployeeTraining: (businessId: string, employeeId: string, trainingId: string) => void;
   startBusinessProject: (businessId: string, projectId: string) => void;
+  unlockBusinessProjectSlot: (businessId: string) => void;
+  grantTemporaryBusinessProjectSlot: (businessId: string) => void;
+  unlockBusinessUpgradeSlot: (businessId: string) => void;
+  grantTemporaryBusinessUpgradeSlot: (businessId: string) => void;
   startBusinessReinvestment: (businessId: string, area: BusinessReinvestmentArea) => void;
   setBusinessInsurancePolicy: (businessId: string, area: BusinessInsuranceArea, tier: BusinessInsuranceTier) => void;
   startCorporateCapex: (businessId: string, projectId: string, financingMode?: 'cash' | 'project_finance') => void;
@@ -331,12 +359,40 @@ const useGameStore = create<GameStore>((set, get) => ({
   slotMeta: {},
 
   loadSavedGame: async () => {
-    const [profile, slotMeta, activeSlot] = await Promise.all([
+    const [profile, activeSlot] = await Promise.all([
       loadProfile(),
-      loadAllSlotMeta(),
       getActiveSlot(),
     ]);
-    const saved = await loadGame(activeSlot);
+    // Scan the three local save slots sequentially. Older save migrations can
+    // update slot metadata, so parallel reads could race those metadata writes.
+    const savedSlots: Array<GameState | null> = [];
+    for (const slot of [0, 1, 2]) {
+      savedSlots.push(await loadGame(slot));
+    }
+    const slotMeta = await loadAllSlotMeta();
+    const saved = savedSlots[activeSlot] ?? null;
+    const historicalAchievementIds = savedSlots.flatMap((slot) => slot?.unlockedAchievements ?? []);
+    const historicalBusinessCapacity = savedSlots.reduce(
+      (max, slot) => Math.max(max, slot?.businesses?.length ?? 0),
+      0,
+    );
+    const startupCapacity = Math.min(
+      MAX_BUSINESS_CAPACITY,
+      Math.max(getBusinessCapacity(profile), historicalBusinessCapacity),
+    );
+    const rewardedAchievementIds = [...new Set([
+      ...(profile.rewardedAchievementIds ?? []),
+      ...(profile.rewardedAchievementGemIds ?? []),
+      ...historicalAchievementIds,
+    ])];
+    const startupProfileNeedsMigration =
+      startupCapacity !== getBusinessCapacity(profile)
+      || rewardedAchievementIds.length !== (profile.rewardedAchievementIds ?? []).length;
+    const startupProfile = startupProfileNeedsMigration
+      ? { ...profile, businessCapacity: startupCapacity, rewardedAchievementIds }
+      : profile;
+    if (startupProfileNeedsMigration) await saveProfile(startupProfile);
+
     if (saved?.initialized) {
       const merged: GameState = {
         ...INITIAL_GAME_STATE,
@@ -353,6 +409,21 @@ const useGameStore = create<GameStore>((set, get) => ({
         earningsSinceLastTax: saved.earningsSinceLastTax ?? 0,
         lastTaxWeek: saved.lastTaxWeek ?? 0,
         totalTaxPaid: saved.totalTaxPaid ?? 0,
+        annualReports: saved.annualReports ?? [],
+        annualReportUnread: saved.annualReportUnread ?? false,
+        pinnedAchievementGoals: saved.pinnedAchievementGoals ?? [],
+        periodIncome: saved.periodIncome ?? 0,
+        periodExpenses: saved.periodExpenses ?? 0,
+        periodTax: saved.periodTax ?? 0,
+        periodWeeksEmployed: saved.periodWeeksEmployed ?? 0,
+        periodWeeksUnemployed: saved.periodWeeksUnemployed ?? 0,
+        periodJobChanges: saved.periodJobChanges ?? 0,
+        periodCoursesCompleted: saved.periodCoursesCompleted ?? 0,
+        periodStocksPurchased: saved.periodStocksPurchased ?? 0,
+        periodLoansTaken: saved.periodLoansTaken ?? 0,
+        periodLoansRepaid: saved.periodLoansRepaid ?? 0,
+        periodAchievements: saved.periodAchievements ?? 0,
+        periodStartWeek: saved.periodStartWeek ?? ((((saved.year ?? 1) - 1) * 20) + 1),
         unlockedAchievements: saved.unlockedAchievements ?? [],
         inflationMultiplier: saved.inflationMultiplier ?? 1.0,
         statistics: { ...INITIAL_STATISTICS, ...(saved.statistics ?? {}) },
@@ -363,10 +434,13 @@ const useGameStore = create<GameStore>((set, get) => ({
           ...business,
           purchasedUpgrades: [...new Set(business.purchasedUpgrades ?? [])],
           marketShareModifier: business.marketShareModifier ?? 0,
+          identityTraits: business.identityTraits ?? [],
+          identityProgress: business.identityProgress ?? {},
           strategicFocus: business.strategicFocus ?? 'balanced',
+          autoStrategicDecisions: business.autoStrategicDecisions ?? false,
           strategyModifiers: business.strategyModifiers ?? [],
           pendingDecision: business.pendingDecision ?? null,
-          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 6 + (businessIndex % 7)),
+          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 12 + ((businessIndex * 3) % 13)),
           nextCrisisCheckWeek: business.nextCrisisCheckWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 10 + ((businessIndex * 3) % 9)),
           ownership: business.ownership?.length ? business.ownership : [{
             ownerType: 'player',
@@ -463,6 +537,11 @@ const useGameStore = create<GameStore>((set, get) => ({
           designatedSuccessorChildId: holding.designatedSuccessorChildId ?? null,
           designatedSuccessorChildName: holding.designatedSuccessorChildName ?? null,
           sharedServices: normalizeHoldingSharedServices(holding.sharedServices),
+          managementFeeRate: normalizeHoldingManagementFeeRate(holding.managementFeeRate),
+          reserveTargetWeeks: normalizeHoldingReserveTargetWeeks(holding.reserveTargetWeeks),
+          totalManagementFeesCollected: holding.totalManagementFeesCollected ?? 0,
+          totalDividendsReceived: holding.totalDividendsReceived ?? 0,
+          totalOwnerDistributions: holding.totalOwnerDistributions ?? 0,
         })),
         acquisitionTargets: (saved.acquisitionTargets ?? []).map((target) => ({
           ...target,
@@ -492,6 +571,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         competitors: saved.competitors ?? {},
         activeMarketSentiment: saved.activeMarketSentiment ?? null,
         activeMarketEvents: saved.activeMarketEvents ?? [],
+        marketCompanyPool: saved.marketCompanyPool?.length ? saved.marketCompanyPool : getLegacyMarketCompanyPool(),
         totalRealizedProfitLoss: saved.totalRealizedProfitLoss ?? 0,
         relationshipModeEnabled: saved.relationshipModeEnabled ?? false,
         relationshipState: {
@@ -512,8 +592,16 @@ const useGameStore = create<GameStore>((set, get) => ({
             debt: child.debt ?? 0,
             failureCount: child.failureCount ?? 0,
             businessValue: child.businessValue ?? 0,
+            lifePath: child.lifePath,
+            developmentScore: child.developmentScore ?? 0,
+            lastLifeArcEventAge: child.lastLifeArcEventAge ?? 0,
           })),
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
+          celebratedMilestones: saved.relationshipState?.celebratedMilestones ?? [],
+          memories: saved.relationshipState?.memories ?? [],
+          lastWorkFamilyConflictWeek: saved.relationshipState?.lastWorkFamilyConflictWeek ?? 0,
+          coupleTripWeeksRemaining: saved.relationshipState?.coupleTripWeeksRemaining ?? 0,
+          lastCoupleTripWeek: saved.relationshipState?.lastCoupleTripWeek ?? 0,
           pendingEvent: saved.relationshipState?.pendingEvent ?? null,
           financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
           sharedGoal: saved.relationshipState?.sharedGoal ?? null,
@@ -528,6 +616,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
         activeMacroCrash: saved.activeMacroCrash ?? null,
+        economicCycle: saved.economicCycle ?? INITIAL_GAME_STATE.economicCycle,
         generation: saved.generation ?? 1,
         familyLegacy: saved.familyLegacy ?? [],
         familyTree: saved.familyTree ?? createInitialFamilyTree(saved.playerName ?? 'Player', saved.age ?? 20, saved.year ?? 1, saved.generation ?? 1),
@@ -542,8 +631,8 @@ const useGameStore = create<GameStore>((set, get) => ({
         if (typeof c.promotionProgress === 'undefined') c.promotionProgress = 0;
         if (typeof c.lastPerformanceEventWeek === 'undefined') c.lastPerformanceEventWeek = 0;
       }
-      merged.stocks = mergeStocks(merged.stocks);
       const loadGlobalWeek = ((merged.year - 1) * 20) + merged.week;
+      merged.stocks = mergeStocks(merged.stocks, loadGlobalWeek);
       merged.businesses = merged.businesses.map((business) =>
         migrateAcquiredBusinessAssets(business, merged.inflationMultiplier, loadGlobalWeek)
       );
@@ -555,9 +644,9 @@ const useGameStore = create<GameStore>((set, get) => ({
         (profile as any).prestigePoints = profile.totalXp ?? 0;
         (profile as any).unlockedPrestige = (profile as any).unlockedPrestige ?? [];
       }
-      set({ ...merged, isLoading: false, showNameModal: false, showMainMenu: true, showRelationshipEventModal: false, showContentUpdateModal: false, relationshipFeedback: null, profile, slotMeta, activeSlot });
+      set({ ...merged, isLoading: false, showNameModal: false, showMainMenu: true, showRelationshipEventModal: false, showContentUpdateModal: false, relationshipFeedback: null, profile: startupProfile, slotMeta, activeSlot });
     } else {
-      set({ isLoading: false, showMainMenu: true, showSlotPicker: false, profile, slotMeta, activeSlot });
+      set({ isLoading: false, showMainMenu: true, showSlotPicker: false, profile: startupProfile, slotMeta, activeSlot });
     }
   },
 
@@ -580,6 +669,21 @@ const useGameStore = create<GameStore>((set, get) => ({
         earningsSinceLastTax: saved.earningsSinceLastTax ?? 0,
         lastTaxWeek: saved.lastTaxWeek ?? 0,
         totalTaxPaid: saved.totalTaxPaid ?? 0,
+        annualReports: saved.annualReports ?? [],
+        annualReportUnread: saved.annualReportUnread ?? false,
+        pinnedAchievementGoals: saved.pinnedAchievementGoals ?? [],
+        periodIncome: saved.periodIncome ?? 0,
+        periodExpenses: saved.periodExpenses ?? 0,
+        periodTax: saved.periodTax ?? 0,
+        periodWeeksEmployed: saved.periodWeeksEmployed ?? 0,
+        periodWeeksUnemployed: saved.periodWeeksUnemployed ?? 0,
+        periodJobChanges: saved.periodJobChanges ?? 0,
+        periodCoursesCompleted: saved.periodCoursesCompleted ?? 0,
+        periodStocksPurchased: saved.periodStocksPurchased ?? 0,
+        periodLoansTaken: saved.periodLoansTaken ?? 0,
+        periodLoansRepaid: saved.periodLoansRepaid ?? 0,
+        periodAchievements: saved.periodAchievements ?? 0,
+        periodStartWeek: saved.periodStartWeek ?? ((((saved.year ?? 1) - 1) * 20) + 1),
         unlockedAchievements: saved.unlockedAchievements ?? [],
         inflationMultiplier: saved.inflationMultiplier ?? 1.0,
         statistics: { ...INITIAL_STATISTICS, ...(saved.statistics ?? {}) },
@@ -590,10 +694,13 @@ const useGameStore = create<GameStore>((set, get) => ({
           ...business,
           purchasedUpgrades: [...new Set(business.purchasedUpgrades ?? [])],
           marketShareModifier: business.marketShareModifier ?? 0,
+          identityTraits: business.identityTraits ?? [],
+          identityProgress: business.identityProgress ?? {},
           strategicFocus: business.strategicFocus ?? 'balanced',
+          autoStrategicDecisions: business.autoStrategicDecisions ?? false,
           strategyModifiers: business.strategyModifiers ?? [],
           pendingDecision: business.pendingDecision ?? null,
-          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 6 + (businessIndex % 7)),
+          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 12 + ((businessIndex * 3) % 13)),
           nextCrisisCheckWeek: business.nextCrisisCheckWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 10 + ((businessIndex * 3) % 9)),
           ownership: business.ownership?.length ? business.ownership : [{
             ownerType: 'player',
@@ -719,6 +826,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         competitors: saved.competitors ?? {},
         activeMarketSentiment: saved.activeMarketSentiment ?? null,
         activeMarketEvents: saved.activeMarketEvents ?? [],
+        marketCompanyPool: saved.marketCompanyPool?.length ? saved.marketCompanyPool : getLegacyMarketCompanyPool(),
         totalRealizedProfitLoss: saved.totalRealizedProfitLoss ?? 0,
         relationshipModeEnabled: saved.relationshipModeEnabled ?? false,
         relationshipState: {
@@ -739,8 +847,16 @@ const useGameStore = create<GameStore>((set, get) => ({
             debt: child.debt ?? 0,
             failureCount: child.failureCount ?? 0,
             businessValue: child.businessValue ?? 0,
+            lifePath: child.lifePath,
+            developmentScore: child.developmentScore ?? 0,
+            lastLifeArcEventAge: child.lastLifeArcEventAge ?? 0,
           })),
           recentRelationshipEventIds: saved.relationshipState?.recentRelationshipEventIds ?? [],
+          celebratedMilestones: saved.relationshipState?.celebratedMilestones ?? [],
+          memories: saved.relationshipState?.memories ?? [],
+          lastWorkFamilyConflictWeek: saved.relationshipState?.lastWorkFamilyConflictWeek ?? 0,
+          coupleTripWeeksRemaining: saved.relationshipState?.coupleTripWeeksRemaining ?? 0,
+          lastCoupleTripWeek: saved.relationshipState?.lastCoupleTripWeek ?? 0,
           pendingEvent: saved.relationshipState?.pendingEvent ?? null,
           financialSnapshot: saved.relationshipState?.financialSnapshot ?? null,
           sharedGoal: saved.relationshipState?.sharedGoal ?? null,
@@ -769,8 +885,8 @@ const useGameStore = create<GameStore>((set, get) => ({
         if (typeof c.promotionProgress === 'undefined') c.promotionProgress = 0;
         if (typeof c.lastPerformanceEventWeek === 'undefined') c.lastPerformanceEventWeek = 0;
       }
-      merged.stocks = mergeStocks(merged.stocks);
       const slotGlobalWeek = ((merged.year - 1) * 20) + merged.week;
+      merged.stocks = mergeStocks(merged.stocks, slotGlobalWeek);
       merged.businesses = merged.businesses.map((business) =>
         migrateAcquiredBusinessAssets(business, merged.inflationMultiplier, slotGlobalWeek)
       );
@@ -778,7 +894,21 @@ const useGameStore = create<GameStore>((set, get) => ({
       merged.activeAuctions = ensureAuctions(merged.activeAuctions, ((merged.year - 1) * 20) + merged.week, merged.inflationMultiplier, getNetWorth(merged));
       merged.familyTree = syncFamilyTree(merged);
       const slotMeta = await loadAllSlotMeta();
-      set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, showContentUpdateModal: (saved.contentUpdateSeenId ?? '') !== CURRENT_CONTENT_UPDATE_ID, relationshipFeedback: null, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
+      const currentProfile = get().profile;
+      const grandfatheredCapacity = Math.min(MAX_BUSINESS_CAPACITY, Math.max(getBusinessCapacity(currentProfile), merged.businesses.length));
+      const rewardedAchievementIds = [...new Set([
+        ...(currentProfile.rewardedAchievementIds ?? []),
+        ...(currentProfile.rewardedAchievementGemIds ?? []),
+        ...(saved.unlockedAchievements ?? []),
+      ])];
+      const profileNeedsMigration =
+        grandfatheredCapacity !== getBusinessCapacity(currentProfile)
+        || rewardedAchievementIds.length !== (currentProfile.rewardedAchievementIds ?? []).length;
+      const migratedProfile = profileNeedsMigration
+        ? { ...currentProfile, businessCapacity: grandfatheredCapacity, rewardedAchievementIds }
+        : currentProfile;
+      if (profileNeedsMigration) await saveProfile(migratedProfile);
+      set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, showContentUpdateModal: (saved.contentUpdateSeenId ?? '') !== CURRENT_CONTENT_UPDATE_ID, relationshipFeedback: null, profile: migratedProfile, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
     } else {
       // Empty slot — start new game here
       set({ activeSlot: slot, showSlotPicker: false, showMainMenu: false, showNameModal: true, slotPickerMode: 'load' });
@@ -788,7 +918,8 @@ const useGameStore = create<GameStore>((set, get) => ({
   startNewGame: async (name?: string, relationshipModeEnabled = false) => {
     const { activeSlot, profile } = get();
     await clearGame(activeSlot);
-    const stocks = initializeStocks();
+    const marketCompanyPool = initializeMarketCompanyPool();
+    const stocks = initializeStocks(marketCompanyPool);
     // Apply prestige starting_cash bonus
     const prestigeFx = getPrestigeEffects(profile);
     const startingCash = 10000 + (prestigeFx.starting_cash ?? 0);
@@ -796,6 +927,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       ...INITIAL_GAME_STATE,
       playerName: name?.trim?.() || 'Player',
       stocks,
+      marketCompanyPool,
       cash: startingCash,
       netWorthHistory: [startingCash],
       relationshipModeEnabled,
@@ -835,24 +967,25 @@ const useGameStore = create<GameStore>((set, get) => ({
 
     const { newState, summary } = weeklyTick(gameState, getPrestigeEffects(state.profile));
 
-    // Award XP + prestige points + gems for new achievements
+    // Achievement rewards are account-wide and settle only once per ID.
+    // Save slots still track their own completion state for progression/UI.
     let profileUpdated = false;
     let newProfile = { ...state.profile };
     if ((summary.newAchievements?.length ?? 0) > 0) {
-      let xpGained = 0;
-      let gemsGained = 0;
-      for (const id of summary.newAchievements) {
-        const ach = (achievementsData ?? []).find((a) => a?.id === id);
-        xpGained += ach?.xpReward ?? 0;
-        gemsGained += (ach as any)?.gemReward ?? 0;
-      }
+      const rewardSettlement = getAchievementRewardSettlement(
+        summary.newAchievements,
+        newProfile.rewardedAchievementIds ?? newProfile.rewardedAchievementGemIds ?? [],
+      );
+      summary.achievementRewardedIds = rewardSettlement.rewardedThisCallIds;
+      summary.achievementGemRewards = rewardSettlement.gemRewards;
       newProfile = {
         ...newProfile,
-        totalXp: (newProfile.totalXp ?? 0) + xpGained,
-        prestigePoints: (newProfile.prestigePoints ?? 0) + xpGained,
-        gems: (newProfile.gems ?? 0) + gemsGained,
+        totalXp: (newProfile.totalXp ?? 0) + rewardSettlement.xpGained,
+        prestigePoints: (newProfile.prestigePoints ?? 0) + rewardSettlement.prestigePointsGained,
+        gems: (newProfile.gems ?? 0) + rewardSettlement.gemsGained,
+        rewardedAchievementIds: rewardSettlement.rewardedAchievementIds,
       };
-      profileUpdated = true;
+      profileUpdated = rewardSettlement.rewardedThisCallIds.length > 0;
     }
 
     // Accumulate period stats
@@ -889,7 +1022,14 @@ const useGameStore = create<GameStore>((set, get) => ({
     const reviewPromptedWeeks = shouldShowReviewPrompt
       ? [...(gameState.reviewPromptedWeeks ?? []), reviewMilestone]
       : (gameState.reviewPromptedWeeks ?? []);
-    const finalNewState = shouldShowReviewPrompt ? { ...newState, reviewPromptedWeeks } : newState;
+    const baseFinalNewState = shouldShowReviewPrompt ? { ...newState, reviewPromptedWeeks } : newState;
+    const finalNewState = {
+      ...baseFinalNewState,
+      pinnedAchievementGoals: pruneCompletedAchievementGoals(
+        state.pinnedAchievementGoals ?? [],
+        baseFinalNewState.unlockedAchievements ?? [],
+      ),
+    };
 
     let periodReportUpdate: Record<string, any> = {};
     if (is20WeekMark) {
@@ -917,7 +1057,9 @@ const useGameStore = create<GameStore>((set, get) => ({
         totalDividends: newState.statistics?.totalDividendsReceived ?? 0,
       };
       periodReportUpdate = {
-        periodReport: report,
+        annualReports: appendAnnualReport(state.annualReports ?? [], report),
+        annualReportUnread: true,
+        periodReport: null,
         // Reset accumulators
         periodIncome: 0,
         periodExpenses: 0,
@@ -944,7 +1086,10 @@ const useGameStore = create<GameStore>((set, get) => ({
       ...(profileUpdated ? { profile: newProfile } : {}),
       ...(is20WeekMark ? periodReportUpdate : periodAccum),
     });
-    saveGame(finalNewState, state.activeSlot);
+    saveGame(extractGameState({
+      ...finalNewState,
+      ...(is20WeekMark ? periodReportUpdate : periodAccum),
+    }), state.activeSlot);
     if (profileUpdated) saveProfile(newProfile);
   },
 
@@ -952,14 +1097,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     const summary = state.lastSummary;
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
-    const scheduledAd = globalWeek > 0 && globalWeek % 100 === 0;
+    const scheduledAd = !state.profile.adsRemoved && globalWeek > 0 && globalWeek % 100 === 0;
     // If there's a choice/opportunity event, show event modal first
     if (summary?.lifeEvent && (summary.lifeEvent.type === 'choice' || summary.lifeEvent.type === 'opportunity')) {
       set({ showSummary: false, showEventModal: true, pendingEvent: summary.lifeEvent, showScheduledAd: scheduledAd });
     } else if (summary?.relationshipEventTitle && state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
       set({ showSummary: false, showRelationshipEventModal: true, showScheduledAd: scheduledAd });
-    } else if (state.periodReport && !state.showPeriodReport) {
-      set({ showSummary: false, showPeriodReport: true, showScheduledAd: scheduledAd });
     } else {
       set({ showSummary: false, showScheduledAd: scheduledAd, showEducationCareerReminder: !scheduledAd && !!state.educationCareerReminder });
     }
@@ -968,6 +1111,22 @@ const useGameStore = create<GameStore>((set, get) => ({
   dismissPeriodReport: () => {
     const state = get();
     set({ showPeriodReport: false, periodReport: null, showEducationCareerReminder: !state.showScheduledAd && !!state.educationCareerReminder });
+  },
+  openAnnualReport: (reportIndex = 0) => {
+    const state = get();
+    const report = (state.annualReports ?? [])[reportIndex];
+    if (!report) return;
+    const annualReportUnread = false;
+    set({ periodReport: report, showPeriodReport: true, annualReportUnread });
+    saveGame(extractGameState({ ...state, annualReportUnread }), state.activeSlot);
+  },
+  togglePinnedAchievementGoal: (achievementId) => {
+    const state = get();
+    const result = buildPinnedAchievementGoals(state.pinnedAchievementGoals ?? [], achievementId);
+    if (!result.changed) return false;
+    set({ pinnedAchievementGoals: result.goals });
+    saveGame(extractGameState({ ...state, pinnedAchievementGoals: result.goals }), state.activeSlot);
+    return true;
   },
   dismissScheduledAd: () => {
     const state = get();
@@ -979,8 +1138,6 @@ const useGameStore = create<GameStore>((set, get) => ({
     // After business event, show any pending personal-life decision next.
     if (state.lastSummary?.relationshipEventTitle && state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
       set({ showEventModal: false, pendingEvent: null, showRelationshipEventModal: true });
-    } else if (state.periodReport && !state.showPeriodReport) {
-      set({ showEventModal: false, pendingEvent: null, showPeriodReport: true });
     } else {
       set({ showEventModal: false, pendingEvent: null, showEducationCareerReminder: !state.showScheduledAd && !!state.educationCareerReminder });
     }
@@ -1056,8 +1213,6 @@ const useGameStore = create<GameStore>((set, get) => ({
     // Dismiss event modal
     if (state.lastSummary?.relationshipEventTitle && state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
       set({ showEventModal: false, pendingEvent: null, showRelationshipEventModal: true });
-    } else if (state.periodReport && !state.showPeriodReport) {
-      set({ showEventModal: false, pendingEvent: null, showPeriodReport: true });
     } else {
       set({ showEventModal: false, pendingEvent: null });
     }
@@ -1185,7 +1340,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const prevStats = state?.statistics ?? { ...INITIAL_STATISTICS };
     const newStats: LifetimeStatistics = { ...prevStats, jobsWorked: prevStats.jobsWorked + 1 };
 
-    const updates = { currentJobId: jobId, careerHistory: newHistory, statistics: newStats, periodJobChanges: (state.periodJobChanges ?? 0) + 1, partTimeJob: false };
+    const updates = { currentJobId: jobId, careerHistory: newHistory, statistics: newStats, periodJobChanges: (state.periodJobChanges ?? 0) + 1, partTimeJob: false, studentWorkTier: null };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
@@ -1207,7 +1362,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (qty <= 0) return;
     const stock = (state?.stocks ?? []).find((s) => s?.ticker === ticker);
-    if (!stock) return;
+    if (!stock || stock.marketStatus === 'delisted') return;
     const totalCost = qty * (stock?.currentPrice ?? 0);
     if ((state?.cash ?? 0) < totalCost) return;
 
@@ -1242,7 +1397,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (qty <= 0) return;
     const stock = (state?.stocks ?? []).find((s) => s?.ticker === ticker);
-    if (!stock) return;
+    if (!stock || stock.marketStatus === 'delisted') return;
     const holding = (state?.holdings ?? []).find((h) => h?.ticker === ticker);
     if (!holding || (holding?.shares ?? 0) < qty) return;
 
@@ -1315,34 +1470,89 @@ const useGameStore = create<GameStore>((set, get) => ({
   togglePartTimeJob: () => {
     const state = get();
     if (state.currentJobId || state.career?.companyId) return;
-    const newVal = !(state.partTimeJob ?? false);
-    set({ partTimeJob: newVal } as any);
-    saveGame(extractGameState({ ...state, partTimeJob: newVal }), state.activeSlot);
+    const active = !!state.partTimeJob;
+    const updates = active
+      ? { partTimeJob: false, studentWorkTier: null }
+      : { partTimeJob: true, studentWorkTier: 'flexible' as const };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  setStudentWorkTier: (tier) => {
+    const state = get();
+    if (state.currentJobId || state.career?.companyId) return;
+    if (tier !== null && tier !== 'flexible' && tier !== 'high_hours') return;
+    const updates = { partTimeJob: tier !== null, studentWorkTier: tier };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
   grantAdReward: () => {
     const state = get();
-    const today = new Date().toISOString().slice(0, 10);
-    const lastDate = (state as any).adLastWatchDate ?? '';
-    const watchedToday = lastDate === today ? ((state as any).adWatchedToday ?? 0) : 0;
-    const newProfile = { ...state.profile, gems: (state.profile.gems ?? 0) + AD_GEM_REWARD };
-    const updates: any = {
-      profile: newProfile,
-      adWatchedToday: watchedToday + 1,
-      adLastWatchDate: today,
+    const usage = getGemRewardUsage(state.profile);
+    if (usage.limitReached) return false;
+
+    const rewardAmount = state.profile.adsRemoved ? REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT : AD_GEM_REWARD;
+    const profile = {
+      ...state.profile,
+      gems: (state.profile.gems ?? 0) + rewardAmount,
+      rewardedGemClaimDate: getLocalDayKey(),
+      rewardedGemClaimsToday: usage.watchedToday + 1,
     };
-    set(updates);
-    saveProfile(newProfile);
-    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+    set({ profile });
+    saveProfile(profile);
+    return true;
   },
 
-  getAdUsage: () => {
+  getAdUsage: () => getGemRewardUsage(get().profile),
+
+  getAdFreeSlotRewardUsage: () => getProfileAdFreeSlotRewardUsage(get().profile),
+
+  getAdFreeEducationRewardUsage: () => getProfileAdFreeEducationRewardUsage(get().profile),
+
+  claimAdFreeEducationReward: () => {
     const state = get();
-    const today = new Date().toISOString().slice(0, 10);
-    const lastDate = (state as any).adLastWatchDate ?? '';
-    const watchedToday = lastDate === today ? ((state as any).adWatchedToday ?? 0) : 0;
-    const remaining = Math.max(0, AD_CONFIG.DAILY_AD_LIMIT - watchedToday);
-    return { watchedToday, remaining, limitReached: remaining <= 0 };
+    const usage = getProfileAdFreeEducationRewardUsage(state.profile);
+    if (!state.profile.adsRemoved || !usage.available || !state.currentCourseId) return false;
+
+    const courseId = state.currentCourseId;
+    get().speedUpEducationWithAd();
+    const after = get();
+    const completed = !after.currentCourseId
+      && (after.completedCourses ?? []).some((course) => course.courseId === courseId);
+    if (!completed) return false;
+
+    const profile = { ...after.profile, adFreeEducationRewardClaimDate: getLocalDayKey() };
+    set({ profile });
+    saveProfile(profile);
+    return true;
+  },
+
+  claimAdFreeBusinessSlotReward: (businessId: string, kind: 'project' | 'upgrade') => {
+    const state = get();
+    const usage = getProfileAdFreeSlotRewardUsage(state.profile);
+    if (!state.profile.adsRemoved || !usage.available) return false;
+
+    const businesses = [...(state.businesses ?? [])];
+    const idx = businesses.findIndex((business) => business.id === businessId);
+    if (idx < 0) return false;
+    const business = businesses[idx];
+
+    if (kind === 'project') {
+      const activeCount = (business.activeProjects ?? []).filter((project) => !project.resolved).length;
+      if (business.projectSlot2Unlocked || business.temporaryProjectSlot2 || activeCount !== 1) return false;
+      businesses[idx] = { ...business, temporaryProjectSlot2: true };
+    } else {
+      const activeCount = Number(!!business.activeUpgrade) + Number(!!business.secondaryActiveUpgrade);
+      if (business.upgradeSlot2Unlocked || business.temporaryUpgradeSlot2 || activeCount !== 1) return false;
+      businesses[idx] = { ...business, temporaryUpgradeSlot2: true };
+    }
+
+    const profile = { ...state.profile, adFreeSlotRewardClaimDate: getLocalDayKey() };
+    set({ businesses, profile });
+    saveProfile(profile);
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+    return true;
   },
 
   getDailyLoginStatus: () => {
@@ -1680,15 +1890,15 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (gw - (partner.engagedWeek ?? gw) < 3) return;
 
     const totalCost = getWeddingCost(wedding, state.inflationMultiplier ?? 1);
-    const partnerShare = Math.min(Math.round(totalCost * 0.25), Math.round((partner.savings ?? 0) * 0.35));
+    const shareRate = partner.financialStyle === 'luxury' ? 0.35 : partner.financialStyle === 'frugal' ? 0.20 : 0.25;
+    const savingsCap = partner.financialStyle === 'luxury' ? 0.45 : partner.financialStyle === 'frugal' ? 0.25 : 0.35;
+    const partnerShare = Math.min(Math.round(totalCost * shareRate), Math.round((partner.savings ?? 0) * savingsCap));
     const playerCost = Math.max(0, totalCost - partnerShare);
     if ((state.cash ?? 0) < playerCost) return;
 
+    const fit = getWeddingPersonalityFit(partner, wedding);
     const connections = (state.relationshipState?.activeConnections ?? []).map((item) => {
       if (item.id !== partner.id) return item;
-      const weddingBoost = wedding === 'luxury' ? 7 : wedding === 'standard' ? 5 : 3;
-      const styleAdjustment = item.financialStyle === 'frugal' && wedding === 'luxury' ? -2
-        : item.financialStyle === 'luxury' && wedding === 'luxury' ? 2 : 0;
       return {
         ...item,
         stage: 'married' as const,
@@ -1698,18 +1908,36 @@ const useGameStore = create<GameStore>((set, get) => ({
         marriedWeek: gw,
         netWorthAtMarriage: getNetWorth(state),
         savings: Math.max(0, (item.savings ?? 0) - partnerShare),
-        relationship: Math.min(100, item.relationship + weddingBoost + styleAdjustment),
+        relationship: Math.min(100, item.relationship + fit.relationshipBonus),
       };
     });
 
+    const weddingMemoryTag = wedding === 'courthouse'
+      ? 'intimate_wedding' as const
+      : wedding === 'standard'
+        ? 'standard_wedding' as const
+        : 'luxury_wedding' as const;
+    const memories = [
+      ...(state.relationshipState?.memories ?? []),
+      {
+        id: `wedding_${partner.id}_${gw}`,
+        tag: weddingMemoryTag,
+        label: `${wedding === 'courthouse' ? 'Chose an intimate wedding' : wedding === 'standard' ? 'Celebrated with a traditional wedding' : 'Celebrated with a luxury wedding'} with ${partner.name}`,
+        sentiment: 'positive' as const,
+        globalWeek: gw,
+        partnerId: partner.id,
+        sourceEventId: 'wedding',
+      },
+    ].slice(-120);
     const relationshipState = {
       ...state.relationshipState,
       activeConnections: connections,
+      memories,
       timeline: [...(state.relationshipState?.timeline ?? []), { week: state.week, year: state.year, title: `Married ${partner.name}` }],
     };
     const tempHappinessEffects = [...(state.tempHappinessEffects ?? []), { amount: 10, weeksRemaining: 4, source: 'Wedding' }];
     const updates = { cash: (state.cash ?? 0) - playerCost, relationshipState, tempHappinessEffects };
-    set({ ...updates, relationshipFeedback: { title: 'Married', message: `You and ${partner.name} are now married.`, positive: true } });
+    set({ ...updates, relationshipFeedback: { title: 'Married', message: `You and ${partner.name} are now married. The ${fit.label.toLowerCase()} celebration matched their personality for +${fit.relationshipBonus} relationship.`, positive: true } });
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
@@ -2558,6 +2786,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       totalRealizedProfitLoss: 0,
       newsHistory: [...(state.newsHistory ?? [])].slice(-20),
       partTimeJob: false,
+      studentWorkTier: null,
       adWatchedToday: state.adWatchedToday ?? 0,
       adLastWatchDate: state.adLastWatchDate ?? '',
       relationshipModeEnabled: state.relationshipModeEnabled,
@@ -2568,6 +2797,9 @@ const useGameStore = create<GameStore>((set, get) => ({
       generation: nextGeneration,
       familyLegacy: [...(state.familyLegacy ?? []), legacyEntry],
       familyTree: transitionedFamilyTree,
+      annualReports: state.annualReports ?? [],
+      annualReportUnread: state.annualReportUnread ?? false,
+      pinnedAchievementGoals: state.pinnedAchievementGoals ?? [],
     };
     newState.netWorthHistory = [getNetWorth(newState)];
 
@@ -2601,11 +2833,7 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   dismissRelationshipEventModal: () => {
     const state = get();
-    if (state.periodReport && !state.showPeriodReport) {
-      set({ showRelationshipEventModal: false, showPeriodReport: true });
-    } else {
-      set({ showRelationshipEventModal: false, showEducationCareerReminder: !state.showScheduledAd && !!state.educationCareerReminder });
-    }
+    set({ showRelationshipEventModal: false, showEducationCareerReminder: !state.showScheduledAd && !!state.educationCareerReminder });
   },
 
   handleRelationshipEventChoice: (choiceIndex) => {
@@ -2629,6 +2857,12 @@ const useGameStore = create<GameStore>((set, get) => ({
             ? {
                 ...child,
                 savings: Math.max(0, (child.savings ?? 0) + (choice.childSavings ?? 0)),
+                educationFund: Math.max(0, (child.educationFund ?? 0) + (choice.childEducationFund ?? 0)),
+                lifePath: choice.childLifePath ?? child.lifePath,
+                developmentScore: Math.max(0, Math.min(100, (child.developmentScore ?? 0) + (choice.childDevelopment ?? 0))),
+                lastLifeArcEventAge: choice.childLifePath || choice.childDevelopment
+                  ? Math.max(child.lastLifeArcEventAge ?? 0, child.age ?? 0)
+                  : (child.lastLifeArcEventAge ?? 0),
                 parentRelationship: Math.max(
                   0,
                   Math.min(100, (child.parentRelationship ?? 75) + (choice.childRelationship ?? 0)),
@@ -2638,12 +2872,75 @@ const useGameStore = create<GameStore>((set, get) => ({
             : child
         )
       : state.relationshipState.children;
+    const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const celebratedMilestones = event.milestoneKey
+      ? [...new Set([...(state.relationshipState.celebratedMilestones ?? []), event.milestoneKey])]
+      : (state.relationshipState.celebratedMilestones ?? []);
+    const travelWeeks = Math.max(0, choice.travelWeeks ?? 0);
+    const timeline = [
+      ...(state.relationshipState.timeline ?? []),
+      { week: state.week, year: state.year, title: `${event.title}: ${choice.text}` },
+    ].slice(-80);
+    const memories = choice.memoryTag && choice.memoryLabel
+      ? [
+          ...(state.relationshipState.memories ?? []),
+          {
+            id: `${choice.memoryTag}_${event.id}_${gw}`,
+            tag: choice.memoryTag,
+            label: choice.memoryLabel,
+            sentiment: choice.memorySentiment ?? 'mixed',
+            globalWeek: gw,
+            partnerId: partnerId ?? null,
+            childId: choice.childId ?? null,
+            sourceEventId: event.id,
+          },
+        ]
+      : (state.relationshipState.memories ?? []);
     const relationshipState = {
       ...state.relationshipState,
       activeConnections,
       children,
+      celebratedMilestones,
+      memories,
+      coupleTripWeeksRemaining: travelWeeks > 0
+        ? Math.max(state.relationshipState.coupleTripWeeksRemaining ?? 0, travelWeeks)
+        : (state.relationshipState.coupleTripWeeksRemaining ?? 0),
+      lastCoupleTripWeek: event.id === 'couple_world_trip' || travelWeeks > 0 ? gw : (state.relationshipState.lastCoupleTripWeek ?? 0),
+      timeline,
       pendingEvent: null,
     };
+    const career = choice.careerPerformanceDelta && state.career?.companyId
+      ? {
+          ...state.career,
+          performance: Math.max(0, Math.min(100, (state.career.performance ?? 50) + choice.careerPerformanceDelta)),
+        }
+      : state.career;
+    const businesses = choice.businessId
+      ? (state.businesses ?? []).map((business) => {
+          if (business.id !== choice.businessId) return business;
+          const reputationDelta = choice.businessReputationDelta ?? 0;
+          const moraleDelta = choice.businessMoraleDelta ?? 0;
+          return {
+            ...business,
+            reputation: Math.max(0, Math.min(100, (business.reputation ?? 50) + reputationDelta)),
+            employees: (business.employees ?? []).map((employee) => ({
+              ...employee,
+              morale: Math.max(1, Math.min(100, (employee.morale ?? 50) + moraleDelta)),
+            })),
+            timeline: [
+              ...(business.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: `⚖️ ${event.title}: ${choice.text}`,
+                icon: '⚖️',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          };
+        })
+      : state.businesses;
+
     const tempHappinessEffects = choice.happiness
       ? [...(state.tempHappinessEffects ?? []), {
           amount: choice.happiness,
@@ -2657,15 +2954,13 @@ const useGameStore = create<GameStore>((set, get) => ({
       cash: (state.cash ?? 0) - cost + cashReward,
       relationshipState,
       tempHappinessEffects,
+      career,
+      businesses,
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
 
-    if (state.periodReport && !state.showPeriodReport) {
-      set({ showRelationshipEventModal: false, showPeriodReport: true });
-    } else {
-      set({ showRelationshipEventModal: false });
-    }
+    set({ showRelationshipEventModal: false });
   },
 
   dismissRelationshipFeedback: () => set({ relationshipFeedback: null }),
@@ -2682,7 +2977,11 @@ const useGameStore = create<GameStore>((set, get) => ({
     const nw = getNetWorth(state);
     if (nw < (template?.amount ?? 0)) return;
     const prestigeEffects = getPrestigeEffects(state.profile);
-    const effectiveInterestRate = Math.max(0, (template?.interestRate ?? 0) - (prestigeEffects.loan_rate_reduction ?? 0));
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
+    const effectiveInterestRate = Math.max(
+      0,
+      (template?.interestRate ?? 0) + macroRateModifier - (prestigeEffects.loan_rate_reduction ?? 0),
+    );
     const totalRepayment = (template?.amount ?? 0) * (1 + effectiveInterestRate);
     const weeklyPayment = Math.ceil(totalRepayment / (template?.durationWeeks ?? 1));
     const newLoan: ActiveLoan = {
@@ -2731,12 +3030,13 @@ const useGameStore = create<GameStore>((set, get) => ({
     if ((state.bankDeposits ?? []).length >= 3) return;
     const rates: Record<number, number> = { 20: 0.05, 40: 0.09, 60: 0.14 };
     const depositInterestBonus = getPrestigeEffects(state.profile).bank_deposit_interest_bonus ?? 0;
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
     const deposit: BankDeposit = {
       id: `deposit_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       amount: Math.floor(amount),
       durationWeeks,
       weeksRemaining: durationWeeks,
-      interestRate: rates[durationWeeks] + depositInterestBonus,
+      interestRate: Math.max(0.01, rates[durationWeeks] + depositInterestBonus + macroRateModifier * 0.75),
     };
     const updates = { cash: state.cash - deposit.amount, bankDeposits: [...(state.bankDeposits ?? []), deposit] };
     set(updates);
@@ -2834,6 +3134,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       statistics: { ...prevStats, jobsWorked: prevStats.jobsWorked + 1 },
       periodJobChanges: (state.periodJobChanges ?? 0) + 1,
       partTimeJob: false,
+      studentWorkTier: null,
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
@@ -2859,7 +3160,13 @@ const useGameStore = create<GameStore>((set, get) => ({
   // ---- Property Actions ----
   buyProperty: (typeId: string) => {
     const state = get();
-    const prop = createProperty(typeId, state.week, state.year, state.inflationMultiplier ?? 1);
+    const prop = createProperty(
+      typeId,
+      state.week,
+      state.year,
+      state.inflationMultiplier ?? 1,
+      getPropertyCyclePurchaseMultiplier(state.economicCycle?.phase ?? 'expansion'),
+    );
     if (!prop) return;
     if ((state.cash ?? 0) < prop.purchasePrice) return;
     const updates = {
@@ -2946,16 +3253,41 @@ const useGameStore = create<GameStore>((set, get) => ({
   },
 
   // ---- Business Actions ----
+  purchaseBusinessCapacitySlot: () => {
+    const state = get();
+    const next = purchaseBusinessCapacity(state.profile);
+    if (!next) return false;
+    set({ profile: next });
+    saveProfile(next);
+    return true;
+  },
+
+  grantBusinessCapacityAdUnlock: () => {
+    const state = get();
+    const profile = claimBusinessCapacityReward(state.profile, getLocalDayKey());
+    if (!profile) return false;
+    set({ profile });
+    saveProfile(profile);
+    return true;
+  },
+
   foundBusiness: (typeId: string, customName: string | null) => {
     const state = get();
+    if ((state.businesses ?? []).length >= getBusinessCapacity(state.profile)) {
+      showGameDialog({ title: 'Company capacity reached', message: 'Unlock another permanent company slot before starting a new business.' });
+      return;
+    }
     const type = getBusinessType(typeId);
     if (!type) return;
     const cost = inflated(type.startupCost ?? 0, state?.inflationMultiplier ?? 1);
     if ((state?.cash ?? 0) < cost) return;
     const created = createBusiness(typeId, customName, state.week, state.year, state?.inflationMultiplier ?? 1);
     if (!created) return;
+    const portfolioAutoStrategy = (state.businesses ?? []).length > 0
+      && (state.businesses ?? []).every((business) => !!business.autoStrategicDecisions);
     const biz = {
       ...created,
+      autoStrategicDecisions: portfolioAutoStrategy,
       ownership: [{
         ownerType: 'player' as const,
         ownerId: state.familyTree?.currentPlayerId ?? 'player',
@@ -2990,6 +3322,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     const acquisitionTargets = generateAcquisitionTargets(
       globalWeek,
       state.inflationMultiplier ?? 1,
+      undefined,
+      state.economicCycle?.phase ?? 'expansion',
     );
     const updates = {
       acquisitionTargets,
@@ -3009,6 +3343,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     const acquisitionTargets = generateAcquisitionTargets(
       globalWeek,
       state.inflationMultiplier ?? 1,
+      undefined,
+      state.economicCycle?.phase ?? 'expansion',
     );
     const updates = {
       acquisitionTargets,
@@ -3021,6 +3357,10 @@ const useGameStore = create<GameStore>((set, get) => ({
   acquireBusiness: (targetId, holdingCompanyId = null, fundingMode = 'cash') => {
     const state = get();
     if (state.lifecycle?.isDead || getNetWorth(state) < ACQUISITION_UNLOCK_NET_WORTH) return;
+    if ((state.businesses ?? []).length >= getBusinessCapacity(state.profile)) {
+      showGameDialog({ title: 'Company capacity reached', message: 'Unlock another permanent company slot before acquiring another company.' });
+      return;
+    }
     const target = (state.acquisitionTargets ?? []).find((item) => item.id === targetId);
     if (!target) return;
     const holding = holdingCompanyId
@@ -3030,13 +3370,19 @@ const useGameStore = create<GameStore>((set, get) => ({
 
     const effects = getPrestigeEffects(state.profile);
     const purchasePrice = getAcquisitionPrice(target, effects.negotiation ?? 0);
-    const financing = getAcquisitionFinancingQuote(purchasePrice, fundingMode, effects.loan_rate_reduction ?? 0);
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
+    const financing = getAcquisitionFinancingQuote(
+      purchasePrice,
+      fundingMode,
+      effects.loan_rate_reduction ?? 0,
+      macroRateModifier,
+    );
     const acquisitionTransactionCost = getAcquisitionTransactionCost(target, purchasePrice);
     const closingCashNeeded = financing.cashContribution + acquisitionTransactionCost;
     const sourceCash = holding ? (holding.cashReserve ?? 0) : (state.cash ?? 0);
     if (sourceCash < closingCashNeeded) return;
-    // Do not allow debt service that would consume nearly all target profit.
-    if (financing.weeklyPayment > 0 && financing.weeklyPayment > Math.max(1, target.weeklyProfit) * 0.80) return;
+    const debtServiceSafety = getAcquisitionDebtServiceSafety(target, financing);
+    if (!debtServiceSafety.allowed) return;
 
     const acquired = createAcquiredBusiness(
       target,
@@ -3045,8 +3391,16 @@ const useGameStore = create<GameStore>((set, get) => ({
       purchasePrice,
       fundingMode,
       effects.loan_rate_reduction ?? 0,
+      macroRateModifier,
     );
     if (!acquired) return;
+
+    const portfolioAutoStrategy = (state.businesses ?? []).length > 0
+      && (state.businesses ?? []).every((business) => !!business.autoStrategicDecisions);
+    const acquiredBusiness = {
+      ...acquired,
+      autoStrategicDecisions: portfolioAutoStrategy,
+    };
 
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     const holdingCompanies = holding
@@ -3063,15 +3417,15 @@ const useGameStore = create<GameStore>((set, get) => ({
     const updates = {
       cash: holding ? (state.cash ?? 0) : (state.cash ?? 0) - closingCashNeeded,
       holdingCompanies,
-      businesses: [...(state.businesses ?? []), acquired],
+      businesses: [...(state.businesses ?? []), acquiredBusiness],
       acquisitionTargets: (state.acquisitionTargets ?? []).filter((item) => item.id !== targetId),
       competitors: {
         ...(state.competitors ?? {}),
-        [acquired.id]: createInitialCompetitors(acquired, globalWeek),
+        [acquiredBusiness.id]: createInitialCompetitors(acquiredBusiness, globalWeek),
       },
       currentHeadline: financing.debtPrincipal > 0
-        ? `Acquired ${acquired.name}: ${formatCurrencySafe(financing.cashContribution)} equity + ${formatCurrencySafe(financing.debtPrincipal)} financing + ${formatCurrencySafe(acquisitionTransactionCost)} closing costs.`
-        : `Acquired ${acquired.name} for ${formatCurrencySafe(purchasePrice)} + ${formatCurrencySafe(acquisitionTransactionCost)} closing costs.`,
+        ? `Acquired ${acquiredBusiness.name}: ${formatCurrencySafe(financing.cashContribution)} equity + ${formatCurrencySafe(financing.debtPrincipal)} financing + ${formatCurrencySafe(acquisitionTransactionCost)} closing costs.`
+        : `Acquired ${acquiredBusiness.name} for ${formatCurrencySafe(purchasePrice)} + ${formatCurrencySafe(acquisitionTransactionCost)} closing costs.`,
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
@@ -3136,6 +3490,70 @@ const useGameStore = create<GameStore>((set, get) => ({
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
 
+  distributeHoldingCash: (holdingCompanyId, amount) => {
+    const state = get();
+    if (state.lifecycle?.isDead || !Number.isFinite(amount) || amount <= 0) return;
+    const holding = (state.holdingCompanies ?? []).find((item) => item.id === holdingCompanyId);
+    if (!holding) return;
+    const availableCash = getHoldingAvailableDistributionCash(holding, state.businesses ?? []);
+    const payout = Math.min(Math.round(amount), availableCash);
+    if (payout <= 0) return;
+    const holdingCompanies = (state.holdingCompanies ?? []).map((item) =>
+      item.id === holdingCompanyId
+        ? {
+            ...item,
+            cashReserve: Math.max(0, (item.cashReserve ?? 0) - payout),
+            totalOwnerDistributions: (item.totalOwnerDistributions ?? 0) + payout,
+          }
+        : item
+    );
+    const updates = {
+      cash: (state.cash ?? 0) + payout,
+      holdingCompanies,
+      currentHeadline: holding.name + ' distributed ' + formatCurrencySafe(payout) + ' to the owner.',
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  setHoldingReserveTargetWeeks: (holdingCompanyId, weeks) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const normalizedWeeks = normalizeHoldingReserveTargetWeeks(weeks);
+    if (!(state.holdingCompanies ?? []).some((holding) => holding.id === holdingCompanyId)) return;
+    const holdingCompanies = (state.holdingCompanies ?? []).map((holding) =>
+      holding.id === holdingCompanyId
+        ? { ...holding, reserveTargetWeeks: normalizedWeeks }
+        : holding
+    );
+    const updates = {
+      holdingCompanies,
+      currentHeadline: normalizedWeeks > 0
+        ? 'Holding reserve target set to ' + normalizedWeeks + ' weeks of subsidiary operating expenses.'
+        : 'Holding reserve target disabled.',
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  setHoldingManagementFeeRate: (holdingCompanyId, rate) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const normalizedRate = normalizeHoldingManagementFeeRate(rate);
+    const holdingCompanies = (state.holdingCompanies ?? []).map((holding) =>
+      holding.id === holdingCompanyId
+        ? { ...holding, managementFeeRate: normalizedRate }
+        : holding
+    );
+    if (!(state.holdingCompanies ?? []).some((holding) => holding.id === holdingCompanyId)) return;
+    const updates = {
+      holdingCompanies,
+      currentHeadline: 'Holding management fee set to ' + (normalizedRate * 100).toFixed(1) + '% of subsidiary revenue.',
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
   upgradeHoldingSharedService: (holdingCompanyId, serviceId) => {
     const state = get();
     if (state.lifecycle?.isDead) return;
@@ -3178,20 +3596,13 @@ const useGameStore = create<GameStore>((set, get) => ({
     let used = requested;
     let updatedBusiness = { ...business };
     if (purpose === 'debt') {
-      let remainingCapital = requested;
-      const businessLoans = (business.businessLoans ?? []).map((loan) => {
-        if (remainingCapital <= 0 || (loan.remainingAmount ?? 0) <= 0) return loan;
-        const repayment = Math.min(remainingCapital, loan.remainingAmount ?? 0);
-        remainingCapital -= repayment;
-        const remainingAmount = Math.max(0, (loan.remainingAmount ?? 0) - repayment);
-        const weeksRemaining = remainingAmount > 0
-          ? Math.max(1, Math.ceil(remainingAmount / Math.max(1, loan.weeklyPayment ?? 1)))
-          : 0;
-        return { ...loan, remainingAmount, weeksRemaining };
-      }).filter((loan) => (loan.remainingAmount ?? 0) > 0);
-      used = requested - remainingCapital;
+      const debtPayment = applyBusinessDebtPrincipalPrepayment(
+        business.businessLoans ?? [],
+        requested,
+      );
+      used = debtPayment.cashUsed;
       if (used <= 0) return;
-      updatedBusiness = { ...business, businessLoans };
+      updatedBusiness = { ...business, businessLoans: debtPayment.loans };
     } else {
       updatedBusiness = {
         ...business,
@@ -3202,13 +3613,10 @@ const useGameStore = create<GameStore>((set, get) => ({
       };
     }
 
-    const trackedBasis = typeof business.capitalInvested === 'number'
-      ? business.capitalInvested + used
-      : business.acquisition
-        ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
-          + (business.acquisition.additionalCapitalInvested ?? 0)
-          + used
-        : null;
+    const existingInvestmentBasis = getBusinessInvestmentBasis(business);
+    const trackedBasis = existingInvestmentBasis == null
+      ? null
+      : existingInvestmentBasis + used;
     updatedBusiness = {
       ...updatedBusiness,
       capitalInvested: trackedBasis,
@@ -3426,40 +3834,48 @@ const useGameStore = create<GameStore>((set, get) => ({
   setBusinessStrategicFocus: (businessId, focus) => {
     const state = get();
     if (state.lifecycle?.isDead) return;
-    const businesses = (state.businesses ?? []).map((business) =>
-      business.id === businessId
-        ? {
-            ...business,
-            strategicFocus: focus,
-            timeline: [
-              ...(business.timeline ?? []),
-              { week: state.week, year: state.year, title: `Strategic focus: ${focus.replace(/_/g, ' ')}`, icon: '🧭', kind: 'event' as const },
-            ].slice(-50),
-          }
-        : business
-    );
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const businesses = (state.businesses ?? []).map((business) => {
+      if (business.id !== businessId) return business;
+      let updated: OwnedBusiness = {
+        ...business,
+        strategicFocus: focus,
+        timeline: [
+          ...(business.timeline ?? []),
+          { week: state.week, year: state.year, title: `Strategic focus: ${focus.replace(/_/g, ' ')}`, icon: '🧭', kind: 'event' as const },
+        ].slice(-50),
+      };
+      if (updated.corporateWorkforce) {
+        updated = buildBusinessManagementTargetProfile(
+          updated,
+          deriveBusinessManagementTargetProfile(updated),
+          globalWeek,
+        );
+      }
+      return updated;
+    });
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
-  setBusinessBudgetProfile: (businessId, profile) => {
+  setBusinessDecisionAutomation: (businessId, enabled) => {
     const state = get();
     if (state.lifecycle?.isDead) return;
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business) return;
-    const plan = createBusinessBudgetPlan(profile, state.year);
+
     const businesses = (state.businesses ?? []).map((item) =>
       item.id === businessId
         ? {
             ...item,
-            budgetPlan: plan,
+            autoStrategicDecisions: enabled,
             timeline: [
               ...(item.timeline ?? []),
               {
                 week: state.week,
                 year: state.year,
-                title: '📊 Annual budget set: ' + profile.replace(/_/g, ' '),
-                icon: '📊',
+                title: `Auto Strategy ${enabled ? 'enabled' : 'disabled'}`,
+                icon: '⚙️',
                 kind: 'event' as const,
               },
             ].slice(-50),
@@ -3468,30 +3884,86 @@ const useGameStore = create<GameStore>((set, get) => ({
     );
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+
+    // If a routine strategy choice is already waiting, enabling automation can
+    // clear it immediately. Crises are intentionally never automated.
+    if (enabled && business.pendingDecision?.kind === 'strategy') {
+      const choice = getAutomaticStrategicDecisionChoice(
+        { ...business, autoStrategicDecisions: true },
+        business.pendingDecision,
+        state.inflationMultiplier ?? 1,
+        state.economicCycle?.phase ?? 'expansion',
+      );
+      if (choice) get().resolveBusinessDecision(businessId, choice.id);
+    }
   },
 
-  setBusinessManagementTargetProfile: (businessId, profile) => {
+  setAllBusinessDecisionAutomation: (enabled) => {
+    const state = get();
+    if (state.lifecycle?.isDead || (state.businesses ?? []).length === 0) return;
+
+    const businesses = (state.businesses ?? []).map((business) => ({
+      ...business,
+      autoStrategicDecisions: enabled,
+      timeline: [
+        ...(business.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: `Portfolio Auto Strategy ${enabled ? 'enabled' : 'disabled'}`,
+          icon: '⚙️',
+          kind: 'event' as const,
+        },
+      ].slice(-50),
+    }));
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+
+    if (enabled) {
+      for (const business of businesses) {
+        if (business.pendingDecision?.kind !== 'strategy') continue;
+        const choice = getAutomaticStrategicDecisionChoice(
+          business,
+          business.pendingDecision,
+          state.inflationMultiplier ?? 1,
+          state.economicCycle?.phase ?? 'expansion',
+        );
+        if (choice) get().resolveBusinessDecision(business.id, choice.id);
+      }
+    }
+  },
+
+  setBusinessBudgetProfile: (businessId, profile) => {
     const state = get();
     if (state.lifecycle?.isDead) return;
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
-    if (!business?.corporateWorkforce) return;
+    if (!business) return;
+    const plan = createBusinessBudgetPlan(profile, state.year);
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     const businesses = (state.businesses ?? []).map((item) => {
       if (item.id !== businessId) return item;
-      const updated = buildBusinessManagementTargetProfile(item, profile, globalWeek);
-      return {
-        ...updated,
+      let updated: OwnedBusiness = {
+        ...item,
+        budgetPlan: plan,
         timeline: [
           ...(item.timeline ?? []),
           {
             week: state.week,
             year: state.year,
-            title: '🎯 Quarterly management targets: ' + profile.replace(/_/g, ' '),
-            icon: '🎯',
+            title: '📊 Annual cash plan set: ' + plan.profile.replace(/_/g, ' '),
+            icon: '📊',
             kind: 'event' as const,
           },
         ].slice(-50),
       };
+      if (updated.corporateWorkforce) {
+        updated = buildBusinessManagementTargetProfile(
+          updated,
+          deriveBusinessManagementTargetProfile(updated),
+          globalWeek,
+        );
+      }
+      return updated;
     });
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
@@ -3931,9 +4403,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business || (business.level ?? 0) < 3) return;
 
-    const ownership = business.ownership?.length
-      ? [...business.ownership]
-      : [{ ownerType: 'player' as const, ownerId: 'player', ownerName: state.playerName, percent: 100, votingPercent: 100 }];
+    const ownership = getBusinessOwnershipTable(business, state.playerName);
     const playerIndex = ownership.findIndex((stake) => stake.ownerType === 'player');
     const playerStake = playerIndex >= 0 ? ownership[playerIndex] : null;
     if (!playerStake) return;
@@ -3949,31 +4419,25 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (targetType === 'investor') {
       // New-equity issuance: all existing holders dilute proportionally and the
       // company receives the capital. The player must remain above 51% voting.
-      const maxIssuePct = Math.max(0, (1 - 51 / Math.max(0.0001, playerStake.votingPercent)) * 100);
-      const issuePct = Math.min(requestedPct, maxIssuePct);
-      if (issuePct <= 0) return;
-      executedPct = issuePct;
-      const dilution = 1 - issuePct / 100;
-      for (let index = 0; index < ownership.length; index += 1) {
-        ownership[index] = {
-          ...ownership[index],
-          percent: ownership[index].percent * dilution,
-          votingPercent: ownership[index].votingPercent * dilution,
-        };
-      }
       ownerId = 'outside_investors';
       ownerName = 'Outside Investors';
-      const existingInvestor = ownership.findIndex((stake) => stake.ownerType === 'investor' && stake.ownerId === ownerId);
-      if (existingInvestor >= 0) {
-        ownership[existingInvestor] = {
-          ...ownership[existingInvestor],
-          percent: ownership[existingInvestor].percent + issuePct,
-          votingPercent: ownership[existingInvestor].votingPercent + issuePct,
-        };
-      } else {
-        ownership.push({ ownerType, ownerId, ownerName, percent: issuePct, votingPercent: issuePct });
-      }
-      capitalRaised = Math.round((business.valuation ?? 0) * (issuePct / 100) * 0.90);
+      const issuance = issueNewBusinessEquity(
+        ownership,
+        requestedPct,
+        { ownerType, ownerId, ownerName },
+        51,
+      );
+      if (!issuance) return;
+      executedPct = issuance.issuePct;
+      ownership.splice(0, ownership.length, ...issuance.ownership);
+      // executedPct is a post-money ownership percentage. Price the new
+      // shares from post-money math, then apply the intended 10% placement discount.
+      const preMoneyEquityValue = getBusinessOwnershipEquityValue(business);
+      if (preMoneyEquityValue <= 0) return;
+      capitalRaised = Math.round(
+        getInvestmentForPostMoneyIssuePct(preMoneyEquityValue, executedPct) * 0.90,
+      );
+      if (capitalRaised <= 0) return;
     } else {
       // Family gifts/trust funding transfer existing player shares and therefore
       // do not create cash inside the company.
@@ -3987,7 +4451,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         if (!child) return;
         ownerId = child.id;
         ownerName = child.name;
-        const stakeValue = Math.round((business.valuation ?? 0) * transferPct / 100);
+        const stakeValue = getBusinessOwnershipStakeValue(business, transferPct);
         personalTransferTax = calculateChildInheritanceTax(stakeValue);
         if ((state.cash ?? 0) < personalTransferTax) return;
         relationshipState = {
@@ -4006,7 +4470,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         if (state.relationshipState?.estatePlan?.structure !== 'family_trust') return;
         ownerId = 'family_trust';
         ownerName = 'Family Trust';
-        const stakeValue = Math.round((business.valuation ?? 0) * transferPct / 100);
+        const stakeValue = getBusinessOwnershipStakeValue(business, transferPct);
         personalTransferTax = Math.round(stakeValue * 0.075);
         if ((state.cash ?? 0) < personalTransferTax) return;
       }
@@ -4070,7 +4534,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const playerIndex = ownership.findIndex((stake) => stake.ownerType === 'player');
     if (investorIndex < 0 || playerIndex < 0) return;
     const buyPct = Math.min(ownership[investorIndex].percent, Math.min(25, Math.round(percent * 10) / 10));
-    const cost = Math.round((business.valuation ?? 0) * (buyPct / 100) * 1.05);
+    const cost = Math.round(getBusinessOwnershipStakeValue(business, buyPct) * 1.05);
     if ((business.balance ?? 0) < cost) return;
 
     const remainingRaw = ownership.map((stake, index) => ({
@@ -4113,29 +4577,58 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (state.lifecycle?.isDead || !Number.isFinite(amount) || amount <= 0) return;
     const available = state.relationshipState?.familyTrustCash ?? 0;
-    const investAmount = Math.min(Math.round(amount), available);
-    if (investAmount <= 0) return;
+    const requestedInvestment = Math.min(Math.round(amount), available);
+    if (requestedInvestment <= 0) return;
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business?.familyBusiness?.isFamilyBusiness) return;
+    if (state.relationshipState?.estatePlan?.structure !== 'family_trust') return;
 
-    const businesses = (state.businesses ?? []).map((item) =>
-      item.id === businessId
-        ? {
-            ...item,
-            balance: (item.balance ?? 0) + investAmount,
-            timeline: [
-              ...(item.timeline ?? []),
-              {
-                week: state.week,
-                year: state.year,
-                title: `🏛️ Family Trust invested ${formatCurrencySafe(investAmount)}`,
-                icon: '🏛️',
-                kind: 'event' as const,
-              },
-            ].slice(-50),
-          }
-        : item
+    const ownership = getBusinessOwnershipTable(business, state.playerName);
+
+    // Trust capital is new equity, not a free transfer to existing shareholders.
+    // Use the same dilution/control helper as outside-investor issuance.
+    const valuationBefore = getBusinessOwnershipEquityValue(business);
+    if (valuationBefore <= 0) return;
+    const requestedIssuePct = requestedInvestment / (valuationBefore + requestedInvestment) * 100;
+    const issuance = issueNewBusinessEquity(
+      ownership,
+      requestedIssuePct,
+      { ownerType: 'family_trust', ownerId: 'family_trust', ownerName: 'Family Trust' },
+      51,
     );
+    if (!issuance) return;
+    const issuePct = issuance.issuePct;
+    const investAmount = Math.min(
+      requestedInvestment,
+      getInvestmentForPostMoneyIssuePct(valuationBefore, issuePct),
+    );
+    if (investAmount <= 0) return;
+    const diluted = issuance.ownership;
+
+    const familyOwnershipPct = diluted
+      .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
+      .reduce((sum, stake) => sum + stake.percent, 0);
+    const updated = {
+      ...business,
+      balance: (business.balance ?? 0) + investAmount,
+      ownership: diluted,
+      familyBusiness: {
+        ...business.familyBusiness,
+        familyOwnershipPct,
+      },
+      timeline: [
+        ...(business.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: `🏛️ Family Trust invested ${formatCurrencySafe(investAmount)} for ${issuePct.toFixed(1)}% new equity`,
+          icon: '🏛️',
+          kind: 'event' as const,
+        },
+      ].slice(-50),
+    };
+    updated.valuation = calculateValuation(updated);
+    const businesses = (state.businesses ?? []).map((item) => item.id === businessId ? updated : item);
     const relationshipState = {
       ...state.relationshipState,
       familyTrustCash: Math.max(0, available - investAmount),
@@ -4387,7 +4880,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     let financingLoan: BusinessLoan | null = null;
 
     if (financingMode === 'project_finance') {
-      const quote = getProjectFinanceQuote(business, cost, loanRateReduction);
+      const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
+      const quote = getProjectFinanceQuote(business, cost, loanRateReduction, macroRateModifier);
       if (!quote.allowed || (business.balance ?? 0) < quote.cashContribution) return;
       cashRequired = quote.cashContribution;
       financingLoan = createCorporateLoan(quote, globalWeek, project.id);
@@ -4435,10 +4929,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     const index = businesses.findIndex((business) => business.id === businessId);
     if (index < 0) return;
     const business = businesses[index];
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
     const quote = getRevolverDrawQuote(
       business,
       amount,
       getPrestigeEffects(state.profile).loan_rate_reduction ?? 0,
+      macroRateModifier,
     );
     if (!quote.allowed) return;
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
@@ -4471,10 +4967,12 @@ const useGameStore = create<GameStore>((set, get) => ({
     const index = businesses.findIndex((business) => business.id === businessId);
     if (index < 0) return;
     const business = businesses[index];
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
     const quote = getBondQuote(
       business,
       amount,
       getPrestigeEffects(state.profile).loan_rate_reduction ?? 0,
+      macroRateModifier,
     );
     if (!quote.allowed) return;
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
@@ -4509,35 +5007,27 @@ const useGameStore = create<GameStore>((set, get) => ({
     const business = businesses[index];
     const loan = (business.businessLoans ?? []).find((item) => item.id === loanId);
     if (!loan) return;
-    const repayment = Math.min(
+
+    const requestedCash = Math.min(
       Math.round(amount),
       Math.max(0, business.balance ?? 0),
-      Math.max(0, loan.remainingAmount ?? 0),
     );
-    if (repayment <= 0) return;
-    const remainingAmount = Math.max(0, (loan.remainingAmount ?? 0) - repayment);
+    const principalPayment = applyBusinessLoanPrincipalPayment(loan, requestedCash);
+    if (principalPayment.cashUsed <= 0) return;
+
     const businessLoans = (business.businessLoans ?? [])
-      .map((item) => {
-        if (item.id !== loanId) return item;
-        if (remainingAmount <= 0) return null;
-        const weeksRemaining = Math.max(1, item.weeksRemaining ?? 1);
-        return {
-          ...item,
-          remainingAmount,
-          weeklyPayment: Math.ceil(remainingAmount / weeksRemaining),
-        };
-      })
+      .map((item) => item.id === loanId ? principalPayment.loan : item)
       .filter((item): item is BusinessLoan => !!item);
     const updated = {
       ...business,
-      balance: Math.max(0, (business.balance ?? 0) - repayment),
+      balance: Math.max(0, (business.balance ?? 0) - principalPayment.cashUsed),
       businessLoans,
       timeline: [
         ...(business.timeline ?? []),
         {
           week: state.week,
           year: state.year,
-          title: '💳 Repaid ' + formatCurrencySafe(repayment) + ' of business debt',
+          title: '💳 Repaid ' + formatCurrencySafe(principalPayment.principalRepaid) + ' of business loan principal',
           icon: '💳',
           kind: 'event' as const,
         },
@@ -4614,23 +5104,80 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (idx < 0) return;
     const biz = { ...businesses[idx] };
     if ((biz.purchasedUpgrades ?? []).includes(upgradeId)) return;
-    // Only 1 upgrade at a time
-    if (biz.activeUpgrade) return;
+    if ([biz.activeUpgrade?.upgradeId, biz.secondaryActiveUpgrade?.upgradeId].includes(upgradeId)) return;
+
+    const activeCount = Number(!!biz.activeUpgrade) + Number(!!biz.secondaryActiveUpgrade);
+    if (activeCount >= getBusinessUpgradeSlotLimit(biz)) return;
+
     const upgrade = getUpgrade(upgradeId);
     if (!upgrade) return;
     const cost = inflated(upgrade.cost ?? 0, state?.inflationMultiplier ?? 1);
-    // Pay only from business balance — cannot go negative
     const bizBal = biz.balance ?? 0;
     if (bizBal < cost) return;
+
     biz.balance = bizBal - cost;
     biz.budgetReserves = consumeBusinessBudgetReserve(biz.budgetReserves, 'growth', cost);
-    // 25% faster than the original 16–30 week timer, rounded to whole weeks.
-    const weeks = getBusinessUpgradeWeeks();
-    biz.activeUpgrade = { upgradeId, weeksRemaining: weeks };
+    const nextUpgrade = { upgradeId, weeksRemaining: getBusinessUpgradeWeeks() };
+    if (!biz.activeUpgrade) biz.activeUpgrade = nextUpgrade;
+    else if (!biz.secondaryActiveUpgrade) biz.secondaryActiveUpgrade = nextUpgrade;
+    else return;
+
     businesses[idx] = biz;
     const updates = { businesses };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  unlockBusinessProjectSlot: (businessId: string) => {
+    const state = get();
+    if ((state.profile.gems ?? 0) < BUSINESS_PROJECT_SLOT_2_GEM_COST) return;
+    const businesses = [...(state.businesses ?? [])];
+    const idx = businesses.findIndex((business) => business.id === businessId);
+    if (idx < 0 || businesses[idx].projectSlot2Unlocked) return;
+    businesses[idx] = { ...businesses[idx], projectSlot2Unlocked: true, temporaryProjectSlot2: false };
+    const profile = { ...state.profile, gems: (state.profile.gems ?? 0) - BUSINESS_PROJECT_SLOT_2_GEM_COST };
+    set({ businesses, profile });
+    saveProfile(profile);
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  grantTemporaryBusinessProjectSlot: (businessId: string) => {
+    const state = get();
+    const businesses = [...(state.businesses ?? [])];
+    const idx = businesses.findIndex((business) => business.id === businessId);
+    if (idx < 0) return;
+    const business = businesses[idx];
+    const activeCount = (business.activeProjects ?? []).filter((project) => !project.resolved).length;
+    if (business.projectSlot2Unlocked || business.temporaryProjectSlot2 || activeCount !== 1) return;
+    businesses[idx] = { ...business, temporaryProjectSlot2: true };
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  unlockBusinessUpgradeSlot: (businessId: string) => {
+    const state = get();
+    if ((state.profile.gems ?? 0) < BUSINESS_UPGRADE_SLOT_2_GEM_COST) return;
+    const businesses = [...(state.businesses ?? [])];
+    const idx = businesses.findIndex((business) => business.id === businessId);
+    if (idx < 0 || businesses[idx].upgradeSlot2Unlocked) return;
+    businesses[idx] = { ...businesses[idx], upgradeSlot2Unlocked: true, temporaryUpgradeSlot2: false };
+    const profile = { ...state.profile, gems: (state.profile.gems ?? 0) - BUSINESS_UPGRADE_SLOT_2_GEM_COST };
+    set({ businesses, profile });
+    saveProfile(profile);
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  grantTemporaryBusinessUpgradeSlot: (businessId: string) => {
+    const state = get();
+    const businesses = [...(state.businesses ?? [])];
+    const idx = businesses.findIndex((business) => business.id === businessId);
+    if (idx < 0) return;
+    const business = businesses[idx];
+    const activeCount = Number(!!business.activeUpgrade) + Number(!!business.secondaryActiveUpgrade);
+    if (business.upgradeSlot2Unlocked || business.temporaryUpgradeSlot2 || activeCount !== 1) return;
+    businesses[idx] = { ...business, temporaryUpgradeSlot2: true };
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
 
   startBusinessExpansion: (businessId: string, templateId: string) => {
@@ -4655,25 +5202,50 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   takeBusinessLoan: (businessId: string, amount: number, interestRate: number, durationWeeks: number) => {
     const state = get();
+    if (
+      state.lifecycle?.isDead
+      || !Number.isFinite(amount)
+      || !Number.isFinite(interestRate)
+      || !Number.isFinite(durationWeeks)
+      || amount <= 0
+      || durationWeeks <= 0
+    ) return;
+
     const businesses = [...(state?.businesses ?? [])];
     const idx = businesses.findIndex((b) => b?.id === businessId);
     if (idx < 0) return;
     const biz = { ...businesses[idx] };
+
+    // Simple operating loans are the local-company funding path. Once a company
+    // reaches corporate scale, use the credit facility / bonds / project finance.
+    if (getCorporateScaleTier(biz) !== 'local') return;
     if ((biz.businessLoans?.length ?? 0) >= 3) return;
-    const effectiveInterestRate = Math.max(0, interestRate - (getPrestigeEffects(state.profile).loan_rate_reduction ?? 0));
-    const totalRepayment = amount * (1 + effectiveInterestRate);
-    const weeklyPayment = Math.ceil(totalRepayment / durationWeeks);
+
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
+    const effectiveInterestRate = Math.max(
+      0,
+      interestRate + macroRateModifier - (getPrestigeEffects(state.profile).loan_rate_reduction ?? 0),
+    );
+    const principal = Math.round(amount);
+    const duration = Math.max(1, Math.round(durationWeeks));
+    const totalRepayment = Math.round(principal * (1 + effectiveInterestRate));
+    const weeklyPayment = Math.ceil(totalRepayment / duration);
     const loan: BusinessLoan = {
       id: `bloan_${Date.now()}`,
-      amount,
+      amount: principal,
       remainingAmount: totalRepayment,
       weeklyPayment,
-      weeksRemaining: durationWeeks,
+      weeksRemaining: duration,
       interestRate: effectiveInterestRate,
+      purpose: 'operating',
     };
-    biz.businessLoans = [...(biz.businessLoans ?? []), loan];
-    biz.balance = (biz.balance ?? 0) + amount;
-    businesses[idx] = biz;
+    const updated = {
+      ...biz,
+      businessLoans: [...(biz.businessLoans ?? []), loan],
+      balance: (biz.balance ?? 0) + principal,
+    };
+    updated.valuation = calculateValuation(updated);
+    businesses[idx] = updated;
     const updates = { businesses };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
@@ -4681,17 +5253,16 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   injectCashIntoBusiness: (businessId: string, amount: number) => {
     const state = get();
+    const targetBusiness = (state?.businesses ?? []).find((business) => business?.id === businessId);
+    if (!targetBusiness || targetBusiness.holdingCompanyId) return;
     if (amount <= 0 || (state?.cash ?? 0) < amount) return;
     const businesses = (state?.businesses ?? []).map((business) => {
       if (business?.id !== businessId) return business;
-      const trackedBasis = typeof business.capitalInvested === 'number'
-        ? business.capitalInvested + amount
-        : business.acquisition
-          ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
-            + (business.acquisition.additionalCapitalInvested ?? 0)
-            + amount
-          : null;
-      return {
+      const existingInvestmentBasis = getBusinessInvestmentBasis(business);
+      const trackedBasis = existingInvestmentBasis == null
+        ? null
+        : existingInvestmentBasis + amount;
+      const updated = {
         ...business,
         balance: (business.balance ?? 0) + amount,
         capitalInvested: trackedBasis,
@@ -4702,6 +5273,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             }
           : business.acquisition,
       };
+      return { ...updated, valuation: calculateValuation(updated) };
     });
     const updates = { cash: (state?.cash ?? 0) - amount, businesses };
     set(updates);
@@ -4711,17 +5283,43 @@ const useGameStore = create<GameStore>((set, get) => ({
   withdrawFromBusiness: (businessId: string, amount: number) => {
     const state = get();
     const biz = (state?.businesses ?? []).find((business) => business?.id === businessId);
-    if (!biz || amount <= 0 || (biz?.balance ?? 0) < amount) return;
-    const businesses = (state?.businesses ?? []).map((business) =>
-      business?.id === businessId
-        ? {
-            ...business,
-            balance: (business.balance ?? 0) - amount,
-            totalPlayerDistributions: (business.totalPlayerDistributions ?? 0) + amount,
-          }
-        : business
+    if (!biz || state.lifecycle?.isDead || !Number.isFinite(amount) || amount <= 0) return;
+
+    // Holding subsidiaries upstream cash through holding dividends/fees.
+    // Companies with other shareholders distribute through the normal pro-rata dividend policy.
+    if (biz.holdingCompanyId || getPlayerOwnershipPct(biz) < 99.999) return;
+
+    const availableCash = getBusinessAvailableOwnerDistributionCash(
+      biz,
+      state.inflationMultiplier ?? 1,
     );
-    const updates = { cash: (state?.cash ?? 0) + amount, businesses };
+    const distribution = Math.min(Math.round(amount), availableCash);
+    if (distribution <= 0 || distribution < Math.round(amount)) return;
+
+    const businesses = (state?.businesses ?? []).map((business) => {
+      if (business?.id !== businessId) return business;
+      const updated = {
+        ...business,
+        balance: Math.max(0, (business.balance ?? 0) - distribution),
+        totalPlayerDistributions: (business.totalPlayerDistributions ?? 0) + distribution,
+        timeline: [
+          ...(business.timeline ?? []),
+          {
+            week: state.week,
+            year: state.year,
+            title: '💶 Owner distribution ' + formatCurrencySafe(distribution),
+            icon: '💶',
+            kind: 'event' as const,
+          },
+        ].slice(-50),
+      };
+      return { ...updated, valuation: calculateValuation(updated) };
+    });
+    const updates = {
+      cash: (state?.cash ?? 0) + distribution,
+      businesses,
+      currentHeadline: 'Owner distribution received: ' + formatCurrencySafe(distribution) + '.',
+    };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
@@ -4762,6 +5360,7 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     careerHistory: state?.careerHistory ?? [],
     totalWeeksWorked: state?.totalWeeksWorked ?? 0,
     stocks: state?.stocks ?? [],
+    marketCompanyPool: state?.marketCompanyPool ?? [],
     holdings: state?.holdings ?? [],
     loans: state?.loans ?? [],
     bankDeposits: state?.bankDeposits ?? [],
@@ -4793,6 +5392,7 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     totalRealizedProfitLoss: state?.totalRealizedProfitLoss ?? 0,
     newsHistory: (state as any)?.newsHistory ?? [],
     partTimeJob: (state as any)?.partTimeJob ?? false,
+    studentWorkTier: (state as any)?.studentWorkTier ?? ((state as any)?.partTimeJob ? 'flexible' : null),
     adWatchedToday: (state as any)?.adWatchedToday ?? 0,
     adLastWatchDate: (state as any)?.adLastWatchDate ?? '',
     relationshipModeEnabled: state?.relationshipModeEnabled ?? false,
@@ -4800,11 +5400,27 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     lifecycle: state?.lifecycle ?? { ...INITIAL_LIFECYCLE_STATE },
     lastMacroCrashWeek: state?.lastMacroCrashWeek ?? 0,
     activeMacroCrash: state?.activeMacroCrash ?? null,
+    economicCycle: state?.economicCycle ?? INITIAL_GAME_STATE.economicCycle,
     generation: state?.generation ?? 1,
     familyLegacy: state?.familyLegacy ?? [],
     familyTree: state?.familyTree ?? createInitialFamilyTree(state?.playerName ?? 'Player', state?.age ?? 20, state?.year ?? 1, state?.generation ?? 1),
     contentUpdateSeenId: state?.contentUpdateSeenId ?? '',
     reviewPromptedWeeks: state?.reviewPromptedWeeks ?? [],
+    annualReports: state?.annualReports ?? [],
+    annualReportUnread: state?.annualReportUnread ?? false,
+    pinnedAchievementGoals: state?.pinnedAchievementGoals ?? [],
+    periodIncome: state?.periodIncome ?? 0,
+    periodExpenses: state?.periodExpenses ?? 0,
+    periodTax: state?.periodTax ?? 0,
+    periodWeeksEmployed: state?.periodWeeksEmployed ?? 0,
+    periodWeeksUnemployed: state?.periodWeeksUnemployed ?? 0,
+    periodJobChanges: state?.periodJobChanges ?? 0,
+    periodCoursesCompleted: state?.periodCoursesCompleted ?? 0,
+    periodStocksPurchased: state?.periodStocksPurchased ?? 0,
+    periodLoansTaken: state?.periodLoansTaken ?? 0,
+    periodLoansRepaid: state?.periodLoansRepaid ?? 0,
+    periodAchievements: state?.periodAchievements ?? 0,
+    periodStartWeek: state?.periodStartWeek ?? 1,
   };
 }
 

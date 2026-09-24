@@ -1,11 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
-import GameStatusBar from '../../src/components/StatusBar';
+import ScreenHeader from '../../src/components/ScreenHeader';
+import ScreenTabs from '../../src/components/ScreenTabs';
 import GameCard from '../../src/components/GameCard';
+import GameButton from '../../src/components/GameButton';
+import StatusPill from '../../src/components/StatusPill';
 import useGameStore from '../../src/store/gameStore';
 import { DatingPreference, EstatePlanType, EstateStructureType, FamilyWorkArrangement, MarriageAgreement, RelationshipConnection } from '../../src/types/game';
 import { formatCurrency } from '../../src/utils/format';
@@ -22,6 +25,7 @@ import {
   getNormalizedDatingAgeBounds,
   getProposalCost,
   getWeddingCost,
+  getWeddingPersonalityFit,
 } from '../../src/engine/relationshipEngine';
 
 const TRAIT_LABELS: Record<string, Record<string, string>> = {
@@ -73,6 +77,7 @@ export default function RelationshipsScreen() {
   const [minAge, setMinAge] = useState(defaultMinAge);
   const [maxAge, setMaxAge] = useState(defaultMaxAge);
   const [marriageAgreement, setMarriageAgreement] = useState<MarriageAgreement>('separate');
+  const [activeTab, setActiveTab] = useState<'relationship' | 'family' | 'dating' | 'history'>(relationship?.partnerId ? 'relationship' : 'dating');
 
   const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
   const actionUsed = (relationship?.personalActionWeek ?? 0) === gw;
@@ -80,6 +85,13 @@ export default function RelationshipsScreen() {
     () => (relationship?.activeConnections ?? []).find((item) => item.id === relationship?.partnerId) ?? null,
     [relationship?.activeConnections, relationship?.partnerId]
   );
+  useEffect(() => {
+    setActiveTab((current) => {
+      if (partner && current === 'dating') return 'relationship';
+      if (!partner && current === 'relationship') return 'dating';
+      return current;
+    });
+  }, [partner?.id]);
   const dating = (relationship?.activeConnections ?? []).filter((item) => item.stage === 'dating');
   const cohabiting = !!partner && (partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married');
   const financeKnown = !!partner && ['financialStyle', 'riskTolerance', 'ambition', 'familyGoal'].every((trait) => partner.visibleTraits?.includes(trait as any));
@@ -110,6 +122,10 @@ export default function RelationshipsScreen() {
     state.career,
   ]);
   const familySpendingActive = (relationship?.familySpendingWeeksRemaining ?? 0) > 0;
+  const coupleTripWeeksRemaining = relationship?.coupleTripWeeksRemaining ?? 0;
+  const sharedMemories = (relationship?.memories ?? []).filter((memory) => !!partner && memory.partnerId === partner.id);
+  const careerFirstCount = sharedMemories.filter((memory) => memory.tag === 'career_first').length;
+  const familyFirstCount = sharedMemories.filter((memory) => memory.tag === 'showed_up_for_family').length;
   const dependentChildrenCount = (relationship?.children ?? []).filter((child) => getChildAge(child, gw) < 18).length;
   const familyWorkPreview = getFamilyWorkIncomePreview(state, partner);
   const familyWorkAvailable = !!partner
@@ -132,8 +148,13 @@ export default function RelationshipsScreen() {
   if (!enabled) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <Header onBack={() => router.back()} />
-        <GameStatusBar />
+        <ScreenHeader
+          title="Personal Life"
+          subtitle="Relationships, family and legacy"
+          showBack
+          onBack={() => router.back()}
+          accentColor={Colors.family}
+        />
         <ScrollView contentContainerStyle={styles.content}>
           <GameCard>
             <View style={styles.centered}>
@@ -141,9 +162,7 @@ export default function RelationshipsScreen() {
               <Text style={styles.heroTitle}>Personal Life is Off</Text>
               <Text style={styles.heroText}>This save is currently focused on the economy only. You can enable Personal Life from Profile & Stats at any time.</Text>
             </View>
-            <Pressable style={styles.secondaryButton} onPress={() => router.push('/profile')}>
-              <Text style={styles.secondaryText}>Open Profile Settings</Text>
-            </Pressable>
+            <GameButton variant="secondary" accentColor={Colors.family} label="Open Profile Settings" icon="settings-outline" onPress={() => router.push('/profile')} />
           </GameCard>
         </ScrollView>
       </SafeAreaView>
@@ -153,8 +172,13 @@ export default function RelationshipsScreen() {
   if (!relationship?.preferencesSet) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <Header onBack={() => router.back()} />
-        <GameStatusBar />
+        <ScreenHeader
+          title="Personal Life"
+          subtitle="Relationships, family and legacy"
+          showBack
+          onBack={() => router.back()}
+          accentColor={Colors.family}
+        />
         <ScrollView contentContainerStyle={styles.content}>
           <GameCard>
             <View style={styles.centered}>
@@ -182,9 +206,7 @@ export default function RelationshipsScreen() {
               <Counter label="Max" value={maxAge} onMinus={() => setMaxAge(Math.max(minAge, maxAge - 1))} onPlus={() => setMaxAge(Math.min(datingBounds.max, maxAge + 1))} />
             </View>
 
-            <Pressable style={styles.primaryButton} onPress={() => setDatingPreferences(preference, minAge, maxAge)}>
-              <Text style={styles.primaryText}>Start Meeting People</Text>
-            </Pressable>
+            <GameButton accentColor={Colors.family} label="Start Meeting People" icon="heart-outline" onPress={() => setDatingPreferences(preference, minAge, maxAge)} style={{ marginTop: 14 }} />
           </GameCard>
         </ScrollView>
       </SafeAreaView>
@@ -193,8 +215,13 @@ export default function RelationshipsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Header onBack={() => router.back()} />
-      <GameStatusBar />
+      <ScreenHeader
+        title="Personal Life"
+        subtitle="Relationships, family and legacy"
+        showBack
+        onBack={() => router.back()}
+        accentColor={Colors.family}
+      />
       <ScrollView contentContainerStyle={styles.content}>
         {feedback && (
           <Pressable style={[styles.feedback, { borderColor: feedback.positive ? `${Colors.primary}55` : `${Colors.negative}55`, backgroundColor: feedback.positive ? `${Colors.primary}12` : `${Colors.negative}12` }]} onPress={dismissFeedback}>
@@ -225,6 +252,20 @@ export default function RelationshipsScreen() {
           </Pressable>
         )}
 
+        <ScreenTabs
+          items={[
+            { key: 'relationship', label: 'Partner', icon: 'heart-outline' },
+            { key: 'family', label: 'Family', icon: 'people-outline' },
+            { key: 'dating', label: 'Dating', icon: 'sparkles-outline' },
+            { key: 'history', label: 'History', icon: 'time-outline' },
+          ]}
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          accentColor={Colors.family}
+        />
+
+        {activeTab === 'relationship' && (
+          <>
         {partner && (
           <>
             <Text style={styles.sectionTitle}>Relationship</Text>
@@ -315,10 +356,19 @@ export default function RelationshipsScreen() {
                 </View>
               )}
 
+              {coupleTripWeeksRemaining > 0 && (
+                <View style={styles.familyWarningBox}>
+                  <Text style={styles.compactTitle}>🌍 World trip in progress</Text>
+                  <Text style={styles.meta}>
+                    {coupleTripWeeksRemaining} week{coupleTripWeeksRemaining === 1 ? '' : 's'} remaining. Your salary and your partner's household contribution are paused while you travel; investments, property and businesses continue normally.
+                  </Text>
+                </View>
+              )}
+
               {partner.stage === 'engaged' && (
                 <View style={styles.majorBox}>
                   <Text style={styles.majorTitle}>Plan the Wedding</Text>
-                  <Text style={styles.meta}>Your partner can cover part of the wedding from their own savings. Choose how a future divorce settlement treats wealth built after marriage. This does not merge your playable cash while married.</Text>
+                  <Text style={styles.meta}>Wedding spending is now a major financial decision. Your partner contributes from their own savings based partly on their financial style, and the celebration itself has a stronger personality fit. Choose how a future divorce settlement treats wealth built after marriage.</Text>
 
                   <Text style={styles.subheading}>Financial agreement</Text>
                   <View style={styles.choiceRow}>
@@ -336,14 +386,22 @@ export default function RelationshipsScreen() {
                   <Text style={styles.subheading}>Wedding</Text>
                   {(['courthouse', 'standard', 'luxury'] as const).map((wedding) => {
                     const total = getWeddingCost(wedding, state.inflationMultiplier);
-                    const partnerShare = Math.min(Math.round(total * 0.25), Math.round((partner.savings ?? 0) * 0.35));
+                    const shareRate = partner.financialStyle === 'luxury' ? 0.35 : partner.financialStyle === 'frugal' ? 0.20 : 0.25;
+                    const savingsCap = partner.financialStyle === 'luxury' ? 0.45 : partner.financialStyle === 'frugal' ? 0.25 : 0.35;
+                    const partnerShare = Math.min(Math.round(total * shareRate), Math.round((partner.savings ?? 0) * savingsCap));
                     const yours = Math.max(0, total - partnerShare);
                     const ready = gw - (partner.engagedWeek ?? gw) >= 3;
+                    const fit = getWeddingPersonalityFit(partner, wedding);
                     return (
                       <Pressable key={wedding} disabled={!ready || state.cash < yours} style={[styles.weddingRow, (!ready || state.cash < yours) && styles.disabled]} onPress={() => marry(wedding, marriageAgreement)}>
-                        <View>
-                          <Text style={styles.compactTitle}>{wedding === 'courthouse' ? 'Courthouse' : capitalize(wedding) + ' Wedding'}</Text>
+                        <View style={{ flex: 1, paddingRight: 10 }}>
+                          <Text style={styles.compactTitle}>{wedding === 'courthouse' ? 'Intimate / Courthouse' : capitalize(wedding) + ' Wedding'}</Text>
                           <Text style={styles.meta}>{ready ? `Your share: ${formatCurrency(yours)}` : 'Available 3 weeks after engagement'}</Text>
+                          {financeKnown && (
+                            <Text style={[styles.meta, { color: fit.label === 'Great fit' ? Colors.primary : fit.label === 'Good fit' ? Colors.info : Colors.warning, marginTop: 3 }]}>
+                              Personality fit: {fit.label} • +{fit.relationshipBonus} relationship
+                            </Text>
+                          )}
                         </View>
                         <Text style={styles.moneyText}>{formatCurrency(total)}</Text>
                       </Pressable>
@@ -540,6 +598,55 @@ export default function RelationshipsScreen() {
           </>
         )}
 
+        {partner && sharedMemories.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Shared History</Text>
+            <GameCard>
+              <Text style={styles.helper}>
+                Major choices become part of your relationship story and can change how later events are interpreted.
+              </Text>
+              {(careerFirstCount > 0 || familyFirstCount > 0) && (
+                <View style={styles.memoryPatternRow}>
+                  {familyFirstCount > 0 && <TraitChip label={`Family-first ×${familyFirstCount}`} />}
+                  {careerFirstCount > 0 && <TraitChip label={`Career-first ×${careerFirstCount}`} />}
+                </View>
+              )}
+              {[...sharedMemories].slice(-6).reverse().map((memory) => {
+                const memoryYear = Math.floor(Math.max(0, memory.globalWeek - 1) / 20) + 1;
+                const memoryWeek = ((Math.max(1, memory.globalWeek) - 1) % 20) + 1;
+                return (
+                  <View key={memory.id} style={styles.memoryRow}>
+                    <View style={[
+                      styles.memoryIcon,
+                      {
+                        borderColor: memory.sentiment === 'positive'
+                          ? `${Colors.primary}66`
+                          : memory.sentiment === 'negative'
+                            ? `${Colors.negative}66`
+                            : `${Colors.warning}66`,
+                      },
+                    ]}>
+                      <Ionicons
+                        name={memoryIcon(memory.tag)}
+                        size={15}
+                        color={memory.sentiment === 'positive'
+                          ? Colors.primary
+                          : memory.sentiment === 'negative'
+                            ? Colors.negative
+                            : Colors.warning}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.historyText}>{memory.label}</Text>
+                      <Text style={styles.historyDate}>Y{memoryYear} W{memoryWeek}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </GameCard>
+          </>
+        )}
+
         {partner && cohabiting && (
           <>
             <Text style={styles.sectionTitle}>Shared Goals</Text>
@@ -594,6 +701,11 @@ export default function RelationshipsScreen() {
           </>
         )}
 
+          </>
+        )}
+
+        {activeTab === 'family' && (
+          <>
         {(partner?.stage === 'married' || (relationship.children ?? []).length > 0) && estatePlan && (
           <>
             <Text style={styles.sectionTitle}>Estate Planning</Text>
@@ -745,6 +857,23 @@ export default function RelationshipsScreen() {
                     </View>
                   )}
 
+                  {(child.lifePath || (child.developmentScore ?? 0) > 0) && (
+                    <View style={styles.childPathBox}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.compactTitle}>Life direction</Text>
+                        <Text style={styles.meta}>
+                          {child.lifePath ? capitalize(child.lifePath) : 'Still exploring'}
+                          {age < 18 ? ' • shaped by milestone choices' : ' • carried into adult life'}
+                        </Text>
+                      </View>
+                      <View style={styles.developmentBadge}>
+                        <Text style={styles.developmentValue}>{Math.round(child.developmentScore ?? 0)}</Text>
+                        <Text style={styles.developmentLabel}>DEV</Text>
+                      </View>
+                    </View>
+                  )}
+                  <ChildMilestoneTrack age={age} />
+
                   <Pressable
                     disabled={actionUsed}
                     style={[styles.childTimeButton, actionUsed && styles.disabled]}
@@ -820,6 +949,11 @@ export default function RelationshipsScreen() {
           </>
         )}
 
+          </>
+        )}
+
+        {activeTab === 'dating' && (
+          <>
         {dating.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Dating</Text>
@@ -866,6 +1000,11 @@ export default function RelationshipsScreen() {
           </>
         )}
 
+          </>
+        )}
+
+        {activeTab === 'history' && (
+          <>
         {(relationship.financialObligations ?? []).length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Financial Obligations</Text>
@@ -916,16 +1055,11 @@ export default function RelationshipsScreen() {
             ))
           )}
         </GameCard>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function Header({ onBack }: { onBack: () => void }) {
-  return <View style={styles.header}>
-    <Pressable onPress={onBack} hitSlop={12}><Ionicons name="arrow-back" size={24} color={Colors.textPrimary} /></Pressable>
-    <Text style={styles.headerTitle}>Personal Life</Text>
-  </View>;
 }
 
 function Counter({ label, value, onMinus, onPlus }: { label: string; value: number; onMinus: () => void; onPlus: () => void }) {
@@ -941,16 +1075,29 @@ function Counter({ label, value, onMinus, onPlus }: { label: string; value: numb
 
 function ConnectionCard({ connection, children }: { connection: RelationshipConnection; children: React.ReactNode }) {
   const value = connection.stage === 'dating' ? connection.connection : connection.relationship;
-  return <GameCard>
+  const established = connection.stage !== 'dating';
+  return <GameCard variant={established ? 'hero' : 'standard'} accentColor={Colors.family}>
     <View style={styles.profileTop}>
-      <View style={styles.avatar}><Ionicons name="person" size={24} color={Colors.happiness} /></View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.name}>{connection.name}, {connection.age}</Text>
-        <Text style={styles.meta}>{connection.occupationTitle}</Text>
+      <View style={[styles.avatar, established && styles.avatarHero]}>
+        <Ionicons name={established ? 'heart' : 'person'} size={established ? 27 : 24} color={Colors.family} />
       </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.name}>{connection.name}, {connection.age}</Text>
+        <Text style={styles.meta} numberOfLines={1}>{connection.occupationTitle}</Text>
+      </View>
+      <StatusPill
+        compact
+        label={stageLabel(connection.stage)}
+        color={connection.stage === 'dating' ? Colors.info : Colors.family}
+      />
     </View>
-    <Text style={styles.progressLabel}>{connection.stage === 'dating' ? 'Connection' : 'Relationship'} {Math.round(value)}%</Text>
-    <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, value))}%` }]} /></View>
+    <View style={styles.relationshipHeader}>
+      <Text style={styles.progressLabel}>{connection.stage === 'dating' ? 'Connection' : 'Relationship'}</Text>
+      <Text style={[styles.relationshipScore, { color: established ? Colors.family : Colors.info }]}>{Math.round(value)}%</Text>
+    </View>
+    <View style={styles.progressTrack}>
+      <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, value))}%`, backgroundColor: established ? Colors.family : Colors.info }]} />
+    </View>
     <View style={styles.traits}>
       {(connection.visibleTraits ?? []).map((trait) => (
         <View key={trait} style={styles.trait}><Text style={styles.traitText}>{TRAIT_LABELS[trait]?.[(connection as any)[trait]] ?? (connection as any)[trait]}</Text></View>
@@ -980,6 +1127,41 @@ function DateButtons({ disabled, cash, inflation, onDate, firstDate }: { disable
       })}
     </View>
   </View>;
+}
+
+function ChildMilestoneTrack({ age }: { age: number }) {
+  const milestones = [5, 10, 16, 18];
+  return (
+    <View style={styles.childMilestoneTrack}>
+      {milestones.map((milestone, index) => {
+        const complete = age >= milestone;
+        return (
+          <React.Fragment key={milestone}>
+            <View style={styles.childMilestoneItem}>
+              <View style={[styles.childMilestoneDot, complete && styles.childMilestoneDotComplete]}>
+                {complete ? <Ionicons name="checkmark" size={10} color={Colors.white} /> : null}
+              </View>
+              <Text style={[styles.childMilestoneAge, complete && { color: Colors.education }]}>{milestone}</Text>
+            </View>
+            {index < milestones.length - 1 && (
+              <View style={[styles.childMilestoneLine, age >= milestones[index + 1] && styles.childMilestoneLineComplete]} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+}
+
+function memoryIcon(tag: string): React.ComponentProps<typeof Ionicons>['name'] {
+  if (tag === 'world_travellers') return 'earth-outline';
+  if (tag === 'career_first') return 'briefcase-outline';
+  if (tag === 'showed_up_for_family') return 'heart-outline';
+  if (tag === 'balanced_work_family') return 'git-compare-outline';
+  if (tag.includes('wedding')) return 'heart-circle-outline';
+  if (tag === 'big_family_celebration') return 'sparkles-outline';
+  if (tag === 'supported_child_path' || tag === 'child_independence') return 'school-outline';
+  return 'time-outline';
 }
 
 function TraitChip({ label }: { label: string }) {
@@ -1059,14 +1241,27 @@ function capitalize(value: string) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
   content: { padding: 16, paddingBottom: 48 },
   centered: { alignItems: 'center', marginBottom: 18 },
   heroTitle: { color: Colors.textPrimary, fontSize: 22, fontWeight: '800', marginTop: 8 },
   heroText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 6 },
   sectionTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 12, marginBottom: 10 },
   sectionLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 12, marginBottom: 8 },
+  memoryPatternRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10, marginBottom: 4 },
+  memoryRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  memoryIcon: { width: 30, height: 30, borderRadius: 10, borderWidth: 1, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  childPathBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.elevated, borderRadius: 10, padding: 10, marginTop: 10 },
+  childMilestoneTrack: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 9, paddingHorizontal: 4 },
+  childMilestoneItem: { alignItems: 'center', width: 28 },
+  childMilestoneDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, alignItems: 'center', justifyContent: 'center' },
+  childMilestoneDotComplete: { backgroundColor: Colors.education, borderColor: Colors.education },
+  childMilestoneAge: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 3 },
+  childMilestoneLine: { flex: 1, height: 2, backgroundColor: Colors.cardBorder, marginTop: 8 },
+  childMilestoneLineComplete: { backgroundColor: Colors.education },
+  developmentBadge: { minWidth: 46, alignItems: 'center', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, paddingVertical: 5, paddingHorizontal: 7 },
+  developmentValue: { color: Colors.info, fontSize: 16, fontWeight: '800' },
+  developmentLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
+
   subheading: { color: Colors.textSecondary, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7, marginTop: 14, marginBottom: 7 },
   choiceRow: { flexDirection: 'row', gap: 8 },
   choice: { flex: 1, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 6, alignItems: 'center' },
@@ -1095,6 +1290,7 @@ const styles = StyleSheet.create({
   helper: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, marginBottom: 10 },
   profileTop: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: `${Colors.happiness}18`, alignItems: 'center', justifyContent: 'center' },
+  avatarHero: { width: 50, height: 50, borderRadius: 16, borderWidth: 1, borderColor: `${Colors.family}44`, backgroundColor: `${Colors.family}12` },
   childAvatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: `${Colors.info}18`, alignItems: 'center', justifyContent: 'center' },
   name: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
   meta: { color: Colors.textSecondary, fontSize: 12, marginTop: 2, lineHeight: 17 },
@@ -1102,7 +1298,9 @@ const styles = StyleSheet.create({
   costText: { color: Colors.negative, fontSize: 12, fontWeight: '700' },
   unknownBox: { backgroundColor: Colors.elevated, borderRadius: 8, padding: 9, marginTop: 10 },
   unknownText: { color: Colors.textMuted, fontSize: 11 },
-  progressLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600', marginTop: 12 },
+  relationshipHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 12 },
+  progressLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
+  relationshipScore: { fontSize: 14, fontWeight: '900' },
   progressTrack: { height: 8, borderRadius: 4, backgroundColor: Colors.elevated, overflow: 'hidden', marginTop: 5 },
   progressFill: { height: 8, borderRadius: 4, backgroundColor: Colors.happiness },
   traits: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },

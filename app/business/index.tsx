@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
+import ScreenHeader from '../../src/components/ScreenHeader';
+import StatusPill from '../../src/components/StatusPill';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
 import { getLevelName, getBusinessType, getAutomationScore } from '../../src/engine/businessEngine';
@@ -23,6 +25,8 @@ import { getCorporateWorkforceAttentionReason } from '../../src/engine/businessW
 import CorporateGroupReportPanel from '../../src/components/CorporateGroupReportPanel';
 import { getCorporateGroupManagementReport } from '../../src/engine/corporateGroupReportingEngine';
 import { CorporateReportPeriod, getCorporateManagementAttentionReason } from '../../src/engine/corporateReportingEngine';
+import { getBusinessCapacity } from '../../src/engine/businessCapacityEngine';
+import { BUSINESS_IDENTITY_DEFINITIONS } from '../../src/engine/businessIdentityEngine';
 
 type SortMode = 'attention' | 'value' | 'profit' | 'roi';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -34,24 +38,161 @@ const SORT_OPTIONS: Array<{ key: SortMode; label: string; icon: IconName }> = [
   { key: 'roi', label: 'ROI', icon: 'trending-up-outline' },
 ];
 
+type InboxTarget = 'overview' | 'ownership' | 'leadership' | 'finance' | 'people' | 'risk' | 'growth' | 'capital';
+
+type BusinessAttentionItem = {
+  label: string;
+  detail: string;
+  color: string;
+  icon: IconName;
+  target: InboxTarget;
+  priority: 1 | 2 | 3;
+};
+
+function getBusinessAttentionItems(
+  business: any,
+  currentYear: number,
+  currentWeek: number,
+  inflationMultiplier: number,
+): BusinessAttentionItem[] {
+  const items: BusinessAttentionItem[] = [];
+  const globalWeek = Math.max(1, ((currentYear - 1) * 20) + currentWeek);
+
+  if (business.pendingDecision) {
+    const crisis = business.pendingDecision.kind === 'crisis';
+    items.push({
+      label: crisis ? 'Crisis' : 'Decision',
+      detail: business.pendingDecision.title,
+      color: crisis ? Colors.negative : Colors.warning,
+      icon: crisis ? 'warning-outline' : 'alert-circle-outline',
+      target: 'overview',
+      priority: crisis ? 3 : 2,
+    });
+  }
+  if (business.pendingRetention) {
+    items.push({
+      label: 'Retention',
+      detail: 'An employee retention decision needs your attention.',
+      color: Colors.warning,
+      icon: 'people-outline',
+      target: 'people',
+      priority: 2,
+    });
+  }
+  if (business.acquisition?.integrationStrategy === 'pending') {
+    items.push({
+      label: 'Integration',
+      detail: 'Choose how this acquisition should be integrated.',
+      color: Colors.warning,
+      icon: 'git-merge-outline',
+      target: 'overview',
+      priority: 2,
+    });
+  }
+
+  const reinvestment = getBusinessReinvestmentUrgency(business);
+  if (reinvestment) {
+    items.push({
+      label: 'Reinvest',
+      detail: `${reinvestment === 'technology' ? 'Technology' : reinvestment === 'premises' ? 'Premises' : 'Equipment'} is aging and needs reinvestment.`,
+      color: Colors.warning,
+      icon: 'construct-outline',
+      target: 'risk',
+      priority: 2,
+    });
+  }
+
+  const coverageGaps = getBusinessCoverageGaps(business);
+  if (coverageGaps.length > 0) {
+    items.push({
+      label: 'Coverage',
+      detail: `Insurance gap: ${coverageGaps.map((area) => BUSINESS_INSURANCE_AREAS[area].name).join(', ')}.`,
+      color: Colors.warning,
+      icon: 'shield-outline',
+      target: 'risk',
+      priority: 2,
+    });
+  }
+
+  if (isBusinessBudgetReviewDue(business, currentYear)) {
+    items.push({
+      label: 'Budget',
+      detail: `Annual cash-plan review is due for Year ${currentYear}.`,
+      color: Colors.info,
+      icon: 'wallet-outline',
+      target: 'finance',
+      priority: 1,
+    });
+  }
+
+  const governance = getBusinessGovernanceAttentionReason(business);
+  if (governance) {
+    items.push({
+      label: 'Governance',
+      detail: governance,
+      color: Colors.info,
+      icon: 'people-circle-outline',
+      target: 'leadership',
+      priority: 1,
+    });
+  }
+
+  const workforce = getCorporateWorkforceAttentionReason(business);
+  if (workforce) {
+    items.push({
+      label: 'Workforce',
+      detail: workforce,
+      color: Colors.info,
+      icon: 'briefcase-outline',
+      target: 'leadership',
+      priority: 1,
+    });
+  }
+
+  const management = getCorporateManagementAttentionReason(business, globalWeek, inflationMultiplier);
+  if (management) {
+    items.push({
+      label: 'KPI Watch',
+      detail: management,
+      color: Colors.info,
+      icon: 'analytics-outline',
+      target: 'leadership',
+      priority: 1,
+    });
+  }
+
+  return items;
+}
+
 function needsAttention(
   business: any,
   currentYear: number,
   currentWeek: number,
   inflationMultiplier: number,
 ): boolean {
-  const globalWeek = Math.max(1, ((currentYear - 1) * 20) + currentWeek);
-  return Boolean(
-    business.pendingDecision
-    || business.pendingRetention
-    || business.acquisition?.integrationStrategy === 'pending'
-    || getBusinessReinvestmentUrgency(business)
-    || getBusinessCoverageGaps(business).length > 0
-    || isBusinessBudgetReviewDue(business, currentYear)
-    || getBusinessGovernanceAttentionReason(business)
-    || getCorporateWorkforceAttentionReason(business)
-    || getCorporateManagementAttentionReason(business, globalWeek, inflationMultiplier)
-  );
+  return getBusinessAttentionItems(business, currentYear, currentWeek, inflationMultiplier).length > 0;
+}
+
+function getBusinessVisualStatus(
+  business: any,
+  currentYear: number,
+  currentWeek: number,
+  inflationMultiplier: number,
+) {
+  const items = getBusinessAttentionItems(business, currentYear, currentWeek, inflationMultiplier);
+  if (items.length === 0) {
+    return {
+      label: 'Healthy',
+      detail: null as string | null,
+      color: Colors.primary,
+      icon: 'checkmark-circle-outline' as IconName,
+      issueCount: 0,
+    };
+  }
+  return {
+    ...items[0],
+    issueCount: items.length,
+  };
 }
 
 function formatReturn(value: number | null): string {
@@ -59,26 +200,64 @@ function formatReturn(value: number | null): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 }
 
+function compactMetadataLabel(value: string, maxLength = 18): string {
+  const clean = value.trim();
+  if (clean.length <= maxLength) return clean;
+  return `${clean.slice(0, Math.max(1, maxLength - 1))}…`;
+}
+
+function identityColor(color: string): string {
+  if (color === 'premium') return Colors.premium;
+  if (color === 'info') return Colors.info;
+  if (color === 'warning') return Colors.warning;
+  if (color === 'family') return Colors.family;
+  return Colors.primary;
+}
+
 export default function BusinessPortfolioScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const isBusinessTab = pathname === '/tabs/business';
   const businesses = useGameStore((state) => state.businesses ?? []);
+  const profile = useGameStore((state) => state.profile);
   const soldBusinesses = useGameStore((state) => state.soldBusinesses ?? []);
   const holdingCompanies = useGameStore((state) => state.holdingCompanies ?? []);
   const currentYear = useGameStore((state) => state.year ?? 1);
   const currentWeek = useGameStore((state) => state.week ?? 1);
   const inflationMultiplier = useGameStore((state) => state.inflationMultiplier ?? 1);
   const getNetWorthValue = useGameStore((state) => state.getNetWorthValue);
+  const setAllBusinessDecisionAutomation = useGameStore((state) => state.setAllBusinessDecisionAutomation);
   const [sortMode, setSortMode] = useState<SortMode>('attention');
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
+  const [showEmpireReport, setShowEmpireReport] = useState(false);
+  const [showAllInbox, setShowAllInbox] = useState(false);
 
   const netWorth = getNetWorthValue();
+  const businessCapacity = getBusinessCapacity(profile);
+  const capacityFull = businesses.length >= businessCapacity;
   const acquisitionsUnlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
+  const autoStrategyCount = businesses.filter((business) => !!business.autoStrategicDecisions).length;
+  const allAutoStrategy = businesses.length > 0 && autoStrategyCount === businesses.length;
   const summary = useMemo(
     () => getBusinessEmpireSummary(businesses, holdingCompanies, currentYear, currentWeek, inflationMultiplier),
     [businesses, holdingCompanies, currentYear, currentWeek, inflationMultiplier],
   );
+
+  const totalAttentionItems = useMemo(
+    () => businesses.reduce(
+      (total, business) => total + getBusinessAttentionItems(business, currentYear, currentWeek, inflationMultiplier).length,
+      0,
+    ),
+    [businesses, currentYear, currentWeek, inflationMultiplier],
+  );
+
+  const managementInbox = useMemo(() => businesses
+    .flatMap((business) => getBusinessAttentionItems(business, currentYear, currentWeek, inflationMultiplier)
+      .map((item) => ({ ...item, businessId: business.id, businessName: business.name })))
+    .sort((a, b) => b.priority - a.priority || a.businessName.localeCompare(b.businessName)),
+    [businesses, currentYear, currentWeek, inflationMultiplier],
+  );
+  const visibleInbox = showAllInbox ? managementInbox : managementInbox.slice(0, 5);
 
   const sortedBusinesses = useMemo(() => {
     return [...businesses].sort((a, b) => {
@@ -113,124 +292,172 @@ export default function BusinessPortfolioScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        {isBusinessTab ? (
-          <View style={{ width: 24 }} />
-        ) : (
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-          </Pressable>
-        )}
-        <Text style={styles.headerTitle}>Business Empire</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <ScreenHeader
+        title="Business Empire"
+        subtitle={businesses.length > 0 ? `${businesses.length} active compan${businesses.length === 1 ? 'y' : 'ies'}` : 'Build and manage your companies'}
+        showBack={!isBusinessTab}
+        onBack={() => router.back()}
+        accentColor={Colors.business}
+      />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Business Value</Text>
-            <Text style={[styles.summaryValue, { color: Colors.info }]}>{formatCurrency(summary.totalValue)}</Text>
-            <Text style={styles.summaryFoot}>Equity {formatCurrency(summary.netBusinessEquity)}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Weekly Profit</Text>
-            <Text style={[styles.summaryValue, { color: summary.weeklyProfit >= 0 ? Colors.primary : Colors.negative }]}>
-              {summary.weeklyProfit >= 0 ? '+' : ''}{formatCurrency(summary.weeklyProfit)}
-            </Text>
-            <Text style={styles.summaryFoot}>{businesses.length} active {businesses.length === 1 ? 'company' : 'companies'}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Business Debt</Text>
-            <Text style={[styles.summaryValue, { color: summary.totalDebt > 0 ? Colors.warning : Colors.primary }]}>
-              {formatCurrency(summary.totalDebt)}
-            </Text>
-            <Text style={styles.summaryFoot}>{summary.leveragedAcquisitionCount} leveraged M&A</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Empire Cash</Text>
-            <Text style={[styles.summaryValue, { color: Colors.primary }]}>{formatCurrency(summary.totalEmpireCash)}</Text>
-            <Text style={styles.summaryFoot}>Companies + holdings</Text>
-          </View>
-        </View>
-
-        {businesses.length > 0 && (
-          <GameCard>
-            <View style={styles.pulseHeader}>
-              <View style={styles.capitalIcon}>
-                <Ionicons name="pulse" size={21} color={summary.attentionCount > 0 ? Colors.warning : Colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.capitalTitle}>Empire Pulse</Text>
-                <Text style={styles.capitalSub}>
-                  {summary.attentionCount > 0
-                    ? `${summary.attentionCount} ${summary.attentionCount === 1 ? 'company needs' : 'companies need'} attention.`
-                    : 'No urgent portfolio actions right now.'}
-                </Text>
-              </View>
-              <View style={styles.pulseBadge}>
-                <Text style={styles.pulseBadgeText}>{summary.acquisitionCount} M&A</Text>
-              </View>
-            </View>
-          </GameCard>
-        )}
-
-        {quarterlyManagementReport && annualManagementReport && (
-          <GameCard title="Empire Management Report">
-            <CorporateGroupReportPanel
-              quarterlyReport={quarterlyManagementReport}
-              annualReport={annualManagementReport}
-              period={managementReportPeriod}
-              onPeriodChange={setManagementReportPeriod}
-              onCompanyPress={(businessId) => router.push(`/business/${businessId}`)}
+        <GameCard
+          variant="hero"
+          eyebrow="EMPIRE OVERVIEW"
+          title={businesses.length > 0 ? `${businesses.length} active compan${businesses.length === 1 ? 'y' : 'ies'}` : 'Ready to build'}
+          accentColor={Colors.business}
+          titleAccessory={(
+            <StatusPill
+              compact
+              icon={summary.attentionCount > 0 ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+              label={summary.attentionCount > 0 ? `${summary.attentionCount} need attention` : 'Portfolio healthy'}
+              color={summary.attentionCount > 0 ? Colors.warning : Colors.primary}
             />
-          </GameCard>
-        )}
+          )}
+        >
+          <View style={styles.empireValueBlock}>
+            <Text style={styles.empireValueLabel}>BUSINESS VALUE</Text>
+            <Text style={styles.empireValue}>{formatCurrency(summary.totalValue)}</Text>
+            <Text style={styles.empireEquity}>
+              Your business equity {formatCurrency(summary.playerNetBusinessEquity)} • Group equity {formatCurrency(summary.netBusinessEquity)}
+            </Text>
+          </View>
 
-        <GameCard>
-          <View style={styles.capitalHeader}>
-            <View style={styles.capitalIcon}>
-              <Ionicons name="layers" size={22} color={Colors.info} />
+          <View style={styles.empireMetrics}>
+            <View style={styles.empireMetric}>
+              <Text style={styles.empireMetricLabel}>Weekly Profit</Text>
+              <Text style={[styles.empireMetricValue, { color: summary.weeklyProfit >= 0 ? Colors.primary : Colors.negative }]}>
+                {summary.weeklyProfit >= 0 ? '+' : ''}{formatCurrency(summary.weeklyProfit)}
+              </Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.capitalTitle}>Capital Allocation</Text>
-              <Text style={styles.capitalSub}>
-                {acquisitionsUnlocked
-                  ? 'Acquire established companies and organize subsidiaries under holding companies.'
-                  : `Unlock M&A at ${formatCurrency(ACQUISITION_UNLOCK_NET_WORTH)} net worth.`}
+            <View style={styles.empireMetric}>
+              <Text style={styles.empireMetricLabel}>Empire Cash</Text>
+              <Text style={[styles.empireMetricValue, { color: Colors.primary }]}>{formatCurrency(summary.totalEmpireCash)}</Text>
+            </View>
+            <View style={styles.empireMetric}>
+              <Text style={styles.empireMetricLabel}>Company Debt</Text>
+              <Text style={[styles.empireMetricValue, { color: summary.totalDebt > 0 ? Colors.warning : Colors.primary }]}>
+                {formatCurrency(summary.totalDebt)}
               </Text>
             </View>
           </View>
-          <View style={styles.capitalActions}>
-            <Pressable
-              style={[styles.capitalButton, !acquisitionsUnlocked && styles.capitalButtonLocked]}
-              onPress={() => router.push('/business/acquisitions')}
-            >
-              <Ionicons name={acquisitionsUnlocked ? 'trending-up' : 'lock-closed'} size={17} color={acquisitionsUnlocked ? Colors.primary : Colors.textMuted} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.capitalButtonTitle, !acquisitionsUnlocked && { color: Colors.textMuted }]}>Acquisitions</Text>
-                <Text style={styles.capitalButtonSub}>
-                  {acquisitionsUnlocked
-                    ? 'Browse established companies'
-                    : `${Math.min(100, Math.round(netWorth / ACQUISITION_UNLOCK_NET_WORTH * 100))}% unlocked`}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-            </Pressable>
-            <Pressable
-              style={[styles.capitalButton, !acquisitionsUnlocked && styles.capitalButtonLocked]}
-              onPress={() => router.push('/business/holdings')}
-            >
-              <Ionicons name="business" size={17} color={acquisitionsUnlocked ? Colors.warning : Colors.textMuted} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.capitalButtonTitle, !acquisitionsUnlocked && { color: Colors.textMuted }]}>Holdings</Text>
-                <Text style={styles.capitalButtonSub}>
-                  {holdingCompanies.length} holding {holdingCompanies.length === 1 ? 'company' : 'companies'} • {formatCurrency(summary.holdingCash)} reserve
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-            </Pressable>
+
+          <View style={[styles.empirePulse, summary.attentionCount > 0 && styles.empirePulseAttention]}>
+            <Ionicons
+              name={summary.attentionCount > 0 ? 'pulse-outline' : 'shield-checkmark-outline'}
+              size={16}
+              color={summary.attentionCount > 0 ? Colors.warning : Colors.primary}
+            />
+            <Text style={styles.empirePulseText}>
+              {summary.attentionCount > 0
+                ? `${summary.attentionCount} compan${summary.attentionCount === 1 ? 'y' : 'ies'} • ${totalAttentionItems} open attention item${totalAttentionItems === 1 ? '' : 's'}`
+                : 'No urgent portfolio actions right now.'}
+            </Text>
           </View>
         </GameCard>
+
+        <View style={styles.empireActions}>
+          <Pressable style={styles.empireAction} onPress={() => router.push('/business/start')}>
+            <View style={[styles.empireActionIcon, { backgroundColor: `${capacityFull ? Colors.warning : Colors.business}14` }]}>
+              <Ionicons name={capacityFull ? 'lock-closed-outline' : 'add'} size={20} color={capacityFull ? Colors.warning : Colors.business} />
+            </View>
+            <Text style={styles.empireActionTitle}>Start</Text>
+            <Text style={[styles.empireActionSub, capacityFull && { color: Colors.warning }]}>
+              {businesses.length}/{businessCapacity} slots
+            </Text>
+          </Pressable>
+
+          <Pressable style={styles.empireAction} onPress={() => router.push('/business/acquisitions')}>
+            <View style={[styles.empireActionIcon, { backgroundColor: acquisitionsUnlocked ? `${Colors.primary}14` : Colors.elevated }]}>
+              <Ionicons name={acquisitionsUnlocked ? 'git-merge-outline' : 'lock-closed-outline'} size={19} color={acquisitionsUnlocked ? Colors.primary : Colors.textMuted} />
+            </View>
+            <Text style={[styles.empireActionTitle, !acquisitionsUnlocked && { color: Colors.textMuted }]}>Acquire</Text>
+            <Text style={styles.empireActionSub}>
+              {acquisitionsUnlocked ? 'M&A market' : `${Math.min(100, Math.round(netWorth / ACQUISITION_UNLOCK_NET_WORTH * 100))}% unlocked`}
+            </Text>
+          </Pressable>
+
+          <Pressable style={styles.empireAction} onPress={() => router.push('/business/holdings')}>
+            <View style={[styles.empireActionIcon, { backgroundColor: `${Colors.info}14` }]}>
+              <Ionicons name="layers-outline" size={19} color={Colors.info} />
+            </View>
+            <Text style={styles.empireActionTitle}>Holdings</Text>
+            <Text style={styles.empireActionSub}>{holdingCompanies.length} active</Text>
+          </Pressable>
+        </View>
+
+        {businesses.length > 0 && (
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: allAutoStrategy }}
+            style={[styles.portfolioAutoRow, allAutoStrategy && styles.portfolioAutoRowActive]}
+            onPress={() => setAllBusinessDecisionAutomation(!allAutoStrategy)}
+          >
+            <View style={[styles.portfolioAutoIcon, allAutoStrategy && styles.portfolioAutoIconActive]}>
+              <Ionicons name="flash-outline" size={17} color={allAutoStrategy ? Colors.primary : Colors.textMuted} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={styles.portfolioAutoTitleRow}>
+                <Text style={styles.portfolioAutoTitle}>Portfolio Auto Strategy</Text>
+                <StatusPill
+                  compact
+                  label={allAutoStrategy ? 'ON' : `${autoStrategyCount}/${businesses.length}`}
+                  color={allAutoStrategy ? Colors.primary : autoStrategyCount > 0 ? Colors.info : Colors.textSecondary}
+                />
+              </View>
+              <Text style={styles.portfolioAutoText}>
+                Routine strategy and corporate HR choices follow each company’s Strategic Focus. Crises remain manual.
+              </Text>
+            </View>
+            <Ionicons name={allAutoStrategy ? 'toggle' : 'toggle-outline'} size={26} color={allAutoStrategy ? Colors.primary : Colors.textMuted} />
+          </Pressable>
+        )}
+
+        {managementInbox.length > 0 && (
+          <GameCard
+            variant="subtle"
+            eyebrow="ATTENTION"
+            title="Management Inbox"
+            accentColor={managementInbox.some((item) => item.priority === 3) ? Colors.negative : Colors.warning}
+            titleAccessory={(
+              <StatusPill
+                compact
+                label={`${managementInbox.length} open`}
+                color={managementInbox.some((item) => item.priority === 3) ? Colors.negative : Colors.warning}
+              />
+            )}
+          >
+            <Text style={styles.inboxIntro}>Handle the most important company actions without searching through each business.</Text>
+            <View style={styles.inboxList}>
+              {visibleInbox.map((item, index) => (
+                <Pressable
+                  key={`${item.businessId}_${item.label}_${index}`}
+                  accessibilityRole="button"
+                  style={styles.inboxRow}
+                  onPress={() => router.push(`/business/${item.businessId}?section=${item.target}`)}
+                >
+                  <View style={[styles.inboxIcon, { backgroundColor: `${item.color}14` }]}>
+                    <Ionicons name={item.icon} size={17} color={item.color} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={styles.inboxTitleRow}>
+                      <Text style={styles.inboxBusiness} numberOfLines={1}>{item.businessName}</Text>
+                      <Text style={[styles.inboxType, { color: item.color }]}>{item.label}</Text>
+                    </View>
+                    <Text style={styles.inboxDetail} numberOfLines={2}>{item.detail}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+                </Pressable>
+              ))}
+            </View>
+            {managementInbox.length > 5 && (
+              <Pressable accessibilityRole="button" style={styles.inboxDisclosure} onPress={() => setShowAllInbox((value) => !value)}>
+                <Text style={styles.inboxDisclosureText}>{showAllInbox ? 'Show top priorities' : `Show all ${managementInbox.length} items`}</Text>
+                <Ionicons name={showAllInbox ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.info} />
+              </Pressable>
+            )}
+          </GameCard>
+        )}
 
         <View style={styles.sectionHeader}>
           <View>
@@ -247,6 +474,8 @@ export default function BusinessPortfolioScreen() {
               return (
                 <Pressable
                   key={option.key}
+                  accessibilityRole="button"
+                  hitSlop={{ top: 6, bottom: 6 }}
                   style={[styles.sortChip, active && styles.sortChipActive]}
                   onPress={() => setSortMode(option.key)}
                 >
@@ -272,7 +501,7 @@ export default function BusinessPortfolioScreen() {
             const automation = getAutomationScore(biz);
             const debt = getBusinessDebt(biz);
             const equityReturn = getBusinessEquityReturn(biz);
-            const attention = needsAttention(biz, currentYear, currentWeek, inflationMultiplier);
+            const visualStatus = getBusinessVisualStatus(biz, currentYear, currentWeek, inflationMultiplier);
             const risk = biz.acquisition?.initialRisk;
 
             return (
@@ -290,38 +519,50 @@ export default function BusinessPortfolioScreen() {
                       accessibilityLabel={`${type?.name ?? 'Business'} pixel art`}
                     />
                     <View style={styles.bizInfo}>
-                      <Text style={styles.bizName}>{biz.name}</Text>
-                      <Text style={styles.bizLevel}>{getLevelName(biz.level)} • {type?.industry ?? ''}</Text>
+                      <Text style={styles.bizName} numberOfLines={1}>{biz.name}</Text>
+                      <Text style={styles.bizLevel} numberOfLines={1}>{getLevelName(biz.level)} • {type?.industry ?? ''}</Text>
+                      <View style={styles.primaryStatus}>
+                        <StatusPill
+                          compact
+                          icon={visualStatus.icon}
+                          label={visualStatus.issueCount > 1 ? `${visualStatus.label} +${visualStatus.issueCount - 1}` : visualStatus.label}
+                          color={visualStatus.color}
+                        />
+                      </View>
                       <View style={styles.badgeLine}>
                         {biz.familyBusiness?.isFamilyBusiness && (
-                          <View style={styles.familyBadge}>
-                            <Ionicons name="people" size={11} color={Colors.warning} />
-                            <Text style={styles.familyBadgeText}>Family • G{biz.familyBusiness.generationsOwned}</Text>
-                          </View>
+                          <StatusPill compact icon="people-outline" label={`Family G${biz.familyBusiness.generationsOwned}`} color={Colors.warning} />
                         )}
                         {biz.holdingCompanyId && (
-                          <View style={styles.holdingBadge}>
-                            <Ionicons name="layers" size={11} color={Colors.info} />
-                            <Text style={styles.holdingBadgeText}>
-                              {holdingCompanies.find((holding) => holding.id === biz.holdingCompanyId)?.name ?? 'Holding'}
-                            </Text>
-                          </View>
+                          <StatusPill
+                            compact
+                            icon="layers-outline"
+                            label={compactMetadataLabel(holdingCompanies.find((holding) => holding.id === biz.holdingCompanyId)?.name ?? 'Holding')}
+                            color={Colors.info}
+                          />
                         )}
                         {biz.acquisition && (
-                          <View style={styles.acquisitionBadge}>
-                            <Ionicons name="git-merge-outline" size={11} color={Colors.primary} />
-                            <Text style={styles.acquisitionBadgeText}>Acquired{risk ? ` • ${risk}` : ''}</Text>
-                          </View>
+                          <StatusPill compact icon="git-merge-outline" label={`Acquired${risk ? ` • ${risk}` : ''}`} color={Colors.primary} />
+                        )}
+                        {(biz.identityTraits ?? []).slice(0, 1).map((trait) => {
+                          const definition = BUSINESS_IDENTITY_DEFINITIONS[trait.id];
+                          return (
+                            <StatusPill
+                              key={trait.id}
+                              compact
+                              icon={definition.icon as any}
+                              label={definition.name}
+                              color={identityColor(definition.color)}
+                            />
+                          );
+                        })}
+                        {(biz.identityTraits?.length ?? 0) > 1 && (
+                          <StatusPill compact label={`+${(biz.identityTraits?.length ?? 1) - 1} identities`} color={Colors.textSecondary} />
                         )}
                       </View>
                     </View>
                     <View style={styles.bizRight}>
-                      {attention && (
-                        <View style={[styles.attentionBadge, biz.pendingDecision?.kind === 'crisis' && styles.crisisAttention]}>
-                          <Text style={styles.attentionText}>!</Text>
-                        </View>
-                      )}
-                      <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+                      <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
                     </View>
                   </View>
 
@@ -337,7 +578,7 @@ export default function BusinessPortfolioScreen() {
                       </Text>
                     </View>
                     <View style={styles.bizStat}>
-                      <Text style={styles.bizStatLabel}>{equityReturn.investmentBasis != null ? 'Lifetime ROI' : 'Reputation'}</Text>
+                      <Text style={styles.bizStatLabel}>{equityReturn.investmentBasis != null ? 'Owner ROI' : 'Reputation'}</Text>
                       <Text style={[styles.bizStatValue, {
                         color: equityReturn.investmentBasis != null
                           ? ((equityReturn.returnPct ?? 0) >= 0 ? Colors.primary : Colors.negative)
@@ -348,60 +589,26 @@ export default function BusinessPortfolioScreen() {
                     </View>
                   </View>
 
-                  {debt > 0 && (
-                    <View style={styles.debtRow}>
-                      <Ionicons name="card-outline" size={13} color={Colors.warning} />
-                      <Text style={styles.debtText}>Outstanding business debt {formatCurrency(debt)}</Text>
+                  {visualStatus.detail && (
+                    <View style={[styles.statusStrip, { borderColor: `${visualStatus.color}55`, backgroundColor: `${visualStatus.color}10` }]}>
+                      <Ionicons name={visualStatus.icon} size={14} color={visualStatus.color} />
+                      <Text style={styles.statusStripText} numberOfLines={2}>{visualStatus.detail}</Text>
+                      {visualStatus.issueCount > 1 && (
+                        <Text style={[styles.statusMore, { color: visualStatus.color }]}>+${visualStatus.issueCount - 1}</Text>
+                      )}
                     </View>
                   )}
 
-                  {biz.pendingDecision && (
-                    <View style={[styles.pendingStrip, biz.pendingDecision.kind === 'crisis' && styles.pendingStripCrisis]}>
-                      <Text style={styles.pendingStripText}>
-                        {biz.pendingDecision.kind === 'crisis' ? 'Crisis' : 'Decision'}: {biz.pendingDecision.title}
-                      </Text>
-                    </View>
-                  )}
-                  {!biz.pendingDecision && biz.acquisition?.integrationStrategy === 'pending' && (
-                    <View style={styles.pendingStrip}>
-                      <Text style={styles.pendingStripText}>Acquisition integration strategy needs a decision.</Text>
-                    </View>
-                  )}
-                  {!biz.pendingDecision && biz.acquisition?.integrationStrategy !== 'pending' && getBusinessReinvestmentUrgency(biz) && (
-                    <View style={styles.pendingStrip}>
-                      <Text style={styles.pendingStripText}>
-                        Reinvestment due: {getBusinessReinvestmentUrgency(biz) === 'technology' ? 'technology' : getBusinessReinvestmentUrgency(biz) === 'premises' ? 'premises' : 'equipment'} is aging.
-                      </Text>
-                    </View>
-                  )}
-                  {!biz.pendingDecision && !getBusinessReinvestmentUrgency(biz) && getBusinessCoverageGaps(biz).length > 0 && (
-                    <View style={styles.pendingStrip}>
-                      <Text style={styles.pendingStripText}>
-                        Coverage gap: {getBusinessCoverageGaps(biz).map((area) => BUSINESS_INSURANCE_AREAS[area].name).join(', ')}.
-                      </Text>
-                    </View>
-                  )}
-                  {!biz.pendingDecision && !getBusinessReinvestmentUrgency(biz) && getBusinessCoverageGaps(biz).length === 0 && isBusinessBudgetReviewDue(biz, currentYear) && (
-                    <View style={styles.pendingStrip}>
-                      <Text style={styles.pendingStripText}>Annual cash-plan review due for Year {currentYear}.</Text>
-                    </View>
-                  )}
-                  {!biz.pendingDecision && !getBusinessReinvestmentUrgency(biz) && getBusinessCoverageGaps(biz).length === 0 && !isBusinessBudgetReviewDue(biz, currentYear) && getBusinessGovernanceAttentionReason(biz) && (
-                    <View style={styles.pendingStrip}>
-                      <Text style={styles.pendingStripText}>{getBusinessGovernanceAttentionReason(biz)}</Text>
-                    </View>
-                  )}
-                  {!biz.pendingDecision && !getBusinessReinvestmentUrgency(biz) && getBusinessCoverageGaps(biz).length === 0 && !isBusinessBudgetReviewDue(biz, currentYear) && !getBusinessGovernanceAttentionReason(biz) && getCorporateWorkforceAttentionReason(biz) && (
-                    <View style={styles.pendingStrip}>
-                      <Text style={styles.pendingStripText}>{getCorporateWorkforceAttentionReason(biz)}</Text>
-                    </View>
-                  )}
-
-                  <View style={styles.bottomRow}>
-                    <View style={styles.automationBar}>
-                      <Text style={styles.automationLabel}>Automation</Text>
+                  <View style={styles.bizFooter}>
+                    {debt > 0 ? (
+                      <StatusPill compact icon="card-outline" label={`Debt ${formatCurrency(debt)}`} color={Colors.warning} />
+                    ) : (
+                      <View />
+                    )}
+                    <View style={styles.automationCompact}>
+                      <Ionicons name="settings-outline" size={12} color={Colors.textMuted} />
                       <View style={styles.automationTrack}>
-                        <View style={[styles.automationFill, { width: `${automation}%` }]} />
+                        <View style={[styles.automationFill, { width: `${automation}%`, backgroundColor: Colors.business }]} />
                       </View>
                       <Text style={styles.automationValue}>{automation}%</Text>
                     </View>
@@ -412,13 +619,36 @@ export default function BusinessPortfolioScreen() {
           })
         )}
 
-        <Pressable
-          style={({ pressed }) => [styles.startButton, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}
-          onPress={() => router.push('/business/start')}
-        >
-          <Ionicons name="add-circle" size={22} color={Colors.white} />
-          <Text style={styles.startButtonText}>Start New Business</Text>
-        </Pressable>
+        {quarterlyManagementReport && annualManagementReport && (
+          <GameCard variant="subtle" eyebrow="MANAGEMENT" title="Empire Report" accentColor={Colors.info}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showEmpireReport }}
+              style={styles.reportToggle}
+              onPress={() => setShowEmpireReport((value) => !value)}
+            >
+              <View style={styles.reportToggleIcon}>
+                <Ionicons name="analytics-outline" size={18} color={Colors.info} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reportToggleTitle}>Corporate KPI report</Text>
+                <Text style={styles.reportToggleText}>Quarterly and annual performance, risks and management signals.</Text>
+              </View>
+              <Ionicons name={showEmpireReport ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textMuted} />
+            </Pressable>
+
+            {showEmpireReport && (
+              <CorporateGroupReportPanel
+                quarterlyReport={quarterlyManagementReport}
+                annualReport={annualManagementReport}
+                period={managementReportPeriod}
+                onPeriodChange={setManagementReportPeriod}
+                onCompanyPress={(businessId) => router.push(`/business/${businessId}`)}
+              />
+            )}
+          </GameCard>
+        )}
+
 
         {recentDeals.length > 0 && (
           <>
@@ -427,7 +657,12 @@ export default function BusinessPortfolioScreen() {
                 <Text style={styles.sectionTitle}>Deal History</Text>
                 <Text style={styles.sectionSub}>Recent exits stay visible after the company leaves your portfolio.</Text>
               </View>
-              <Pressable style={styles.historyLink} onPress={() => router.push('/business/history')}>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={{ top: 8, bottom: 8 }}
+                style={styles.historyLink}
+                onPress={() => router.push('/business/history')}
+              >
                 <Text style={styles.historyLinkText}>View all {soldBusinesses.length}</Text>
                 <Ionicons name="chevron-forward" size={13} color={Colors.info} />
               </Pressable>
@@ -472,30 +707,44 @@ export default function BusinessPortfolioScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 32, gap: 10 },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  summaryCard: { width: '48.5%', minHeight: 88, backgroundColor: Colors.card, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.cardBorder },
-  summaryLabel: { color: Colors.textSecondary, fontSize: 10, fontWeight: '700' },
-  summaryValue: { fontSize: 16, fontWeight: '900', marginTop: 4 },
-  summaryFoot: { color: Colors.textMuted, fontSize: 9, marginTop: 5 },
+  empireValueBlock: { marginBottom: 13 },
+  empireValueLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  empireValue: { color: Colors.info, fontSize: 28, lineHeight: 34, fontWeight: '900', marginTop: 1 },
+  empireEquity: { color: Colors.textSecondary, fontSize: 10, marginTop: 1 },
+  empireMetrics: { flexDirection: 'row', gap: 7, marginBottom: 10 },
+  empireMetric: { flex: 1, minWidth: 0, backgroundColor: Colors.elevated, borderRadius: 9, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 8, paddingVertical: 8 },
+  empireMetricLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.35 },
+  empireMetricValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '900', marginTop: 3 },
+  empirePulse: { minHeight: 32, borderRadius: 9, backgroundColor: `${Colors.primary}0D`, borderWidth: 1, borderColor: `${Colors.primary}33`, paddingHorizontal: 9, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  empirePulseAttention: { backgroundColor: `${Colors.warning}0D`, borderColor: `${Colors.warning}33` },
+  empirePulseText: { flex: 1, color: Colors.textSecondary, fontSize: 10, lineHeight: 14, fontWeight: '700' },
+  empireActions: { flexDirection: 'row', gap: 7, marginTop: -1, marginBottom: 2 },
+  empireAction: { flex: 1, minWidth: 0, minHeight: 82, backgroundColor: Colors.card, borderRadius: 11, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 7, paddingVertical: 9, alignItems: 'center', justifyContent: 'center' },
+  empireActionIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
+  empireActionTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
+  empireActionSub: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 1 },
+  portfolioAutoRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, borderRadius: 11, paddingHorizontal: 10, paddingVertical: 9 },
+  portfolioAutoRowActive: { borderColor: `${Colors.primary}55`, backgroundColor: `${Colors.primary}0A` },
+  portfolioAutoIcon: { width: 34, height: 34, borderRadius: 9, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  portfolioAutoIconActive: { backgroundColor: `${Colors.primary}14` },
+  portfolioAutoTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  portfolioAutoTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
+  portfolioAutoText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 3 },
+  inboxIntro: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginBottom: 7 },
+  inboxList: { gap: 2 },
+  inboxRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
+  inboxIcon: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  inboxTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  inboxBusiness: { flex: 1, color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
+  inboxType: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase' },
+  inboxDetail: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 2 },
+  inboxDisclosure: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 5 },
+  inboxDisclosureText: { color: Colors.info, fontSize: 10, fontWeight: '800' },
   emptyState: { alignItems: 'center', paddingVertical: 28 },
   emptyTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', marginTop: 12 },
   emptySubtitle: { color: Colors.textSecondary, fontSize: 13, marginTop: 4, textAlign: 'center' },
-  capitalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pulseHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  capitalIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#17263A', justifyContent: 'center', alignItems: 'center' },
-  capitalTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
-  capitalSub: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 3 },
-  pulseBadge: { borderRadius: 12, backgroundColor: '#17263A', paddingHorizontal: 9, paddingVertical: 6 },
-  pulseBadgeText: { color: Colors.info, fontSize: 10, fontWeight: '800' },
-  capitalActions: { gap: 8, marginTop: 12 },
-  capitalButton: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 48, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9 },
-  capitalButtonLocked: { opacity: 0.75 },
-  capitalButtonTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
-  capitalButtonSub: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
   sectionTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
   sectionSub: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
@@ -504,42 +753,33 @@ const styles = StyleSheet.create({
   historyLinkText: { color: Colors.info, fontSize: 10, fontWeight: '800' },
   sortRow: { gap: 7, paddingVertical: 1 },
   sortChip: { minHeight: 32, borderRadius: 16, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, paddingHorizontal: 10, flexDirection: 'row', gap: 5, alignItems: 'center' },
-  sortChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  sortChipActive: { backgroundColor: Colors.business, borderColor: Colors.business },
   sortChipText: { color: Colors.textSecondary, fontSize: 10, fontWeight: '800' },
   sortChipTextActive: { color: Colors.white },
-  bizHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  bizArtwork: { width: 56, height: 56 },
-  bizInfo: { flex: 1 },
+  bizHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  bizArtwork: { width: 52, height: 52 },
+  bizInfo: { flex: 1, minWidth: 0 },
   bizName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   bizLevel: { color: Colors.textSecondary, fontSize: 11, marginTop: 2 },
+  primaryStatus: { marginTop: 5 },
   badgeLine: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 5 },
-  familyBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, backgroundColor: `${Colors.warning}15` },
-  familyBadgeText: { color: Colors.warning, fontSize: 8, fontWeight: '800' },
-  holdingBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, backgroundColor: '#17263A' },
-  holdingBadgeText: { color: Colors.info, fontSize: 8, fontWeight: '800', maxWidth: 110 },
-  acquisitionBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, backgroundColor: `${Colors.primary}12` },
-  acquisitionBadgeText: { color: Colors.primary, fontSize: 8, fontWeight: '800', textTransform: 'capitalize' },
-  bizRight: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  attentionBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: `${Colors.warning}22`, borderWidth: 1, borderColor: Colors.warning, alignItems: 'center', justifyContent: 'center' },
-  crisisAttention: { backgroundColor: `${Colors.negative}22`, borderColor: Colors.negative },
-  attentionText: { color: Colors.white, fontSize: 11, fontWeight: '900' },
+  bizRight: { width: 22, alignItems: 'flex-end', paddingTop: 15 },
   bizStats: { flexDirection: 'row', marginTop: 12, gap: 8 },
   bizStat: { flex: 1 },
   bizStatLabel: { color: Colors.textMuted, fontSize: 9 },
   bizStatValue: { fontSize: 12, fontWeight: '800', marginTop: 2 },
-  debtRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
-  debtText: { color: Colors.warning, fontSize: 9, fontWeight: '700' },
-  pendingStrip: { backgroundColor: `${Colors.warning}10`, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6, marginTop: 9 },
-  pendingStripCrisis: { backgroundColor: `${Colors.negative}10` },
-  pendingStripText: { color: Colors.textSecondary, fontSize: 10, fontWeight: '700' },
-  bottomRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 8 },
-  automationBar: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  automationLabel: { color: Colors.textMuted, fontSize: 10 },
+  statusStrip: { minHeight: 34, borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 7, marginTop: 9, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusStripText: { flex: 1, color: Colors.textSecondary, fontSize: 9, lineHeight: 13, fontWeight: '700' },
+  statusMore: { fontSize: 9, fontWeight: '900' },
+  bizFooter: { minHeight: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 9 },
+  automationCompact: { flex: 1, maxWidth: 132, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5 },
   automationTrack: { flex: 1, height: 4, backgroundColor: Colors.elevated, borderRadius: 2 },
-  automationFill: { height: 4, backgroundColor: Colors.primary, borderRadius: 2 },
+  automationFill: { height: 4, backgroundColor: Colors.business, borderRadius: 2 },
   automationValue: { color: Colors.textSecondary, fontSize: 10, fontWeight: '600', width: 30, textAlign: 'right' },
-  startButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, padding: 15 },
-  startButtonText: { color: Colors.white, fontSize: 15, fontWeight: '800' },
+  reportToggle: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  reportToggleIcon: { width: 34, height: 34, borderRadius: 9, backgroundColor: `${Colors.info}12`, alignItems: 'center', justifyContent: 'center' },
+  reportToggleTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
+  reportToggleText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 2 },
   dealList: { gap: 0 },
   dealRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6 },
   dealIcon: { width: 30, height: 30, borderRadius: 9, backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center' },

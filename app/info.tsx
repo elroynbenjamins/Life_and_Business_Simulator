@@ -1,139 +1,72 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
+import TutorialLauncher from '../src/components/TutorialLauncher';
 import useGameStore from '../src/store/gameStore';
 
 const sections = [
-  {
-    title: 'Time System',
-    icon: '⏰',
-    content: 'Tap "Advance to Next Week" to process income, expenses, careers, education, investments, businesses, properties and events. Every 20 weeks equals one in-game year; your age increases and inflation is updated.',
-  },
-  {
-    title: 'Taxes',
-    icon: '🧾',
-    content: 'A tax bill is charged every 20 weeks based on the career salary earned during that period. The Dashboard shows a countdown to the next assessment. Keep cash available: the bill is deducted automatically and appears in the 20-week report.',
-  },
-  {
-    title: 'Career',
-    icon: '💼',
-    content: 'Complete a matching course and meet skill, knowledge, experience, vehicle and housing requirements to apply. Performance checks occur every 5 weeks and successful D20 rolls increase promotion progress. Each level allows up to five 3% performance raises; inflation continues separately. Levels 3–4 require a Studio Apartment and Sedan, level 5 a Small House, level 6 a Family House, and level 7 a Luxury Villa. Levels 5+ also require an SUV or better.',
-  },
-  {
-    title: 'Education',
-    icon: '📚',
-    content: 'Courses unlock career paths and award skills and knowledge. Basic courses are available immediately; advanced courses require 75 worked weeks and expert courses require 150. Advanced and expert courses also require their preceding course. A part-time job slows study progress by 25%.',
-  },
-  {
-    title: 'Stock Market',
-    icon: '📈',
-    content: 'Buy and sell stocks, ETFs and commodities. Prices update weekly based on volatility, sectors, news and market events. ETFs generally have smaller swings. Some finance assets pay dividends every 20 weeks. Portfolio reports show realized and unrealized profit or loss.',
-  },
-  {
-    title: 'Market Events',
-    icon: '📰',
-    content: 'Market sentiment and temporary events can affect sectors and individual assets for several weeks. Check News before trading: a broad event can help one industry while hurting another.',
-  },
-  {
-    title: 'Businesses',
-    icon: '🏢',
-    content: 'Found a business, hire employees, choose pricing and advertising, and buy unique upgrades. Every new business starts with 10% market share and three competitors. Reputation increases customer demand, protects against rivals, affects valuation, unlocks business levels, and is required to open local, national, and international locations. Every location adds revenue capacity and recurring operating costs.',
-  },
-  {
-    title: 'Business Morale & Reputation',
-    icon: '👥',
-    content: 'Employee morale affects your team. Team morale actions cost cash. Reputation and market share influence business performance, event choices and valuation.',
-  },
-  {
-    title: 'Business Value',
-    icon: '🏷️',
-    content: 'A profitable business is valued at 1.5× its available balance plus 2–5× its total net profit from the latest 20 weeks. Reputation determines the profit multiple. If those 20 weeks produce a loss, valuation equals the available non-negative business balance.',
-  },
-  {
-    title: 'Lifestyle',
-    icon: '🚗',
-    content: 'Housing, food and vehicles create weekly expenses. Food starts at €50 per week at job level 1 and increases by €25 per job level. Better vehicles can unlock career promotions. A purchased vehicle is delivered after advancing one week; the purchase cost and any eligible trade-in value are applied immediately. Keep enough cash for recurring rent, utilities, food and running costs.',
-  },
-  {
-    title: 'Properties',
-    icon: '🏠',
-    content: 'Buy investment properties, renovate them to increase value, and rent them out for weekly income. Property values can appreciate, but maintenance remains a weekly cost, so compare net rental income rather than rent alone.',
-  },
-  {
-    title: 'Loans',
-    icon: '💳',
-    content: 'Take up to three personal loans at once while employed. Payments are deducted weekly and loans can be repaid early. Business loans are separate and belong to the business. Debt increases weekly expenses and reduces financial flexibility.',
-  },
-  {
-    title: 'Prestige & Achievements',
-    icon: '⭐',
-    content: 'Achievements award Prestige Points and sometimes gems. Spend PP on permanent, multi-level bonuses such as salary, study speed, business performance and tax reduction. Connected nodes unlock in order, and effects from unlocked levels are cumulative.',
-  },
-  {
-    title: 'Gems',
-    icon: '💎',
-    content: 'Earn gems from difficult achievements or receive 10 gems for watching a rewarded ad. Gems can be converted to in-game cash at €100 per gem through the Support screen.',
-  },
-  {
-    title: 'Inflation',
-    icon: '📉',
-    content: 'Inflation updates every 20 weeks. Many prices, recurring costs and salaries rise with the inflation multiplier, so both income and expenses change as the game progresses.',
-  },
-  {
-    title: 'Cash, Net Worth & Statistics',
-    icon: '📊',
-    content: 'Cash pays immediate bills; net worth also includes investments, properties and businesses, minus debts. The Statistics tab tracks lifetime results such as income, taxes, stock purchases and business performance.',
-  },
+  { title: 'Your First Steps', content: 'The optional guided introduction teaches one weekly loop on the real screens. Completed lessons stay completed; replaying never changes your game. During Year 1, Home also shows a separate live journey covering education, income, a cash buffer, graduation, transport and your first career. These are suggestions, not restrictions.' },
+  { title: 'Time, reports and taxes', content: 'Advance to Next Week processes income, costs, education, careers, investments, businesses and events. Every 20 weeks is an in-game year. Age and inflation change as years pass. Tax is assessed on applicable earnings separately from recurring weekly costs. Keep cash available. Annual reports are saved and can be opened from Home instead of requiring another pop-up.' },
+  { title: 'Cash, net worth and Statistics', content: 'Cash pays immediate bills. Net worth also includes investments, property and business interests, minus debts. A high net worth does not mean that amount is available to spend. Statistics tracks results such as earnings, taxes and business performance.' },
+  { title: 'Education and student work', content: 'Choose a Basics course that matches a career direction. Compare its upfront cost, recurring cost and duration. Advanced and Expert courses require their preceding course and employment experience. Career offers Flexible Part-Time and higher-paying High-Hours Part-Time: compare the displayed pay and extra study time. Both are tax-free in this game. Education boosts are optional; normal weekly study always remains available.' },
+  { title: 'Career and promotion requirements', content: 'Complete matching education and meet the displayed skill, knowledge, experience, vehicle and housing requirements before applying. Open a career path to review its positions and application options. Better positions may require further education and upgraded transport or housing. Performance checks and promotion progress are shown on Career.' },
+  { title: 'Lifestyle: Housing and Transport', content: 'Housing, food and vehicles create recurring costs. Use Housing and Transport to compare their separate options. Vehicles may unlock career positions, but also cost money to run. Purchased vehicles arrive after advancing a week; purchase and eligible trade-in amounts apply immediately. Review recurring costs as well as the sticker price.' },
+  { title: 'Market, news and your portfolio', content: 'Inspect assets before buying. Market prices change weekly with volatility, sectors, news and events; gains are not guaranteed. Some assets pay dividends. Your portfolio distinguishes realized results from gains or losses on positions you still hold. News can help explain moves. You do not need to make a trade to complete the introductory guide.' },
+  { title: 'Investment properties', content: 'Investment properties are separate from your personal housing. Inspect purchase costs, rental income and maintenance. Renovation and rental decisions affect their results. Compare net income rather than rent alone, and keep cash available for ongoing costs.' },
+  { title: 'Loans and deposits', content: 'Personal loans have eligibility requirements and weekly payments. Taking a loan is optional, not a tutorial requirement. Business debt belongs to the business and should be reviewed separately. Deposits commit cash for their displayed term, so keep enough available for bills.' },
+  { title: 'Your first business', content: 'Starting a business is only the beginning. Review its balance, staffing, demand and recurring costs before expanding. Pricing, advertising, morale, reputation, upgrades and projects affect results. Company cash is not the same as personal spending money. Business slots and project or upgrade slots are different limits.' },
+  { title: 'Business strategy, automation and value', content: 'Strategic decisions can affect several weeks of results. Review costs, duration and consequences before choosing. Where available, automatic decisions and delegation reduce manual choices; they do not remove business risks. Valuation is an estimate of business value, not cash that can be spent immediately. Compare operating results and debt as well as the valuation.' },
+  { title: 'Acquisitions and Holdings', content: 'Acquisitions include financing and integration considerations. A Holding groups subsidiaries and maintains its own cash reserve. Treasury settings control protected reserves, management fees, distributions and capital allocation. Review the available amount and the transaction preview before moving money. Management fees move money within the group; they are not free new income.' },
+  { title: 'Achievements and Prestige', content: 'Achievements recognize progress across the available systems. Inspect each achievement for its rewards and requirements, and pin goals you want to work toward. Prestige bonuses are permanent progression; review their level requirements and PP or gem costs before spending. Replaying a tutorial does not grant any additional rewards.' },
+  { title: 'Gems and optional boosts', content: 'Support shows available gem rewards, purchases and benefits. Education and business screens explain their own optional boosts and slot options. Costs, availability and daily limits are displayed with those actions. The guided introduction never requires watching an ad, spending gems or making a purchase.' },
+  { title: 'Personal Life and succession', personal: true, content: 'Personal Life adds optional relationships, household decisions and family progression. Choices can affect shared costs, time and future plans. Later, review estate assets, successor choices and settlement costs carefully during succession. These systems are introduced separately from the basic education-and-income opening.' },
 ];
 
 export default function InfoScreen() {
   const router = useRouter();
-  const openTutorial = useGameStore((state) => state.openTutorial);
-
+  const personalLife = useGameStore((state) => state.relationshipModeEnabled);
+  const [expanded, setExpanded] = useState<string | null>(null);
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}>
           <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>How To Play</Text>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 44 }} />
       </View>
-
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.intro}>
-          Life Empire is an economic life simulation. Start at age 20 with €10,000 and build your career, invest in stocks, start businesses, and grow your wealth.
-        </Text>
-
-        <Pressable style={styles.tutorialButton} onPress={openTutorial}>
-          <Ionicons name="play-circle-outline" size={21} color={Colors.white} />
-          <Text style={styles.tutorialButtonText}>Replay introductory tutorial</Text>
-        </Pressable>
-
-        {sections.map((s) => (
-          <GameCard key={s.title}>
-            <Text style={styles.sectionTitle}>{s.icon} {s.title}</Text>
-            <Text style={styles.sectionContent}>{s.content}</Text>
-          </GameCard>
-        ))}
+        <Text style={styles.intro}>Build a career, invest, run businesses or explore Personal Life. Start with one loop; learn other systems when you need them.</Text>
+        <TutorialLauncher />
+        <Text style={styles.chapterHint}>Open a chapter for its explanation. These chapters are reference help; the guided opening uses the real screens.</Text>
+        {sections.filter((section) => !section.personal || personalLife).map((section) => {
+          const open = expanded === section.title;
+          return <GameCard key={section.title} compact>
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} style={styles.chapterHeader} onPress={() => setExpanded(open ? null : section.title)}>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textMuted} />
+            </Pressable>
+            {open && <Text style={styles.sectionContent}>{section.content}</Text>}
+          </GameCard>;
+        })}
       </ScrollView>
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8 },
+  back: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 40 },
   intro: { color: Colors.textSecondary, fontSize: 14, lineHeight: 22, marginBottom: 16 },
-  tutorialButton: { minHeight: 52, borderRadius: 12, backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginBottom: 16 },
-  tutorialButtonText: { color: Colors.white, fontSize: 15, fontWeight: '800' },
-  sectionTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 6 },
-  sectionContent: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
+  chapterHint: { color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 12 },
+  chapterHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sectionTitle: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  sectionContent: { color: Colors.textSecondary, fontSize: 14, lineHeight: 21, marginTop: 6, marginBottom: 6 },
 });

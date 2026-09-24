@@ -303,7 +303,7 @@ export function createCorporateWorkforce(
     trainingPolicy: 'standard',
     employeeRelations: 70,
     laborMarketPressure: 50,
-    nextHrEventWeek: Math.max(1, globalWeek) + 12,
+    nextHrEventWeek: Math.max(1, globalWeek) + 18,
     lastHrEventWeek: 0,
     recentTurnover: 0,
     lastPolicyChangeWeek: 0,
@@ -349,7 +349,7 @@ export function normalizeCorporateWorkforce(
     trainingPolicy: fallback.trainingPolicy ?? 'standard',
     employeeRelations: clamp(fallback.employeeRelations ?? 70, 0, 100),
     laborMarketPressure: clamp(fallback.laborMarketPressure ?? 50, 20, 90),
-    nextHrEventWeek: Math.max(1, fallback.nextHrEventWeek ?? (globalWeek + 12)),
+    nextHrEventWeek: Math.max(1, fallback.nextHrEventWeek ?? (globalWeek + 18)),
     lastHrEventWeek: Math.max(0, fallback.lastHrEventWeek ?? 0),
     recentTurnover: Math.max(0, fallback.recentTurnover ?? 0),
     lastPolicyChangeWeek: Math.max(0, fallback.lastPolicyChangeWeek ?? 0),
@@ -732,7 +732,7 @@ export function scheduleNextCorporateHrEvent(
   return {
     ...workforce,
     lastHrEventWeek: Math.max(1, globalWeek),
-    nextHrEventWeek: Math.max(1, globalWeek) + 10 + Math.floor(Math.random() * 7),
+    nextHrEventWeek: Math.max(1, globalWeek) + 16 + Math.floor(Math.random() * 9),
   };
 }
 

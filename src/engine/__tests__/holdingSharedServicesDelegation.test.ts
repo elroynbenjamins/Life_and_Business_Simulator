@@ -1,11 +1,21 @@
 import {
   applyDelegatedBusinessRoutine,
   createBusiness,
+  getDelegationManagerEffectiveness,
+  getEffectiveDelegationPolicyConfig,
+  getHoldingSharedServiceUpgradeEconomics,
   getHoldingSynergyProfile,
+  processAllBusinesses,
 } from '../businessEngine';
 import {
   EMPTY_HOLDING_SHARED_SERVICES,
+  canChargeHoldingManagementFee,
+  getHoldingAvailableDistributionCash,
+  getHoldingCapitalAllocationPreview,
+  getHoldingManagementFeeForWeek,
+  getHoldingReserveTarget,
   getHoldingSharedServiceEffects,
+  normalizeHoldingReserveTargetWeeks,
   getHoldingSharedServiceUpgradeCost,
 } from '../holdingCompanyEngine';
 import { HoldingCompany, OwnedBusiness } from '../../types/game';
@@ -100,6 +110,156 @@ describe('holding shared services and delegated management', () => {
     jest.restoreAllMocks();
   });
 
+  test('management fees cannot bypass minority shareholder distributions', () => {
+    const whollyOwned = makeManagedBusiness();
+    expect(canChargeHoldingManagementFee(whollyOwned)).toBe(true);
+
+    const coOwned = {
+      ...makeManagedBusiness(),
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside Investors', percent: 20, votingPercent: 20 },
+      ],
+    };
+    expect(canChargeHoldingManagementFee(coOwned)).toBe(false);
+  });
+
+  test('co-owned held subsidiaries still route player dividends to the holding exactly once', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const holding = makeHolding({ managementFeeRate: 0.03 });
+    const business = {
+      ...makeManagedBusiness(),
+      delegationPolicy: 'manual' as const,
+      balance: 10_000_000,
+      advertisingLevel: 'none' as const,
+      pricingStrategy: 'standard' as const,
+      budgetPlan: {
+        profile: 'shareholder_returns' as const,
+        targetReserveWeeks: 6,
+        dividendPct: 0.55,
+        debtPaydownPct: 0.15,
+        reinvestmentPct: 0.20,
+        growthPct: 0.10,
+        reviewYear: 2,
+      },
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside', percent: 20, votingPercent: 20 },
+      ],
+    };
+
+    const result = processAllBusinesses([business], 1, 5, 2, {}, [holding]);
+    const playerDividend = result.ownershipDistributions
+      .filter((distribution) => distribution.ownerType === 'player')
+      .reduce((sum, distribution) => sum + distribution.amount, 0);
+    const investorDividend = result.ownershipDistributions
+      .filter((distribution) => distribution.ownerType === 'investor')
+      .reduce((sum, distribution) => sum + distribution.amount, 0);
+    const holdingFlow = result.holdingCashFlows.find((flow) => flow.holdingCompanyId === holding.id);
+
+    expect(playerDividend).toBeGreaterThan(0);
+    expect(investorDividend).toBeGreaterThan(0);
+    expect(result.totalDividend).toBe(0);
+    expect(holdingFlow?.dividends).toBe(playerDividend);
+    expect(holdingFlow?.managementFees).toBe(0);
+  });
+
+  test('management fee requires profit and respects protected cash plus profit cap', () => {
+    const holding = makeHolding({ managementFeeRate: 0.03 });
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 80_000, 950_000)).toBe(3_000);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 951_000, 80_000, 950_000)).toBe(1_000);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 900_000, 80_000, 950_000)).toBe(0);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 95_000, 0)).toBe(1_750);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 100_000, 0)).toBe(0);
+    expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 110_000, 0)).toBe(0);
+  });
+
+  test('holding capital allocation preview compares liquidity with debt prepayment economics', () => {
+    const business = {
+      ...makeManagedBusiness(),
+      balance: 200_000,
+      lastWeekExpenses: 100_000,
+      businessLoans: [{
+        id: 'allocation-debt',
+        amount: 500_000,
+        remainingAmount: 550_000,
+        weeklyPayment: 55_000,
+        weeksRemaining: 10,
+        interestRate: 0.10,
+        purpose: 'operating' as const,
+      }],
+    };
+
+    const preview = getHoldingCapitalAllocationPreview(business, 200_000, 1);
+
+    expect(preview.growth.protectedCash).toBe(800_000);
+    expect(preview.growth.reserveGapBefore).toBe(600_000);
+    expect(preview.growth.reserveGapAfter).toBe(400_000);
+    expect(preview.growth.reserveGapReduction).toBe(200_000);
+    expect(preview.growth.protectedCoverageBefore).toBeCloseTo(0.25);
+    expect(preview.growth.protectedCoverageAfter).toBeCloseTo(0.5);
+    expect(preview.growth.additionalRunwayWeeks).toBeCloseTo(2);
+
+    expect(preview.debt.cashUsed).toBe(200_000);
+    expect(preview.debt.principalRepaid).toBe(200_000);
+    expect(preview.debt.principalBefore).toBe(500_000);
+    expect(preview.debt.principalAfter).toBe(300_000);
+    expect(preview.debt.futureInterestAvoided).toBe(20_000);
+    expect(preview.debt.weeklyDebtServiceBefore).toBe(55_000);
+    expect(preview.debt.weeklyDebtServiceAfter).toBe(33_000);
+    expect(preview.debt.weeklyDebtServiceReduction).toBe(22_000);
+    expect(preview.debt.principalReductionPct).toBeCloseTo(0.4);
+    expect(preview.ownership.playerOwnershipPct).toBe(100);
+    expect(preview.growth.minorityValueTransfer).toBe(0);
+    expect(preview.debt.minorityValueTransfer).toBe(0);
+  });
+
+  test('holding capital preview exposes value transferred to minority owners', () => {
+    const business = {
+      ...makeManagedBusiness(),
+      balance: 200_000,
+      lastWeekExpenses: 100_000,
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside', percent: 20, votingPercent: 20 },
+      ],
+      businessLoans: [{
+        id: 'minority-debt',
+        amount: 500_000,
+        remainingAmount: 550_000,
+        weeklyPayment: 55_000,
+        weeksRemaining: 10,
+        interestRate: 0.10,
+        purpose: 'operating' as const,
+      }],
+    };
+
+    const preview = getHoldingCapitalAllocationPreview(business, 200_000, 1);
+
+    expect(preview.ownership.playerOwnershipPct).toBe(80);
+    expect(preview.ownership.minorityOwnershipPct).toBe(20);
+    expect(preview.growth.minorityValueTransfer).toBe(40_000);
+    expect(preview.debt.minorityValueTransfer).toBe(40_000);
+  });
+
+  test('holding reserve defaults to a four-week group contingency buffer', () => {
+    expect(normalizeHoldingReserveTargetWeeks(undefined)).toBe(4);
+    expect(normalizeHoldingReserveTargetWeeks(null)).toBe(4);
+  });
+
+  test('holding reserve target protects owner distributions without locking strategic capital', () => {
+    const holding = makeHolding({ cashReserve: 500_000, reserveTargetWeeks: 8 });
+    const first = makeManagedBusiness();
+    first.lastWeekExpenses = 20_000;
+    const second = { ...makeManagedBusiness(), id: 'managed-2', lastWeekExpenses: 10_000 };
+
+    expect(getHoldingReserveTarget(holding, [first, second])).toBe(240_000);
+    expect(getHoldingAvailableDistributionCash(holding, [first, second])).toBe(260_000);
+
+    const disabled = { ...holding, reserveTargetWeeks: 0 };
+    expect(getHoldingAvailableDistributionCash(disabled, [first, second])).toBe(500_000);
+  });
+
   test('shared-service upgrade costs double by level and use inflation', () => {
     const holding = makeHolding();
     expect(getHoldingSharedServiceUpgradeCost(holding, 'marketing', 1)).toBe(2_000_000);
@@ -123,6 +283,64 @@ describe('holding shared services and delegated management', () => {
     expect(effects.crisisReduction).toBeLessThanOrEqual(0.08);
   });
 
+  test('shared-service upgrade economics estimate marginal capped benefit and payback', () => {
+    const business = {
+      ...makeManagedBusiness(),
+      delegationPolicy: 'manual' as const,
+      lastWeekRevenue: 100_000,
+      lastWeekExpenses: 80_000,
+    };
+    const holding = makeHolding();
+
+    const economics = getHoldingSharedServiceUpgradeEconomics(
+      holding,
+      [business],
+      'marketing',
+      1,
+    );
+
+    expect(economics.cost).toBe(2_000_000);
+    expect(economics.currentLevel).toBe(0);
+    expect(economics.nextLevel).toBe(1);
+    expect(economics.affectedSubsidiaries).toBe(1);
+    expect(economics.weeklyFinancialBenefit).toBe(500);
+    expect(economics.revenueBonusDelta).toBeCloseTo(0.005);
+    expect(economics.paybackWeeks).toBe(4_000);
+  });
+
+  test('shared-service payback excludes payroll, financing costs and taxes from savings', () => {
+    const business = {
+      ...makeManagedBusiness(),
+      delegationPolicy: 'manual' as const,
+      lastWeekRevenue: 100_000,
+      lastWeekExpenses: 100_000,
+      lastExpenseBreakdown: {
+        rent: 0,
+        salaries: 20_000,
+        cogs: 50_000,
+        utilities: 0,
+        marketing: 0,
+        insurance: 0,
+        maintenance: 0,
+        taxes: 20_000,
+        loanInterest: 10_000,
+        misc: 0,
+      },
+    };
+    const holding = makeHolding();
+
+    const economics = getHoldingSharedServiceUpgradeEconomics(
+      holding,
+      [business],
+      'procurement',
+      1,
+    );
+
+    expect(economics.expenseReductionDelta).toBeCloseTo(0.006);
+    expect(economics.weeklyFinancialBenefit).toBe(300);
+    expect(economics.paybackWeeks).toBe(Math.ceil(2_500_000 / 300));
+  });
+
   test('shared services benefit even a single subsidiary without inventing organic synergies', () => {
     const business = {
       ...makeManagedBusiness(),
@@ -139,6 +357,99 @@ describe('holding shared services and delegated management', () => {
     expect(profile.serviceExpenseReduction).toBeCloseTo(0.012);
     expect(profile.revenueBonus).toBeCloseTo(0.015);
     expect(profile.expenseReduction).toBeCloseTo(0.012);
+  });
+
+  test('organic holding synergies scale down after mixed or failed acquisition integration', () => {
+    const holding = makeHolding();
+    const sibling = { ...makeManagedBusiness(), id: 'sibling', delegationPolicy: 'manual' as const };
+    const base = { ...makeManagedBusiness(), id: 'acquired', delegationPolicy: 'manual' as const };
+
+    const withOutcome = (outcome: 'success' | 'mixed' | 'failed') => ({
+      ...base,
+      acquisition: {
+        integrationStrategy: 'integrate',
+        integrationOutcome: outcome,
+        integrationWeeksRemaining: 0,
+      } as any,
+    });
+
+    const successBusiness = withOutcome('success');
+    const mixedBusiness = withOutcome('mixed');
+    const failedBusiness = withOutcome('failed');
+
+    const success = getHoldingSynergyProfile(successBusiness, [successBusiness, sibling], [holding]);
+    const mixed = getHoldingSynergyProfile(mixedBusiness, [mixedBusiness, sibling], [holding]);
+    const failed = getHoldingSynergyProfile(failedBusiness, [failedBusiness, sibling], [holding]);
+
+    expect(success.revenueBonus).toBeGreaterThan(mixed.revenueBonus);
+    expect(mixed.revenueBonus).toBeGreaterThan(failed.revenueBonus);
+    expect(success.expenseReduction).toBeGreaterThan(mixed.expenseReduction);
+    expect(mixed.expenseReduction).toBeGreaterThan(failed.expenseReduction);
+  });
+
+  test('Follow Strategy delegation inherits the company strategic focus', () => {
+    const growth = makeManagedBusiness();
+    growth.delegationPolicy = 'balanced';
+    growth.strategicFocus = 'growth';
+    const growthConfig = getEffectiveDelegationPolicyConfig(growth, 'balanced');
+
+    const margin = makeManagedBusiness();
+    margin.delegationPolicy = 'balanced';
+    margin.strategicFocus = 'margin';
+    const marginConfig = getEffectiveDelegationPolicyConfig(margin, 'balanced');
+
+    expect(growthConfig.advertising).toBe('aggressive');
+    expect(growthConfig.targetStaffRatio).toBeGreaterThan(marginConfig.targetStaffRatio);
+    expect(marginConfig.pricing).toBe('premium');
+    expect(marginConfig.reserveWeeks).toBeGreaterThan(growthConfig.reserveWeeks);
+  });
+
+  test('delegation manager effectiveness uses skill, morale and experience with bounded behavior', () => {
+    const business = makeManagedBusiness();
+    const strongManager = business.employees.find((employee) => employee.id === 'manager_1')!;
+    const strong = getDelegationManagerEffectiveness(strongManager);
+
+    expect(strong.label).toBe('Strong');
+    expect(strong.reviewWeeks).toBe(4);
+    expect(strong.maxAdvertising).toBe('aggressive');
+
+    const elite = getDelegationManagerEffectiveness({
+      ...strongManager,
+      skill: 100,
+      morale: 95,
+      experience: 100,
+    });
+    expect(elite.label).toBe('Elite');
+    expect(elite.reviewWeeks).toBe(3);
+    expect(elite.staffingAdjustment).toBeGreaterThan(0);
+
+    const developing = getDelegationManagerEffectiveness({
+      ...strongManager,
+      skill: 35,
+      morale: 45,
+      experience: 20,
+    });
+    expect(developing.label).toBe('Developing');
+    expect(developing.reviewWeeks).toBe(5);
+    expect(developing.maxAdvertising).toBe('basic');
+    expect(developing.staffingAdjustment).toBeLessThan(0);
+  });
+
+  test('developing delegated manager caps aggressive policy execution', () => {
+    const business = makeManagedBusiness();
+    business.delegationPolicy = 'growth';
+    business.balance = 500_000;
+    business.employees = business.employees.map((employee) =>
+      employee.id === 'manager_1'
+        ? { ...employee, skill: 35, morale: 45, experience: 20 }
+        : employee
+    );
+
+    const reviewed = applyDelegatedBusinessRoutine(business, 1, 5, 2, 'boom');
+
+    expect(reviewed.advertisingLevel).toBe('basic');
+    expect(reviewed.lastDelegationSummary).toContain('developing management');
+    expect(reviewed.lastDelegationSummary).toContain('execution capacity');
   });
 
   test('growth delegation reviews every four weeks and can hire toward its staffing target', () => {
@@ -184,6 +495,22 @@ describe('holding shared services and delegated management', () => {
     const reviewed = applyDelegatedBusinessRoutine(noCrisis, 1, 6, 2);
     expect(reviewed.advertisingLevel).toBe('basic');
     expect(reviewed.lastDelegationSummary).toContain('protected cash reserves');
+  });
+
+  test('delegation becomes more defensive in recession and more active in boom', () => {
+    const recessionBusiness = makeManagedBusiness();
+    recessionBusiness.balance = 200_000;
+    const recession = applyDelegatedBusinessRoutine(recessionBusiness, 1, 5, 2, 'recession');
+
+    const boomBusiness = makeManagedBusiness();
+    boomBusiness.balance = 200_000;
+    const boom = applyDelegatedBusinessRoutine(boomBusiness, 1, 5, 2, 'boom');
+
+    expect(recession.advertisingLevel).toBe('moderate');
+    expect(recession.pricingStrategy).toBe('budget');
+    expect(recession.lastDelegationSummary).toContain('recession');
+    expect(boom.advertisingLevel).toBe('aggressive');
+    expect(boom.lastDelegationSummary).toContain('strong demand');
   });
 
   test('delegation pauses cleanly when the appointed manager is no longer available', () => {

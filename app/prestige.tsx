@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
+import ScreenHeader from '../src/components/ScreenHeader';
+import StatusPill from '../src/components/StatusPill';
 import useGameStore from '../src/store/gameStore';
 import { getPrestigeBonuses } from '../src/engine/prestigeEngine';
 import { showGameDialog } from '../src/components/GameDialog';
@@ -69,32 +71,48 @@ export default function PrestigeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Prestige Tree</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <ScreenHeader
+        title="Prestige Tree"
+        subtitle="Permanent account-wide progression"
+        showBack
+        onBack={() => router.back()}
+        accentColor={Colors.premium}
+      />
 
-      <View style={styles.currencyRow}>
-        <View style={[styles.pointsBar, { flex: 1, marginHorizontal: 0 }]}>
-          <Ionicons name="star" size={20} color="#F59E0B" />
-          <Text style={styles.pointsText}>{profile?.prestigePoints ?? 0} PP</Text>
-        </View>
-        <View style={styles.gemsBar}>
-          <Ionicons name="diamond" size={18} color="#A78BFA" />
-          <Text style={styles.gemsText}>{profile?.gems ?? 0} Gems</Text>
-        </View>
+      <View style={styles.prestigeHeroWrap}>
+        <GameCard
+          variant="hero"
+          eyebrow="PRESTIGE RESOURCES"
+          title="Permanent progression"
+          accentColor={Colors.premium}
+          titleAccessory={<StatusPill compact icon="ribbon-outline" label={`${profile?.unlockedPrestige?.length ?? 0} active`} color={Colors.premium} />}
+        >
+          <View style={styles.currencyRow}>
+            <View style={styles.pointsBar}>
+              <Ionicons name="star" size={20} color={Colors.warning} />
+              <Text style={styles.pointsText}>{profile?.prestigePoints ?? 0} PP</Text>
+            </View>
+            <View style={styles.gemsBar}>
+              <Ionicons name="diamond" size={18} color={Colors.premium} />
+              <Text style={styles.gemsText}>{profile?.gems ?? 0} Gems</Text>
+            </View>
+          </View>
+          <Text style={styles.pointsDesc}>
+            Prestige Points come from achievement progression. Level 3 bonuses also cost 10 Gems; Level 4 bonuses cost 25 Gems on top of their PP cost.
+          </Text>
+        </GameCard>
       </View>
-      <Text style={styles.pointsDesc}>
-        Achievements award Prestige Points and Gems. Level 3 bonuses also cost 10 Gems; Level 4 bonuses cost 25 Gems on top of their PP cost.
-      </Text>
 
       <View style={styles.filterBlock}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {PRESTIGE_CATEGORIES.map((item) => (
-            <Pressable key={item} style={[styles.chip, category === item && styles.chipActive]} onPress={() => setCategory(item)}>
+            <Pressable
+              key={item}
+              accessibilityRole="button"
+              hitSlop={{ top: 6, bottom: 6 }}
+              style={[styles.chip, category === item && styles.chipActive]}
+              onPress={() => setCategory(item)}
+            >
               <Text style={[styles.chipText, category === item && styles.chipTextActive]}>{item}</Text>
               <Text style={[styles.chipCount, category === item && styles.chipTextActive]}>{categoryCounts[item]}</Text>
             </Pressable>
@@ -102,7 +120,13 @@ export default function PrestigeScreen() {
         </ScrollView>
         <View style={styles.toggleRow}>
           {(['all', 'available'] as const).map((item) => (
-            <Pressable key={item} style={[styles.toggleButton, filter === item && styles.toggleActive]} onPress={() => setFilter(item)}>
+            <Pressable
+              key={item}
+              accessibilityRole="button"
+              hitSlop={{ top: 5, bottom: 5 }}
+              style={[styles.toggleButton, filter === item && styles.toggleActive]}
+              onPress={() => setFilter(item)}
+            >
               <Text style={[styles.toggleText, filter === item && styles.toggleTextActive]}>{item === 'all' ? 'All' : 'Available'}</Text>
             </Pressable>
           ))}
@@ -171,14 +195,13 @@ export default function PrestigeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
-  currencyRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
-  pointsBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#F59E0B15', marginHorizontal: 16, borderRadius: 12 },
-  gemsBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#A78BFA15', borderRadius: 12 },
-  gemsText: { color: '#A78BFA', fontSize: 15, fontWeight: '700' },
-  pointsText: { color: '#F59E0B', fontSize: 18, fontWeight: '700' },
-  pointsDesc: { color: Colors.textMuted, fontSize: 13, paddingHorizontal: 16, marginTop: 8, marginBottom: 4 },
+  prestigeHeroWrap: { paddingHorizontal: 16, paddingTop: 4 },
+  currencyRow: { flexDirection: 'row', gap: 8 },
+  pointsBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: `${Colors.warning}12`, borderWidth: 1, borderColor: `${Colors.warning}33`, borderRadius: 10 },
+  gemsBar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: `${Colors.premium}12`, borderWidth: 1, borderColor: `${Colors.premium}33`, borderRadius: 10 },
+  gemsText: { color: Colors.premium, fontSize: 15, fontWeight: '700' },
+  pointsText: { color: Colors.warning, fontSize: 18, fontWeight: '700' },
+  pointsDesc: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 9 },
   filterBlock: { paddingTop: 8 },
   chipRow: { paddingHorizontal: 16, gap: 8 },
   chip: { minHeight: 36, borderRadius: 18, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },

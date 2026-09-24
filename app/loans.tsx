@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
-import GameStatusBar from '../src/components/StatusBar';
+import ScreenHeader from '../src/components/ScreenHeader';
 import GameCard from '../src/components/GameCard';
+import StatusPill from '../src/components/StatusPill';
 import ProgressBar from '../src/components/ProgressBar';
 import useGameStore from '../src/store/gameStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -14,6 +15,7 @@ import { getNetWorth } from '../src/engine/financeEngine';
 import loansData from '../src/data/loans.json';
 import { showGameDialog } from '../src/components/GameDialog';
 import { getPrestigeEffects } from '../src/engine/prestigeEngine';
+import { getEconomicCycleEffects } from '../src/engine/economyEngine';
 
 export default function LoansScreen() {
   const router = useRouter();
@@ -37,21 +39,23 @@ export default function LoansScreen() {
     bankDeposits: s.bankDeposits,
     businesses: s.businesses,
     properties: s.properties,
+    economicCycle: s.economicCycle,
     profile: s.profile,
   }))) as ReturnType<typeof useGameStore.getState>;
   const netWorth = getNetWorth(state);
   const prestigeEffects = getPrestigeEffects(state.profile);
   const loanRateReduction = prestigeEffects.loan_rate_reduction ?? 0;
   const depositInterestBonus = prestigeEffects.bank_deposit_interest_bonus ?? 0;
+  const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
 
   const totalDebt = loans.reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
   const totalWeeklyPayments = loans.reduce((t, l) => t + (l?.weeklyPayment ?? 0), 0);
 
   const handleTakeLoan = (template: (typeof loansData)[0]) => {
-    const effectiveRate = Math.max(0, (template?.interestRate ?? 0) - loanRateReduction);
+    const effectiveRate = Math.max(0, (template?.interestRate ?? 0) + macroRateModifier - loanRateReduction);
     const totalRepayment = (template?.amount ?? 0) * (1 + effectiveRate);
     const weeklyPayment = Math.ceil(totalRepayment / (template?.durationWeeks ?? 1));
-    showGameDialog({ title: 'Take Loan', message: `Borrow ${formatCurrency(template?.amount)}?\n\nInterest: ${(effectiveRate * 100).toFixed(0)}%${loanRateReduction > 0 ? ` (Prestige reduced by ${(loanRateReduction * 100).toFixed(0)}%)` : ''}\nDuration: ${template?.durationWeeks} weeks\nWeekly payment: ${formatCurrency(weeklyPayment)}\nTotal repayment: ${formatCurrency(Math.round(totalRepayment))}`, confirmText: 'Borrow', onConfirm: () => takeLoan?.(template?.id) });
+    showGameDialog({ title: 'Take Loan', message: `Borrow ${formatCurrency(template?.amount)}?\n\nInterest: ${(effectiveRate * 100).toFixed(1)}%${loanRateReduction > 0 ? ` (Prestige reduced by ${(loanRateReduction * 100).toFixed(0)}%)` : ''}\nDuration: ${template?.durationWeeks} weeks\nWeekly payment: ${formatCurrency(weeklyPayment)}\nTotal repayment: ${formatCurrency(Math.round(totalRepayment))}`, confirmText: 'Borrow', onConfirm: () => takeLoan?.(template?.id) });
   };
 
   const handlePayOff = (loan: (typeof loans)[0]) => {
@@ -60,13 +64,13 @@ export default function LoansScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Bank</Text>
-      </View>
-      <GameStatusBar />
+      <ScreenHeader
+        title="Bank"
+        subtitle="Loans, repayments and fixed-term deposits"
+        showBack
+        onBack={() => router.back()}
+        accentColor={Colors.info}
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.tabs}>
           <Pressable style={[styles.tab, activeTab === 'loans' && styles.activeTab]} onPress={() => setActiveTab('loans')}><Text style={[styles.tabText, activeTab === 'loans' && styles.activeTabText]}>Loans</Text></Pressable>
@@ -74,20 +78,35 @@ export default function LoansScreen() {
         </View>
         {activeTab === 'loans' && <>
         {/* Summary */}
-        <GameCard>
-          <View style={styles.summaryRow}>
-            <View>
-              <Text style={styles.sumLabel}>Total Debt</Text>
-              <Text style={[styles.sumValue, { color: totalDebt > 0 ? Colors.negative : Colors.primary }]}>
-                {formatCurrency(totalDebt)}
+        <GameCard
+          variant="hero"
+          eyebrow="CREDIT POSITION"
+          title="Personal debt"
+          accentColor={totalDebt > 0 ? Colors.warning : Colors.primary}
+          titleAccessory={(
+            <StatusPill
+              compact
+              icon="card-outline"
+              label={`${loans.length}/3 loans`}
+              color={totalDebt > 0 ? Colors.warning : Colors.primary}
+            />
+          )}
+        >
+          <Text style={[styles.debtHeroValue, { color: totalDebt > 0 ? Colors.negative : Colors.primary }]}>
+            {formatCurrency(totalDebt)}
+          </Text>
+          <View style={styles.debtMetrics}>
+            <View style={styles.debtMetric}>
+              <Text style={styles.sumLabel}>Weekly Payments</Text>
+              <Text style={[styles.sumValue, { color: totalWeeklyPayments > 0 ? Colors.negative : Colors.primary }]}>
+                {formatCurrency(totalWeeklyPayments)}
               </Text>
             </View>
-            <View>
-              <Text style={styles.sumLabel}>Weekly Payments</Text>
-              <Text style={[styles.sumValue, { color: Colors.negative }]}>{formatCurrency(totalWeeklyPayments)}</Text>
+            <View style={styles.debtMetric}>
+              <Text style={styles.sumLabel}>Cash</Text>
+              <Text style={[styles.sumValue, { color: cash >= 0 ? Colors.primary : Colors.negative }]}>{formatCurrency(cash)}</Text>
             </View>
           </View>
-          <Text style={styles.loanCount}>{loans.length}/3 loan slots used</Text>
         </GameCard>
 
         {/* Active Loans */}
@@ -138,7 +157,7 @@ export default function LoansScreen() {
               <Text style={styles.loanName}>{template?.name}</Text>
               <View style={styles.loanRow}>
                 <Text style={styles.loanMeta}>Amount: {formatCurrency(template?.amount)}</Text>
-                <Text style={styles.loanMeta}>Interest: {(Math.max(0, (template?.interestRate ?? 0) - loanRateReduction) * 100).toFixed(0)}%</Text>
+                <Text style={styles.loanMeta}>Interest: {(Math.max(0, (template?.interestRate ?? 0) + macroRateModifier - loanRateReduction) * 100).toFixed(1)}%</Text>
               </View>
               <Text style={styles.loanMeta}>Duration: {template?.durationWeeks} weeks</Text>
               <Text style={styles.loanMeta}>Required net worth: {formatCurrency(template?.amount)}</Text>
@@ -172,8 +191,8 @@ export default function LoansScreen() {
             <TextInput style={styles.input} value={depositAmount} onChangeText={setDepositAmount} keyboardType="number-pad" placeholder="Amount to deposit" placeholderTextColor={Colors.textMuted} />
             <View style={styles.termRow}>
               {([20, 40, 60] as const).map((term) => {
-                const rate = (term === 20 ? 5 : term === 40 ? 9 : 14) + depositInterestBonus * 100;
-                return <Pressable key={term} style={[styles.term, depositTerm === term && styles.activeTerm]} onPress={() => setDepositTerm(term)}><Text style={styles.termTitle}>{term} weeks</Text><Text style={styles.termRate}>+{rate}%</Text></Pressable>;
+                const rate = Math.max(1, (term === 20 ? 5 : term === 40 ? 9 : 14) + depositInterestBonus * 100 + macroRateModifier * 75);
+                return <Pressable key={term} style={[styles.term, depositTerm === term && styles.activeTerm]} onPress={() => setDepositTerm(term)}><Text style={styles.termTitle}>{term} weeks</Text><Text style={styles.termRate}>+{rate.toFixed(1)}%</Text></Pressable>;
               })}
             </View>
             <Pressable
@@ -190,10 +209,11 @@ export default function LoansScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
+  debtHeroValue: { fontSize: 28, lineHeight: 34, fontWeight: '900', marginBottom: 11 },
+  debtMetrics: { flexDirection: 'row', gap: 8 },
+  debtMetric: { flex: 1, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 9 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
   sumLabel: { color: Colors.textSecondary, fontSize: 13 },
   sumValue: { fontSize: 22, fontWeight: '700', marginTop: 4 },

@@ -8,8 +8,17 @@ export interface PropertyTickResult {
   totalMaintenance: number;
 }
 
-export function getPropertyWeeklyRent(property: OwnedProperty, inflationMultiplier = 1, rentBonus = 0): number {
-  return Math.round(inflated(property.weeklyIncome ?? 0, inflationMultiplier) * (1 + rentBonus));
+export function getPropertyWeeklyRent(
+  property: OwnedProperty,
+  inflationMultiplier = 1,
+  rentBonus = 0,
+  cycleIncomeMultiplier = 1,
+): number {
+  return Math.round(
+    inflated(property.weeklyIncome ?? 0, inflationMultiplier)
+      * (1 + rentBonus)
+      * Math.max(0.75, Math.min(1.25, cycleIncomeMultiplier)),
+  );
 }
 
 /**
@@ -19,7 +28,9 @@ export function getPropertyWeeklyRent(property: OwnedProperty, inflationMultipli
 export function processProperties(
   properties: OwnedProperty[],
   inflationMultiplier: number,
-  rentBonus = 0
+  rentBonus = 0,
+  valueGrowthAdjustment = 0,
+  cycleIncomeMultiplier = 1,
 ): PropertyTickResult {
   let totalIncome = 0;
   let totalMaintenance = 0;
@@ -29,12 +40,16 @@ export function processProperties(
     const updated = { ...prop };
 
     // Appreciate value
-    const rate = typeData?.appreciationRate ?? 0.001;
-    updated.currentValue = Math.round((prop.currentValue ?? prop.purchasePrice) * (1 + rate));
+    const baseRate = typeData?.appreciationRate ?? 0.001;
+    const rate = Math.max(-0.02, Math.min(0.03, baseRate + valueGrowthAdjustment));
+    updated.currentValue = Math.max(
+      1,
+      Math.round((prop.currentValue ?? prop.purchasePrice) * (1 + rate)),
+    );
 
     // Collect rent if rented out
     if (prop.isRentedOut) {
-      const income = getPropertyWeeklyRent(prop, inflationMultiplier, rentBonus);
+      const income = getPropertyWeeklyRent(prop, inflationMultiplier, rentBonus, cycleIncomeMultiplier);
       totalIncome += income;
     }
 
@@ -51,7 +66,13 @@ export function processProperties(
 /**
  * Create a new owned property from a type ID.
  */
-export function createProperty(typeId: string, week: number, year: number, inflationMultiplier: number): OwnedProperty | null {
+export function createProperty(
+  typeId: string,
+  week: number,
+  year: number,
+  inflationMultiplier: number,
+  marketPriceMultiplier = 1,
+): OwnedProperty | null {
   const typeData = (propertiesData as any[]).find((p) => p?.id === typeId);
   if (!typeData) return null;
 
@@ -59,8 +80,8 @@ export function createProperty(typeId: string, week: number, year: number, infla
     id: `prop_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     typeId,
     name: typeData.name,
-    purchasePrice: inflated(typeData.purchasePrice, inflationMultiplier),
-    currentValue: inflated(typeData.purchasePrice, inflationMultiplier),
+    purchasePrice: Math.round(inflated(typeData.purchasePrice, inflationMultiplier) * marketPriceMultiplier),
+    currentValue: Math.round(inflated(typeData.purchasePrice, inflationMultiplier) * marketPriceMultiplier),
     isRentedOut: false,
     isRenovated: false,
     purchaseWeek: week,

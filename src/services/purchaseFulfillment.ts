@@ -3,6 +3,11 @@ import { GEM_PRODUCTS, REMOVE_ADS_PRODUCT_ID } from './iapManager';
 
 const MAX_RECORDED_PURCHASES = 100;
 
+const RETIRED_GEM_PRODUCT_GRANTS: Readonly<Record<string, number>> = {
+  gems_1000: 1000,
+  gems_2500: 2500,
+};
+
 export type FulfillmentResult = {
   profile: PlayerProfile;
   duplicate: boolean;
@@ -20,23 +25,26 @@ export function fulfillPurchase(profile: PlayerProfile, productId: string, purch
   const processed = profile.processedPurchaseIds ?? [];
   const isDuplicate = processed.includes(purchaseId);
   const gemPack = GEM_PRODUCTS.find((product) => product.id === productId);
+  const retiredGemGrant = RETIRED_GEM_PRODUCT_GRANTS[productId] ?? 0;
+  const isGemPurchase = !!gemPack || retiredGemGrant > 0;
+  const gemGrant = gemPack?.gems ?? retiredGemGrant;
   const isRemoveAds = productId === REMOVE_ADS_PRODUCT_ID;
-  const recognized = isRemoveAds || !!gemPack;
+  const recognized = isRemoveAds || isGemPurchase;
 
   if (isDuplicate || !recognized) {
-    return { profile, duplicate: isDuplicate, recognized, isConsumable: !!gemPack, gemsGranted: 0 };
+    return { profile, duplicate: isDuplicate, recognized, isConsumable: isGemPurchase, gemsGranted: 0 };
   }
 
   const processedPurchaseIds = [...processed, purchaseId].slice(-MAX_RECORDED_PURCHASES);
   const updated = isRemoveAds
     ? { ...profile, adsRemoved: true, processedPurchaseIds }
-    : { ...profile, gems: (profile.gems ?? 0) + (gemPack?.gems ?? 0), processedPurchaseIds };
+    : { ...profile, gems: (profile.gems ?? 0) + gemGrant, processedPurchaseIds };
 
   return {
     profile: updated,
     duplicate: false,
     recognized: true,
-    isConsumable: !!gemPack,
-    gemsGranted: gemPack?.gems ?? 0,
+    isConsumable: isGemPurchase,
+    gemsGranted: gemGrant,
   };
 }

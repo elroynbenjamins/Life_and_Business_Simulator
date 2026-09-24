@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
-import GameStatusBar from '../src/components/StatusBar';
+import ScreenHeader from '../src/components/ScreenHeader';
+import ScreenTabs from '../src/components/ScreenTabs';
 import GameCard from '../src/components/GameCard';
+import StatusPill from '../src/components/StatusPill';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { AD_CONFIG } from '../src/services/adConfig';
@@ -17,6 +19,7 @@ import { showGameDialog } from '../src/components/GameDialog';
 import { fulfillPurchase } from '../src/services/purchaseFulfillment';
 import { showAdPrivacyOptions } from '../src/services/adPrivacyManager';
 import { shouldSimulateNativeFeatures } from '../src/services/runtimeEnvironment';
+import { REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT } from '../src/services/adRewardEntitlements';
 
 export default function SupportScreen() {
   const router = useRouter();
@@ -36,9 +39,10 @@ export default function SupportScreen() {
   const [purchasing, setPurchasing] = useState(false);
   const [privacyMessage, setPrivacyMessage] = useState('');
   const [loginMessage, setLoginMessage] = useState('');
+  const [activeTab, setActiveTab] = useState<'rewards' | 'store' | 'help'>('rewards');
 
   const gems = profile?.gems ?? 0;
-  const adUsage = getAdUsage?.() ?? { watchedToday: 0, remaining: 5, limitReached: false };
+  const adUsage = getAdUsage?.() ?? { watchedToday: 0, remaining: 5, limit: 5, limitReached: false };
   const useSimulatedAd = shouldSimulateNativeFeatures();
   const storeAvailable = isNativeStoreAvailable();
   const adsRemoved = profile?.adsRemoved ?? false;
@@ -76,7 +80,17 @@ export default function SupportScreen() {
   const handleWatchAd = useCallback(async () => {
     if (adState === 'loading' || adState === 'showing') return;
     if (adUsage.limitReached) {
-      setAdMessage('Daily ad limit reached');
+      setAdMessage(adsRemoved ? 'Today’s ad-free gem reward is already claimed.' : 'Daily ad limit reached');
+      return;
+    }
+
+    if (adsRemoved) {
+      const granted = grantAdReward?.() ?? false;
+      setAdState(granted ? 'success' : 'error');
+      setAdMessage(granted
+        ? `Ad-free reward claimed! +${REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT} gems`
+        : 'Today’s ad-free gem reward is already claimed.');
+      setTimeout(() => { setAdState('idle'); setAdMessage(''); }, 3000);
       return;
     }
 
@@ -117,11 +131,11 @@ export default function SupportScreen() {
     }
 
     setTimeout(() => { setAdState('idle'); setAdMessage(''); }, 3000);
-  }, [adState, adUsage.limitReached, grantAdReward, useSimulatedAd]);
+  }, [adState, adUsage.limitReached, adsRemoved, grantAdReward, useSimulatedAd]);
 
   const handlePurchase = async (productId: string) => {
     if (!storeAvailable) {
-      setPurchaseMessage('Purchases require a Google Play development or testing build; they are unavailable in Expo Go and web.');
+      setPurchaseMessage('Purchases require the installed Google Play app; they are unavailable in Expo Go and web.');
       return;
     }
     try {
@@ -182,31 +196,50 @@ export default function SupportScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Support</Text>
-      </View>
-      <GameStatusBar />
+      <ScreenHeader
+        title="Support"
+        subtitle="Rewards, Gems, purchases and privacy"
+        showBack
+        onBack={() => router.back()}
+        accentColor={Colors.premium}
+      />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Gem Balance */}
-        <GameCard>
+        <GameCard
+          variant="hero"
+          eyebrow="ACCOUNT REWARDS"
+          title="Support & Gems"
+          accentColor={Colors.premium}
+          titleAccessory={<StatusPill compact icon={adsRemoved ? 'shield-checkmark-outline' : 'diamond-outline'} label={adsRemoved ? 'Ads removed' : 'Standard'} color={adsRemoved ? Colors.primary : Colors.premium} />}
+        >
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
-              <Ionicons name="diamond" size={28} color="#8B5CF6" />
+              <Ionicons name="diamond" size={25} color={Colors.premium} />
               <Text style={styles.balanceValue}>{gems}</Text>
               <Text style={styles.balanceLabel}>Gems</Text>
             </View>
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
-              <Ionicons name="cash" size={28} color={Colors.primary} />
+              <Ionicons name="cash" size={25} color={Colors.primary} />
               <Text style={styles.balanceValue}>{formatCurrency(cash)}</Text>
               <Text style={styles.balanceLabel}>Cash</Text>
             </View>
           </View>
         </GameCard>
 
+        <ScreenTabs
+          items={[
+            { key: 'rewards', label: 'Rewards', icon: 'gift-outline' },
+            { key: 'store', label: 'Store', icon: 'bag-outline' },
+            { key: 'help', label: 'Help', icon: 'help-circle-outline' },
+          ]}
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          accentColor={Colors.premium}
+        />
+
+        {activeTab === 'rewards' && (
+          <>
         <GameCard title="Daily Login Reward">
           <Text style={styles.desc}>Claim 10 gems once per day.</Text>
           <Pressable style={[styles.adBtn, !loginStatus.available && styles.disabledBtn]} onPress={handleDailyLogin} disabled={!loginStatus.available}>
@@ -217,31 +250,35 @@ export default function SupportScreen() {
           {loginMessage !== '' && <Text style={styles.purchaseMessage}>{loginMessage}</Text>}
         </GameCard>
 
-        {/* Watch Ad */}
-        {!adsRemoved && <GameCard title="Watch an Ad">
+        {/* Rewarded gems / Remove Ads daily claims */}
+        <GameCard title={adsRemoved ? "Ad-Free Gem Reward" : "Watch an Ad"}>
           <Text style={styles.desc}>
-            {useSimulatedAd ? 'Complete a short simulated ad' : 'Watch a short ad'} and earn {AD_GEM_REWARD} gems!
+            {adsRemoved
+              ? `Remove Ads owners can claim ${REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT} gems once per day without watching an advertisement.`
+              : `${useSimulatedAd ? 'Complete a short simulated ad' : 'Watch a short ad'} and earn ${AD_GEM_REWARD} gems!`}
           </Text>
-          <View style={styles.adSupportNote}>
+          {!adsRemoved && <View style={styles.adSupportNote}>
             <Ionicons name="heart" size={17} color={Colors.warning} />
             <Text style={styles.adSupportText}>
               Watching is optional, but every completed ad helps support the continued development of Life Empire. Thank you!
             </Text>
-          </View>
-          {AD_CONFIG.USE_TEST_ADS && !useSimulatedAd && (
-            <Text style={styles.testAdLabel}>Closed testing: Google test advertisement</Text>
+          </View>}
+          {!adsRemoved && AD_CONFIG.USE_TEST_ADS && !useSimulatedAd && (
+            <Text style={styles.testAdLabel}>Test build: Google test advertisement</Text>
           )}
           <Pressable
             style={[styles.adBtn, (adState === 'loading' || adState === 'showing' || adUsage.limitReached) && styles.disabledBtn]}
             onPress={handleWatchAd}
             disabled={adState === 'loading' || adState === 'showing' || adUsage.limitReached}
           >
-            <Ionicons name="play-circle" size={22} color={Colors.white} />
+            <Ionicons name={adsRemoved ? "gift" : "play-circle"} size={22} color={Colors.white} />
             <Text style={styles.adBtnText}>
               {adState === 'loading' ? 'Loading Ad...' :
                adState === 'showing' ? 'Showing Ad...' :
-               adUsage.limitReached ? 'Daily ad limit reached' :
-               `Watch Ad — ${adUsage.remaining}/${AD_CONFIG.DAILY_AD_LIMIT} remaining today`}
+               adUsage.limitReached ? (adsRemoved ? 'Daily reward claimed' : 'Daily ad limit reached') :
+               adsRemoved
+                 ? `Claim +${REMOVE_ADS_DAILY_GEM_REWARD_AMOUNT} Gems`
+                 : `Watch Ad — ${adUsage.remaining}/${adUsage.limit} remaining today`}
             </Text>
           </Pressable>
           {adMessage !== '' && (
@@ -249,7 +286,7 @@ export default function SupportScreen() {
               {adMessage}
             </Text>
           )}
-        </GameCard>}
+        </GameCard>
 
         {/* Convert Gems to Cash */}
         <GameCard title="Convert Gems → Cash">
@@ -278,27 +315,35 @@ export default function SupportScreen() {
           )}
         </GameCard>
 
+          </>
+        )}
+
+        {activeTab === 'store' && (
+          <>
         <GameCard title="Remove Ads">
           <View style={styles.removeAdsRow}>
             <View style={styles.removeAdsCopy}>
               <Text style={styles.removeAdsTitle}>{adsRemoved ? 'Ads Removed' : 'Play without advertisements'}</Text>
-              <Text style={styles.desc}>{adsRemoved ? 'This permanent purchase is active.' : 'One-time purchase. Removes scheduled and rewarded ads.'}</Text>
+              <Text style={styles.desc}>{adsRemoved ? 'Permanent and active across all save slots.' : 'One-time purchase. Removes advertisements across all save slots.'}</Text>
             </View>
             {!adsRemoved && <Pressable disabled={purchasing} style={[styles.packPriceBtn, purchasing && styles.disabledBtn]} onPress={() => handlePurchase(REMOVE_ADS_PRODUCT_ID)}>
               <Text style={styles.packPrice}>{storeProducts[REMOVE_ADS_PRODUCT_ID]?.displayPrice ?? '€2.99'}</Text>
             </Pressable>}
           </View>
+          <Text style={styles.removeAdsBenefit}>
+            No ads will be shown. Reward-equivalent buttons remain available without ads: the daily 20-Gem reward, daily temporary business Slot 2 reward, daily instant education completion, and one permanent +1 company-capacity claim per day up to the 10-company maximum.
+          </Text>
           {!adsRemoved && storeAvailable && <Pressable onPress={handleRestore} disabled={purchasing}><Text style={styles.restoreText}>Restore purchase</Text></Pressable>}
           {purchaseMessage !== '' && <Text style={styles.purchaseMessage}>{purchaseMessage}</Text>}
         </GameCard>
 
         {/* Buy Gems */}
         <GameCard title="Purchase Gems">
-          <Text style={styles.desc}>{storeAvailable ? 'Prices below come directly from Google Play for your account region.' : 'Store prices are shown after installing a Google Play testing build.'}</Text>
+          <Text style={styles.desc}>{storeAvailable ? 'Prices below come directly from Google Play for your account region.' : 'Store prices are shown in the installed Google Play app.'}</Text>
           {GEM_PRODUCTS.map((pack) => (
             <Pressable key={pack.id} disabled={purchasing} style={[styles.packRow, purchasing && styles.disabledBtn]} onPress={() => handlePurchase(pack.id)}>
               <View style={styles.packLeft}>
-                <Ionicons name="diamond" size={20} color="#8B5CF6" />
+                <Ionicons name="diamond" size={20} color={Colors.premium} />
                 <Text style={styles.packGems}>{pack.gems} Gems</Text>
               </View>
               <View style={styles.packPriceBtn}>
@@ -308,6 +353,11 @@ export default function SupportScreen() {
           ))}
         </GameCard>
 
+          </>
+        )}
+
+        {activeTab === 'help' && (
+          <>
         <GameCard title="Advertising Privacy">
           <Text style={styles.desc}>Review or change the consent choices used by Google AdMob.</Text>
           <View style={styles.privacyActions}>
@@ -326,6 +376,8 @@ export default function SupportScreen() {
           </View>
           {privacyMessage !== '' && <Text style={styles.purchaseMessage}>{privacyMessage}</Text>}
         </GameCard>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -333,8 +385,6 @@ export default function SupportScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   balanceRow: { flexDirection: 'row', alignItems: 'center' },
@@ -343,7 +393,7 @@ const styles = StyleSheet.create({
   balanceLabel: { color: Colors.textMuted, fontSize: 12 },
   balanceDivider: { width: 1, height: 50, backgroundColor: Colors.cardBorder },
   desc: { color: Colors.textSecondary, fontSize: 14, marginBottom: 12 },
-  adBtn: { backgroundColor: '#8B5CF6', borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  adBtn: { backgroundColor: Colors.premium, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   adBtnText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
   adSupportNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.elevated, borderRadius: 10, padding: 12, marginBottom: 12 },
   adSupportText: { flex: 1, color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
@@ -364,6 +414,7 @@ const styles = StyleSheet.create({
   removeAdsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   removeAdsCopy: { flex: 1 },
   removeAdsTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  removeAdsBenefit: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
   restoreText: { color: Colors.primary, fontSize: 13, fontWeight: '700', marginTop: 10, textAlign: 'center' },
   purchaseMessage: { color: Colors.textSecondary, fontSize: 13, marginTop: 10, textAlign: 'center' },
   claimDot: { position: 'absolute', top: 8, right: 8, width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.negative },

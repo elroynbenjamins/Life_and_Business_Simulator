@@ -2,6 +2,7 @@ import { createBusiness } from '../businessEngine';
 import { createCorporateWorkforce } from '../businessWorkforceEngine';
 import {
   closeCompletedBusinessManagementQuarter,
+  deriveBusinessManagementTargetProfile,
   ensureBusinessManagementTargetPlan,
   getBusinessManagementReviewYears,
   getBusinessManagementTargetProgress,
@@ -82,7 +83,7 @@ function makeCorporateBusiness(): OwnedBusiness {
     businessLoans: [{
       id: 'target-debt',
       amount: 10_000_000,
-      remainingAmount: 10_000_000,
+      remainingAmount: 10_800_000,
       weeklyPayment: 100_000,
       weeksRemaining: 100,
       interestRate: 0.08,
@@ -94,6 +95,22 @@ function makeCorporateBusiness(): OwnedBusiness {
 }
 
 describe('business management targets', () => {
+  test('derives target profiles from the primary management policies', () => {
+    const business = makeCorporateBusiness();
+
+    business.strategicFocus = 'growth';
+    expect(deriveBusinessManagementTargetProfile(business)).toBe('growth');
+
+    business.strategicFocus = 'automation';
+    expect(deriveBusinessManagementTargetProfile(business)).toBe('margin');
+
+    business.budgetPlan = { ...business.budgetPlan!, profile: 'deleveraging' };
+    expect(deriveBusinessManagementTargetProfile(business)).toBe('deleveraging');
+
+    business.budgetPlan = { ...business.budgetPlan!, profile: 'resilient' };
+    expect(deriveBusinessManagementTargetProfile(business)).toBe('resilient');
+  });
+
   test('balanced profile uses the prior quarter as its operating baseline', () => {
     const business = makeCorporateBusiness();
     business.corporateKpiHistory = Array.from({ length: 5 }, (_, index) => point(16 + index));
@@ -124,7 +141,7 @@ describe('business management targets', () => {
     business.lastWeekRevenue = 4_000_000;
     business.businessLoans = [{
       ...business.businessLoans[0],
-      remainingAmount: 7_000_000,
+      remainingAmount: 7_560_000,
     }];
 
     business = setBusinessManagementTargetProfile(business, 'margin', 23);
@@ -139,8 +156,9 @@ describe('business management targets', () => {
     expect(updated.maxPayrollToRevenueRatio).toBeCloseTo(0.28, 4);
   });
 
-  test('new quarter automatically carries the chosen profile onto a fresh baseline', () => {
+  test('new quarter realigns targets with Strategic Focus and Cash Plan', () => {
     const business = makeCorporateBusiness();
+    business.strategicFocus = 'growth';
     business.corporateKpiHistory = [
       ...Array.from({ length: 5 }, (_, index) => point(16 + index)),
       ...Array.from({ length: 5 }, (_, index) => point(21 + index, {
@@ -150,6 +168,7 @@ describe('business management targets', () => {
         payroll: 330_000,
       })),
     ];
+    // A manual/legacy override is valid for the current quarter only.
     business.managementTargets = ensureBusinessManagementTargetPlan(
       business,
       25,
@@ -157,19 +176,19 @@ describe('business management targets', () => {
     );
     business.businessLoans = [{
       ...business.businessLoans[0],
-      remainingAmount: 8_000_000,
+      remainingAmount: 8_640_000,
     }];
 
     const rolled = ensureBusinessManagementTargetPlan(business, 26)!;
 
-    expect(rolled.profile).toBe('deleveraging');
+    expect(rolled.profile).toBe('growth');
     expect(rolled.year).toBe(2);
     expect(rolled.quarter).toBe(2);
     expect(rolled.periodStartGlobalWeek).toBe(26);
     expect(rolled.baselineWeeklyRevenue).toBe(1_200_000);
     expect(rolled.baselineDebt).toBe(8_000_000);
-    expect(rolled.targetWeeklyRevenue).toBe(1_224_000);
-    expect(rolled.targetDebtBalance).toBe(6_800_000);
+    expect(rolled.targetWeeklyRevenue).toBe(1_344_000);
+    expect(rolled.targetDebtBalance).toBe(8_000_000);
   });
 
   test('debt target uses quarter pace instead of demanding the final balance in week one', () => {
@@ -182,7 +201,7 @@ describe('business management targets', () => {
     );
     business.businessLoans = [{
       ...business.businessLoans[0],
-      remainingAmount: 9_800_000,
+      remainingAmount: 10_584_000,
     }];
 
     const report = {
@@ -210,7 +229,7 @@ describe('business management targets', () => {
     business.corporateKpiHistory = Array.from({ length: 5 }, (_, index) => point(16 + index));
     business.businessLoans = [{
       ...business.businessLoans[0],
-      remainingAmount: 10_000_000,
+      remainingAmount: 10_800_000,
     }];
 
     business.managementTargets = ensureBusinessManagementTargetPlan(
@@ -243,7 +262,7 @@ describe('business management targets', () => {
     business.managementTargets = ensureBusinessManagementTargetPlan(business, 25, 'balanced');
     business.businessLoans = [{
       ...business.businessLoans[0],
-      remainingAmount: 9_400_000,
+      remainingAmount: 10_152_000,
     }];
 
     const progress = getBusinessManagementTargetProgress(

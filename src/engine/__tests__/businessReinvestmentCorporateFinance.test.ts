@@ -162,9 +162,9 @@ describe('business reinvestment and corporate financing', () => {
     const highDebt = makeBusiness({
       businessLoans: [{
         id: 'debt',
-        amount: 20_000_000,
-        remainingAmount: 22_000_000,
-        weeklyPayment: 110_000,
+        amount: 22_000_000,
+        remainingAmount: 24_200_000,
+        weeklyPayment: 121_000,
         weeksRemaining: 200,
         interestRate: 0.10,
         purpose: 'corporate_bond',
@@ -177,6 +177,62 @@ describe('business reinvestment and corporate financing', () => {
     expect(strong.score).toBeGreaterThan(leveraged.score);
     expect(strong.remainingDebtCapacity).toBeGreaterThan(leveraged.remainingDebtCapacity);
     expect(leveraged.debtToValue).toBeGreaterThan(0.4);
+  });
+
+  test('credit profile separates debt service cover from accounting interest cover', () => {
+    const business = makeBusiness({
+      valuation: 100_000_000,
+      lastWeekProfit: 100_000,
+      lastExpenseBreakdown: {
+        loanInterest: 10_000,
+        taxes: 20_000,
+      } as any,
+      businessLoans: [{
+        id: 'coverage_debt',
+        amount: 500_000,
+        remainingAmount: 600_000,
+        weeklyPayment: 60_000,
+        weeksRemaining: 10,
+        interestRate: 0.20,
+        purpose: 'corporate_bond',
+      }],
+    });
+
+    const profile = getCorporateCreditProfile(business);
+
+    expect(profile.weeklyDebtService).toBe(60_000);
+    expect(profile.debtServiceCoverage).toBeCloseTo(110_000 / 60_000);
+    expect(profile.interestCoverage).toBeCloseTo(13);
+  });
+
+  test('new corporate debt cannot count principal repayment as operating cash capacity', () => {
+    const business = makeBusiness({
+      valuation: 100_000_000,
+      reputation: 95,
+      lastWeekRevenue: 1_000_000,
+      lastWeekExpenses: 900_000,
+      lastWeekProfit: 100_000,
+      lastExpenseBreakdown: {
+        loanInterest: 10_000,
+        taxes: 20_000,
+      } as any,
+      businessLoans: [{
+        id: 'existing_debt',
+        amount: 5_000_000,
+        remainingAmount: 5_500_000,
+        weeklyPayment: 100_000,
+        weeksRemaining: 55,
+        interestRate: 0.10,
+        purpose: 'corporate_bond',
+      }],
+    });
+
+    const profile = getCorporateCreditProfile(business);
+    const quote = getBondQuote(business, 1_000_000);
+
+    expect(profile.debtServiceCoverage).toBeCloseTo(1.1);
+    expect(quote.allowed).toBe(false);
+    expect(quote.reason).toBe('Projected debt service would consume too much current operating cash flow.');
   });
 
   test('project finance funds 60 percent debt and requires equity plus its fee', () => {

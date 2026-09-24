@@ -6,6 +6,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PieChart } from 'react-native-chart-kit';
 import { Colors, resolveThemeColor } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
+import StatusPill from '../../src/components/StatusPill';
+import FeatureTourModal, { FeatureTourStep } from '../../src/components/FeatureTourModal';
 import useGameStore from '../../src/store/gameStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
@@ -16,15 +18,27 @@ import {
   BUSINESS_LEVEL_REPUTATION_REQUIREMENTS, getAllBusinessLocationTemplates, getScaledLocationCosts, canStartBusinessExpansion,
   getBusinessHealthScore, BUSINESS_STRATEGIES, BUSINESS_DELEGATION_POLICIES,
   getBusinessDecisionChoiceCost, getPlayerOwnershipPct,
+  BUSINESS_PROJECT_SLOT_2_GEM_COST, BUSINESS_UPGRADE_SLOT_2_GEM_COST,
+  getBusinessProjectSlotLimit, getBusinessUpgradeSlotLimit,
 } from '../../src/engine/businessEngine';
-import { inflated } from '../../src/engine/economyEngine';
+import { loadRewardedAd, showRewardedAd } from '../../src/services/adManager';
+import { shouldSimulateNativeFeatures } from '../../src/services/runtimeEnvironment';
+import { getEconomicCycleEffects, inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { businessTypeImages, employeeRoleImages } from '../../src/assets/progressionImages';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
-import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutiveRole, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus, BusinessManagementTargetProfile, CorporateCompensationPolicy, CorporateDepartmentId, CorporateTrainingPolicy } from '../../src/types/game';
+import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutiveRole, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus, CorporateCompensationPolicy, CorporateDepartmentId, CorporateTrainingPolicy } from '../../src/types/game';
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
-import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
+import { getAcquisitionIntegrationDecisionPreview } from '../../src/engine/acquisitionEngine';
+import {
+  getAcquisitionIntegrationHoldingSynergyFactor,
+  getAcquisitionIntegrationOutcomeEffect,
+  getAcquisitionIntegrationOutcomeProbabilities,
+} from '../../src/engine/acquisitionIntegrationEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
+import { getBusinessOwnershipEquityValue, getBusinessOwnershipStakeValue, getInvestmentForPostMoneyIssuePct } from '../../src/engine/businessOwnershipEngine';
+import { getBusinessLoanOutstandingPrincipal } from '../../src/engine/businessDebtEngine';
+import { BUSINESS_IDENTITY_DEFINITIONS } from '../../src/engine/businessIdentityEngine';
 import {
   CORPORATE_CAPEX_PROJECTS,
   canStartCorporateCapex,
@@ -59,6 +73,7 @@ import {
 } from '../../src/engine/businessInsuranceEngine';
 import {
   BUSINESS_BUDGET_PRESETS,
+  getBusinessAvailableOwnerDistributionCash,
   getBusinessBudgetReserveTargets,
   isBusinessBudgetReviewDue,
   normalizeBusinessBudgetPlan,
@@ -110,6 +125,24 @@ const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; labe
   { key: 'luxury', label: 'Luxury', desc: 'Maximum prices, niche market' },
 ];
 
+const BUSINESS_CASH_TOUR_STEPS: FeatureTourStep[] = [
+  {
+    title: 'Personal cash and company cash are separate',
+    body: 'Personal cash pays your own living costs and purchases. Company cash belongs to this business and pays staff, projects, upgrades, debt and other operating costs. Inject Cash moves money from you into the company.',
+    icon: 'wallet-outline',
+  },
+  {
+    title: 'Protected reserves stay in the business',
+    body: 'Owner Distribution only uses cash above the company’s protected operating and budget reserves. Holding subsidiaries and co-owned companies use their own treasury or dividend rules instead of direct owner draws.',
+    icon: 'shield-checkmark-outline',
+  },
+  {
+    title: 'Read the transaction preview first',
+    body: 'Enter an amount in Cash Management to see personal cash and company cash before and after the move. Owner distributions also show the protected floor. Nothing moves until you press Confirm.',
+    icon: 'swap-horizontal-outline',
+  },
+];
+
 const AD_OPTIONS: { key: 'none' | 'basic' | 'moderate' | 'aggressive'; label: string; cost: string }[] = [
   { key: 'none', label: 'None', cost: '€0/wk' },
   { key: 'basic', label: 'Basic', cost: '€200/wk' },
@@ -144,7 +177,31 @@ const GOVERNANCE_ROLES: Array<{ key: BusinessGovernanceRole; label: string }> = 
 
 const PIE_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
 const INTEGRATION_STRATEGIES: Array<Exclude<AcquisitionIntegrationStrategy, 'pending'>> = ['independent', 'integrate', 'turnaround'];
+
+function formatIntegrationOutcomeEffect(
+  revenueBonus: number,
+  expenseReduction: number,
+  reputationDelta: number,
+): string {
+  const revenueText = `${revenueBonus >= 0 ? '+' : ''}${(revenueBonus * 100).toFixed(1)}% rev`;
+  const expenseText = expenseReduction >= 0
+    ? `-${(expenseReduction * 100).toFixed(1)}% costs`
+    : `+${(Math.abs(expenseReduction) * 100).toFixed(1)}% costs`;
+  const reputationText = reputationDelta === 0
+    ? ''
+    : ` • ${reputationDelta > 0 ? '+' : ''}${Number.isInteger(reputationDelta) ? reputationDelta.toFixed(0) : reputationDelta.toFixed(1)} rep`;
+  return `${revenueText} • ${expenseText}${reputationText}`;
+}
+
+function businessIdentityColor(color: string): string {
+  if (color === 'premium') return Colors.premium;
+  if (color === 'info') return Colors.info;
+  if (color === 'warning') return Colors.warning;
+  if (color === 'family') return Colors.family;
+  return Colors.primary;
+}
 type BusinessDetailSection = 'overview' | 'ownership' | 'leadership' | 'finance' | 'people' | 'risk' | 'growth' | 'capital';
+type BusinessDetailFocus = 'integration' | 'decision' | 'cash-management' | 'budget';
 
 const BUSINESS_SECTION_CHIPS: Array<{ key: BusinessDetailSection; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { key: 'overview', label: 'Overview', icon: 'speedometer-outline' },
@@ -157,13 +214,43 @@ const BUSINESS_SECTION_CHIPS: Array<{ key: BusinessDetailSection; label: string;
   { key: 'capital', label: 'Capital', icon: 'card-outline' },
 ];
 
+const MANAGEMENT_TARGET_SECTION: Record<CorporateManagementActionTarget, BusinessDetailSection> = {
+  workforce: 'leadership',
+  budget: 'finance',
+  finance: 'capital',
+  maintenance: 'risk',
+  investments: 'growth',
+};
+
+const BUSINESS_FOCUS_SECTION: Record<BusinessDetailFocus, BusinessDetailSection> = {
+  integration: 'overview',
+  decision: 'overview',
+  'cash-management': 'finance',
+  budget: 'finance',
+};
+
+function normalizeBusinessDetailSection(value: string | string[] | undefined): BusinessDetailSection | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return BUSINESS_SECTION_CHIPS.some((section) => section.key === raw) ? raw as BusinessDetailSection : null;
+}
+
+function normalizeBusinessDetailFocus(value: string | string[] | undefined): BusinessDetailFocus | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === 'integration' || raw === 'decision' || raw === 'cash-management' || raw === 'budget'
+    ? raw
+    : null;
+}
+
 export default function BusinessDetailScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
-  const { id = '', newBusiness } = useLocalSearchParams();
+  const { id = '', newBusiness, section, focus } = useLocalSearchParams();
+  const requestedSection = normalizeBusinessDetailSection(section);
+  const requestedFocus = normalizeBusinessDetailFocus(focus);
   const businesses = useGameStore((s) => s?.businesses ?? []);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
+  const economicCycle = useGameStore((s) => s?.economicCycle);
   const competitors = useGameStore((s) => s?.competitors ?? {});
   const profile = useGameStore((s) => s.profile);
   const relationshipState = useGameStore((s) => s.relationshipState);
@@ -171,8 +258,20 @@ export default function BusinessDetailScreen() {
   const gameWeek = useGameStore((s) => s.week ?? 1);
   const gameYear = useGameStore((s) => s.year ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
+  const businessMacroRateModifier = getEconomicCycleEffects(economicCycle?.phase ?? 'expansion').interestRateModifier;
+  const rivalCyclePhase = economicCycle?.phase ?? 'expansion';
+  const rivalCycleLabel = rivalCyclePhase.charAt(0).toUpperCase() + rivalCyclePhase.slice(1);
+  const rivalCycleHint = rivalCyclePhase === 'recession'
+    ? 'Cash-rich rivals may attack market share, while overextended rivals can weaken or preserve liquidity.'
+    : rivalCyclePhase === 'boom'
+      ? 'Rivals are more likely to expand, invest and compete aggressively while demand is strong.'
+      : rivalCyclePhase === 'slowdown'
+        ? 'Rivals are reducing risk and delaying expansion as demand cools.'
+        : rivalCyclePhase === 'recovery'
+          ? 'Rivals are beginning to invest again and compete for returning demand.'
+          : 'Rivals are growing steadily and balancing expansion with cash generation.';
   const {
-    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessBudgetProfile, setBusinessManagementTargetProfile,
+    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessDecisionAutomation, setBusinessBudgetProfile,
     openExecutiveSearch, hireExecutiveCandidate, cancelExecutiveSearch, dismissBusinessExecutive, setBusinessBoardMandate,
     setCorporateDepartmentTarget, setCorporateCompensationPolicy, setCorporateTrainingPolicy, resolveBusinessDecision,
     setAcquisitionIntegrationStrategy,
@@ -182,13 +281,16 @@ export default function BusinessDetailScreen() {
     buyBusinessUpgrade, startBusinessExpansion, takeBusinessLoan,
     drawCorporateRevolver, issueCorporateBond, repayBusinessLoan,
     injectCashIntoBusiness, withdrawFromBusiness,
-    applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject, startBusinessReinvestment, setBusinessInsurancePolicy, startCorporateCapex, resolveBusinessRetention,
+    applyMoraleActionToBusiness, startEmployeeTraining, startBusinessProject,
+    unlockBusinessProjectSlot, grantTemporaryBusinessProjectSlot, unlockBusinessUpgradeSlot, grantTemporaryBusinessUpgradeSlot,
+    getAdFreeSlotRewardUsage, claimAdFreeBusinessSlotReward,
+    startBusinessReinvestment, setBusinessInsurancePolicy, startCorporateCapex, resolveBusinessRetention,
   } = useGameStore(useShallow((s) => ({
     designateFamilyBusiness: s.designateFamilyBusiness,
     toggleLongTermFamilyAsset: s.toggleLongTermFamilyAsset,
     setBusinessStrategicFocus: s.setBusinessStrategicFocus,
+    setBusinessDecisionAutomation: s.setBusinessDecisionAutomation,
     setBusinessBudgetProfile: s.setBusinessBudgetProfile,
-    setBusinessManagementTargetProfile: s.setBusinessManagementTargetProfile,
     openExecutiveSearch: s.openExecutiveSearch,
     hireExecutiveCandidate: s.hireExecutiveCandidate,
     cancelExecutiveSearch: s.cancelExecutiveSearch,
@@ -220,6 +322,12 @@ export default function BusinessDetailScreen() {
     applyMoraleActionToBusiness: s.applyMoraleActionToBusiness,
     startEmployeeTraining: s.startEmployeeTraining,
     startBusinessProject: s.startBusinessProject,
+    unlockBusinessProjectSlot: s.unlockBusinessProjectSlot,
+    grantTemporaryBusinessProjectSlot: s.grantTemporaryBusinessProjectSlot,
+    unlockBusinessUpgradeSlot: s.unlockBusinessUpgradeSlot,
+    grantTemporaryBusinessUpgradeSlot: s.grantTemporaryBusinessUpgradeSlot,
+    getAdFreeSlotRewardUsage: s.getAdFreeSlotRewardUsage,
+    claimAdFreeBusinessSlotReward: s.claimAdFreeBusinessSlotReward,
     startBusinessReinvestment: s.startBusinessReinvestment,
     setBusinessInsurancePolicy: s.setBusinessInsurancePolicy,
     startCorporateCapex: s.startCorporateCapex,
@@ -228,6 +336,7 @@ export default function BusinessDetailScreen() {
 
   const [showHireModal, setShowHireModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState<'inject' | 'withdraw' | null>(null);
+  const [showBusinessTour, setShowBusinessTour] = useState(false);
   const [transferAmount, setTransferAmount] = useState('');
   const [dialog, setDialog] = useState<{ title: string; message: string; action: () => void } | null>(null);
 
@@ -237,30 +346,83 @@ export default function BusinessDetailScreen() {
   const [showTrainingModal, setShowTrainingModal] = useState<string | null>(null); // employeeId
   const [showMoraleDropdown, setShowMoraleDropdown] = useState(false);
   const [showProjectsModal, setShowProjectsModal] = useState(false);
+  const [slotAdLoading, setSlotAdLoading] = useState<'project' | 'upgrade' | null>(null);
+  const [slotAdMessage, setSlotAdMessage] = useState<{ kind: 'project' | 'upgrade'; text: string } | null>(null);
   const [showFundingNotice, setShowFundingNotice] = useState(newBusiness === '1');
+  const [activeSection, setActiveSection] = useState<BusinessDetailSection>(() => requestedSection ?? 'overview');
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
   const [transferError, setTransferError] = useState('');
   const detailScrollRef = useRef<ScrollView>(null);
+  const sectionTabScrollRef = useRef<ScrollView>(null);
   const managementSectionOffsets = useRef<Partial<Record<CorporateManagementActionTarget, number>>>({});
-  const sectionOffsets = useRef<Partial<Record<BusinessDetailSection, number>>>({});
+  const businessFocusOffsets = useRef<Partial<Record<BusinessDetailFocus, number>>>({});
+  const handledBusinessFocus = useRef<string | null>(null);
 
-  const recordSection = (target: BusinessDetailSection, event: LayoutChangeEvent) => {
-    sectionOffsets.current[target] = event.nativeEvent.layout.y;
-  };
-  const scrollToSection = (target: BusinessDetailSection) => {
-    const y = sectionOffsets.current[target];
-    if (y == null) return;
-    detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+  const activateSection = (target: BusinessDetailSection) => {
+    setActiveSection(target);
+    const tabIndex = BUSINESS_SECTION_CHIPS.findIndex((section) => section.key === target);
+    if (tabIndex >= 0) {
+      sectionTabScrollRef.current?.scrollTo({ x: Math.max(0, tabIndex * 86 - 18), animated: true });
+    }
+    requestAnimationFrame(() => detailScrollRef.current?.scrollTo({ y: 0, animated: true }));
   };
 
   const recordManagementSection = (target: CorporateManagementActionTarget, event: LayoutChangeEvent) => {
     managementSectionOffsets.current[target] = event.nativeEvent.layout.y;
   };
   const scrollToManagementSection = (target: CorporateManagementActionTarget) => {
-    const y = managementSectionOffsets.current[target];
-    if (y == null) return;
-    detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+    activateSection(MANAGEMENT_TARGET_SECTION[target]);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const y = managementSectionOffsets.current[target];
+        detailScrollRef.current?.scrollTo({ y: Math.max(0, (y ?? 0) - 12), animated: true });
+      });
+    });
   };
+
+  const recordBusinessFocus = (target: BusinessDetailFocus, event: LayoutChangeEvent) => {
+    const y = event.nativeEvent.layout.y;
+    businessFocusOffsets.current[target] = y;
+    if (requestedFocus !== target || activeSection !== BUSINESS_FOCUS_SECTION[target]) return;
+    const focusKey = `${id}:${target}`;
+    if (handledBusinessFocus.current === focusKey) return;
+    handledBusinessFocus.current = focusKey;
+    requestAnimationFrame(() => {
+      detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+    });
+  };
+
+  useEffect(() => {
+    if (!requestedSection) return;
+    setActiveSection(requestedSection);
+    const tabIndex = BUSINESS_SECTION_CHIPS.findIndex((item) => item.key === requestedSection);
+    requestAnimationFrame(() => {
+      if (tabIndex >= 0) {
+        sectionTabScrollRef.current?.scrollTo({ x: Math.max(0, tabIndex * 86 - 18), animated: true });
+      }
+      detailScrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+  }, [requestedSection]);
+
+  useEffect(() => {
+    if (!requestedFocus) return;
+    const focusKey = `${id}:${requestedFocus}`;
+    const targetSection = BUSINESS_FOCUS_SECTION[requestedFocus];
+    handledBusinessFocus.current = null;
+    setActiveSection(targetSection);
+    const tabIndex = BUSINESS_SECTION_CHIPS.findIndex((item) => item.key === targetSection);
+    requestAnimationFrame(() => {
+      if (tabIndex >= 0) {
+        sectionTabScrollRef.current?.scrollTo({ x: Math.max(0, tabIndex * 86 - 18), animated: true });
+      }
+      requestAnimationFrame(() => {
+        const y = businessFocusOffsets.current[requestedFocus];
+        if (y == null || handledBusinessFocus.current === focusKey) return;
+        handledBusinessFocus.current = focusKey;
+        detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+      });
+    });
+  }, [id, requestedFocus]);
 
   const biz = businesses.find((b) => b?.id === id);
   useEffect(() => {
@@ -270,15 +432,62 @@ export default function BusinessDetailScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Business Not Found</Text>
-          <View style={{ width: 24 }} />
+          <View style={styles.headerSide}>
+            <Pressable onPress={() => router.back()} hitSlop={12}>
+              <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+            </Pressable>
+          </View>
+          <Text style={styles.headerTitle} numberOfLines={1}>Business Not Found</Text>
+          <View style={styles.headerSide} />
         </View>
       </SafeAreaView>
     );
   }
+
+  const handleSlotRewardedAd = async (kind: 'project' | 'upgrade') => {
+    if (slotAdLoading) return;
+    setSlotAdLoading(kind);
+    setSlotAdMessage(null);
+
+    if (profile.adsRemoved) {
+      const claimed = claimAdFreeBusinessSlotReward(biz.id, kind);
+      setSlotAdLoading(null);
+      setSlotAdMessage({
+        kind,
+        text: claimed
+          ? 'Daily ad-free Slot 2 reward claimed.'
+          : 'Today’s ad-free Slot 2 reward is already used or this slot is unavailable.',
+      });
+      return;
+    }
+
+    const grantSlot = () => {
+      if (kind === 'project') grantTemporaryBusinessProjectSlot(biz.id);
+      else grantTemporaryBusinessUpgradeSlot(biz.id);
+    };
+
+    if (shouldSimulateNativeFeatures()) {
+      grantSlot();
+      setSlotAdLoading(null);
+      setSlotAdMessage({ kind, text: 'Slot 2 is ready for one extra task.' });
+      return;
+    }
+
+    const placement = kind === 'project' ? 'business_project_slot' : 'business_upgrade_slot';
+    const loaded = await loadRewardedAd(placement);
+    if (!loaded) {
+      setSlotAdLoading(null);
+      setSlotAdMessage({ kind, text: 'Rewarded ad unavailable right now.' });
+      return;
+    }
+
+    const earned = await showRewardedAd(grantSlot);
+    setSlotAdLoading(null);
+    setSlotAdMessage({
+      kind,
+      text: earned ? 'Slot 2 is ready for one extra task.' : 'Watch the full ad to unlock Slot 2.',
+    });
+  };
 
   const handleTransfer = () => {
     const amount = Math.floor(Number(transferAmount));
@@ -287,14 +496,26 @@ export default function BusinessDetailScreen() {
       return;
     }
     if (showTransferModal === 'inject') {
+      if (biz.holdingCompanyId) {
+        setTransferError('Holding subsidiaries are funded through the Holding treasury.');
+        return;
+      }
       if (amount > cash) {
         setTransferError(`You only have ${formatCurrency(cash)} personal cash available.`);
         return;
       }
       injectCashIntoBusiness(biz.id, amount);
     } else {
-      if (amount > (biz.balance ?? 0)) {
-        setTransferError(`This business only has ${formatCurrency(biz.balance ?? 0)} available.`);
+      if (!manualDistributionAllowed) {
+        setTransferError(
+          biz.holdingCompanyId
+            ? 'Holding subsidiaries distribute cash through the Holding treasury.'
+            : 'Co-owned companies distribute cash pro-rata through the dividend policy.',
+        );
+        return;
+      }
+      if (amount > manualDistributionAvailable) {
+        setTransferError(`Only ${formatCurrency(manualDistributionAvailable)} is available above protected company reserves.`);
         return;
       }
       withdrawFromBusiness(biz.id, amount);
@@ -308,7 +529,19 @@ export default function BusinessDetailScreen() {
   const automation = getAutomationScore(biz);
   const maxEmployees = type?.maxEmployees ?? 1;
   const uniquePurchasedUpgrades = [...new Set(biz.purchasedUpgrades ?? [])];
-  const availableUpgrades = (type?.upgrades ?? []).filter((uid) => !uniquePurchasedUpgrades.includes(uid));
+  const activeUpgrades = [biz.activeUpgrade, biz.secondaryActiveUpgrade].filter(
+    (upgrade): upgrade is { upgradeId: string; weeksRemaining: number } => !!upgrade
+  );
+  const activeUpgradeIds = activeUpgrades.map((upgrade) => upgrade.upgradeId);
+  const activeUpgradeCount = activeUpgrades.length;
+  const upgradeSlotLimit = getBusinessUpgradeSlotLimit(biz);
+  const availableUpgrades = (type?.upgrades ?? []).filter(
+    (uid) => !uniquePurchasedUpgrades.includes(uid) && !activeUpgradeIds.includes(uid)
+  );
+  const activeProjects = (biz.activeProjects ?? []).filter((project) => !project.resolved);
+  const activeProjectCount = activeProjects.length;
+  const projectSlotLimit = getBusinessProjectSlotLimit(biz);
+  const adFreeSlotReward = getAdFreeSlotRewardUsage();
   const isUnderStaffed = !meetsMinStaffing(biz);
   const allMoraleActions = getAllMoraleActions();
   const allTraining = getAllTraining();
@@ -328,6 +561,31 @@ export default function BusinessDetailScreen() {
     votingPercent: 100,
   }];
   const playerOwnershipPct = getPlayerOwnershipPct(biz);
+  const manualDistributionAllowed = !biz.holdingCompanyId && playerOwnershipPct >= 99.999;
+  const manualDistributionAvailable = manualDistributionAllowed
+    ? getBusinessAvailableOwnerDistributionCash(biz, inflationMultiplier)
+    : 0;
+  const transferValue = Math.floor(Number(transferAmount));
+  const transferAmountValid = Number.isFinite(transferValue) && transferValue > 0;
+  const transferPreviewAmount = transferAmountValid ? transferValue : 0;
+  const protectedBusinessCash = Math.max(0, (biz.balance ?? 0) - manualDistributionAvailable);
+  const transferWithinLimit = transferAmountValid && (
+    showTransferModal === 'inject'
+      ? transferValue <= cash
+      : showTransferModal === 'withdraw'
+        ? transferValue <= manualDistributionAvailable
+        : false
+  );
+  const previewPersonalCash = showTransferModal === 'inject'
+    ? cash - transferPreviewAmount
+    : showTransferModal === 'withdraw'
+      ? cash + transferPreviewAmount
+      : cash;
+  const previewBusinessCash = showTransferModal === 'inject'
+    ? (biz.balance ?? 0) + transferPreviewAmount
+    : showTransferModal === 'withdraw'
+      ? (biz.balance ?? 0) - transferPreviewAmount
+      : (biz.balance ?? 0);
   const investorOwnershipPct = ownership
     .filter((stake) => stake.ownerType === 'investor')
     .reduce((sum, stake) => sum + (stake.percent ?? 0), 0);
@@ -337,6 +595,17 @@ export default function BusinessDetailScreen() {
   const familyTrustCash = relationshipState?.familyTrustCash ?? 0;
   const pendingDecision = biz.pendingDecision ?? null;
   const globalGameWeek = ((gameYear - 1) * 20) + gameWeek;
+  const strategicPrograms = (biz.strategyModifiers ?? []).filter((modifier) => modifier.id.startsWith('strategy_'));
+  const primaryStrategicProgram = strategicPrograms
+    .slice()
+    .sort((a, b) => (b.weeksRemaining ?? 0) - (a.weeksRemaining ?? 0))[0] ?? null;
+  const strategyProgramWeeksRemaining = strategicPrograms.reduce(
+    (max, modifier) => Math.max(max, modifier.weeksRemaining ?? 0),
+    0,
+  );
+  const scheduledStrategicReviewWeeks = Math.max(0, (biz.nextStrategicDecisionWeek ?? (globalGameWeek + 18)) - globalGameWeek);
+  const estimatedStrategicReviewWeeks = Math.max(scheduledStrategicReviewWeeks, strategyProgramWeeksRemaining);
+  const waitingStrategicDecision = pendingDecision?.kind === 'strategy';
   const reinvestmentState = normalizeBusinessReinvestmentState(biz.reinvestment, globalGameWeek);
   const reinvestmentEffects = getBusinessReinvestmentEffects(biz);
   const insurancePolicies = normalizeBusinessInsurancePolicies(biz.insurancePolicies);
@@ -414,13 +683,48 @@ export default function BusinessDetailScreen() {
     ? Math.max(0, (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4) - globalGameWeek)
     : 0;
   const equityStructuringUnlocked = (biz.level ?? 0) >= 3;
-  const canIssue5 = playerOwnershipPct * 0.95 >= 51;
-  const canIssue10 = playerOwnershipPct * 0.90 >= 51;
+  const ownershipEquityValue = getBusinessOwnershipEquityValue(biz);
+  const canIssue5 = ownershipEquityValue > 0 && playerOwnershipPct * 0.95 >= 51;
+  const canIssue10 = ownershipEquityValue > 0 && playerOwnershipPct * 0.90 >= 51;
   const canTransfer5 = playerOwnershipPct >= 56;
-  const fivePctStakeValue = Math.round((biz.valuation ?? 0) * 0.05);
+  const investorRaise5 = Math.round(getInvestmentForPostMoneyIssuePct(ownershipEquityValue, 5) * 0.90);
+  const investorRaise10 = Math.round(getInvestmentForPostMoneyIssuePct(ownershipEquityValue, 10) * 0.90);
+  const fivePctStakeValue = getBusinessOwnershipStakeValue(biz, 5);
   const childShareGiftTax = calculateChildInheritanceTax(fivePctStakeValue);
   const trustShareTransferTax = Math.round(fivePctStakeValue * 0.075);
   const acquisitionReturn = biz.acquisition ? getBusinessEquityReturn(biz) : null;
+  const activeIntegrationProbabilities = biz.acquisition && biz.acquisition.integrationStrategy !== 'pending'
+    ? getAcquisitionIntegrationOutcomeProbabilities(
+        biz.acquisition.integrationStrategy,
+        biz.acquisition.integrationSuccessChance ?? 1,
+      )
+    : null;
+  const integrationHoldingSynergyFactor = biz.acquisition
+    ? getAcquisitionIntegrationHoldingSynergyFactor(
+        biz.acquisition.integrationStrategy,
+        biz.acquisition.integrationOutcome,
+      )
+    : 1;
+  const resolvedIntegrationEffect = biz.acquisition
+    && biz.acquisition.integrationStrategy !== 'pending'
+    && biz.acquisition.integrationOutcome !== 'pending'
+    ? getAcquisitionIntegrationOutcomeEffect(
+        biz.acquisition.integrationStrategy,
+        biz.acquisition.integrationOutcome,
+      )
+    : null;
+  const activeIntegrationPreview = biz.acquisition
+    && biz.acquisition.integrationStrategy !== 'pending'
+    && biz.acquisition.integrationOutcome === 'pending'
+    ? getAcquisitionIntegrationDecisionPreview(
+        biz.acquisition.baseIntegrationWeeks,
+        biz.acquisition.baseIntegrationPenalty,
+        biz.acquisition.diligenceScore,
+        biz.acquisition.integrationStrategy,
+        biz.acquisition.quotedWeeklyRevenue ?? biz.lastWeekRevenue ?? 0,
+        biz.acquisition.quotedWeeklyProfit ?? biz.lastWeekProfit ?? 0,
+      )
+    : null;
   // Market share pie chart data. Keep these as plain calculations rather than
   // hooks because selling the current business removes it from the store
   // synchronously and this screen then takes the early "not found" return.
@@ -542,13 +846,43 @@ export default function BusinessDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
+        <View style={styles.headerSide}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+          </Pressable>
+        </View>
         <Text style={styles.headerTitle} numberOfLines={1}>{biz.name}</Text>
-        <Pressable disabled={playerOwnershipPct < 99.9} onPress={handleSell} hitSlop={12}>
-          <Ionicons name="trash-outline" size={22} color={playerOwnershipPct >= 99.9 ? Colors.negative : Colors.textMuted} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={() => setShowBusinessTour(true)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Open business cash tour"
+          >
+            <Ionicons name="help-circle-outline" size={22} color={Colors.info} />
+          </Pressable>
+          <Pressable disabled={playerOwnershipPct < 99.9} onPress={handleSell} hitSlop={12}>
+            <Ionicons name="trash-outline" size={22} color={playerOwnershipPct >= 99.9 ? Colors.negative : Colors.textMuted} />
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.sectionTabShell}>
+        <ScrollView ref={sectionTabScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionJumpRow}>
+          {BUSINESS_SECTION_CHIPS.map((section) => (
+            <Pressable
+              key={section.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeSection === section.key }}
+              style={[styles.sectionJumpChip, activeSection === section.key && styles.sectionJumpChipActive]}
+              onPress={() => activateSection(section.key)}
+            >
+              <Ionicons name={section.icon as any} size={13} color={activeSection === section.key ? Colors.business : Colors.textSecondary} />
+              <Text style={[styles.sectionJumpText, activeSection === section.key && styles.sectionJumpTextActive]}>{section.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
       </View>
 
       <ScrollView ref={detailScrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -562,8 +896,32 @@ export default function BusinessDetailScreen() {
           </View>
         )}
 
-        <View collapsable={false} onLayout={(event) => recordSection('overview', event)} />
+        <View style={styles.businessContextRow}>
+          <View style={styles.businessContextItem}>
+            <Text style={styles.businessContextLabel}>Value</Text>
+            <Text style={styles.businessContextValue} numberOfLines={1}>{formatCurrency(biz.valuation)}</Text>
+          </View>
+          <View style={styles.businessContextItem}>
+            <Text style={styles.businessContextLabel}>Balance</Text>
+            <Text style={[styles.businessContextValue, { color: (biz.balance ?? 0) >= 0 ? Colors.primary : Colors.negative }]} numberOfLines={1}>
+              {formatCurrency(biz.balance)}
+            </Text>
+          </View>
+          <View style={styles.businessContextItem}>
+            <Text style={styles.businessContextLabel}>Health</Text>
+            <Text
+              style={[
+                styles.businessContextValue,
+                { color: getBusinessHealthScore(biz) >= 70 ? Colors.primary : getBusinessHealthScore(biz) >= 45 ? Colors.warning : Colors.negative },
+              ]}
+            >
+              {getBusinessHealthScore(biz)}/100
+            </Text>
+          </View>
+        </View>
 
+        {activeSection === 'overview' && (
+          <>
         {/* Top Info */}
         <GameCard>
           <View style={styles.topInfo}>
@@ -619,9 +977,41 @@ export default function BusinessDetailScreen() {
           )}
         </GameCard>
 
+        <GameCard
+          variant={(biz.identityTraits?.length ?? 0) > 0 ? 'standard' : 'subtle'}
+          eyebrow="COMPANY IDENTITY"
+          title={(biz.identityTraits?.length ?? 0) > 0 ? 'What this company has become' : 'Identity still forming'}
+          accentColor={Colors.business}
+        >
+          {(biz.identityTraits?.length ?? 0) > 0 ? (
+            <View style={styles.identityList}>
+              {(biz.identityTraits ?? []).map((trait) => {
+                const definition = BUSINESS_IDENTITY_DEFINITIONS[trait.id];
+                return (
+                  <View key={trait.id} style={styles.identityRow}>
+                    <StatusPill
+                      compact
+                      icon={definition.icon as any}
+                      label={definition.name}
+                      color={businessIdentityColor(definition.color)}
+                    />
+                    <Text style={styles.identityDescription}>{definition.description}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.identityEmpty}>
+              Persistent identity traits emerge naturally from sustained pricing, strategy, employee, financing and family-governance choices. They are not selected manually.
+            </Text>
+          )}
+        </GameCard>
+          </>
+        )}
+
         <Pressable
           style={[styles.nextActionCard, { borderColor: `${nextAction.tone}55`, backgroundColor: `${nextAction.tone}12` }]}
-          onPress={() => scrollToSection(nextAction.target)}
+          onPress={() => activateSection(nextAction.target)}
         >
           <View style={[styles.nextActionIcon, { backgroundColor: `${nextAction.tone}22` }]}>
             <Ionicons name={nextAction.icon as any} size={20} color={nextAction.tone} />
@@ -634,15 +1024,8 @@ export default function BusinessDetailScreen() {
           <Ionicons name="chevron-forward" size={18} color={nextAction.tone} />
         </Pressable>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionJumpRow}>
-          {BUSINESS_SECTION_CHIPS.map((section) => (
-            <Pressable key={section.key} style={styles.sectionJumpChip} onPress={() => scrollToSection(section.key)}>
-              <Ionicons name={section.icon as any} size={13} color={Colors.textSecondary} />
-              <Text style={styles.sectionJumpText}>{section.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
+        {activeSection === 'overview' && (
+          <>
         {/* Family Business */}
         <GameCard title="Family Business">
           {biz.familyBusiness?.isFamilyBusiness ? (
@@ -704,7 +1087,8 @@ export default function BusinessDetailScreen() {
         </GameCard>
 
         {biz.acquisition && (
-          <GameCard title="Acquisition & Integration">
+          <View collapsable={false} onLayout={(event) => recordBusinessFocus('integration', event)}>
+            <GameCard title="Acquisition & Integration">
             <View style={styles.acquisitionHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.acquisitionTitle}>
@@ -716,7 +1100,7 @@ export default function BusinessDetailScreen() {
               </View>
               {acquisitionReturn?.returnPct != null && (
                 <Text style={[styles.acquisitionReturn, { color: acquisitionReturn.returnPct >= 0 ? Colors.primary : Colors.negative }]}>
-                  {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
+                  Owner ROI {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
                 </Text>
               )}
             </View>
@@ -796,26 +1180,57 @@ export default function BusinessDetailScreen() {
 
             {biz.acquisition.integrationStrategy === 'pending' ? (
               <>
-                <Text style={styles.integrationPrompt}>Choose how to integrate this company. The integration clock begins only after you choose.</Text>
+                <Text style={styles.integrationPrompt}>Choose how to integrate this company. Review the trade-offs first; the choice cannot be changed after integration starts.</Text>
                 {INTEGRATION_STRATEGIES.map((strategy) => {
-                  const profile = getIntegrationStrategyProfile(
+                  const preview = getAcquisitionIntegrationDecisionPreview(
                     biz.acquisition!.baseIntegrationWeeks,
                     biz.acquisition!.baseIntegrationPenalty,
                     biz.acquisition!.diligenceScore,
                     strategy,
+                    biz.acquisition!.quotedWeeklyRevenue ?? biz.lastWeekRevenue ?? 0,
+                    biz.acquisition!.quotedWeeklyProfit ?? biz.lastWeekProfit ?? 0,
                   );
+                  const {
+                    profile,
+                    probabilities,
+                    successEffect,
+                    mixedEffect,
+                    failedEffect,
+                  } = preview;
+                  const expectedEffectText = formatIntegrationOutcomeEffect(
+                    preview.expectedRevenueBonus,
+                    preview.expectedExpenseReduction,
+                    preview.expectedReputationDelta,
+                  );
+                  const outcomeText = strategy === 'independent'
+                    ? 'Outcome: 100% stable • no permanent operating change'
+                    : `Odds: ${Math.round(probabilities.success * 100)}% success • ${Math.round(probabilities.mixed * 100)}% mixed • ${Math.round(probabilities.failed * 100)}% fail`;
+                  const fullOutcomeText = strategy === 'independent'
+                    ? 'No permanent operating change.'
+                    : `Success ${Math.round(probabilities.success * 100)}%: ${formatIntegrationOutcomeEffect(successEffect.revenueBonus, successEffect.expenseReduction, successEffect.reputationDelta)}\nMixed ${Math.round(probabilities.mixed * 100)}%: ${formatIntegrationOutcomeEffect(mixedEffect.revenueBonus, mixedEffect.expenseReduction, mixedEffect.reputationDelta)}\nFail ${Math.round(probabilities.failed * 100)}%: ${formatIntegrationOutcomeEffect(failedEffect.revenueBonus, failedEffect.expenseReduction, failedEffect.reputationDelta)}`;
                   return (
                     <Pressable
                       key={strategy}
                       style={styles.integrationChoice}
-                      onPress={() => setAcquisitionIntegrationStrategy(biz.id, strategy)}
+                      onPress={() => confirmAction(
+                        `Choose ${profile.label}?`,
+                        `${profile.description}\n\nTemporary phase: ${profile.weeks} weeks at ${Math.round(profile.penalty * 100)}% disruption. Estimated operating profit during integration: ${formatCurrency(preview.estimatedWeeklyProfitDuringIntegration)}/wk before buyer debt.\n\nExpected permanent effect: ${expectedEffectText}\n\n${fullOutcomeText}\n\nThis integration strategy cannot be changed once started.`,
+                        () => setAcquisitionIntegrationStrategy(biz.id, strategy),
+                      )}
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.integrationChoiceTitle}>{profile.label}</Text>
                         <Text style={styles.integrationChoiceDesc}>{profile.description}</Text>
                         <Text style={styles.integrationChoiceMeta}>
-                          {profile.weeks} weeks • {Math.round(profile.penalty * 100)}% initial disruption • {Math.round(profile.successChance * 100)}% target success chance
+                          {profile.weeks} weeks • {Math.round(profile.penalty * 100)}% disruption • est. {formatCurrency(preview.estimatedWeeklyProfitDuringIntegration)}/wk during integration
+                          {preview.integrationProfitChangePct != null
+                            ? ` (${preview.integrationProfitChangePct >= 0 ? '+' : ''}${Math.round(preview.integrationProfitChangePct * 100)}% vs seller profit)`
+                            : ''}
                         </Text>
+                        <Text style={styles.integrationChoiceExpected}>
+                          Expected permanent: {expectedEffectText}
+                        </Text>
+                        <Text style={styles.integrationChoiceOutcome}>{outcomeText}</Text>
                       </View>
                       <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
                     </Pressable>
@@ -831,7 +1246,14 @@ export default function BusinessDetailScreen() {
                   </Text>
                   <Text style={styles.integrationActiveText}>
                     {biz.acquisition.integrationWeeksRemaining} weeks remaining • {Math.round((biz.acquisition.integrationPenalty ?? 0) * 100)}% temporary disruption
+                    {activeIntegrationPreview ? ` • est. ${formatCurrency(activeIntegrationPreview.estimatedWeeklyProfitDuringIntegration)}/wk operating profit` : ''}
                   </Text>
+                  {activeIntegrationProbabilities && (
+                    <Text style={styles.integrationActiveOdds}>
+                      Outcome odds: {Math.round(activeIntegrationProbabilities.success * 100)}% success • {Math.round(activeIntegrationProbabilities.mixed * 100)}% mixed • {Math.round(activeIntegrationProbabilities.failed * 100)}% fail
+                      {biz.holdingCompanyId ? ` • organic holding synergy ${Math.round(integrationHoldingSynergyFactor * 100)}%` : ''}
+                    </Text>
+                  )}
                 </View>
               </View>
             ) : (
@@ -840,15 +1262,28 @@ export default function BusinessDetailScreen() {
                   Integration {biz.acquisition.integrationOutcome.toUpperCase()}
                 </Text>
                 <Text style={styles.integrationResultText}>
-                  Permanent revenue effect {(biz.acquisition.postIntegrationRevenueBonus ?? 0) >= 0 ? '+' : ''}{((biz.acquisition.postIntegrationRevenueBonus ?? 0) * 100).toFixed(1)}% • expense reduction {((biz.acquisition.postIntegrationExpenseReduction ?? 0) * 100).toFixed(1)}%
+                  Permanent operating effect: {resolvedIntegrationEffect
+                    ? formatIntegrationOutcomeEffect(
+                        resolvedIntegrationEffect.revenueBonus,
+                        resolvedIntegrationEffect.expenseReduction,
+                        resolvedIntegrationEffect.reputationDelta,
+                      )
+                    : 'No permanent change'}
                 </Text>
+                {biz.holdingCompanyId && (
+                  <Text style={styles.integrationResultSynergy}>
+                    Organic holding synergy realized: {Math.round(integrationHoldingSynergyFactor * 100)}% • purchased shared-service bonuses remain fully active.
+                  </Text>
+                )}
               </View>
             )}
-          </GameCard>
+            </GameCard>
+          </View>
         )}
 
         {pendingDecision && (
-          <GameCard>
+          <View collapsable={false} onLayout={(event) => recordBusinessFocus('decision', event)}>
+            <GameCard>
             <View style={[styles.decisionBanner, pendingDecision.kind === 'crisis' && styles.crisisBanner]}>
               <Text style={styles.decisionIcon}>{pendingDecision.icon}</Text>
               <View style={{ flex: 1 }}>
@@ -906,11 +1341,71 @@ export default function BusinessDetailScreen() {
                 </Pressable>
               );
             })}
-          </GameCard>
+            </GameCard>
+          </View>
         )}
 
         <GameCard title="Strategic Direction">
-          <Text style={styles.sectionHint}>Persistent company posture. Strategic decisions and crises add temporary effects on top of this.</Text>
+          <Text style={styles.sectionHint}>Persistent company posture. Routine strategic reviews are spaced roughly 12–24 weeks apart and their meaningful effects usually last 16–24 weeks.</Text>
+
+          <View style={styles.strategyStatusGrid}>
+            <View style={styles.strategyStatusCard}>
+              <Text style={styles.strategyStatusLabel}>CURRENT PROGRAM</Text>
+              <Text style={styles.strategyStatusValue} numberOfLines={1}>
+                {primaryStrategicProgram ? primaryStrategicProgram.title.replace(' (Auto)', '') : 'No active program'}
+              </Text>
+              <Text style={styles.strategyStatusMeta}>
+                {primaryStrategicProgram
+                  ? `${strategyProgramWeeksRemaining} week${strategyProgramWeeksRemaining === 1 ? '' : 's'} remaining`
+                  : 'Company is between strategic programs'}
+              </Text>
+            </View>
+            <View style={styles.strategyStatusCard}>
+              <Text style={styles.strategyStatusLabel}>NEXT BOARD REVIEW</Text>
+              <Text style={[styles.strategyStatusValue, waitingStrategicDecision && { color: Colors.warning }]}>
+                {waitingStrategicDecision ? 'Decision waiting' : estimatedStrategicReviewWeeks <= 0 ? 'Due now' : `~${estimatedStrategicReviewWeeks} weeks`}
+              </Text>
+              <Text style={styles.strategyStatusMeta}>
+                {waitingStrategicDecision
+                  ? `${pendingDecision?.title ?? 'Strategic review'} needs a choice`
+                  : strategyProgramWeeksRemaining > scheduledStrategicReviewWeeks
+                    ? 'Current program must finish first'
+                    : biz.autoStrategicDecisions
+                      ? 'Auto Strategy will handle routine review'
+                      : 'You will be asked for the next direction'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.autoStrategyRow}>
+            <View style={{ flex: 1 }}>
+              <View style={styles.autoStrategyTitleRow}>
+                <Ionicons name="flash-outline" size={15} color={biz.autoStrategicDecisions ? Colors.primary : Colors.textMuted} />
+                <Text style={styles.autoStrategyTitle}>Auto Strategy</Text>
+                <StatusPill
+                  compact
+                  label={biz.autoStrategicDecisions ? 'ON' : 'OFF'}
+                  color={biz.autoStrategicDecisions ? Colors.primary : Colors.textSecondary}
+                />
+              </View>
+              <Text style={styles.autoStrategyDesc}>
+                {biz.autoStrategicDecisions
+                  ? 'Routine strategy and corporate HR choices follow the strategic focus below. Crises still require your decision.'
+                  : 'Turn this on to reduce routine choice prompts. Crises always remain manual.'}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: !!biz.autoStrategicDecisions }}
+              hitSlop={{ top: 8, bottom: 8 }}
+              style={[styles.autoStrategyToggle, biz.autoStrategicDecisions && styles.autoStrategyToggleOn]}
+              onPress={() => setBusinessDecisionAutomation(biz.id, !biz.autoStrategicDecisions)}
+            >
+              <View style={[styles.autoStrategyThumb, biz.autoStrategicDecisions && styles.autoStrategyThumbOn]} />
+            </Pressable>
+          </View>
+
+          <Text style={styles.subHeading}>Strategic Focus</Text>
           <View style={styles.strategyFocusGrid}>
             {STRATEGIC_FOCUS_OPTIONS.map((option) => (
               <Pressable
@@ -926,17 +1421,33 @@ export default function BusinessDetailScreen() {
           {(biz.strategyModifiers ?? []).length > 0 && (
             <View style={styles.activeStrategyBox}>
               <Text style={styles.subHeading}>Temporary Effects</Text>
-              {(biz.strategyModifiers ?? []).map((modifier) => (
-                <View key={modifier.id} style={styles.activeStrategyRow}>
-                  <Text style={styles.actionName}>{modifier.title}</Text>
-                  <Text style={styles.rivalMeta}>{modifier.weeksRemaining}wk</Text>
-                </View>
-              ))}
+              {(biz.strategyModifiers ?? []).map((modifier) => {
+                const revenuePct = Math.round(((modifier.revenueMultiplier ?? 1) - 1) * 100);
+                const expensePct = Math.round(((modifier.expenseMultiplier ?? 1) - 1) * 100);
+                const effectParts = [
+                  revenuePct !== 0 ? `Revenue ${revenuePct > 0 ? '+' : ''}${revenuePct}%` : null,
+                  expensePct !== 0 ? `Costs ${expensePct > 0 ? '+' : ''}${expensePct}%` : null,
+                ].filter(Boolean);
+                return (
+                  <View key={modifier.id} style={styles.activeStrategyRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.actionName}>{modifier.title}</Text>
+                      {effectParts.length > 0 && <Text style={styles.strategyEffectMeta}>{effectParts.join(' • ')}</Text>}
+                    </View>
+                    <Text style={styles.rivalMeta}>{modifier.weeksRemaining}wk</Text>
+                  </View>
+                );
+              })}
             </View>
           )}
         </GameCard>
 
-        <View collapsable={false} onLayout={(event) => recordSection('ownership', event)} />
+          </>
+        )}
+
+        {activeSection === 'ownership' && (
+          <>
+        <View collapsable={false} />
         <GameCard title="Ownership Structure">
           <View style={styles.ownershipSummary}>
             <View>
@@ -977,7 +1488,7 @@ export default function BusinessDetailScreen() {
                   style={[styles.shareButton, !canIssue5 && { opacity: 0.35 }]}
                   onPress={() => confirmAction(
                     'Issue New Shares',
-                    `Issue 5% new equity to outside investors? Existing owners will be diluted proportionally and the company should raise about ${formatCurrency(Math.round((biz.valuation ?? 0) * 0.05 * 0.90))}.`,
+                    `Issue 5% new equity to outside investors? Existing owners will be diluted proportionally and the company should raise about ${formatCurrency(investorRaise5)} based on current net equity.`,
                     () => transferBusinessShares(biz.id, 'investor', null, 5),
                   )}
                 >
@@ -989,7 +1500,7 @@ export default function BusinessDetailScreen() {
                   style={[styles.shareButton, !canIssue10 && { opacity: 0.35 }]}
                   onPress={() => confirmAction(
                     'Issue New Shares',
-                    `Issue 10% new equity to outside investors? Existing owners will be diluted proportionally and the company should raise about ${formatCurrency(Math.round((biz.valuation ?? 0) * 0.10 * 0.90))}.`,
+                    `Issue 10% new equity to outside investors? Existing owners will be diluted proportionally and the company should raise about ${formatCurrency(investorRaise10)} based on current net equity.`,
                     () => transferBusinessShares(biz.id, 'investor', null, 10),
                   )}
                 >
@@ -1043,7 +1554,7 @@ export default function BusinessDetailScreen() {
           {investorOwnershipPct > 0 && (
             <Pressable style={styles.buybackButton} onPress={() => {
                 const pct = Math.min(5, investorOwnershipPct);
-                const cost = Math.round((biz.valuation ?? 0) * (pct / 100) * 1.05);
+                const cost = Math.round(getBusinessOwnershipStakeValue(biz, pct) * 1.05);
                 confirmAction(
                   'Buy Back Investor Shares',
                   `Use about ${formatCurrency(cost)} of company cash to repurchase and retire ${pct.toFixed(1)}% of investor equity?`,
@@ -1137,7 +1648,12 @@ export default function BusinessDetailScreen() {
           </GameCard>
         )}
 
-        <View collapsable={false} onLayout={(event) => recordSection('leadership', event)} />
+          </>
+        )}
+
+        {activeSection === 'leadership' && (
+          <>
+        <View collapsable={false} />
         {((biz.valuation ?? 0) >= 10_000_000 || (biz.executives?.length ?? 0) > 0 || !!biz.pendingExecutiveSearch || !!biz.boardGovernance) && (
           <GameCard title="Executive Leadership & Board">
             <Text style={styles.sectionHint}>
@@ -1553,14 +2069,18 @@ export default function BusinessDetailScreen() {
               annualActions={annualManagementActions}
               targetProgress={managementTargetProgress}
               reviewYears={managementReviewYears}
-              onTargetProfileChange={(profile) => setBusinessManagementTargetProfile(biz.id, profile)}
               onActionPress={scrollToManagementSection}
             />
           </GameCard>
         )}
 
         {/* Weekly Financials */}
-        <View collapsable={false} onLayout={(event) => recordSection('finance', event)} />
+          </>
+        )}
+
+        {activeSection === 'finance' && (
+          <>
+        <View collapsable={false} />
         <GameCard title="Weekly Financials">
           <Text style={styles.sectionHint}>Revenue = employees × productivity × reputation demand × market share × upgrades. Reputation improves demand; upgrades add revenue; market share changes customer volume. Lower-reputation companies use leaner overhead and premises.</Text>
           <StatRow label="Revenue" value={biz.lastWeekRevenue} positive />
@@ -1569,7 +2089,13 @@ export default function BusinessDetailScreen() {
           <StatRow label="Profit" value={biz.lastWeekProfit} positive={(biz.lastWeekProfit ?? 0) >= 0} bold />
         </GameCard>
 
-        <View collapsable={false} onLayout={(event) => recordManagementSection('budget', event)} />
+        <View
+          collapsable={false}
+          onLayout={(event) => {
+            recordManagementSection('budget', event);
+            recordBusinessFocus('budget', event);
+          }}
+        />
         <GameCard title="Annual Cash Plan">
           <View style={styles.budgetHeader}>
             <View style={{ flex: 1 }}>
@@ -1638,9 +2164,12 @@ export default function BusinessDetailScreen() {
             </View>
           </View>
 
-          <Text style={styles.subHeading}>Budget Policy</Text>
+          <Text style={styles.subHeading}>Cash Allocation Policy</Text>
+          <Text style={styles.sectionHint}>This controls where profits go. Strategic Focus controls how the company competes; quarterly targets align automatically with both.</Text>
           <View style={styles.budgetProfileGrid}>
-            {(Object.keys(BUSINESS_BUDGET_PRESETS) as Array<keyof typeof BUSINESS_BUDGET_PRESETS>).map((profile) => {
+            {(Object.keys(BUSINESS_BUDGET_PRESETS) as Array<keyof typeof BUSINESS_BUDGET_PRESETS>)
+              .filter((profile) => profile !== 'standard')
+              .map((profile) => {
               const preset = BUSINESS_BUDGET_PRESETS[profile];
               const active = budgetPlan.profile === profile;
               return (
@@ -1723,7 +2252,8 @@ export default function BusinessDetailScreen() {
 
         {bizCompetitors.length > 0 && (
           <GameCard title="Rival CEOs">
-            <Text style={styles.sectionHint}>These CEOs persist in this save, grow their companies, and make a strategic decision every four weeks.</Text>
+            <Text style={styles.sectionHint}>These CEOs persist in this save and make a strategic decision every four weeks.</Text>
+            <Text style={styles.rivalAction}>{rivalCycleLabel}: {rivalCycleHint}</Text>
             {bizCompetitors.map((rival) => (
               <View key={rival.id} style={styles.rivalRow}>
                 <View style={styles.rivalHeader}>
@@ -1741,17 +2271,33 @@ export default function BusinessDetailScreen() {
         )}
 
         {/* Cash Management */}
+        <View collapsable={false} onLayout={(event) => recordBusinessFocus('cash-management', event)} />
         <GameCard title="Cash Management">
           <View style={styles.cashBtnRow}>
-            <Pressable style={styles.cashBtn} onPress={() => { setShowTransferModal('inject'); setTransferAmount(''); setTransferError(''); }}>
+            <Pressable
+              disabled={!!biz.holdingCompanyId}
+              style={[styles.cashBtn, !!biz.holdingCompanyId && styles.disabledAction]}
+              onPress={() => { setShowTransferModal('inject'); setTransferAmount(''); setTransferError(''); }}
+            >
               <Ionicons name="arrow-down-circle" size={18} color={Colors.primary} />
               <Text style={styles.cashBtnText}>Inject Cash</Text>
             </Pressable>
-            <Pressable style={styles.cashBtn} onPress={() => { setShowTransferModal('withdraw'); setTransferAmount(''); setTransferError(''); }}>
+            <Pressable
+              disabled={!manualDistributionAllowed || manualDistributionAvailable <= 0}
+              style={[styles.cashBtn, (!manualDistributionAllowed || manualDistributionAvailable <= 0) && styles.disabledAction]}
+              onPress={() => { setShowTransferModal('withdraw'); setTransferAmount(''); setTransferError(''); }}
+            >
               <Ionicons name="arrow-up-circle" size={18} color={Colors.warning} />
-              <Text style={styles.cashBtnText}>Withdraw</Text>
+              <Text style={styles.cashBtnText}>Owner Distribution</Text>
             </Pressable>
           </View>
+          <Text style={styles.sectionHint}>
+            {biz.holdingCompanyId
+              ? 'This subsidiary uses the Holding treasury for both funding and upstream cash. Direct personal transfers are disabled.'
+              : playerOwnershipPct < 99.999
+                ? 'Co-owned companies use pro-rata dividend distributions; direct owner draws are disabled.'
+                : `Direct owner distributions are limited to cash above protected operating and budget reserves: ${formatCurrency(manualDistributionAvailable)} available.`}
+          </Text>
         </GameCard>
 
         {/* Pricing Strategy */}
@@ -1786,7 +2332,12 @@ export default function BusinessDetailScreen() {
           </View>
         </GameCard>
 
-        <View collapsable={false} onLayout={(event) => recordSection('people', event)} />
+          </>
+        )}
+
+        {activeSection === 'people' && (
+          <>
+        <View collapsable={false} />
         {/* Employees */}
         <GameCard title={`Employees (${biz.employees?.length ?? 0}/${maxEmployees})`}>
           <Text style={{ color: Colors.textMuted, fontSize: 12, marginBottom: 8 }}>
@@ -1889,7 +2440,12 @@ export default function BusinessDetailScreen() {
           })}
         </GameCard>
 
-        <View collapsable={false} onLayout={(event) => recordSection('risk', event)} />
+          </>
+        )}
+
+        {activeSection === 'risk' && (
+          <>
+        <View collapsable={false} />
         <GameCard title="Insurance & Risk">
           <View style={styles.insuranceSummary}>
             <View style={styles.insuranceScoreBox}>
@@ -2058,8 +2614,52 @@ export default function BusinessDetailScreen() {
         </GameCard>
 
         {/* Active Business Projects */}
-        <View collapsable={false} onLayout={(event) => recordSection('growth', event)} />
+          </>
+        )}
+
+        {activeSection === 'growth' && (
+          <>
+        <View collapsable={false} />
         <GameCard title="Business Projects">
+          <View style={styles.slotAccessRow}>
+            <View style={styles.slotAccessStatus}>
+              <Ionicons name="layers-outline" size={12} color={Colors.info} />
+              <Text style={styles.slotAccessText}>Slots {activeProjectCount}/{projectSlotLimit}</Text>
+            </View>
+            {!biz.projectSlot2Unlocked && !biz.temporaryProjectSlot2 && activeProjectCount === 1 && (
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                style={[styles.slotMiniButton, (slotAdLoading === 'project' || (profile.adsRemoved && !adFreeSlotReward.available)) && styles.disabledRow]}
+                disabled={slotAdLoading !== null || (profile.adsRemoved && !adFreeSlotReward.available)}
+                onPress={() => handleSlotRewardedAd('project')}
+              >
+                <Ionicons name={profile.adsRemoved ? "gift-outline" : "play-circle-outline"} size={12} color={Colors.info} />
+                <Text style={styles.slotMiniButtonText}>
+                  {slotAdLoading === 'project' ? 'Loading…' : profile.adsRemoved ? (adFreeSlotReward.available ? 'Daily Slot 2' : 'Daily used') : 'Ad Slot 2'}
+                </Text>
+              </Pressable>
+            )}
+            {!biz.projectSlot2Unlocked && (
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
+                style={[styles.slotMiniButton, styles.slotGemButton, (profile.gems ?? 0) < BUSINESS_PROJECT_SLOT_2_GEM_COST && styles.disabledRow]}
+                disabled={(profile.gems ?? 0) < BUSINESS_PROJECT_SLOT_2_GEM_COST}
+                onPress={() => confirmAction(
+                  'Unlock Project Slot 2',
+                  `Spend ${BUSINESS_PROJECT_SLOT_2_GEM_COST} gems to permanently run two projects at once for this business?`,
+                  () => unlockBusinessProjectSlot(biz.id),
+                )}
+              >
+                <Ionicons name="diamond-outline" size={11} color={Colors.warning} />
+                <Text style={styles.slotGemButtonText}>{BUSINESS_PROJECT_SLOT_2_GEM_COST}</Text>
+              </Pressable>
+            )}
+            {biz.projectSlot2Unlocked && <Text style={styles.slotPermanentLabel}>2 permanent</Text>}
+            {!biz.projectSlot2Unlocked && biz.temporaryProjectSlot2 && <Text style={styles.slotTemporaryLabel}>Ad slot ready</Text>}
+          </View>
+          {slotAdMessage?.kind === 'project' && <Text style={styles.slotMessage}>{slotAdMessage.text}</Text>}
           {/* Active projects */}
           {(biz.activeProjects ?? []).length > 0 && (
             <View style={{ marginBottom: 10 }}>
@@ -2081,15 +2681,14 @@ export default function BusinessDetailScreen() {
               })}
             </View>
           )}
-          {/* Start new project — one at a time */}
-          <Text style={styles.subHeading}>Start New (D20 skill check • 1 active max)</Text>
+          <Text style={styles.subHeading}>Start New • D20 skill check • max 2</Text>
           {(() => {
-            const hasActive = (biz.activeProjects ?? []).some((p) => !p.resolved);
+            const slotFull = activeProjectCount >= projectSlotLimit;
             return (
               <>
-                {hasActive && (
+                {slotFull && (
                   <Text style={{ color: Colors.warning, fontSize: 12, marginBottom: 6 }}>
-                    A project is already active — finish it first to start another.
+                    All available project slots are in use.
                   </Text>
                 )}
                 {allProjects.map((proj: any) => {
@@ -2102,7 +2701,8 @@ export default function BusinessDetailScreen() {
                   const needed = getProjectDifficulty(proj);
                   const odds = proj.guaranteed ? 100 : getProjectOdds(proj, bestSkill);
                   const scaledReputation = proj.scalesWithLevel ? Math.min(proj.maxReputationBonus ?? 4, (proj.reputationBonus ?? 0) + (biz.level ?? 0) * 0.4) : proj.reputationBonus;
-                  const disabled = !hasRole || hasActive;
+                  const duplicateActive = activeProjects.some((project) => project.projectType === proj.id);
+                  const disabled = !hasRole || slotFull || duplicateActive;
                   return (
                     <Pressable
                       key={proj.id}
@@ -2206,7 +2806,7 @@ export default function BusinessDetailScreen() {
                 {CORPORATE_CAPEX_PROJECTS.map((project) => {
                   const eligibility = canStartCorporateCapex(biz, project);
                   const cost = getCorporateCapexCost(project, inflationMultiplier);
-                  const projectFinance = getProjectFinanceQuote(biz, cost, loanRateReduction);
+                  const projectFinance = getProjectFinanceQuote(biz, cost, loanRateReduction, businessMacroRateModifier);
                   const completed = (biz.completedCorporateCapex ?? []).some((item) => item.projectId === project.id);
                   const active = biz.activeCorporateCapex?.projectId === project.id;
                   const blocked = completed || active || !!biz.activeCorporateCapex || !eligibility.allowed;
@@ -2288,21 +2888,65 @@ export default function BusinessDetailScreen() {
         ) : null}
 
         {/* Upgrades */}
-        {(availableUpgrades.length > 0 || biz.activeUpgrade) && (
+        {(availableUpgrades.length > 0 || activeUpgradeCount > 0) && (
           <GameCard title="Upgrades">
-            {biz.activeUpgrade && (
-              <View style={{ padding: 10, backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 8, marginBottom: 8 }}>
-                <Text style={{ color: '#F59E0B', fontWeight: '700', fontSize: 13 }}>🔧 Building: {getUpgrade(biz.activeUpgrade.upgradeId)?.name ?? biz.activeUpgrade.upgradeId}</Text>
-                <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>{biz.activeUpgrade.weeksRemaining} weeks remaining</Text>
+            <View style={styles.slotAccessRow}>
+              <View style={styles.slotAccessStatus}>
+                <Ionicons name="layers-outline" size={12} color={Colors.info} />
+                <Text style={styles.slotAccessText}>Slots {activeUpgradeCount}/{upgradeSlotLimit}</Text>
               </View>
-            )}
+              {!biz.upgradeSlot2Unlocked && !biz.temporaryUpgradeSlot2 && activeUpgradeCount === 1 && (
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  style={[styles.slotMiniButton, (slotAdLoading === 'upgrade' || (profile.adsRemoved && !adFreeSlotReward.available)) && styles.disabledRow]}
+                  disabled={slotAdLoading !== null || (profile.adsRemoved && !adFreeSlotReward.available)}
+                  onPress={() => handleSlotRewardedAd('upgrade')}
+                >
+                  <Ionicons name={profile.adsRemoved ? "gift-outline" : "play-circle-outline"} size={12} color={Colors.info} />
+                  <Text style={styles.slotMiniButtonText}>
+                    {slotAdLoading === 'upgrade' ? 'Loading…' : profile.adsRemoved ? (adFreeSlotReward.available ? 'Daily Slot 2' : 'Daily used') : 'Ad Slot 2'}
+                  </Text>
+                </Pressable>
+              )}
+              {!biz.upgradeSlot2Unlocked && (
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
+                  style={[styles.slotMiniButton, styles.slotGemButton, (profile.gems ?? 0) < BUSINESS_UPGRADE_SLOT_2_GEM_COST && styles.disabledRow]}
+                  disabled={(profile.gems ?? 0) < BUSINESS_UPGRADE_SLOT_2_GEM_COST}
+                  onPress={() => confirmAction(
+                    'Unlock Upgrade Slot 2',
+                    `Spend ${BUSINESS_UPGRADE_SLOT_2_GEM_COST} gems to permanently run two upgrades at once for this business?`,
+                    () => unlockBusinessUpgradeSlot(biz.id),
+                  )}
+                >
+                  <Ionicons name="diamond-outline" size={11} color={Colors.warning} />
+                  <Text style={styles.slotGemButtonText}>{BUSINESS_UPGRADE_SLOT_2_GEM_COST}</Text>
+                </Pressable>
+              )}
+              {biz.upgradeSlot2Unlocked && <Text style={styles.slotPermanentLabel}>2 permanent</Text>}
+              {!biz.upgradeSlot2Unlocked && biz.temporaryUpgradeSlot2 && <Text style={styles.slotTemporaryLabel}>Ad slot ready</Text>}
+            </View>
+            {slotAdMessage?.kind === 'upgrade' && <Text style={styles.slotMessage}>{slotAdMessage.text}</Text>}
+
+            {activeUpgrades.map((active, index) => (
+              <View key={`${active.upgradeId}:${index}`} style={{ padding: 9, backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 8, marginBottom: 7 }}>
+                <Text style={{ color: '#F59E0B', fontWeight: '700', fontSize: 12 }}>
+                  🔧 Slot {index + 1}: {getUpgrade(active.upgradeId)?.name ?? active.upgradeId}
+                </Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 10, marginTop: 2 }}>{active.weeksRemaining} weeks remaining</Text>
+              </View>
+            ))}
+
             {availableUpgrades.map((uid) => {
               const upg = getUpgrade(uid);
               if (!upg) return null;
               const cost = inflated(upg.cost ?? 0, inflationMultiplier);
               const bizBal = biz.balance ?? 0;
-              const affordable = bizBal >= cost && !biz.activeUpgrade;
-              const reason = biz.activeUpgrade ? 'Upgrade in progress' : bizBal < cost ? 'Insufficient balance' : '';
+              const slotFull = activeUpgradeCount >= upgradeSlotLimit;
+              const affordable = bizBal >= cost && !slotFull;
+              const reason = slotFull ? 'Upgrade slots full' : bizBal < cost ? 'Insufficient balance' : '';
               return (
                 <Pressable
                   key={uid}
@@ -2368,10 +3012,15 @@ export default function BusinessDetailScreen() {
           })}
         </GameCard>
 
+          </>
+        )}
+
+        {activeSection === 'capital' && (
+          <>
         <View collapsable={false} onLayout={(event) => recordManagementSection('finance', event)} />
         {corporateScaleTier !== 'local' && (
           <>
-            <View collapsable={false} onLayout={(event) => recordSection('capital', event)} />
+            <View collapsable={false} />
             <GameCard title="Corporate Financing">
               <View style={styles.creditHeader}>
                 <View style={styles.creditRatingBox}>
@@ -2381,7 +3030,10 @@ export default function BusinessDetailScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.creditTitle}>Corporate Credit Profile</Text>
                   <Text style={styles.creditMeta}>
-                    Debt / value {(corporateCredit.debtToValue * 100).toFixed(1)}% • Coverage {corporateCredit.interestCoverage >= 9.9 ? '10+' : corporateCredit.interestCoverage.toFixed(1)}×
+                    Debt / value {(corporateCredit.debtToValue * 100).toFixed(1)}% • Debt cover {corporateCredit.debtServiceCoverage >= 9.9 ? '10+' : corporateCredit.debtServiceCoverage.toFixed(1)}×
+                  </Text>
+                  <Text style={styles.creditMeta}>
+                    Interest cover {corporateCredit.interestCoverage >= 9.9 ? '10+' : corporateCredit.interestCoverage.toFixed(1)}×
                   </Text>
                   <Text style={styles.creditMeta}>
                     Remaining debt capacity {formatCurrency(corporateCredit.remainingDebtCapacity)}
@@ -2389,11 +3041,11 @@ export default function BusinessDetailScreen() {
                 </View>
               </View>
 
-              {(corporateCredit.debtToValue > 0.35 || corporateCredit.interestCoverage < 1.5) && (
+              {(corporateCredit.debtToValue > 0.35 || corporateCredit.debtServiceCoverage < 1.25 || corporateCredit.interestCoverage < 2) && (
                 <View style={styles.creditWarning}>
                   <Ionicons name="warning-outline" size={14} color={Colors.warning} />
                   <Text style={styles.creditWarningText}>
-                    Leverage is becoming restrictive. New financing may be limited if earnings weaken further.
+                    Leverage or repayment coverage is becoming restrictive. New financing may be limited if earnings weaken further.
                   </Text>
                 </View>
               )}
@@ -2413,7 +3065,7 @@ export default function BusinessDetailScreen() {
               </Text>
               <View style={styles.financeButtons}>
                 {REVOLVER_DRAWS.map((amount) => {
-                  const quote = getRevolverDrawQuote(biz, amount, loanRateReduction);
+                  const quote = getRevolverDrawQuote(biz, amount, loanRateReduction, businessMacroRateModifier);
                   return (
                     <Pressable
                       key={amount}
@@ -2446,7 +3098,7 @@ export default function BusinessDetailScreen() {
               </Text>
               <View style={styles.financeButtons}>
                 {BOND_ISSUES.map((amount) => {
-                  const quote = getBondQuote(biz, amount, loanRateReduction);
+                  const quote = getBondQuote(biz, amount, loanRateReduction, businessMacroRateModifier);
                   return (
                     <Pressable
                       key={amount}
@@ -2465,7 +3117,7 @@ export default function BusinessDetailScreen() {
                 })}
               </View>
               {(() => {
-                const sample = getBondQuote(biz, BOND_ISSUES[0], loanRateReduction);
+                const sample = getBondQuote(biz, BOND_ISSUES[0], loanRateReduction, businessMacroRateModifier);
                 return !sample.allowed
                   ? <Text style={styles.financeLocked}>{sample.reason}</Text>
                   : null;
@@ -2476,7 +3128,7 @@ export default function BusinessDetailScreen() {
         )}
 
         {corporateScaleTier === 'local' && (
-          <View collapsable={false} onLayout={(event) => recordSection('capital', event)} />
+          <View collapsable={false} />
         )}
         {/* Business Loans */}
         <GameCard title="Business Loans">
@@ -2490,17 +3142,19 @@ export default function BusinessDetailScreen() {
                   : loan.purpose === 'corporate_bond'
                     ? 'Corporate bond'
                     : 'Business loan';
-            const quarterRepayment = Math.min(loan.remainingAmount ?? 0, Math.max(0, Math.round((loan.remainingAmount ?? 0) * 0.25)));
+            const outstandingPrincipal = getBusinessLoanOutstandingPrincipal(loan);
+            const payoffBalance = Math.max(0, loan.remainingAmount ?? 0);
+            const quarterRepayment = Math.max(0, Math.round(outstandingPrincipal * 0.25));
             return (
               <View key={loan.id} style={styles.loanRow}>
                 <View style={styles.loanHeaderRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.loanAmount}>{formatCurrency(loan.remainingAmount)} remaining</Text>
+                    <Text style={styles.loanAmount}>{formatCurrency(outstandingPrincipal)} principal outstanding</Text>
                     <Text style={styles.loanPayment}>
-                      {debtLabel} • {(Math.max(0, loan.interestRate ?? 0) * 100).toFixed(1)}% • {formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk
+                      {debtLabel} • scheduled balance {formatCurrency(payoffBalance)} • {(Math.max(0, loan.interestRate ?? 0) * 100).toFixed(1)}% • {formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk
                     </Text>
                   </View>
-                  {(loan.purpose === 'corporate_revolver' || loan.purpose === 'project_finance' || loan.purpose === 'corporate_bond') && (
+                  {(loan.remainingAmount ?? 0) > 0 && (
                     <View style={styles.loanRepayButtons}>
                       <Pressable
                         disabled={(biz.balance ?? 0) <= 0 || quarterRepayment <= 0}
@@ -2510,9 +3164,9 @@ export default function BusinessDetailScreen() {
                         <Text style={styles.loanRepayText}>Repay 25%</Text>
                       </Pressable>
                       <Pressable
-                        disabled={(biz.balance ?? 0) < (loan.remainingAmount ?? 0)}
-                        style={[styles.loanRepayButton, (biz.balance ?? 0) < (loan.remainingAmount ?? 0) && styles.disabledAction]}
-                        onPress={() => repayBusinessLoan(biz.id, loan.id, loan.remainingAmount ?? 0)}
+                        disabled={(biz.balance ?? 0) < outstandingPrincipal}
+                        style={[styles.loanRepayButton, (biz.balance ?? 0) < outstandingPrincipal && styles.disabledAction]}
+                        onPress={() => repayBusinessLoan(biz.id, loan.id, outstandingPrincipal)}
                       >
                         <Text style={styles.loanRepayText}>Pay off</Text>
                       </Pressable>
@@ -2522,7 +3176,7 @@ export default function BusinessDetailScreen() {
               </View>
             );
           })}
-          {(biz.businessLoans?.length ?? 0) < 3 && (
+          {corporateScaleTier === 'local' && (biz.businessLoans?.length ?? 0) < 3 && (
             <View style={styles.loanOptions}>
               {LOAN_OPTIONS.map((opt) => (
                 <Pressable
@@ -2530,7 +3184,7 @@ export default function BusinessDetailScreen() {
                   style={styles.loanBtn}
                   onPress={() => takeBusinessLoan(biz.id, opt.amount, opt.rate, opt.weeks)}
                 >
-                  <Text style={styles.loanBtnText}>{formatCurrency(opt.amount)} · {(Math.max(0, opt.rate - loanRateReduction) * 100).toFixed(0)}% · {opt.weeks}wk</Text>
+                  <Text style={styles.loanBtnText}>{formatCurrency(opt.amount)} · {(Math.max(0, opt.rate + businessMacroRateModifier - loanRateReduction) * 100).toFixed(1)}% · {opt.weeks}wk</Text>
                 </Pressable>
               ))}
             </View>
@@ -2550,6 +3204,9 @@ export default function BusinessDetailScreen() {
               </View>
             ))}
           </GameCard>
+        )}
+
+          </>
         )}
 
         <View style={{ height: 32 }} />
@@ -2705,17 +3362,24 @@ export default function BusinessDetailScreen() {
         </View>
       </Modal>
 
+      <FeatureTourModal
+        visible={showBusinessTour}
+        title="Business cash basics"
+        steps={BUSINESS_CASH_TOUR_STEPS}
+        onClose={() => setShowBusinessTour(false)}
+      />
+
       {/* Transfer Modal */}
       <Modal visible={showTransferModal !== null} transparent animationType="fade">
         <Pressable style={styles.modalBackdrop} onPress={() => setShowTransferModal(null)}>
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>
-              {showTransferModal === 'inject' ? 'Inject Cash into Business' : 'Withdraw from Business'}
+              {showTransferModal === 'inject' ? 'Inject Cash into Business' : 'Owner Distribution'}
             </Text>
             <Text style={styles.transferInfo}>
               {showTransferModal === 'inject'
                 ? `Your cash: ${formatCurrency(cash)}`
-                : `Business balance: ${formatCurrency(biz.balance)}`}
+                : `Available above protected reserves: ${formatCurrency(manualDistributionAvailable)}`}
             </Text>
             <TextInput
               style={styles.transferInput}
@@ -2725,8 +3389,42 @@ export default function BusinessDetailScreen() {
               onChangeText={(value) => { setTransferAmount(value); setTransferError(''); }}
               keyboardType="numeric"
             />
+            {transferAmountValid && (
+              <View style={[styles.transferPreview, !transferWithinLimit && styles.transferPreviewInvalid]}>
+                <Text style={styles.transferPreviewTitle}>Transaction preview</Text>
+                <View style={[styles.transferPreviewRow, screenWidth < 360 && styles.transferPreviewRowCompact]}>
+                  <Text style={styles.transferPreviewLabel}>Personal cash</Text>
+                  <Text style={[styles.transferPreviewValue, screenWidth < 360 && styles.transferPreviewValueCompact]}>
+                    {formatCurrency(cash)} → {formatCurrency(previewPersonalCash)}
+                  </Text>
+                </View>
+                <View style={[styles.transferPreviewRow, screenWidth < 360 && styles.transferPreviewRowCompact]}>
+                  <Text style={styles.transferPreviewLabel}>Company cash</Text>
+                  <Text style={[styles.transferPreviewValue, screenWidth < 360 && styles.transferPreviewValueCompact]}>
+                    {formatCurrency(biz.balance ?? 0)} → {formatCurrency(previewBusinessCash)}
+                  </Text>
+                </View>
+                {showTransferModal === 'withdraw' && (
+                  <View style={[styles.transferPreviewRow, screenWidth < 360 && styles.transferPreviewRowCompact]}>
+                    <Text style={styles.transferPreviewLabel}>Protected floor</Text>
+                    <Text style={[styles.transferPreviewValue, screenWidth < 360 && styles.transferPreviewValueCompact]}>{formatCurrency(protectedBusinessCash)}</Text>
+                  </View>
+                )}
+                <Text style={[styles.transferPreviewHint, !transferWithinLimit && { color: Colors.negative }]}>
+                  {transferWithinLimit
+                    ? 'Ready to confirm. No cash moves until you confirm.'
+                    : showTransferModal === 'inject'
+                      ? 'This amount is above your available personal cash.'
+                      : 'This amount would use protected company reserves.'}
+                </Text>
+              </View>
+            )}
             {!!transferError && <Text style={styles.transferError}>{transferError}</Text>}
-            <Pressable style={styles.transferBtn} onPress={handleTransfer}>
+            <Pressable
+              disabled={!transferWithinLimit}
+              style={[styles.transferBtn, !transferWithinLimit && styles.disabledAction]}
+              onPress={handleTransfer}
+            >
               <Text style={styles.transferBtnText}>Confirm</Text>
             </Pressable>
             <Pressable style={styles.modalClose} onPress={() => setShowTransferModal(null)}>
@@ -2914,7 +3612,6 @@ function CorporateManagementReportPanel({
   reviewYears,
   period,
   onPeriodChange,
-  onTargetProfileChange,
   onActionPress,
 }: {
   quarterlyReport: CorporateManagementReport;
@@ -2925,7 +3622,6 @@ function CorporateManagementReportPanel({
   reviewYears: BusinessManagementYearReview[];
   period: CorporateReportPeriod;
   onPeriodChange: (period: CorporateReportPeriod) => void;
-  onTargetProfileChange: (profile: BusinessManagementTargetProfile) => void;
   onActionPress: (target: CorporateManagementActionTarget) => void;
 }) {
   const report = period === 'quarter' ? quarterlyReport : annualReport;
@@ -3097,25 +3793,11 @@ function CorporateManagementReportPanel({
             {BUSINESS_MANAGEMENT_TARGET_PROFILES[targetProgress.plan.profile].description}
           </Text>
 
-          <View style={styles.managementTargetProfileGrid}>
-            {(Object.keys(BUSINESS_MANAGEMENT_TARGET_PROFILES) as BusinessManagementTargetProfile[]).map((profile) => {
-              const definition = BUSINESS_MANAGEMENT_TARGET_PROFILES[profile];
-              const active = targetProgress.plan.profile === profile;
-              return (
-                <Pressable
-                  key={profile}
-                  style={[styles.managementTargetProfileChip, active && styles.managementTargetProfileChipActive]}
-                  onPress={() => !active && onTargetProfileChange(profile)}
-                >
-                  <Text style={[
-                    styles.managementTargetProfileText,
-                    active && { color: Colors.primary },
-                  ]}>
-                    {definition.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={styles.managementTargetAlignment}>
+            <Ionicons name="git-compare-outline" size={14} color={Colors.info} />
+            <Text style={styles.managementTargetAlignmentText}>
+              Targets are aligned automatically with Strategic Focus and the Annual Cash Plan.
+            </Text>
           </View>
 
           <View style={styles.managementTargetRows}>
@@ -3494,8 +4176,10 @@ function RetBtn({ label, onPress, color }: { label: string; onPress: () => void;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 8 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  headerSide: { width: 72, minHeight: 28, justifyContent: 'center', alignItems: 'flex-start' },
+  headerTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 4 },
+  headerActions: { width: 72, minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   warningBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${Colors.warning}20`, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: `${Colors.warning}40` },
@@ -3515,14 +4199,25 @@ const styles = StyleSheet.create({
   healthScore: { fontSize: 28, fontWeight: '800', marginBottom: 2 },
   strategyPanel: { marginTop: 10, padding: 12, borderRadius: 12, backgroundColor: Colors.elevated },
   strategyText: { color: Colors.textPrimary, fontSize: 13, marginTop: 4 },
+  identityList: { gap: 9 },
+  identityRow: { gap: 5, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
+  identityDescription: { color: Colors.textSecondary, fontSize: 10, lineHeight: 15 },
+  identityEmpty: { color: Colors.textMuted, fontSize: 11, lineHeight: 16 },
   nextActionCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, padding: 12 },
   nextActionIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   nextActionEyebrow: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.7 },
   nextActionTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '900', marginTop: 2 },
   nextActionDetail: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
+  sectionTabShell: { flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder, backgroundColor: Colors.background, paddingHorizontal: 16, paddingBottom: 8 },
+  businessContextRow: { flexDirection: 'row', gap: 6, marginBottom: 9 },
+  businessContextItem: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7 },
+  businessContextLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', textTransform: 'uppercase' },
+  businessContextValue: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900', marginTop: 2 },
   sectionJumpRow: { gap: 7, paddingRight: 10 },
   sectionJumpChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
+  sectionJumpChipActive: { borderColor: `${Colors.business}66`, backgroundColor: `${Colors.business}14` },
   sectionJumpText: { color: Colors.textSecondary, fontSize: 10, fontWeight: '800' },
+  sectionJumpTextActive: { color: Colors.business },
   automationLabel: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
   automationTrack: { height: 6, backgroundColor: Colors.elevated, borderRadius: 3 },
   automationFill: { height: 6, backgroundColor: Colors.primary, borderRadius: 3 },
@@ -3567,10 +4262,9 @@ const styles = StyleSheet.create({
   managementTargetScore: { minWidth: 35, borderRadius: 8, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 5, alignItems: 'center' },
   managementTargetScoreText: { fontSize: 10, fontWeight: '900' },
   managementTargetDescription: { color: Colors.textSecondary, fontSize: 7, lineHeight: 10, marginTop: 5 },
-  managementTargetProfileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
-  managementTargetProfileChip: { minWidth: '31%', flexGrow: 1, borderRadius: 7, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center' },
-  managementTargetProfileChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
-  managementTargetProfileText: { color: Colors.textSecondary, fontSize: 7, fontWeight: '800' },
+  managementTargetAlignment: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: `${Colors.info}10`, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 7, marginTop: 8 },
+  managementTargetAlignmentText: { flex: 1, color: Colors.textSecondary, fontSize: 10, lineHeight: 14 },
+
   managementTargetRows: { marginTop: 7 },
   managementTargetRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
   managementTargetDot: { width: 7, height: 7, borderRadius: 4 },
@@ -3723,13 +4417,17 @@ const styles = StyleSheet.create({
   integrationChoice: { flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, paddingVertical: 10 },
   integrationChoiceTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   integrationChoiceDesc: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 2 },
-  integrationChoiceMeta: { color: Colors.info, fontSize: 9, marginTop: 4 },
+  integrationChoiceMeta: { color: Colors.info, fontSize: 9, lineHeight: 13, marginTop: 4 },
+  integrationChoiceExpected: { color: Colors.primary, fontSize: 8, lineHeight: 12, marginTop: 4, fontWeight: '700' },
+  integrationChoiceOutcome: { color: Colors.textSecondary, fontSize: 8, lineHeight: 12, marginTop: 4 },
   integrationActive: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#33270F', borderRadius: 9, padding: 10, marginTop: 8 },
   integrationActiveTitle: { color: Colors.warning, fontSize: 12, fontWeight: '800' },
   integrationActiveText: { color: Colors.textSecondary, fontSize: 9, marginTop: 2 },
+  integrationActiveOdds: { color: Colors.info, fontSize: 8, marginTop: 3, fontWeight: '700' },
   integrationResult: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 8 },
   integrationResultTitle: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
   integrationResultText: { color: Colors.textSecondary, fontSize: 9, marginTop: 3 },
+  integrationResultSynergy: { color: Colors.info, fontSize: 8, lineHeight: 12, marginTop: 4 },
   decisionBanner: { flexDirection: 'row', gap: 10, padding: 10, borderRadius: 10, backgroundColor: `${Colors.warning}10`, borderWidth: 1, borderColor: `${Colors.warning}35`, marginBottom: 9 },
   crisisBanner: { backgroundColor: `${Colors.negative}10`, borderColor: `${Colors.negative}35` },
   decisionIcon: { fontSize: 24 },
@@ -3744,6 +4442,20 @@ const styles = StyleSheet.create({
   decisionChoiceDesc: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
   decisionEffects: { color: Colors.info, fontSize: 9, marginTop: 4 },
   decisionCost: { color: Colors.warning, fontSize: 11, fontWeight: '800' },
+  strategyStatusGrid: { flexDirection: 'row', gap: 7, marginTop: 9 },
+  strategyStatusCard: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 8 },
+  strategyStatusLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '900', letterSpacing: 0.35 },
+  strategyStatusValue: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900', marginTop: 3 },
+  strategyStatusMeta: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  strategyEffectMeta: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  autoStrategyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, padding: 10, marginTop: 9, marginBottom: 10 },
+  autoStrategyTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  autoStrategyTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '900' },
+  autoStrategyDesc: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 4 },
+  autoStrategyToggle: { width: 46, height: 26, borderRadius: 13, padding: 3, backgroundColor: Colors.cardBorder, justifyContent: 'center' },
+  autoStrategyToggleOn: { backgroundColor: Colors.primary },
+  autoStrategyThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.white },
+  autoStrategyThumbOn: { alignSelf: 'flex-end' },
   strategyFocusGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   strategyFocus: { width: '48%', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 9 },
   strategyFocusActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
@@ -3966,6 +4678,16 @@ const styles = StyleSheet.create({
   capexFundingMeta: { color: Colors.textSecondary, fontSize: 7, lineHeight: 10, marginTop: 2 },
   corporateCostWrap: { alignItems: 'flex-end', paddingLeft: 4 },
   corporateCost: { color: Colors.warning, fontSize: 9, fontWeight: '900' },
+  slotAccessRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5, backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 6, marginBottom: 7 },
+  slotAccessStatus: { flexDirection: 'row', alignItems: 'center', gap: 4, flexGrow: 1 },
+  slotAccessText: { color: Colors.textSecondary, fontSize: 9, fontWeight: '800' },
+  slotMiniButton: { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderColor: `${Colors.info}55`, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 4 },
+  slotMiniButtonText: { color: Colors.info, fontSize: 8, fontWeight: '900' },
+  slotGemButton: { borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}08` },
+  slotGemButtonText: { color: Colors.warning, fontSize: 8, fontWeight: '900' },
+  slotTemporaryLabel: { color: Colors.info, fontSize: 8, fontWeight: '800' },
+  slotPermanentLabel: { color: Colors.primary, fontSize: 8, fontWeight: '800' },
+  slotMessage: { color: Colors.textMuted, fontSize: 8, marginBottom: 7 },
   upgradeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   upgradeInfo: { flex: 1 },
   upgradeName: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
@@ -4036,6 +4758,15 @@ const styles = StyleSheet.create({
   modalCloseText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '600' },
   transferInfo: { color: Colors.textSecondary, fontSize: 14, marginBottom: 12 },
   transferInput: { backgroundColor: Colors.elevated, borderRadius: 10, padding: 14, color: Colors.textPrimary, fontSize: 16, borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 12 },
+  transferPreview: { backgroundColor: Colors.elevated, borderRadius: 11, borderWidth: 1, borderColor: Colors.cardBorder, padding: 11, marginBottom: 12, gap: 7 },
+  transferPreviewInvalid: { borderColor: `${Colors.negative}66` },
+  transferPreviewTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '900', marginBottom: 1 },
+  transferPreviewRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+  transferPreviewRowCompact: { flexDirection: 'column', gap: 2 },
+  transferPreviewLabel: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
+  transferPreviewValue: { color: Colors.textSecondary, fontSize: 11, fontWeight: '800', textAlign: 'right', flexShrink: 1 },
+  transferPreviewValueCompact: { textAlign: 'left' },
+  transferPreviewHint: { color: Colors.primary, fontSize: 10, lineHeight: 15, marginTop: 2 },
   transferError: { color: Colors.negative, fontSize: 12, fontWeight: '700', marginBottom: 10 },
   transferBtn: { backgroundColor: Colors.primary, borderRadius: 10, padding: 14, alignItems: 'center' },
   transferBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },

@@ -4,400 +4,450 @@
     "name": "First Job",
     "description": "Get your first job",
     "xpReward": 20,
-    "gemReward": 0,
-    "icon": "briefcase"
+    "gemReward": 2,
+    "icon": "briefcase",
+    "category": "Career"
   },
   {
     "id": "first_stock",
     "name": "Investor",
     "description": "Buy your first market asset",
     "xpReward": 10,
-    "gemReward": 0,
-    "icon": "trending-up"
+    "gemReward": 2,
+    "icon": "trending-up",
+    "category": "Investing"
   },
   {
     "id": "first_promotion",
     "name": "Moving Up",
     "description": "Get promoted to a Level 2 position",
     "xpReward": 30,
-    "gemReward": 0,
-    "icon": "arrow-up-circle"
+    "gemReward": 2,
+    "icon": "arrow-up-circle",
+    "category": "Career"
   },
   {
     "id": "max_level_job",
     "name": "Top of the Game",
     "description": "Reach a Level 5+ position",
     "xpReward": 80,
-    "gemReward": 0,
-    "icon": "trophy"
+    "gemReward": 2,
+    "icon": "trophy",
+    "category": "Career"
   },
   {
     "id": "own_1000_shares",
     "name": "Market Collector",
-    "description": "Own 1,000 total market units",
+    "description": "Own 1,000 total market units at the same time",
     "xpReward": 60,
-    "gemReward": 0,
-    "icon": "stats-chart"
+    "gemReward": 2,
+    "icon": "stats-chart",
+    "category": "Investing"
   },
   {
     "id": "first_100k",
     "name": "Wealthy Start",
     "description": "Reach €100,000 net worth",
     "xpReward": 30,
-    "gemReward": 0,
-    "icon": "cash"
+    "gemReward": 2,
+    "icon": "cash",
+    "category": "Wealth"
   },
   {
     "id": "net_worth_250k",
     "name": "Quarter Millionaire",
     "description": "Reach €250,000 net worth",
     "xpReward": 50,
-    "gemReward": 0,
-    "icon": "cash"
+    "gemReward": 2,
+    "icon": "cash",
+    "category": "Wealth"
   },
   {
     "id": "net_worth_500k",
     "name": "Half Millionaire",
     "description": "Reach €500,000 net worth",
     "xpReward": 75,
-    "gemReward": 0,
-    "icon": "diamond"
+    "gemReward": 2,
+    "icon": "diamond",
+    "category": "Wealth"
   },
   {
     "id": "first_million",
     "name": "Millionaire",
     "description": "Reach €1,000,000 net worth",
     "xpReward": 120,
-    "gemReward": 5,
-    "icon": "star"
+    "gemReward": 3,
+    "icon": "star",
+    "category": "Wealth"
   },
   {
     "id": "all_basic_courses",
-    "name": "Scholar",
-    "description": "Complete all basic courses",
+    "name": "Foundation Scholar",
+    "description": "Complete all 10 Basic courses",
     "xpReward": 40,
-    "gemReward": 0,
-    "icon": "school"
+    "gemReward": 2,
+    "icon": "school",
+    "category": "Education"
   },
   {
     "id": "expert_course",
     "name": "Expert Knowledge",
     "description": "Complete an Expert level course",
     "xpReward": 50,
-    "gemReward": 0,
-    "icon": "ribbon"
+    "gemReward": 2,
+    "icon": "ribbon",
+    "category": "Education"
   },
   {
     "id": "earn_10k_week",
-    "name": "High Roller",
+    "name": "High Earner",
     "description": "Earn €10,000 in a single week",
     "xpReward": 50,
-    "gemReward": 0,
-    "icon": "rocket"
+    "gemReward": 2,
+    "icon": "rocket",
+    "category": "Career"
   },
   {
     "id": "debt_free_after_loan",
     "name": "Debt Free",
     "description": "Pay off all your loans",
     "xpReward": 30,
-    "gemReward": 0,
-    "icon": "checkmark-circle"
+    "gemReward": 2,
+    "icon": "checkmark-circle",
+    "category": "Wealth"
   },
   {
     "id": "luxury_life",
     "name": "Luxury Life",
     "description": "Own a Luxury Car and live in a Mansion",
     "xpReward": 80,
-    "gemReward": 0,
-    "icon": "sparkles"
+    "gemReward": 2,
+    "icon": "sparkles",
+    "category": "Lifestyle"
   },
   {
     "id": "buy_first_car",
     "name": "On the Road",
     "description": "Buy your first car",
     "xpReward": 10,
-    "gemReward": 0,
-    "icon": "car-sport"
+    "gemReward": 2,
+    "icon": "car-sport",
+    "category": "Lifestyle"
   },
   {
     "id": "survive_52_weeks",
-    "name": "One Year Down",
-    "description": "Play for 1 year (20 weeks)",
+    "name": "First Year",
+    "description": "Play for 1 full year (20 weeks)",
     "xpReward": 20,
-    "gemReward": 0,
-    "icon": "calendar"
+    "gemReward": 2,
+    "icon": "calendar",
+    "category": "Lifestyle"
   },
   {
     "id": "five_years",
     "name": "Veteran Player",
     "description": "Play for 5 years (100 weeks)",
     "xpReward": 60,
-    "gemReward": 0,
-    "icon": "time"
+    "gemReward": 2,
+    "icon": "time",
+    "category": "Lifestyle"
   },
   {
     "id": "net_worth_5m",
     "name": "Multi-Millionaire",
     "description": "Reach €5,000,000 net worth",
     "xpReward": 200,
-    "gemReward": 10,
-    "icon": "medal"
+    "gemReward": 3,
+    "icon": "medal",
+    "category": "Wealth"
   },
   {
     "id": "diversified",
     "name": "Diversified",
     "description": "Hold 10 or more different market assets",
     "xpReward": 30,
-    "gemReward": 0,
-    "icon": "grid"
+    "gemReward": 2,
+    "icon": "grid",
+    "category": "Investing"
   },
   {
     "id": "tax_payer",
     "name": "Tax Contributor",
     "description": "Pay over €50,000 in total taxes",
     "xpReward": 30,
-    "gemReward": 0,
-    "icon": "receipt"
+    "gemReward": 2,
+    "icon": "receipt",
+    "category": "Wealth"
   },
   {
     "id": "all_housing",
     "name": "Real Estate Tour",
     "description": "Live in every housing type",
     "xpReward": 40,
-    "gemReward": 0,
-    "icon": "home"
+    "gemReward": 2,
+    "icon": "home",
+    "category": "Lifestyle"
   },
   {
     "id": "cash_100k",
     "name": "Cash Hoarder",
     "description": "Hold €100,000 cash at once",
     "xpReward": 30,
-    "gemReward": 0,
-    "icon": "wallet"
+    "gemReward": 2,
+    "icon": "wallet",
+    "category": "Wealth"
   },
   {
     "id": "three_loans",
     "name": "Leveraged Up",
     "description": "Have 3 active loans simultaneously",
     "xpReward": 20,
-    "gemReward": 0,
-    "icon": "layers"
+    "gemReward": 2,
+    "icon": "layers",
+    "category": "Wealth"
   },
   {
     "id": "all_courses",
-    "name": "Master Scholar",
-    "description": "Complete all 18 courses",
+    "name": "Advanced Scholar",
+    "description": "Complete all 20 Basic and Advanced courses",
     "xpReward": 120,
-    "gemReward": 5,
-    "icon": "library"
+    "gemReward": 3,
+    "icon": "library",
+    "category": "Education"
   },
   {
     "id": "stock_profit_25",
     "name": "Market Genius",
     "description": "Achieve 25% profit on a market position",
     "xpReward": 60,
-    "gemReward": 25,
-    "icon": "trending-up"
+    "gemReward": 2,
+    "icon": "trending-up",
+    "category": "Investing"
   },
   {
     "id": "net_worth_10m",
     "name": "Tycoon",
     "description": "Reach €10,000,000 net worth",
     "xpReward": 300,
-    "gemReward": 30,
-    "icon": "planet"
+    "gemReward": 3,
+    "icon": "planet",
+    "category": "Wealth"
   },
   {
     "id": "own_5_businesses",
     "name": "Business Empire",
     "description": "Own 5 businesses simultaneously",
     "xpReward": 100,
-    "gemReward": 20,
-    "icon": "business"
+    "gemReward": 3,
+    "icon": "business",
+    "category": "Business"
   },
   {
     "id": "own_5_properties",
     "name": "Property Mogul",
     "description": "Own 5 properties simultaneously",
     "xpReward": 80,
-    "gemReward": 15,
-    "icon": "home"
+    "gemReward": 2,
+    "icon": "home",
+    "category": "Real Estate"
   },
   {
     "id": "portfolio_100k",
     "name": "Portfolio Bronze",
     "description": "Portfolio value reaches €100,000",
     "xpReward": 30,
-    "gemReward": 0,
-    "icon": "pie-chart"
+    "gemReward": 2,
+    "icon": "pie-chart",
+    "category": "Investing"
   },
   {
     "id": "portfolio_250k",
     "name": "Portfolio Silver",
     "description": "Portfolio value reaches €250,000",
     "xpReward": 50,
-    "gemReward": 0,
-    "icon": "pie-chart"
+    "gemReward": 2,
+    "icon": "pie-chart",
+    "category": "Investing"
   },
   {
     "id": "portfolio_500k",
     "name": "Portfolio Gold",
     "description": "Portfolio value reaches €500,000",
     "xpReward": 80,
-    "gemReward": 5,
-    "icon": "pie-chart"
+    "gemReward": 2,
+    "icon": "pie-chart",
+    "category": "Investing"
   },
   {
     "id": "portfolio_1m",
     "name": "Portfolio Platinum",
     "description": "Portfolio value reaches €1,000,000",
     "xpReward": 150,
-    "gemReward": 15,
-    "icon": "pie-chart"
+    "gemReward": 3,
+    "icon": "pie-chart",
+    "category": "Investing"
   },
   {
     "id": "ten_years",
     "name": "Decade of Success",
     "description": "Play for 10 years (200 weeks)",
     "xpReward": 100,
-    "gemReward": 10,
-    "icon": "time"
+    "gemReward": 3,
+    "icon": "time",
+    "category": "Lifestyle"
   },
   {
     "id": "twenty_five_years",
     "name": "Quarter-Century Legacy",
     "description": "Play for 25 years (500 weeks)",
     "xpReward": 250,
-    "gemReward": 15,
-    "icon": "time"
+    "gemReward": 3,
+    "icon": "time",
+    "category": "Lifestyle"
   },
   {
     "id": "fifty_years",
     "name": "Lifetime Empire",
     "description": "Play for 50 years (1,000 weeks)",
     "xpReward": 500,
-    "gemReward": 30,
-    "icon": "hourglass"
+    "gemReward": 3,
+    "icon": "hourglass",
+    "category": "Lifestyle"
   },
   {
     "id": "portfolio_5m",
     "name": "Portfolio Diamond",
     "description": "Portfolio value reaches €5,000,000",
     "xpReward": 225,
-    "gemReward": 10,
-    "icon": "pie-chart"
+    "gemReward": 3,
+    "icon": "pie-chart",
+    "category": "Investing"
   },
   {
     "id": "portfolio_10m",
     "name": "Portfolio Empire",
     "description": "Portfolio value reaches €10,000,000",
     "xpReward": 350,
-    "gemReward": 20,
-    "icon": "pie-chart"
+    "gemReward": 3,
+    "icon": "pie-chart",
+    "category": "Investing"
   },
   {
     "id": "portfolio_25m",
     "name": "Institutional Investor",
     "description": "Portfolio value reaches €25,000,000",
     "xpReward": 600,
-    "gemReward": 40,
-    "icon": "pie-chart"
+    "gemReward": 3,
+    "icon": "pie-chart",
+    "category": "Investing"
   },
   {
     "id": "realized_profit_1m",
     "name": "Market Millionaire",
     "description": "Realize €1,000,000 in market profits",
     "xpReward": 225,
-    "gemReward": 10,
-    "icon": "trending-up"
+    "gemReward": 3,
+    "icon": "trending-up",
+    "category": "Investing"
   },
   {
     "id": "realized_profit_2_5m",
     "name": "Trading Tycoon",
     "description": "Realize €2,500,000 in market profits",
     "xpReward": 350,
-    "gemReward": 20,
-    "icon": "trending-up"
+    "gemReward": 3,
+    "icon": "trending-up",
+    "category": "Investing"
   },
   {
     "id": "realized_profit_5m",
     "name": "Market Legend",
     "description": "Realize €5,000,000 in market profits",
     "xpReward": 500,
-    "gemReward": 30,
-    "icon": "trending-up"
+    "gemReward": 3,
+    "icon": "trending-up",
+    "category": "Investing"
   },
   {
     "id": "career_level_7",
     "name": "C-Suite",
     "description": "Reach career position level 7",
     "xpReward": 120,
-    "gemReward": 10,
-    "icon": "ribbon"
+    "gemReward": 3,
+    "icon": "ribbon",
+    "category": "Career"
   },
   {
     "id": "realized_profit_100k",
     "name": "Profit Taker",
     "description": "Realize €100,000 in market profits",
     "xpReward": 60,
-    "gemReward": 0,
-    "icon": "cash"
+    "gemReward": 2,
+    "icon": "cash",
+    "category": "Investing"
   },
   {
     "id": "multi_business_3",
     "name": "Business Mogul",
     "description": "Own 3 businesses at the same time",
     "xpReward": 100,
-    "gemReward": 5,
-    "icon": "business"
+    "gemReward": 3,
+    "icon": "business",
+    "category": "Business"
   },
   {
     "id": "legendary_hire",
     "name": "Legendary Recruit",
     "description": "Hire a Legendary-tier employee",
     "xpReward": 75,
-    "gemReward": 3,
-    "icon": "star"
+    "gemReward": 2,
+    "icon": "star",
+    "category": "Business"
   },
   {
     "id": "survive_20_years",
     "name": "Two Decades",
     "description": "Survive for 20 years",
     "xpReward": 150,
-    "gemReward": 8,
-    "icon": "calendar"
+    "gemReward": 3,
+    "icon": "calendar",
+    "category": "Lifestyle"
   },
   {
     "id": "complete_all_courses",
-    "name": "Scholar",
-    "description": "Complete all available courses",
+    "name": "Master Scholar",
+    "description": "Complete all 30 available courses",
     "xpReward": 120,
-    "gemReward": 6,
-    "icon": "school"
+    "gemReward": 3,
+    "icon": "school",
+    "category": "Education"
   },
   {
     "id": "relationship_official",
     "name": "Better Together",
     "description": "Enter an official relationship",
     "xpReward": 25,
-    "gemReward": 0,
-    "icon": "heart"
+    "gemReward": 2,
+    "icon": "heart",
+    "category": "Family"
   },
   {
     "id": "relationship_married",
     "name": "Life Partners",
     "description": "Get married",
     "xpReward": 50,
-    "gemReward": 1,
-    "icon": "heart-circle"
+    "gemReward": 2,
+    "icon": "heart-circle",
+    "category": "Family"
   },
   {
     "id": "first_child",
     "name": "Next Generation",
     "description": "Have your first child",
     "xpReward": 40,
-    "gemReward": 1,
-    "icon": "people"
+    "gemReward": 2,
+    "icon": "people",
+    "category": "Family"
   },
   {
     "id": "parent_bond_90",
@@ -405,7 +455,8 @@
     "description": "Reach a 90% parent relationship with a child",
     "xpReward": 60,
     "gemReward": 2,
-    "icon": "heart-half"
+    "icon": "heart-half",
+    "category": "Family"
   },
   {
     "id": "grandparent",
@@ -413,47 +464,53 @@
     "description": "Become a grandparent",
     "xpReward": 100,
     "gemReward": 3,
-    "icon": "people-circle"
+    "icon": "people-circle",
+    "category": "Family"
   },
   {
     "id": "family_tree_10",
     "name": "Growing Dynasty",
     "description": "Have 10 people recorded in your Family Tree",
     "xpReward": 120,
-    "gemReward": 4,
-    "icon": "git-network"
+    "gemReward": 3,
+    "icon": "git-network",
+    "category": "Family"
   },
   {
     "id": "generation_2",
     "name": "Second Generation",
     "description": "Continue the dynasty as Generation 2",
     "xpReward": 150,
-    "gemReward": 5,
-    "icon": "return-up-forward"
+    "gemReward": 3,
+    "icon": "return-up-forward",
+    "category": "Family"
   },
   {
     "id": "generation_3",
     "name": "Third Generation",
     "description": "Reach Generation 3",
     "xpReward": 250,
-    "gemReward": 10,
-    "icon": "ribbon"
+    "gemReward": 3,
+    "icon": "ribbon",
+    "category": "Family"
   },
   {
     "id": "estate_planner",
     "name": "Prepared for Tomorrow",
     "description": "Create a Will or Family Trust",
     "xpReward": 50,
-    "gemReward": 1,
-    "icon": "document-text"
+    "gemReward": 2,
+    "icon": "document-text",
+    "category": "Family"
   },
   {
     "id": "family_trust_established",
     "name": "Dynasty Trust",
     "description": "Establish a Family Trust",
     "xpReward": 120,
-    "gemReward": 5,
-    "icon": "business"
+    "gemReward": 3,
+    "icon": "business",
+    "category": "Family"
   },
   {
     "id": "family_business_first",
@@ -461,23 +518,26 @@
     "description": "Designate your first Family Business",
     "xpReward": 70,
     "gemReward": 2,
-    "icon": "people"
+    "icon": "people",
+    "category": "Family"
   },
   {
     "id": "family_business_gen2",
     "name": "Passing the Torch",
     "description": "Carry a Family Business into a second generation",
     "xpReward": 150,
-    "gemReward": 5,
-    "icon": "flame"
+    "gemReward": 3,
+    "icon": "flame",
+    "category": "Family"
   },
   {
     "id": "family_business_gen3",
     "name": "Three-Generation Company",
     "description": "Keep a Family Business through three generations",
     "xpReward": 300,
-    "gemReward": 10,
-    "icon": "trophy"
+    "gemReward": 3,
+    "icon": "trophy",
+    "category": "Family"
   },
   {
     "id": "family_governance_first",
@@ -485,23 +545,26 @@
     "description": "Appoint an adult child to a business governance role",
     "xpReward": 70,
     "gemReward": 2,
-    "icon": "people-circle"
+    "icon": "people-circle",
+    "category": "Family"
   },
   {
     "id": "business_strategy_decision",
     "name": "Boardroom Call",
     "description": "Resolve a strategic business decision",
     "xpReward": 50,
-    "gemReward": 1,
-    "icon": "compass"
+    "gemReward": 2,
+    "icon": "compass",
+    "category": "Business"
   },
   {
     "id": "business_crisis_resolved",
     "name": "Crisis Manager",
     "description": "Resolve a business crisis before its deadline",
     "xpReward": 90,
-    "gemReward": 3,
-    "icon": "shield-checkmark"
+    "gemReward": 2,
+    "icon": "shield-checkmark",
+    "category": "Business"
   },
   {
     "id": "outside_investors",
@@ -509,7 +572,8 @@
     "description": "Bring outside investors into one of your companies",
     "xpReward": 80,
     "gemReward": 2,
-    "icon": "trending-up"
+    "icon": "trending-up",
+    "category": "Business"
   },
   {
     "id": "child_shareholder",
@@ -517,15 +581,17 @@
     "description": "Give an adult child ownership in a family company",
     "xpReward": 80,
     "gemReward": 2,
-    "icon": "pie-chart"
+    "icon": "pie-chart",
+    "category": "Family"
   },
   {
     "id": "crypto_first",
     "name": "On-Chain",
     "description": "Own your first cryptocurrency",
     "xpReward": 20,
-    "gemReward": 0,
-    "icon": "logo-bitcoin"
+    "gemReward": 2,
+    "icon": "logo-bitcoin",
+    "category": "Investing"
   },
   {
     "id": "crypto_trinity",
@@ -533,7 +599,8 @@
     "description": "Own AURX, NEXA and MOJO at the same time",
     "xpReward": 60,
     "gemReward": 2,
-    "icon": "layers"
+    "icon": "layers",
+    "category": "Investing"
   },
   {
     "id": "crypto_100k",
@@ -541,14 +608,349 @@
     "description": "Hold €100,000 of cryptocurrency",
     "xpReward": 100,
     "gemReward": 3,
-    "icon": "wallet"
+    "icon": "wallet",
+    "category": "Investing"
   },
   {
     "id": "mojo_double",
     "name": "Diamond Hands?",
     "description": "Reach a 100% unrealized gain on a MOJO position",
     "xpReward": 100,
-    "gemReward": 5,
-    "icon": "diamond"
+    "gemReward": 3,
+    "icon": "diamond",
+    "category": "Investing"
+  },
+  {
+    "id": "first_business",
+    "name": "Entrepreneur",
+    "description": "Found your first business",
+    "xpReward": 25,
+    "gemReward": 2,
+    "icon": "storefront",
+    "category": "Business"
+  },
+  {
+    "id": "business_level_5",
+    "name": "Established Operator",
+    "description": "Reach Business Level 5 with any company",
+    "xpReward": 80,
+    "gemReward": 2,
+    "icon": "business",
+    "category": "Business"
+  },
+  {
+    "id": "corporate_scale",
+    "name": "Corporate Scale",
+    "description": "Grow one company to at least €25,000,000 in value",
+    "xpReward": 120,
+    "gemReward": 3,
+    "icon": "business-outline",
+    "category": "Business"
+  },
+  {
+    "id": "global_corporation",
+    "name": "Global Corporation",
+    "description": "Grow one company to at least €175,000,000 in value",
+    "xpReward": 350,
+    "gemReward": 3,
+    "icon": "globe-outline",
+    "category": "Business"
+  },
+  {
+    "id": "first_acquisition",
+    "name": "Deal Maker",
+    "description": "Acquire your first existing company",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "git-merge-outline",
+    "category": "Business"
+  },
+  {
+    "id": "acquisition_3",
+    "name": "Serial Acquirer",
+    "description": "Own 3 acquired companies at the same time",
+    "xpReward": 180,
+    "gemReward": 3,
+    "icon": "layers-outline",
+    "category": "Business"
+  },
+  {
+    "id": "integration_success",
+    "name": "Successful Integration",
+    "description": "Complete an acquisition integration with a successful outcome",
+    "xpReward": 120,
+    "gemReward": 3,
+    "icon": "checkmark-done-outline",
+    "category": "Business"
+  },
+  {
+    "id": "first_holding",
+    "name": "Group Structure",
+    "description": "Create your first holding company",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "albums-outline",
+    "category": "Business"
+  },
+  {
+    "id": "holding_3_companies",
+    "name": "Corporate Group",
+    "description": "Place 3 companies under the same holding company",
+    "xpReward": 150,
+    "gemReward": 3,
+    "icon": "git-network-outline",
+    "category": "Business"
+  },
+  {
+    "id": "holding_services_5",
+    "name": "Shared Services",
+    "description": "Reach 5 total shared-service levels in one holding company",
+    "xpReward": 150,
+    "gemReward": 3,
+    "icon": "construct-outline",
+    "category": "Business"
+  },
+  {
+    "id": "first_executive",
+    "name": "Executive Hire",
+    "description": "Hire your first C-suite executive",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "person-circle-outline",
+    "category": "Business"
+  },
+  {
+    "id": "executive_team_3",
+    "name": "Leadership Team",
+    "description": "Have 3 C-suite executives in one company",
+    "xpReward": 180,
+    "gemReward": 3,
+    "icon": "people-circle-outline",
+    "category": "Business"
+  },
+  {
+    "id": "board_established",
+    "name": "Board of Directors",
+    "description": "Establish formal board governance at a company",
+    "xpReward": 120,
+    "gemReward": 3,
+    "icon": "people-outline",
+    "category": "Business"
+  },
+  {
+    "id": "first_corporate_capex",
+    "name": "Corporate Investment",
+    "description": "Complete your first major corporate capital project",
+    "xpReward": 150,
+    "gemReward": 3,
+    "icon": "hammer-outline",
+    "category": "Business"
+  },
+  {
+    "id": "corporate_capex_3",
+    "name": "Built to Scale",
+    "description": "Complete 3 corporate capital projects across your companies",
+    "xpReward": 300,
+    "gemReward": 3,
+    "icon": "build-outline",
+    "category": "Business"
+  },
+  {
+    "id": "auto_strategy_3",
+    "name": "Management by Exception",
+    "description": "Enable Auto Strategy on 3 businesses at the same time",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "flash-outline",
+    "category": "Business"
+  },
+  {
+    "id": "identity_trait_first",
+    "name": "Company Identity",
+    "description": "Earn your first persistent company identity trait",
+    "xpReward": 70,
+    "gemReward": 2,
+    "icon": "pricetag-outline",
+    "category": "Business"
+  },
+  {
+    "id": "identity_traits_3",
+    "name": "Distinctive Empire",
+    "description": "Earn 3 different company identity traits across your businesses",
+    "xpReward": 120,
+    "gemReward": 3,
+    "icon": "ribbon-outline",
+    "category": "Business"
+  },
+  {
+    "id": "profitable_exit",
+    "name": "Profitable Exit",
+    "description": "Sell a business for a positive lifetime cash result",
+    "xpReward": 80,
+    "gemReward": 2,
+    "icon": "exit-outline",
+    "category": "Business"
+  },
+  {
+    "id": "business_10",
+    "name": "Maximum Empire",
+    "description": "Own 10 businesses simultaneously",
+    "xpReward": 200,
+    "gemReward": 3,
+    "icon": "grid-outline",
+    "category": "Business"
+  },
+  {
+    "id": "first_property",
+    "name": "Property Owner",
+    "description": "Buy your first investment property",
+    "xpReward": 25,
+    "gemReward": 2,
+    "icon": "home-outline",
+    "category": "Real Estate"
+  },
+  {
+    "id": "auction_winner",
+    "name": "Auction Winner",
+    "description": "Win your first property through a real-estate auction",
+    "xpReward": 70,
+    "gemReward": 2,
+    "icon": "hammer-outline",
+    "category": "Real Estate"
+  },
+  {
+    "id": "renovator",
+    "name": "Value Add",
+    "description": "Complete a renovation on an investment property",
+    "xpReward": 50,
+    "gemReward": 2,
+    "icon": "construct-outline",
+    "category": "Real Estate"
+  },
+  {
+    "id": "rental_portfolio_3",
+    "name": "Landlord Portfolio",
+    "description": "Have 3 rented investment properties at the same time",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "key-outline",
+    "category": "Real Estate"
+  },
+  {
+    "id": "property_value_1m",
+    "name": "Property Millionaire",
+    "description": "Build an investment-property portfolio worth €1,000,000",
+    "xpReward": 120,
+    "gemReward": 3,
+    "icon": "home",
+    "category": "Real Estate"
+  },
+  {
+    "id": "first_deposit",
+    "name": "Saver",
+    "description": "Open your first fixed-term bank deposit",
+    "xpReward": 20,
+    "gemReward": 2,
+    "icon": "lock-closed-outline",
+    "category": "Wealth"
+  },
+  {
+    "id": "dividends_100k",
+    "name": "Income Investor",
+    "description": "Receive €100,000 in lifetime market dividends",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "cash-outline",
+    "category": "Investing"
+  },
+  {
+    "id": "expert_five",
+    "name": "Deep Expertise",
+    "description": "Complete 5 Expert-level courses",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "medal-outline",
+    "category": "Education"
+  },
+  {
+    "id": "family_tree_25",
+    "name": "Family Chronicle",
+    "description": "Have 25 people recorded in your Family Tree",
+    "xpReward": 200,
+    "gemReward": 3,
+    "icon": "git-network-outline",
+    "category": "Family"
+  },
+  {
+    "id": "fully_insured",
+    "name": "Risk Managed",
+    "description": "Protect one business with Comprehensive insurance in all 4 areas",
+    "xpReward": 150,
+    "gemReward": 3,
+    "icon": "shield-checkmark-outline",
+    "category": "Business"
+  },
+  {
+    "id": "reinvestment_cycle",
+    "name": "Renewed Operations",
+    "description": "Complete technology, premises and equipment reinvestment cycles in one business",
+    "xpReward": 150,
+    "gemReward": 3,
+    "icon": "refresh-circle-outline",
+    "category": "Business"
+  },
+  {
+    "id": "auto_strategy_first",
+    "name": "Delegated Direction",
+    "description": "Enable Auto Strategy on your first business",
+    "xpReward": 40,
+    "gemReward": 2,
+    "icon": "flash-outline",
+    "category": "Business"
+  },
+  {
+    "id": "corporate_workforce_first",
+    "name": "Corporate Structure",
+    "description": "Establish corporate departments in your first company",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "people-outline",
+    "category": "Business"
+  },
+  {
+    "id": "holding_services_max",
+    "name": "Integrated Group",
+    "description": "Max all shared services in one holding company",
+    "xpReward": 300,
+    "gemReward": 3,
+    "icon": "hardware-chip-outline",
+    "category": "Business"
+  },
+  {
+    "id": "first_business_exit",
+    "name": "Entrepreneurial Exit",
+    "description": "Sell your first business",
+    "xpReward": 60,
+    "gemReward": 2,
+    "icon": "exit-outline",
+    "category": "Business"
+  },
+  {
+    "id": "net_worth_25m",
+    "name": "Empire Builder",
+    "description": "Reach €25,000,000 net worth",
+    "xpReward": 500,
+    "gemReward": 3,
+    "icon": "diamond-outline",
+    "category": "Wealth"
+  },
+  {
+    "id": "bank_deposit_100k",
+    "name": "Patient Capital",
+    "description": "Hold €100,000 in fixed-term bank deposits",
+    "xpReward": 80,
+    "gemReward": 2,
+    "icon": "lock-closed-outline",
+    "category": "Wealth"
   }
 ]
