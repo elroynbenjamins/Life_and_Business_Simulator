@@ -13,7 +13,7 @@ import {
   ACQUISITION_UNLOCK_NET_WORTH,
   getAcquisitionReturn,
 } from '../../src/engine/acquisitionEngine';
-import { BUSINESS_DELEGATION_POLICIES, getDelegationManagers, getHoldingSharedServiceUpgradeEconomics, getHoldingSynergyProfile } from '../../src/engine/businessEngine';
+import { BUSINESS_DELEGATION_POLICIES, getDelegationManagerEffectiveness, getDelegationManagers, getHoldingSharedServiceUpgradeEconomics, getHoldingSynergyProfile } from '../../src/engine/businessEngine';
 import {
   HOLDING_COMPANY_SETUP_COST,
   HOLDING_SHARED_SERVICE_DEFINITIONS,
@@ -734,6 +734,7 @@ export default function HoldingCompaniesScreen() {
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.managerChips}>
                               {managers.map((manager) => {
                                 const active = selectedManagerId === manager.id;
+                                const effectiveness = getDelegationManagerEffectiveness(manager);
                                 return (
                                   <Pressable
                                     key={manager.id}
@@ -743,7 +744,10 @@ export default function HoldingCompaniesScreen() {
                                     style={[styles.managerChip, active && styles.managerChipActive]}
                                   >
                                     <Text style={[styles.managerChipText, active && styles.managerChipTextActive]}>
-                                      {manager.name} • {manager.roleId === 'manager' ? 'Manager' : 'Supervisor'}
+                                      {manager.name} • {manager.roleId === 'manager' ? 'Manager' : 'Supervisor'} • {effectiveness.label} {effectiveness.score}
+                                    </Text>
+                                    <Text style={[styles.managerChipMeta, active && styles.managerChipMetaActive]}>
+                                      {effectiveness.reviewWeeks}w review • {effectiveness.staffingAdjustment >= 0 ? '+' : ''}{Math.round(effectiveness.staffingAdjustment * 100)}% staffing • max {effectiveness.maxAdvertising} ads
                                     </Text>
                                   </Pressable>
                                 );
@@ -941,6 +945,8 @@ const styles = StyleSheet.create({
   managerChipActive: { borderColor: Colors.info, backgroundColor: '#17263A' },
   managerChipText: { color: Colors.textMuted, fontSize: 8, fontWeight: '700' },
   managerChipTextActive: { color: Colors.info },
+  managerChipMeta: { color: Colors.textMuted, fontSize: 7, marginTop: 2 },
+  managerChipMetaActive: { color: Colors.textSecondary },
   policyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
   policyChip: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 11, paddingHorizontal: 7, paddingVertical: 5 },
   policyChipActive: { borderColor: Colors.primary, backgroundColor: '#10382D' },
