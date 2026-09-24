@@ -281,6 +281,49 @@ export function getAcquisitionPrice(target: BusinessAcquisitionTarget, negotiati
   return Math.round(Math.max(target.estimatedValue ?? 0, negotiatedPrice));
 }
 
+export const ACQUISITION_MAX_DEBT_SERVICE_SHARE: Record<AcquisitionRisk, number> = {
+  low: 0.60,
+  medium: 0.50,
+  high: 0.40,
+};
+
+export function getAcquisitionDebtServiceSafety(
+  target: Pick<BusinessAcquisitionTarget, 'weeklyProfit' | 'risk'>,
+  quote: Pick<AcquisitionFinancingQuote, 'weeklyPayment'>,
+): {
+  debtServiceShare: number;
+  maxDebtServiceShare: number;
+  coverageRatio: number | null;
+  allowed: boolean;
+} {
+  const weeklyProfit = Math.max(0, target.weeklyProfit ?? 0);
+  const weeklyPayment = Math.max(0, quote.weeklyPayment ?? 0);
+  const maxDebtServiceShare = ACQUISITION_MAX_DEBT_SERVICE_SHARE[target.risk] ?? 0.50;
+  if (weeklyPayment <= 0) {
+    return {
+      debtServiceShare: 0,
+      maxDebtServiceShare,
+      coverageRatio: null,
+      allowed: true,
+    };
+  }
+  if (weeklyProfit <= 0) {
+    return {
+      debtServiceShare: Number.POSITIVE_INFINITY,
+      maxDebtServiceShare,
+      coverageRatio: 0,
+      allowed: false,
+    };
+  }
+  const debtServiceShare = weeklyPayment / weeklyProfit;
+  return {
+    debtServiceShare,
+    maxDebtServiceShare,
+    coverageRatio: weeklyProfit / weeklyPayment,
+    allowed: debtServiceShare <= maxDebtServiceShare,
+  };
+}
+
 export function getAcquisitionFinancingQuote(
   purchasePrice: number,
   mode: AcquisitionFundingMode,
