@@ -49,7 +49,7 @@ import {
 } from '../services/adRewardEntitlements';
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
-import { getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity, unlockBusinessCapacity } from '../engine/businessCapacityEngine';
+import { claimBusinessCapacityReward, getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity } from '../engine/businessCapacityEngine';
 import { getHoldingSharedServiceUpgradeCost, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
 import {
   canStartCorporateCapex,
@@ -3192,12 +3192,8 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   grantBusinessCapacityAdUnlock: () => {
     const state = get();
-    if (getBusinessCapacity(state.profile) >= MAX_BUSINESS_CAPACITY) return false;
-    const localDay = getLocalDayKey();
-    if (state.profile.businessCapacityRewardClaimDate === localDay) return false;
-    const unlocked = unlockBusinessCapacity(state.profile);
-    if (!unlocked) return false;
-    const profile = { ...unlocked, businessCapacityRewardClaimDate: localDay };
+    const profile = claimBusinessCapacityReward(state.profile, getLocalDayKey());
+    if (!profile) return false;
     set({ profile });
     saveProfile(profile);
     return true;
