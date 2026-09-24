@@ -5303,6 +5303,7 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     lifecycle: state?.lifecycle ?? { ...INITIAL_LIFECYCLE_STATE },
     lastMacroCrashWeek: state?.lastMacroCrashWeek ?? 0,
     activeMacroCrash: state?.activeMacroCrash ?? null,
+    economicCycle: state?.economicCycle ?? INITIAL_GAME_STATE.economicCycle,
     generation: state?.generation ?? 1,
     familyLegacy: state?.familyLegacy ?? [],
     familyTree: state?.familyTree ?? createInitialFamilyTree(state?.playerName ?? 'Player', state?.age ?? 20, state?.year ?? 1, state?.generation ?? 1),
