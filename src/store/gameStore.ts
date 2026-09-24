@@ -2786,6 +2786,9 @@ const useGameStore = create<GameStore>((set, get) => ({
       generation: nextGeneration,
       familyLegacy: [...(state.familyLegacy ?? []), legacyEntry],
       familyTree: transitionedFamilyTree,
+      annualReports: state.annualReports ?? [],
+      annualReportUnread: state.annualReportUnread ?? false,
+      pinnedAchievementGoals: state.pinnedAchievementGoals ?? [],
     };
     newState.netWorthHistory = [getNetWorth(newState)];
 
