@@ -92,7 +92,7 @@ describe('holding subsidiary health snapshot', () => {
       balance: -10_000,
       lastWeekProfit: -20_000,
       lastWeekExpenses: 100_000,
-    } as any, 1)).toMatchObject({ kind: 'business_finance', label: 'Repair cash' });
+    } as any, 1)).toMatchObject({ kind: 'business_finance', focus: 'cash-management', label: 'Repair cash' });
 
     expect(getHoldingSubsidiaryAttentionAction({
       id: 'reserve',
@@ -106,7 +106,7 @@ describe('holding subsidiary health snapshot', () => {
       balance: 700_000,
       lastWeekProfit: -20_000,
       lastWeekExpenses: 100_000,
-    } as any, 1)).toMatchObject({ kind: 'business_finance', label: 'Review loss' });
+    } as any, 1)).toMatchObject({ kind: 'business_finance', focus: 'budget', label: 'Review loss' });
   });
 
   test('returns no action for a stable subsidiary', () => {
