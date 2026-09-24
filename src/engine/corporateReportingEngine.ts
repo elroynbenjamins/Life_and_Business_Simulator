@@ -9,6 +9,7 @@ import {
   getCorporateWorkforceWeeklyPayroll,
 } from './businessWorkforceEngine';
 import { getCorporateWeeklyDebtService } from './corporateFinanceEngine';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 import {
   BUSINESS_REINVESTMENT_AREAS,
   getBusinessReinvestmentCost,
@@ -267,16 +268,11 @@ export function buildCorporateKpiSnapshot(
     debtService: Math.max(
       0,
       Math.round(
-        business.lastExpenseBreakdown?.loanInterest
+        business.lastWeekDebtService
         ?? getCorporateWeeklyDebtService(business),
       ),
     ),
-    debtBalance: Math.round(
-      (business.businessLoans ?? []).reduce(
-        (sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0),
-        0,
-      ),
-    ),
+    debtBalance: getBusinessDebtPrincipal(business),
     averageMaintenanceCondition: Math.round(averageMaintenanceCondition * 10) / 10,
     averageDepartmentSkill: Math.round(averageDepartmentSkill * 10) / 10,
     averageDepartmentMorale: Math.round(averageDepartmentMorale * 10) / 10,
