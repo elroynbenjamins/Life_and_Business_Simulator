@@ -1,7 +1,7 @@
 import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany, EconomicCyclePhase } from '../types/game';
 import { getHoldingManagementFeeForWeek, getHoldingSharedServiceEffects } from './holdingCompanyEngine';
 import { getIndustryEconomicCycleMultiplier } from './economyEngine';
-import { processScheduledBusinessLoanPayments } from './businessDebtEngine';
+import { getBusinessDebtPrincipal, processScheduledBusinessLoanPayments } from './businessDebtEngine';
 import {
   createDefaultBusinessReinvestmentState,
   getBusinessReinvestmentEffects,
@@ -2878,7 +2878,8 @@ export function getTotalBusinessValue(businesses: OwnedBusiness[]): number {
 }
 
 export function getTotalBusinessLoanDebt(businesses: OwnedBusiness[]): number {
-  return (businesses ?? []).reduce((total, biz) => {
-    return total + (biz.businessLoans ?? []).reduce((t, l) => t + (l.remainingAmount ?? 0), 0);
-  }, 0);
+  return Math.round((businesses ?? []).reduce(
+    (total, biz) => total + getBusinessDebtPrincipal(biz),
+    0,
+  ));
 }
