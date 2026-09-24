@@ -17,10 +17,8 @@ import { createInitialCompetitors, migrateBusinessCompetitors } from '../engine/
 import {
   ACQUISITION_MARKET_REFRESH_WEEKS,
   ACQUISITION_UNLOCK_NET_WORTH,
-  HOLDING_COMPANY_SETUP_COST,
   applyIntegrationStrategy,
   createAcquiredBusiness,
-  createHoldingCompany as buildHoldingCompany,
   generateAcquisitionTargets,
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
@@ -50,7 +48,7 @@ import {
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
 import { claimBusinessCapacityReward, getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity } from '../engine/businessCapacityEngine';
-import { getHoldingSharedServiceUpgradeCost, normalizeHoldingManagementFeeRate, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
+import { HOLDING_COMPANY_SETUP_COST, createHoldingCompany as buildHoldingCompany, getHoldingSharedServiceUpgradeCost, normalizeHoldingManagementFeeRate, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
 import {
   canStartCorporateCapex,
   getCorporateCapexCost,
