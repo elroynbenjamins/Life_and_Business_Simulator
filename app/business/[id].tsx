@@ -30,6 +30,7 @@ import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutive
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getAcquisitionIntegrationDecisionPreview } from '../../src/engine/acquisitionEngine';
 import {
+  getAcquisitionIntegrationHoldingSynergyFactor,
   getAcquisitionIntegrationOutcomeEffect,
   getAcquisitionIntegrationOutcomeProbabilities,
 } from '../../src/engine/acquisitionIntegrationEngine';
@@ -605,6 +606,12 @@ export default function BusinessDetailScreen() {
         biz.acquisition.integrationSuccessChance ?? 1,
       )
     : null;
+  const integrationHoldingSynergyFactor = biz.acquisition
+    ? getAcquisitionIntegrationHoldingSynergyFactor(
+        biz.acquisition.integrationStrategy,
+        biz.acquisition.integrationOutcome,
+      )
+    : 1;
   const resolvedIntegrationEffect = biz.acquisition
     && biz.acquisition.integrationStrategy !== 'pending'
     && biz.acquisition.integrationOutcome !== 'pending'
@@ -1138,6 +1145,7 @@ export default function BusinessDetailScreen() {
                   {activeIntegrationProbabilities && (
                     <Text style={styles.integrationActiveOdds}>
                       Outcome odds: {Math.round(activeIntegrationProbabilities.success * 100)}% success • {Math.round(activeIntegrationProbabilities.mixed * 100)}% mixed • {Math.round(activeIntegrationProbabilities.failed * 100)}% fail
+                      {biz.holdingCompanyId ? ` • organic holding synergy ${Math.round(integrationHoldingSynergyFactor * 100)}%` : ''}
                     </Text>
                   )}
                 </View>
@@ -1156,6 +1164,11 @@ export default function BusinessDetailScreen() {
                       )
                     : 'No permanent change'}
                 </Text>
+                {biz.holdingCompanyId && (
+                  <Text style={styles.integrationResultSynergy}>
+                    Organic holding synergy realized: {Math.round(integrationHoldingSynergyFactor * 100)}% • purchased shared-service bonuses remain fully active.
+                  </Text>
+                )}
               </View>
             )}
           </GameCard>
@@ -4255,6 +4268,7 @@ const styles = StyleSheet.create({
   integrationResult: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 8 },
   integrationResultTitle: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
   integrationResultText: { color: Colors.textSecondary, fontSize: 9, marginTop: 3 },
+  integrationResultSynergy: { color: Colors.info, fontSize: 8, lineHeight: 12, marginTop: 4 },
   decisionBanner: { flexDirection: 'row', gap: 10, padding: 10, borderRadius: 10, backgroundColor: `${Colors.warning}10`, borderWidth: 1, borderColor: `${Colors.warning}35`, marginBottom: 9 },
   crisisBanner: { backgroundColor: `${Colors.negative}10`, borderColor: `${Colors.negative}35` },
   decisionIcon: { fontSize: 24 },
