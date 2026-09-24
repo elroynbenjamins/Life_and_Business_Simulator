@@ -1,4 +1,4 @@
-import { INITIAL_PROFILE } from '../../types/game';
+import { INITIAL_PROFILE, PlayerProfile } from '../../types/game';
 import {
   getBusinessCapacity,
   getNextBusinessCapacityCost,
@@ -58,7 +58,7 @@ describe('businessCapacityEngine', () => {
   });
 
   test('repeated rewarded unlocks can progress from two slots all the way to ten', () => {
-    let profile = { ...INITIAL_PROFILE, businessCapacity: 2 };
+    let profile: PlayerProfile = { ...INITIAL_PROFILE, businessCapacity: 2 };
     for (let expected = 3; expected <= 10; expected++) {
       const unlocked = unlockBusinessCapacity(profile);
       expect(unlocked?.businessCapacity).toBe(expected);
