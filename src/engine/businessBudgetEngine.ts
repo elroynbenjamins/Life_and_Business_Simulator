@@ -111,15 +111,19 @@ export function normalizeBusinessBudgetPlan(
   const requestedProfile = plan?.profile && BUSINESS_BUDGET_PRESETS[plan.profile]
     ? plan.profile
     : 'balanced';
-  const profile: BusinessBudgetProfile = requestedProfile === 'standard' ? 'balanced' : requestedProfile;
+  const legacyStandard = requestedProfile === 'standard';
+  const profile: BusinessBudgetProfile = legacyStandard ? 'balanced' : requestedProfile;
   const preset = BUSINESS_BUDGET_PRESETS[profile];
   const normalized = {
     profile,
-    targetReserveWeeks: clamp(Math.round(plan?.targetReserveWeeks ?? preset.targetReserveWeeks), 4, 20),
-    dividendPct: clamp(plan?.dividendPct ?? preset.dividendPct, 0, 0.80),
-    debtPaydownPct: clamp(plan?.debtPaydownPct ?? preset.debtPaydownPct, 0, 0.70),
-    reinvestmentPct: clamp(plan?.reinvestmentPct ?? preset.reinvestmentPct, 0, 0.70),
-    growthPct: clamp(plan?.growthPct ?? preset.growthPct, 0, 0.80),
+    // Old "Standard" saves represented a different 70%-dividend policy. When
+    // reconciling that legacy alias into Balanced, migrate the values as well as
+    // the name so the old behavior cannot survive under a misleading label.
+    targetReserveWeeks: clamp(Math.round(legacyStandard ? preset.targetReserveWeeks : (plan?.targetReserveWeeks ?? preset.targetReserveWeeks)), 4, 20),
+    dividendPct: clamp(legacyStandard ? preset.dividendPct : (plan?.dividendPct ?? preset.dividendPct), 0, 0.80),
+    debtPaydownPct: clamp(legacyStandard ? preset.debtPaydownPct : (plan?.debtPaydownPct ?? preset.debtPaydownPct), 0, 0.70),
+    reinvestmentPct: clamp(legacyStandard ? preset.reinvestmentPct : (plan?.reinvestmentPct ?? preset.reinvestmentPct), 0, 0.70),
+    growthPct: clamp(legacyStandard ? preset.growthPct : (plan?.growthPct ?? preset.growthPct), 0, 0.80),
     reviewYear: Math.max(1, Math.round(plan?.reviewYear ?? reviewYear)),
   };
   const sum = normalized.dividendPct + normalized.debtPaydownPct + normalized.reinvestmentPct + normalized.growthPct;
