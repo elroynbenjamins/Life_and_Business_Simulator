@@ -5,6 +5,7 @@ import {
   CorporateKpiHistoryPoint,
   OwnedBusiness,
 } from '../types/game';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 
 export const BUSINESS_MANAGEMENT_TARGET_PROFILES: Record<BusinessManagementTargetProfile, {
   profile: BusinessManagementTargetProfile;
@@ -184,10 +185,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function totalDebt(business: OwnedBusiness): number {
-  return (business.businessLoans ?? []).reduce(
-    (sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0),
-    0,
-  );
+  return getBusinessDebtPrincipal(business);
 }
 
 function getQuarterPeriod(globalWeek: number) {
