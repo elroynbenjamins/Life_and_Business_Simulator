@@ -3,6 +3,7 @@ import {
   BusinessIdentityTraitId,
   OwnedBusiness,
 } from '../types/game';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 
 export interface BusinessIdentityDefinition {
   id: BusinessIdentityTraitId;
@@ -83,11 +84,7 @@ function averageCorporateMorale(business: OwnedBusiness): number {
 }
 
 function debtRatio(business: OwnedBusiness): number {
-  const debt = (business.businessLoans ?? []).reduce(
-    (sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0),
-    0,
-  );
-  return debt / Math.max(1, business.valuation ?? 1);
+  return getBusinessDebtPrincipal(business) / Math.max(1, business.valuation ?? 1);
 }
 
 function hasInnovationSignals(business: OwnedBusiness): boolean {
