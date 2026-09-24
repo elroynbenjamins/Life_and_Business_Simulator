@@ -639,14 +639,14 @@ export interface JobData {
   requiredExperienceWeeks: number;
 }
 
-export type MarketCompanyStage = 'established' | 'emerging' | 'growth' | 'mature' | 'failed';
+export type MarketCompanyStage = 'established' | 'emerging' | 'growth' | 'distressed' | 'mature' | 'failed';
 export type MarketCompanyStatus = 'listed' | 'delisted';
 export type MarketCompanyDelistingReason = 'failure' | 'acquisition';
 
 export interface MarketCompanyEvent {
   ticker: string;
   company: string;
-  kind: 'ipo' | 'matured' | 'delisted' | 'company_event' | 'acquired';
+  kind: 'ipo' | 'matured' | 'distressed' | 'recovery' | 'delisted' | 'company_event' | 'acquired';
   title?: string;
   description: string;
   settlementCash?: number;

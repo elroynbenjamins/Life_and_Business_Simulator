@@ -131,28 +131,29 @@ export default function StockDetailScreen() {
 
         {isEmergingCompany && (
           <GameCard
-            variant={isDelisted && stock.delistingReason !== 'acquisition' ? 'danger' : marketStage === 'mature' || stock.delistingReason === 'acquisition' ? 'subtle' : 'attention'}
+            variant={isDelisted && stock.delistingReason !== 'acquisition' ? 'danger' : marketStage === 'mature' || stock.delistingReason === 'acquisition' ? 'subtle' : marketStage === 'distressed' ? 'danger' : 'attention'}
             eyebrow="COMPANY LIFECYCLE"
             title={isDelisted
               ? stock.delistingReason === 'acquisition' ? 'Acquired' : 'Delisted'
               : marketStage === 'mature' ? 'Established Listing'
+                : marketStage === 'distressed' ? 'Distressed Company'
                 : marketStage === 'growth' ? 'Growth Company'
                   : 'Emerging Listing'}
             accentColor={isDelisted
               ? stock.delistingReason === 'acquisition' ? Colors.primary : Colors.negative
-              : marketStage === 'mature' ? Colors.primary : Colors.info}
+              : marketStage === 'mature' ? Colors.primary : marketStage === 'distressed' ? Colors.negative : Colors.info}
             titleAccessory={(
               <StatusPill
                 compact
                 icon={isDelisted
                   ? stock.delistingReason === 'acquisition' ? 'git-merge-outline' : 'close-circle-outline'
-                  : marketStage === 'mature' ? 'shield-checkmark-outline' : 'rocket-outline'}
+                  : marketStage === 'mature' ? 'shield-checkmark-outline' : marketStage === 'distressed' ? 'warning-outline' : 'rocket-outline'}
                 label={isDelisted
                   ? stock.delistingReason === 'acquisition' ? 'ACQUIRED' : 'FAILED'
-                  : marketStage === 'mature' ? 'MATURED' : 'HIGHER RISK'}
+                  : marketStage === 'mature' ? 'MATURED' : marketStage === 'distressed' ? 'DISTRESS' : 'HIGHER RISK'}
                 color={isDelisted
                   ? stock.delistingReason === 'acquisition' ? Colors.primary : Colors.negative
-                  : marketStage === 'mature' ? Colors.primary : Colors.warning}
+                  : marketStage === 'mature' ? Colors.primary : marketStage === 'distressed' ? Colors.negative : Colors.warning}
               />
             )}
           >
@@ -163,6 +164,8 @@ export default function StockDetailScreen() {
                   : 'This company failed during its early public years. Trading is closed and any player position was settled automatically at the recovery value.'
                 : marketStage === 'mature'
                   ? 'This former emerging company survived its risky early years. It now trades with a more established risk profile.'
+                  : marketStage === 'distressed'
+                    ? 'This company is in distress. Trading remains open, but dividends are suspended and the chance of recovery or delisting is higher.'
                   : 'Young public companies can outperform quickly, stagnate, or fail and delist. Their early price swings are intentionally wider than established stocks.'}
             </Text>
           </GameCard>

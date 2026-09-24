@@ -107,6 +107,8 @@ export default function MarketScreen() {
               ? 'NEW IPO'
               : stock?.companyStage === 'mature'
                 ? null
+                : stock?.companyStage === 'distressed'
+                  ? 'DISTRESSED'
                 : stock?.companyStage === 'growth'
                   ? 'GROWTH'
                   : 'EMERGING'

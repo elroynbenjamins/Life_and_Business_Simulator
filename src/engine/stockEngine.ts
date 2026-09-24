@@ -174,6 +174,7 @@ export function processMarketCompanyLifecycle(
 
     const matures = stage !== 'mature'
       && stage !== 'failed'
+      && stage !== 'distressed'
       && (
         (age >= 60 && (priceRatio >= 1.15 || quality >= 0.68))
         || (age >= 80 && priceRatio >= 0.70)
@@ -198,10 +199,52 @@ export function processMarketCompanyLifecycle(
           : 0.0015;
     if (priceRatio < 0.50) failureChance += 0.012;
     if (priceRatio < 0.25) failureChance += 0.025;
+    if (stage === 'distressed') failureChance += priceRatio < 0.40 ? 0.10 : 0.055;
     if (age > 50) failureChance *= 0.70;
+
+    if (stage === 'distressed') {
+      const recoveryChance = Math.max(0.03, Math.min(0.22, Number(definition.recoveryChance ?? 0.08) + quality * 0.08 + (priceRatio > 0.65 ? 0.05 : 0)));
+      if (randomFn() < recoveryChance) {
+        const recoveryPrice = roundPrice((stock.currentPrice ?? definition.startPrice ?? 1) * (1.08 + randomFn() * 0.18));
+        events.push({
+          ticker: definition.ticker,
+          company: definition.company,
+          kind: 'recovery',
+          description: `${definition.company} secured financing and returned from distress. Dividends may resume if the company has a payout policy.`,
+          impactPercent: ((recoveryPrice / Math.max(0.01, stock.currentPrice ?? recoveryPrice)) - 1) * 100,
+        });
+        const history = [...(stock.priceHistory ?? []), recoveryPrice].slice(-20);
+        return {
+          ...stock,
+          currentPrice: recoveryPrice,
+          priceHistory: history,
+          companyStage: priceRatio >= 1.05 ? 'growth' as const : 'emerging' as const,
+          companyQuality: Math.min(0.95, quality + 0.08),
+        };
+      }
+    }
 
     if (randomFn() >= failureChance) {
       return stage === stock.companyStage ? stock : { ...stock, companyStage: stage };
+    }
+
+    if (stage !== 'distressed') {
+      events.push({
+        ticker: definition.ticker,
+        company: definition.company,
+        kind: 'distressed',
+        description: `${definition.company} issued a severe profit warning and entered distress. Dividends are suspended and failure risk is elevated.`,
+        impactPercent: -Math.max(8, Math.min(35, (1 - Math.max(0.01, priceRatio)) * 25)),
+      });
+      const distressPrice = roundPrice((stock.currentPrice ?? definition.startPrice ?? 1) * 0.82);
+      const history = [...(stock.priceHistory ?? []), distressPrice].slice(-20);
+      return {
+        ...stock,
+        currentPrice: distressPrice,
+        priceHistory: history,
+        companyStage: 'distressed' as const,
+        companyQuality: Math.max(0.05, quality - 0.08),
+      };
     }
 
     const recoveryPrice = roundPrice((definition.startPrice ?? stock.currentPrice ?? 1) * (0.02 + randomFn() * 0.03));
@@ -221,7 +264,7 @@ export function processMarketCompanyLifecycle(
       ticker: definition.ticker,
       company: definition.company,
       kind: 'delisted',
-      description: `${definition.company} failed during its early public years and was delisted.`,
+      description: `${definition.company} failed during its early public years and was delisted after distress.`,
       settlementCash: companySettlement,
       realizedProfitLoss: companyRealized,
     });
@@ -601,6 +644,7 @@ export function processDividends(
     if (!sd) continue;
     const stock = (state?.stocks ?? []).find((s) => s?.ticker === holding?.ticker);
     if (stock?.marketStatus === 'delisted') continue;
+    if (stock?.companyStage === 'distressed') continue;
     const price = stock?.currentPrice ?? sd.startPrice;
     // Use each asset's configured annual dividend/staking yield, with fallbacks.
     const metadata = sd as any;
@@ -679,7 +723,9 @@ export function processStocks(
     let emergingMomentum = 0;
     if (isYoungEmerging) {
       const quality = Math.max(0.08, Math.min(0.95, stock.companyQuality ?? 0.5));
-      emergingDrift = (quality - 0.48) * 0.014 + (stock.companyStage === 'growth' ? 0.002 : 0);
+      emergingDrift = (quality - 0.48) * 0.014
+        + (stock.companyStage === 'growth' ? 0.002 : 0)
+        - (stock.companyStage === 'distressed' ? 0.018 : 0);
       const emergingHistory = stock.priceHistory ?? [];
       if (emergingHistory.length >= 2) {
         const last = emergingHistory[emergingHistory.length - 1] ?? stock.currentPrice ?? 0;

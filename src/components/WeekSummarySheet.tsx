@@ -259,11 +259,15 @@ export default function WeekSummarySheet() {
             {(summary?.marketCompanyEvents ?? []).map((event, index) => {
               const color = event.kind === 'delisted'
                 ? Colors.negative
+                : event.kind === 'distressed'
+                  ? Colors.warning
                 : event.kind === 'matured' || event.kind === 'acquired'
                   ? Colors.primary
                   : Colors.info;
               const heading = event.kind === 'ipo' ? '🚀 New IPO'
                 : event.kind === 'matured' ? '🏢 Company Matures'
+                  : event.kind === 'distressed' ? '⚠️ Company Distress'
+                    : event.kind === 'recovery' ? '📈 Company Recovery'
                   : event.kind === 'company_event' ? `📰 ${event.title ?? 'Company News'}`
                     : event.kind === 'acquired' ? '🤝 Public Company Acquisition'
                       : '📉 Company Delisted';
@@ -274,7 +278,7 @@ export default function WeekSummarySheet() {
                 >
                   <Text style={styles.eventTitle}>{heading}</Text>
                   <Text style={styles.eventDesc}>{event.description}</Text>
-                  {typeof event.impactPercent === 'number' && event.kind === 'company_event' && (
+                  {typeof event.impactPercent === 'number' && (event.kind === 'company_event' || event.kind === 'distressed' || event.kind === 'recovery') && (
                     <Text style={[styles.eventEffect, { color: event.impactPercent >= 0 ? Colors.primary : Colors.negative }]}>
                       Immediate move: {event.impactPercent >= 0 ? '+' : ''}{event.impactPercent.toFixed(1)}%
                     </Text>

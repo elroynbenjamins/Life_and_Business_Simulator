@@ -71,6 +71,16 @@ describe('stockEngine market reporting and type events', () => {
     expect(pool.length).toBeLessThan(emergingTickers.size);
   });
 
+  test('reconciles legacy dynamic listings into the new emerging-company pool', () => {
+    const emergingTickers = new Set(
+      (stocksData as any[]).filter((stock) => stock.marketRole === 'emerging').map((stock) => stock.ticker),
+    );
+
+    for (const ticker of ['NRVA', 'VTRY', 'SDBY', 'UTHR', 'NFRG']) {
+      expect(emergingTickers.has(ticker)).toBe(true);
+    }
+  });
+
   test('starts a save with only three companies from its emerging pool listed', () => {
     const pool = ['QNTM', 'NOVA', 'RIVO', 'VYBE', 'FARO', 'ORBT', 'NEON', 'FLUX'];
     const initialized = initializeStocks(pool, () => 0.5);
@@ -122,7 +132,7 @@ describe('stockEngine market reporting and type events', () => {
     ]));
   });
 
-  test('fragile emerging companies can fail and automatically settle holdings', () => {
+  test('fragile emerging companies enter distress before failure', () => {
     const state: GameState = {
       ...INITIAL_GAME_STATE,
       stocks: [{
@@ -139,6 +149,32 @@ describe('stockEngine market reporting and type events', () => {
     };
 
     const result = processMarketCompanyLifecycle(state, 20, () => 0);
+    expect(result.stocks[0].marketStatus).toBe('listed');
+    expect(result.stocks[0].companyStage).toBe('distressed');
+    expect(result.holdings).toHaveLength(1);
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ticker: 'QNTM', kind: 'distressed' }),
+    ]));
+  });
+
+  test('distressed emerging companies can fail and automatically settle holdings', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [{
+        ticker: 'QNTM',
+        currentPrice: 5,
+        priceHistory: [28, 12, 5],
+        marketStatus: 'listed',
+        listedWeek: 1,
+        companyStage: 'distressed',
+        companyQuality: 0.10,
+      }],
+      marketCompanyPool: [],
+      holdings: [{ ticker: 'QNTM', shares: 10, avgBuyPrice: 28 }],
+    };
+
+    const rolls = [0.99, 0];
+    const result = processMarketCompanyLifecycle(state, 20, () => rolls.shift() ?? 0);
     expect(result.stocks[0].marketStatus).toBe('delisted');
     expect(result.stocks[0].companyStage).toBe('failed');
     expect(result.holdings).toHaveLength(0);
@@ -146,6 +182,30 @@ describe('stockEngine market reporting and type events', () => {
     expect(result.realizedProfitLoss).toBeLessThan(0);
     expect(result.events).toEqual(expect.arrayContaining([
       expect.objectContaining({ ticker: 'QNTM', kind: 'delisted' }),
+    ]));
+  });
+
+  test('distressed emerging companies can recover and resume normal lifecycle risk', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [{
+        ticker: 'NRVA',
+        currentPrice: 90,
+        priceHistory: [118, 95, 90],
+        marketStatus: 'listed',
+        listedWeek: 1,
+        companyStage: 'distressed',
+        companyQuality: 0.70,
+      }],
+      marketCompanyPool: [],
+    };
+
+    const result = processMarketCompanyLifecycle(state, 20, () => 0);
+    expect(result.stocks[0].marketStatus).toBe('listed');
+    expect(result.stocks[0].companyStage).toBe('emerging');
+    expect(result.stocks[0].currentPrice).toBeGreaterThan(90);
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ticker: 'NRVA', kind: 'recovery' }),
     ]));
   });
 
@@ -233,6 +293,16 @@ describe('stockEngine market reporting and type events', () => {
 
     expect(processDividends(state, 20)).toBe(40);
     expect(processDividends(state, 19)).toBe(0);
+  });
+
+  test('distressed public companies suspend dividends', () => {
+    const state: GameState = {
+      ...INITIAL_GAME_STATE,
+      stocks: [{ ticker: 'NRVA', currentPrice: 100, priceHistory: [100], marketStatus: 'listed', companyStage: 'distressed' }],
+      holdings: [{ ticker: 'NRVA', shares: 10, avgBuyPrice: 80 }],
+    };
+
+    expect(processDividends(state, 20)).toBe(0);
   });
 
   test('AURX absorbs less of a broad market crash than utility crypto', () => {
