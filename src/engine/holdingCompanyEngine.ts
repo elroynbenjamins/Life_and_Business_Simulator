@@ -389,6 +389,9 @@ export function getHoldingManagementFeePolicyPreview(
 
 
 export type HoldingSubsidiaryAttentionLevel = 'critical' | 'watch' | 'stable';
+export type HoldingSubsidiaryFilter = 'all' | 'attention' | 'loss' | 'reserve' | 'debt' | 'manual' | 'delegated';
+export type HoldingSubsidiarySort = 'attention' | 'profit' | 'cash' | 'debt' | 'name';
+
 
 export function getHoldingSubsidiaryHealthSnapshot(
   business: OwnedBusiness,
@@ -443,6 +446,60 @@ export function getHoldingSubsidiaryHealthSnapshot(
     integrationPending,
     decisionPending,
   };
+}
+
+export function filterAndSortHoldingSubsidiaries(
+  businesses: OwnedBusiness[],
+  inflationMultiplier = 1,
+  filter: HoldingSubsidiaryFilter = 'all',
+  sort: HoldingSubsidiarySort = 'attention',
+): OwnedBusiness[] {
+  const rows = (businesses ?? []).map((business) => ({
+    business,
+    health: getHoldingSubsidiaryHealthSnapshot(business, inflationMultiplier),
+  }));
+
+  const filtered = rows.filter(({ business, health }) => {
+    if (filter === 'attention') return health.attention !== 'stable';
+    if (filter === 'loss') return health.weeklyProfit < 0;
+    if (filter === 'reserve') return health.protectedCashGap > 0;
+    if (filter === 'debt') return health.debtPrincipal > 0;
+    if (filter === 'manual') return !business.delegationPolicy || business.delegationPolicy === 'manual';
+    if (filter === 'delegated') return Boolean(business.delegationPolicy && business.delegationPolicy !== 'manual');
+    return true;
+  });
+
+  const attentionRank: Record<HoldingSubsidiaryAttentionLevel, number> = {
+    critical: 0,
+    watch: 1,
+    stable: 2,
+  };
+
+  filtered.sort((a, b) => {
+    if (sort === 'profit') {
+      const diff = a.health.weeklyProfit - b.health.weeklyProfit;
+      if (diff !== 0) return diff;
+    } else if (sort === 'cash') {
+      const diff = a.health.cash - b.health.cash;
+      if (diff !== 0) return diff;
+    } else if (sort === 'debt') {
+      const diff = b.health.debtPrincipal - a.health.debtPrincipal;
+      if (diff !== 0) return diff;
+    } else if (sort === 'name') {
+      return (a.business.name ?? '').localeCompare(b.business.name ?? '');
+    } else {
+      const rankDiff = attentionRank[a.health.attention] - attentionRank[b.health.attention];
+      if (rankDiff !== 0) return rankDiff;
+      const coverageDiff = a.health.protectedCashCoverage - b.health.protectedCashCoverage;
+      if (coverageDiff !== 0) return coverageDiff;
+      const profitDiff = a.health.weeklyProfit - b.health.weeklyProfit;
+      if (profitDiff !== 0) return profitDiff;
+    }
+
+    return (a.business.name ?? '').localeCompare(b.business.name ?? '');
+  });
+
+  return filtered.map(({ business }) => business);
 }
 
 export function getHoldingCapitalAllocationPreview(
