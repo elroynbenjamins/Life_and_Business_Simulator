@@ -206,6 +206,7 @@ export default function BusinessPortfolioScreen() {
   const getNetWorthValue = useGameStore((state) => state.getNetWorthValue);
   const [sortMode, setSortMode] = useState<SortMode>('attention');
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
+  const [showEmpireReport, setShowEmpireReport] = useState(false);
 
   const netWorth = getNetWorthValue();
   const businessCapacity = getBusinessCapacity(profile);
@@ -511,13 +512,31 @@ export default function BusinessPortfolioScreen() {
 
         {quarterlyManagementReport && annualManagementReport && (
           <GameCard variant="subtle" eyebrow="MANAGEMENT" title="Empire Report" accentColor={Colors.info}>
-            <CorporateGroupReportPanel
-              quarterlyReport={quarterlyManagementReport}
-              annualReport={annualManagementReport}
-              period={managementReportPeriod}
-              onPeriodChange={setManagementReportPeriod}
-              onCompanyPress={(businessId) => router.push(`/business/${businessId}`)}
-            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showEmpireReport }}
+              style={styles.reportToggle}
+              onPress={() => setShowEmpireReport((value) => !value)}
+            >
+              <View style={styles.reportToggleIcon}>
+                <Ionicons name="analytics-outline" size={18} color={Colors.info} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reportToggleTitle}>Corporate KPI report</Text>
+                <Text style={styles.reportToggleText}>Quarterly and annual performance, risks and management signals.</Text>
+              </View>
+              <Ionicons name={showEmpireReport ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textMuted} />
+            </Pressable>
+
+            {showEmpireReport && (
+              <CorporateGroupReportPanel
+                quarterlyReport={quarterlyManagementReport}
+                annualReport={annualManagementReport}
+                period={managementReportPeriod}
+                onPeriodChange={setManagementReportPeriod}
+                onCompanyPress={(businessId) => router.push(`/business/${businessId}`)}
+              />
+            )}
           </GameCard>
         )}
 
@@ -631,6 +650,10 @@ const styles = StyleSheet.create({
   automationTrack: { flex: 1, height: 4, backgroundColor: Colors.elevated, borderRadius: 2 },
   automationFill: { height: 4, backgroundColor: Colors.business, borderRadius: 2 },
   automationValue: { color: Colors.textSecondary, fontSize: 10, fontWeight: '600', width: 30, textAlign: 'right' },
+  reportToggle: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  reportToggleIcon: { width: 34, height: 34, borderRadius: 9, backgroundColor: `${Colors.info}12`, alignItems: 'center', justifyContent: 'center' },
+  reportToggleTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
+  reportToggleText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 2 },
   dealList: { gap: 0 },
   dealRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6 },
   dealIcon: { width: 30, height: 30, borderRadius: 9, backgroundColor: `${Colors.primary}12`, alignItems: 'center', justifyContent: 'center' },
