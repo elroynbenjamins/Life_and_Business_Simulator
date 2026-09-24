@@ -2,6 +2,7 @@ import {
   applyBusinessLoanPrincipalPayment,
   getBusinessLoanOutstandingPrincipal,
   getBusinessLoanPaymentSplit,
+  getBusinessWeeklyInterestExpense,
   processScheduledBusinessLoanPayments,
 } from '../businessDebtEngine';
 import { BusinessLoan } from '../../types/game';
@@ -27,6 +28,14 @@ describe('business debt reconciliation', () => {
     expect(split.payment).toBe(11_000);
     expect(split.interest).toBe(1_000);
     expect(split.principal).toBe(10_000);
+  });
+
+  test('weekly interest helper excludes principal repayment', () => {
+    const business = {
+      businessLoans: [loan()],
+    } as any;
+
+    expect(getBusinessWeeklyInterestExpense(business)).toBe(1_000);
   });
 
   test('scheduled payment never exceeds the final contractual balance', () => {
