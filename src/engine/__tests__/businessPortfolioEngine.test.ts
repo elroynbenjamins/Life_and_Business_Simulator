@@ -22,7 +22,7 @@ function makeBusiness(): OwnedBusiness {
     businessLoans: [{
       id: 'loan_test',
       amount: 60_000,
-      remainingAmount: 50_000,
+      remainingAmount: 54_000,
       weeklyPayment: 2_000,
       weeksRemaining: 25,
       interestRate: 0.08,
