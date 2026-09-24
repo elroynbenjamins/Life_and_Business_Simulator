@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
 import GameStatusBar from '../src/components/StatusBar';
 import GameCard from '../src/components/GameCard';
+import ScreenTabs from '../src/components/ScreenTabs';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
 import { INITIAL_STATISTICS } from '../src/types/game';
@@ -15,6 +16,7 @@ import { ThemePreference, useThemePreference } from '../src/theme/ThemeProvider'
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'account' | 'progress' | 'history'>('account');
   const playerName = useGameStore((s) => s?.playerName ?? 'Player');
   const age = useGameStore((s) => s?.age ?? 22);
   const week = useGameStore((s) => s?.week ?? 1);
@@ -69,6 +71,19 @@ export default function ProfileScreen() {
           </View>
         </GameCard>
 
+        <ScreenTabs
+          items={[
+            { key: 'account', label: 'Account', icon: 'person-outline' },
+            { key: 'progress', label: 'Progress', icon: 'stats-chart-outline' },
+            { key: 'history', label: 'History', icon: 'time-outline' },
+          ]}
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          accentColor={Colors.info}
+        />
+
+        {activeTab === 'account' && (
+          <>
         {/* Player Profile (cross-game) */}
         <GameCard title="Player Profile">
           <View style={styles.profileRow}>
@@ -142,6 +157,11 @@ export default function ProfileScreen() {
           </GameCard>
         )}
 
+          </>
+        )}
+
+        {activeTab === 'progress' && (
+          <>
         {familyLegacy.length > 0 && (
           <GameCard title="Family Legacy">
             {[...familyLegacy].reverse().slice(0, 6).map((entry) => (
@@ -191,6 +211,11 @@ export default function ProfileScreen() {
           <Text style={styles.xpText}>Total XP: {profile?.totalXp ?? 0}</Text>
         </GameCard>
 
+          </>
+        )}
+
+        {activeTab === 'history' && (
+          <>
         {/* Career History */}
         {careerHistory.length > 0 && (
           <GameCard title="Career History">
@@ -217,6 +242,11 @@ export default function ProfileScreen() {
           </GameCard>
         )}
 
+          </>
+        )}
+
+        {activeTab === 'account' && (
+          <>
         {/* Actions */}
         <Pressable style={styles.slotBtn} onPress={openSlotPicker}>
           <Ionicons name="save-outline" size={18} color={Colors.info} />
@@ -236,6 +266,8 @@ export default function ProfileScreen() {
         <Pressable style={styles.newGameBtn} onPress={handleNewGame}>
           <Text style={styles.newGameText}>New Game</Text>
         </Pressable>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
