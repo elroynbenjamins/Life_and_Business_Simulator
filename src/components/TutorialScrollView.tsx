@@ -10,60 +10,68 @@ interface TutorialScrollContextValue {
 }
 const TutorialScrollContext = createContext<TutorialScrollContextValue | null>(null);
 
-/** Normal ScrollView behaviour and caller callbacks are retained. Manual drag wins. */
+/** Vertical screen ScrollView with a measurable viewport. Manual drag always wins. */
 export default function TutorialScrollView({
-  onScroll, onScrollBeginDrag, onContentSizeChange, children, ...props
+  onScroll, onScrollBeginDrag, onContentSizeChange, children, style, ...props
 }: ScrollViewProps) {
   const scroll = useRef<ScrollView>(null);
+  const viewport = useRef<View>(null);
   const offset = useRef(0);
   const contentHeight = useRef(0);
   const reveal = useCallback<TutorialScrollContextValue['reveal']>((node, valid, done) => {
     const host = scroll.current;
-    if (!host || !valid()) return;
+    const frame = viewport.current;
+    const live = () => valid() && host === scroll.current && frame === viewport.current;
+    if (!host || !frame || !live()) return;
     try {
-      host.measureInWindow((_sx, sy, sw, sh) => {
-        if (!valid() || host !== scroll.current || sw <= 0 || sh <= 0) return;
-        node.measureInWindow((_x, y, width, height) => {
-          if (!valid() || host !== scroll.current || width <= 0) return;
-          const next = getTutorialScrollOffset({
-            targetY: y, targetHeight: height, viewportY: sy, viewportHeight: sh,
-            scrollOffset: offset.current, contentHeight: contentHeight.current,
+      frame.measureInWindow((_sx, sy, sw, sh) => {
+        if (!live() || sw <= 0 || sh <= 0) return;
+        try {
+          node.measureInWindow((_x, y, width, height) => {
+            if (!live() || width <= 0) return;
+            const next = getTutorialScrollOffset({
+              targetY: y, targetHeight: height, viewportY: sy, viewportHeight: sh,
+              scrollOffset: offset.current, contentHeight: contentHeight.current,
+            });
+            if (next === null) return;
+            try {
+              // Non-animated locating respects reduced motion and avoids racing gestures.
+              if (Math.abs(next - offset.current) > 1) {
+                host.scrollTo({ y: next, animated: false });
+                offset.current = next;
+              }
+              done();
+            } catch { /* Native view may have detached after measurement. */ }
           });
-          if (next === null) return;
-          // Non-animated locating respects reduced motion and avoids racing gestures.
-          if (Math.abs(next - offset.current) > 1) {
-            host.scrollTo({ y: next, animated: false });
-            offset.current = next;
-          }
-          done();
-        });
+        } catch { /* Missing targets fall back to the dock's bounded timeout. */ }
       });
-    } catch {
-      // Detached/unmeasurable nodes fall back to the dock's bounded timeout.
-    }
+    } catch { /* The viewport can unmount during navigation. */ }
   }, []);
   const context = useMemo(() => ({ reveal }), [reveal]);
   return (
     <TutorialScrollContext.Provider value={context}>
-      <ScrollView
-        {...props}
-        ref={scroll}
-        removeClippedSubviews={false}
-        scrollEventThrottle={16}
-        onContentSizeChange={(width, height) => {
-          contentHeight.current = height;
-          onContentSizeChange?.(width, height);
-        }}
-        onScroll={(event) => {
-          offset.current = event.nativeEvent.contentOffset.y;
-          onScroll?.(event);
-        }}
-        onScrollBeginDrag={(event) => {
-          const focus = useTutorialFocusStore.getState();
-          focus.report(focus.request, 'cancelled');
-          onScrollBeginDrag?.(event);
-        }}
-      >{children}</ScrollView>
+      <View ref={viewport} collapsable={false} style={[{ flex: 1 }, style]}>
+        <ScrollView
+          {...props}
+          ref={scroll}
+          style={{ flex: 1 }}
+          removeClippedSubviews={false}
+          scrollEventThrottle={16}
+          onContentSizeChange={(width, height) => {
+            contentHeight.current = height;
+            onContentSizeChange?.(width, height);
+          }}
+          onScroll={(event) => {
+            offset.current = event.nativeEvent.contentOffset.y;
+            onScroll?.(event);
+          }}
+          onScrollBeginDrag={(event) => {
+            const focus = useTutorialFocusStore.getState();
+            focus.report(focus.request, 'cancelled');
+            onScrollBeginDrag?.(event);
+          }}
+        >{children}</ScrollView>
+      </View>
     </TutorialScrollContext.Provider>
   );
 }
