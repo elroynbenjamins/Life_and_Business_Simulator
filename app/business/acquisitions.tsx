@@ -90,7 +90,7 @@ export default function BusinessAcquisitionsScreen() {
     const totalCashNeeded = quote.cashContribution + transactionCost;
     const destination = selectedHolding?.name ?? 'your direct portfolio';
     const debtText = quote.debtPrincipal > 0
-      ? ` + ${formatCurrency(quote.debtPrincipal)} acquisition debt at ${(quote.interestRate * 100).toFixed(1)}% (${formatCurrency(quote.weeklyPayment)}/wk)`
+      ? ` + ${formatCurrency(quote.debtPrincipal)} acquisition debt at ${(quote.interestRate * 100).toFixed(1)}% (${formatCurrency(quote.weeklyPayment)}/wk; underwritten against ${formatCurrency(debtServiceSafety.underwrittenWeeklyProfit)}/wk stressed profit)`
       : '';
 
     showGameDialog({
@@ -328,7 +328,7 @@ export default function BusinessAcquisitionsScreen() {
 
                   {quote.weeklyPayment > 0 && (
                     <Text style={[styles.underwritingText, { color: debtServiceSafe ? Colors.textSecondary : Colors.negative }]}>
-                      Underwriting: {Math.round(debtServiceSafety.debtServiceShare * 100)}% of quoted profit used for debt service • maximum {Math.round(debtServiceSafety.maxDebtServiceShare * 100)}% for this {target.risk}-risk target • {debtServiceSafety.coverageRatio?.toFixed(1)}× cover
+                      Underwriting: stressed profit {formatCurrency(debtServiceSafety.underwrittenWeeklyProfit)}/wk ({Math.round(debtServiceSafety.profitHaircutPct * 100)}% below seller quote) • debt service uses {Number.isFinite(debtServiceSafety.debtServiceShare) ? Math.round(debtServiceSafety.debtServiceShare * 100) : '∞'}% • max {Math.round(debtServiceSafety.maxDebtServiceShare * 100)}% for {target.risk} risk • {debtServiceSafety.coverageRatio?.toFixed(1)}× cover
                     </Text>
                   )}
 
