@@ -252,7 +252,7 @@ describe('stockEngine market reporting and type events', () => {
     random.mockRestore();
   });
 
-  test('MOJO keeps ordinary quiet-week moves below the old extreme range', () => {
+  test('MOJO keeps ordinary quiet-week moves below eight percent', () => {
     const random = jest.spyOn(Math, 'random').mockReturnValue(0.99);
     const result = processStocks({
       ...INITIAL_GAME_STATE,
@@ -260,8 +260,39 @@ describe('stockEngine market reporting and type events', () => {
     }, { headline: 'Quiet week', effects: {} });
 
     const move = Math.abs((result.stocks[0].currentPrice - 5) / 5);
-    expect(move).toBeLessThan(0.15);
+    expect(move).toBeLessThan(0.08);
     random.mockRestore();
+  });
+
+  test('MOJO hype bursts stay rare and bounded below old circuit-breaker extremes', () => {
+    const random = jest.spyOn(Math, 'random');
+    random
+      .mockReturnValueOnce(0.99) // high ordinary move
+      .mockReturnValueOnce(0.0)  // trigger the rare mania branch
+      .mockReturnValueOnce(0.0)  // positive burst
+      .mockReturnValueOnce(0.99); // near-max configured burst
+
+    const result = processStocks({
+      ...INITIAL_GAME_STATE,
+      stocks: [{ ticker: 'MOJO', currentPrice: 5, priceHistory: [5] }],
+    }, { headline: 'Quiet week', effects: {} });
+
+    const move = (result.stocks[0].currentPrice - 5) / 5;
+    expect(move).toBeGreaterThan(0.10);
+    expect(move).toBeLessThan(0.22);
+    random.mockRestore();
+  });
+
+  test('MOJO risk metadata keeps the speculative profile bounded', () => {
+    const mojo = (stocksData as any[]).find((asset) => asset.ticker === 'MOJO');
+    expect(mojo.baseVolatility).toBeCloseTo(0.11);
+    expect(mojo.momentumFactor).toBeCloseTo(0.05);
+    expect(mojo.momentumCap).toBeCloseTo(0.035);
+    expect(mojo.maniaChance).toBeCloseTo(0.0075);
+    expect(mojo.maniaMinMove).toBeCloseTo(0.05);
+    expect(mojo.maniaMaxMove).toBeCloseTo(0.12);
+    expect(mojo.minWeeklyChange).toBeCloseTo(-0.22);
+    expect(mojo.maxWeeklyChange).toBeCloseTo(0.25);
   });
 
   test('MOJO carries strong short-term momentum in both directions', () => {
