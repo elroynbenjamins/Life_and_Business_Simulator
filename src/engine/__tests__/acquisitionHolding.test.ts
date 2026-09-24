@@ -329,11 +329,24 @@ describe('business acquisitions and holding companies', () => {
 
   test('bullish 20-week acquisition stress matrix stays below extreme owner returns', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
-    const target = generateAcquisitionTargets(121, 1, 1)[0];
+    const generated = generateAcquisitionTargets(121, 1, 1)[0];
+    // Use a deliberately strong, clean target so every financing structure is
+    // actually executable under the underwriting rules. This makes the matrix a
+    // genuine upside stress case instead of silently testing impossible deals.
+    const target = {
+      ...generated,
+      risk: 'low' as const,
+      diligenceScore: 90,
+      integrationPenalty: 0.05,
+      weeklyRevenue: Math.round(generated.weeklyProfit / 0.20),
+    };
     const fundingModes = ['cash', 'balanced', 'leveraged'] as const;
     const strategies = ['independent', 'integrate', 'turnaround'] as const;
 
     for (const fundingMode of fundingModes) {
+      const quote = getAcquisitionFinancingQuote(target.askingPrice, fundingMode, 0);
+      expect(getAcquisitionDebtServiceSafety(target, quote).allowed).toBe(true);
+
       for (const strategy of strategies) {
         let business = createAcquiredBusiness(
           target,
