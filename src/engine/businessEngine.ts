@@ -2920,32 +2920,38 @@ export function processAllBusinesses(
       ? holdingCompanies.find((holding) => holding.id === managedBiz.holdingCompanyId)
       : null;
     let managementFee = 0;
-    if (parentHolding && canChargeHoldingManagementFee(updatedBusiness)) {
-      const protectedCash = getBusinessProtectedCash(
-        updatedBusiness,
-        inflationMultiplier,
-        updatedBusiness.lastWeekExpenses ?? result.weeklyExpenses,
-      );
-      managementFee = getHoldingManagementFeeForWeek(
-        parentHolding,
-        updatedBusiness.lastWeekRevenue ?? result.weeklyRevenue,
-        updatedBusiness.balance ?? 0,
-        updatedBusiness.lastWeekExpenses ?? result.weeklyExpenses,
-        protectedCash,
-      );
-      if (managementFee > 0) {
-        updatedBusiness = {
-          ...updatedBusiness,
-          balance: Math.max(0, (updatedBusiness.balance ?? 0) - managementFee),
-          valuation: calculateValuation({
+    if (parentHolding) {
+      if (canChargeHoldingManagementFee(updatedBusiness)) {
+        const protectedCash = getBusinessProtectedCash(
+          updatedBusiness,
+          inflationMultiplier,
+          updatedBusiness.lastWeekExpenses ?? result.weeklyExpenses,
+        );
+        managementFee = getHoldingManagementFeeForWeek(
+          parentHolding,
+          updatedBusiness.lastWeekRevenue ?? result.weeklyRevenue,
+          updatedBusiness.balance ?? 0,
+          updatedBusiness.lastWeekExpenses ?? result.weeklyExpenses,
+          protectedCash,
+        );
+        if (managementFee > 0) {
+          updatedBusiness = {
             ...updatedBusiness,
             balance: Math.max(0, (updatedBusiness.balance ?? 0) - managementFee),
-          }),
-          // Parent-company fees are still an economic distribution from the
-          // investment and therefore belong in acquisition return tracking.
-          totalPlayerDistributions: (updatedBusiness.totalPlayerDistributions ?? 0) + managementFee,
-        };
+            valuation: calculateValuation({
+              ...updatedBusiness,
+              balance: Math.max(0, (updatedBusiness.balance ?? 0) - managementFee),
+            }),
+            // Parent-company fees are still an economic distribution from the
+            // investment and therefore belong in acquisition return tracking.
+            totalPlayerDistributions: (updatedBusiness.totalPlayerDistributions ?? 0) + managementFee,
+          };
+        }
       }
+
+      // Held subsidiaries always route the player's pro-rata dividend to the
+      // parent holding. Minority ownership can disable management fees, but it
+      // must never suppress the player's legitimate dividend entitlement.
       const existingFlow = holdingCashFlowMap.get(parentHolding.id) ?? { dividends: 0, managementFees: 0 };
       holdingCashFlowMap.set(parentHolding.id, {
         dividends: existingFlow.dividends + Math.max(0, result.playerDividend),
