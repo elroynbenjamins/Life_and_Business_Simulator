@@ -180,21 +180,27 @@ export function getHoldingManagementFeeForWeek(
   protectedCashOverride?: number,
 ): number {
   const rate = normalizeHoldingManagementFeeRate(holding.managementFeeRate);
-  if (rate <= 0 || subsidiaryWeeklyRevenue <= 0) return 0;
+  const revenue = Math.max(0, subsidiaryWeeklyRevenue);
+  const expenses = Math.max(0, subsidiaryWeeklyExpenses);
+  const weeklyProfitBeforeFee = Math.max(0, revenue - expenses);
+  if (rate <= 0 || revenue <= 0 || weeklyProfitBeforeFee <= 0) return 0;
 
-  // Management fees are based on revenue but cannot raid protected subsidiary cash.
-  // Callers with a full business budget can provide the richer reserve calculation;
-  // the four-week buffer remains the compatibility floor for legacy/simple callers.
-  const operatingBuffer = Math.max(0, subsidiaryWeeklyExpenses) * 4;
+  // Management fees remain revenue-based, but they cannot turn an otherwise
+  // profitable subsidiary into a cash-extraction vehicle during weak weeks.
+  // At most 35% of pre-fee weekly profit can be upstreamed as a management fee.
+  const operatingBuffer = expenses * 4;
   const protectedCash = Math.max(
     operatingBuffer,
     Math.max(0, protectedCashOverride ?? 0),
   );
   const availableCash = Math.max(0, subsidiaryBalance - protectedCash);
+  const revenueFee = Math.round(revenue * rate);
+  const profitCap = Math.round(weeklyProfitBeforeFee * 0.35);
   return Math.max(
     0,
     Math.min(
-      Math.round(Math.max(0, subsidiaryWeeklyRevenue) * rate),
+      revenueFee,
+      profitCap,
       Math.round(availableCash),
     ),
   );
