@@ -318,7 +318,9 @@ export default function BusinessPortfolioScreen() {
           <View style={styles.empireValueBlock}>
             <Text style={styles.empireValueLabel}>BUSINESS VALUE</Text>
             <Text style={styles.empireValue}>{formatCurrency(summary.totalValue)}</Text>
-            <Text style={styles.empireEquity}>Net business equity {formatCurrency(summary.netBusinessEquity)}</Text>
+            <Text style={styles.empireEquity}>
+              Your business equity {formatCurrency(summary.playerNetBusinessEquity)} • Group equity {formatCurrency(summary.netBusinessEquity)}
+            </Text>
           </View>
 
           <View style={styles.empireMetrics}>
@@ -333,7 +335,7 @@ export default function BusinessPortfolioScreen() {
               <Text style={[styles.empireMetricValue, { color: Colors.primary }]}>{formatCurrency(summary.totalEmpireCash)}</Text>
             </View>
             <View style={styles.empireMetric}>
-              <Text style={styles.empireMetricLabel}>Debt</Text>
+              <Text style={styles.empireMetricLabel}>Company Debt</Text>
               <Text style={[styles.empireMetricValue, { color: summary.totalDebt > 0 ? Colors.warning : Colors.primary }]}>
                 {formatCurrency(summary.totalDebt)}
               </Text>
