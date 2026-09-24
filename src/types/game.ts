@@ -1811,6 +1811,24 @@ export interface GameState {
   familyTree: FamilyTreeState;
   contentUpdateSeenId: string;
   reviewPromptedWeeks: number[];
+  /** Passive annual reports retained for later review; newest first. */
+  annualReports: PeriodReport[];
+  annualReportUnread: boolean;
+  /** Optional achievement milestones pinned by the player as personal goals. */
+  pinnedAchievementGoals: string[];
+  /** Persisted annual-report accumulators so mid-year app restarts do not lose progress. */
+  periodIncome: number;
+  periodExpenses: number;
+  periodTax: number;
+  periodWeeksEmployed: number;
+  periodWeeksUnemployed: number;
+  periodJobChanges: number;
+  periodCoursesCompleted: number;
+  periodStocksPurchased: number;
+  periodLoansTaken: number;
+  periodLoansRepaid: number;
+  periodAchievements: number;
+  periodStartWeek: number;
 }
 
 export const INITIAL_GAME_STATE: GameState = {
@@ -1878,6 +1896,21 @@ export const INITIAL_GAME_STATE: GameState = {
   familyTree: { ...INITIAL_FAMILY_TREE_STATE },
   contentUpdateSeenId: '',
   reviewPromptedWeeks: [],
+  annualReports: [],
+  annualReportUnread: false,
+  pinnedAchievementGoals: [],
+  periodIncome: 0,
+  periodExpenses: 0,
+  periodTax: 0,
+  periodWeeksEmployed: 0,
+  periodWeeksUnemployed: 0,
+  periodJobChanges: 0,
+  periodCoursesCompleted: 0,
+  periodStocksPurchased: 0,
+  periodLoansTaken: 0,
+  periodLoansRepaid: 0,
+  periodAchievements: 0,
+  periodStartWeek: 1,
 };
 
 /** Player profile — persists prestige points and gems across all games/save slots */
