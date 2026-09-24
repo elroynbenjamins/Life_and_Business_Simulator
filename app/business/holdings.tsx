@@ -331,7 +331,7 @@ export default function HoldingCompaniesScreen() {
                     Avg. revenue +{(avgRevenueSynergy * 100).toFixed(1)}% • cost reduction {(avgExpenseSynergy * 100).toFixed(1)}% • crisis protection {(diversification * 100).toFixed(0)}%
                   </Text>
                   <Text style={styles.synergyHint}>
-                    Same-industry subsidiaries improve purchasing efficiency. Related industries improve cross-selling. Three or more industries add diversification protection. All bonuses are capped.
+                    Same-industry subsidiaries improve purchasing efficiency. Related industries improve cross-selling. Three or more industries add diversification protection. Organic synergies scale with acquisition integration outcomes, and all bonuses are capped.
                   </Text>
                 </View>
 
