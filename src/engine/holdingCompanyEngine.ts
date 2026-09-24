@@ -180,13 +180,14 @@ export function getHoldingReservePolicyPreview(
   const currentWeeks = normalizeHoldingReserveTargetWeeks(holding.reserveTargetWeeks);
   const normalizedNextWeeks = normalizeHoldingReserveTargetWeeks(nextWeeks);
   const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
-  const weeklyOperatingExpenses = Math.round(subsidiaries.reduce(
+  const weeklyOperatingExpensesRaw = subsidiaries.reduce(
     (sum, business) => sum + Math.max(0, business.lastWeekExpenses ?? 0),
     0,
-  ));
+  );
+  const weeklyOperatingExpenses = Math.round(weeklyOperatingExpensesRaw);
   const cashReserve = Math.max(0, Math.round(holding.cashReserve ?? 0));
-  const currentTarget = Math.round(weeklyOperatingExpenses * currentWeeks);
-  const nextTarget = Math.round(weeklyOperatingExpenses * normalizedNextWeeks);
+  const currentTarget = Math.round(weeklyOperatingExpensesRaw * currentWeeks);
+  const nextTarget = Math.round(weeklyOperatingExpensesRaw * normalizedNextWeeks);
   const currentAvailableDistributionCash = Math.max(0, cashReserve - currentTarget);
   const nextAvailableDistributionCash = Math.max(0, cashReserve - nextTarget);
 
