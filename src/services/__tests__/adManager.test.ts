@@ -44,9 +44,10 @@ jest.mock('react-native-google-mobile-ads', () => {
   };
 });
 
-async function flushPromises() {
+async function flushNativeModuleLoad() {
   await Promise.resolve();
   await Promise.resolve();
+  await new Promise<void>((resolve) => setImmediate(resolve));
   await Promise.resolve();
 }
 
@@ -68,11 +69,10 @@ function getHarness() {
 describe('rewarded ad responsiveness', () => {
   beforeEach(() => {
     jest.resetModules();
-    jest.useFakeTimers();
+    jest.useRealTimers();
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
     jest.useRealTimers();
   });
 
@@ -83,7 +83,7 @@ describe('rewarded ad responsiveness', () => {
     expect(manager.getAdState()).toBe('loading');
 
     await expect(manager.loadRewardedAd('gems')).resolves.toBe(false);
-    await flushPromises();
+    await flushNativeModuleLoad();
 
     expect(ads.RewardedAd.createForAdRequest).toHaveBeenCalledTimes(1);
     expect(ads.__createdAds).toHaveLength(1);
@@ -97,13 +97,13 @@ describe('rewarded ad responsiveness', () => {
     const { manager, ads } = getHarness();
 
     const firstLoad = manager.loadRewardedAd('education');
-    await flushPromises();
+    await flushNativeModuleLoad();
     ads.__createdAds[0].emit(ads.AdEventType.ERROR);
     await expect(firstLoad).resolves.toBe(false);
     expect(manager.getAdState()).toBe('error');
 
     const retry = manager.loadRewardedAd('education');
-    await flushPromises();
+    await flushNativeModuleLoad();
     expect(ads.__createdAds).toHaveLength(2);
     ads.__createdAds[1].emit(ads.RewardedAdEventType.LOADED);
     await expect(retry).resolves.toBe(true);
@@ -114,7 +114,7 @@ describe('rewarded ad responsiveness', () => {
     const { manager, ads } = getHarness();
 
     const load = manager.loadRewardedAd('education');
-    await flushPromises();
+    await flushNativeModuleLoad();
     ads.__createdAds[0].emit(ads.RewardedAdEventType.LOADED);
     await expect(load).resolves.toBe(true);
 
@@ -132,18 +132,19 @@ describe('rewarded ad responsiveness', () => {
   });
 
   test('load timeout resolves and does not leave the manager permanently busy', async () => {
+    jest.useFakeTimers();
     const { manager, ads } = getHarness();
 
     const timedOut = manager.loadRewardedAd('education');
-    await flushPromises();
+    await jest.advanceTimersByTimeAsync(0);
     expect(ads.__createdAds).toHaveLength(1);
 
-    jest.advanceTimersByTime(15000);
+    await jest.advanceTimersByTimeAsync(15000);
     await expect(timedOut).resolves.toBe(false);
     expect(manager.getAdState()).toBe('error');
 
     const retry = manager.loadRewardedAd('gems');
-    await flushPromises();
+    await jest.advanceTimersByTimeAsync(0);
     expect(ads.__createdAds).toHaveLength(2);
     ads.__createdAds[1].emit(ads.RewardedAdEventType.LOADED);
     await expect(retry).resolves.toBe(true);
