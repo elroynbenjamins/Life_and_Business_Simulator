@@ -710,6 +710,7 @@ export function getAcquisitionReturn(business: OwnedBusiness) {
   return {
     investedCapital,
     debt: canonical.debt,
+    playerOwnershipPct: canonical.playerOwnershipPct,
     equityValue: canonical.equityValue,
     gain,
     returnPct: canonical.returnPct ?? (gain / investedCapital * 100),
