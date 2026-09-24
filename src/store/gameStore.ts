@@ -403,6 +403,21 @@ const useGameStore = create<GameStore>((set, get) => ({
         earningsSinceLastTax: saved.earningsSinceLastTax ?? 0,
         lastTaxWeek: saved.lastTaxWeek ?? 0,
         totalTaxPaid: saved.totalTaxPaid ?? 0,
+        annualReports: saved.annualReports ?? [],
+        annualReportUnread: saved.annualReportUnread ?? false,
+        pinnedAchievementGoals: saved.pinnedAchievementGoals ?? [],
+        periodIncome: saved.periodIncome ?? 0,
+        periodExpenses: saved.periodExpenses ?? 0,
+        periodTax: saved.periodTax ?? 0,
+        periodWeeksEmployed: saved.periodWeeksEmployed ?? 0,
+        periodWeeksUnemployed: saved.periodWeeksUnemployed ?? 0,
+        periodJobChanges: saved.periodJobChanges ?? 0,
+        periodCoursesCompleted: saved.periodCoursesCompleted ?? 0,
+        periodStocksPurchased: saved.periodStocksPurchased ?? 0,
+        periodLoansTaken: saved.periodLoansTaken ?? 0,
+        periodLoansRepaid: saved.periodLoansRepaid ?? 0,
+        periodAchievements: saved.periodAchievements ?? 0,
+        periodStartWeek: saved.periodStartWeek ?? ((((saved.year ?? 1) - 1) * 20) + 1),
         unlockedAchievements: saved.unlockedAchievements ?? [],
         inflationMultiplier: saved.inflationMultiplier ?? 1.0,
         statistics: { ...INITIAL_STATISTICS, ...(saved.statistics ?? {}) },
@@ -642,6 +657,21 @@ const useGameStore = create<GameStore>((set, get) => ({
         earningsSinceLastTax: saved.earningsSinceLastTax ?? 0,
         lastTaxWeek: saved.lastTaxWeek ?? 0,
         totalTaxPaid: saved.totalTaxPaid ?? 0,
+        annualReports: saved.annualReports ?? [],
+        annualReportUnread: saved.annualReportUnread ?? false,
+        pinnedAchievementGoals: saved.pinnedAchievementGoals ?? [],
+        periodIncome: saved.periodIncome ?? 0,
+        periodExpenses: saved.periodExpenses ?? 0,
+        periodTax: saved.periodTax ?? 0,
+        periodWeeksEmployed: saved.periodWeeksEmployed ?? 0,
+        periodWeeksUnemployed: saved.periodWeeksUnemployed ?? 0,
+        periodJobChanges: saved.periodJobChanges ?? 0,
+        periodCoursesCompleted: saved.periodCoursesCompleted ?? 0,
+        periodStocksPurchased: saved.periodStocksPurchased ?? 0,
+        periodLoansTaken: saved.periodLoansTaken ?? 0,
+        periodLoansRepaid: saved.periodLoansRepaid ?? 0,
+        periodAchievements: saved.periodAchievements ?? 0,
+        periodStartWeek: saved.periodStartWeek ?? ((((saved.year ?? 1) - 1) * 20) + 1),
         unlockedAchievements: saved.unlockedAchievements ?? [],
         inflationMultiplier: saved.inflationMultiplier ?? 1.0,
         statistics: { ...INITIAL_STATISTICS, ...(saved.statistics ?? {}) },
@@ -980,7 +1010,13 @@ const useGameStore = create<GameStore>((set, get) => ({
     const reviewPromptedWeeks = shouldShowReviewPrompt
       ? [...(gameState.reviewPromptedWeeks ?? []), reviewMilestone]
       : (gameState.reviewPromptedWeeks ?? []);
-    const finalNewState = shouldShowReviewPrompt ? { ...newState, reviewPromptedWeeks } : newState;
+    const baseFinalNewState = shouldShowReviewPrompt ? { ...newState, reviewPromptedWeeks } : newState;
+    const finalNewState = {
+      ...baseFinalNewState,
+      pinnedAchievementGoals: (state.pinnedAchievementGoals ?? []).filter(
+        (achievementId) => !(baseFinalNewState.unlockedAchievements ?? []).includes(achievementId),
+      ),
+    };
 
     let periodReportUpdate: Record<string, any> = {};
     if (is20WeekMark) {
