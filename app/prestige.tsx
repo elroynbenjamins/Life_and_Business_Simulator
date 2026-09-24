@@ -106,7 +106,13 @@ export default function PrestigeScreen() {
       <View style={styles.filterBlock}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {PRESTIGE_CATEGORIES.map((item) => (
-            <Pressable key={item} style={[styles.chip, category === item && styles.chipActive]} onPress={() => setCategory(item)}>
+            <Pressable
+              key={item}
+              accessibilityRole="button"
+              hitSlop={{ top: 6, bottom: 6 }}
+              style={[styles.chip, category === item && styles.chipActive]}
+              onPress={() => setCategory(item)}
+            >
               <Text style={[styles.chipText, category === item && styles.chipTextActive]}>{item}</Text>
               <Text style={[styles.chipCount, category === item && styles.chipTextActive]}>{categoryCounts[item]}</Text>
             </Pressable>
@@ -114,7 +120,13 @@ export default function PrestigeScreen() {
         </ScrollView>
         <View style={styles.toggleRow}>
           {(['all', 'available'] as const).map((item) => (
-            <Pressable key={item} style={[styles.toggleButton, filter === item && styles.toggleActive]} onPress={() => setFilter(item)}>
+            <Pressable
+              key={item}
+              accessibilityRole="button"
+              hitSlop={{ top: 5, bottom: 5 }}
+              style={[styles.toggleButton, filter === item && styles.toggleActive]}
+              onPress={() => setFilter(item)}
+            >
               <Text style={[styles.toggleText, filter === item && styles.toggleTextActive]}>{item === 'all' ? 'All' : 'Available'}</Text>
             </Pressable>
           ))}
