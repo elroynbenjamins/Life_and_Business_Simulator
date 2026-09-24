@@ -171,6 +171,14 @@ const BUSINESS_SECTION_CHIPS: Array<{ key: BusinessDetailSection; label: string;
   { key: 'capital', label: 'Capital', icon: 'card-outline' },
 ];
 
+const MANAGEMENT_TARGET_SECTION: Record<CorporateManagementActionTarget, BusinessDetailSection> = {
+  workforce: 'leadership',
+  budget: 'finance',
+  finance: 'capital',
+  maintenance: 'risk',
+  investments: 'growth',
+};
+
 export default function BusinessDetailScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
@@ -263,28 +271,28 @@ export default function BusinessDetailScreen() {
   const [slotAdLoading, setSlotAdLoading] = useState<'project' | 'upgrade' | null>(null);
   const [slotAdMessage, setSlotAdMessage] = useState<{ kind: 'project' | 'upgrade'; text: string } | null>(null);
   const [showFundingNotice, setShowFundingNotice] = useState(newBusiness === '1');
+  const [activeSection, setActiveSection] = useState<BusinessDetailSection>('overview');
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
   const [transferError, setTransferError] = useState('');
   const detailScrollRef = useRef<ScrollView>(null);
   const managementSectionOffsets = useRef<Partial<Record<CorporateManagementActionTarget, number>>>({});
-  const sectionOffsets = useRef<Partial<Record<BusinessDetailSection, number>>>({});
 
-  const recordSection = (target: BusinessDetailSection, event: LayoutChangeEvent) => {
-    sectionOffsets.current[target] = event.nativeEvent.layout.y;
-  };
-  const scrollToSection = (target: BusinessDetailSection) => {
-    const y = sectionOffsets.current[target];
-    if (y == null) return;
-    detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+  const activateSection = (target: BusinessDetailSection) => {
+    setActiveSection(target);
+    requestAnimationFrame(() => detailScrollRef.current?.scrollTo({ y: 0, animated: true }));
   };
 
   const recordManagementSection = (target: CorporateManagementActionTarget, event: LayoutChangeEvent) => {
     managementSectionOffsets.current[target] = event.nativeEvent.layout.y;
   };
   const scrollToManagementSection = (target: CorporateManagementActionTarget) => {
-    const y = managementSectionOffsets.current[target];
-    if (y == null) return;
-    detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+    setActiveSection(MANAGEMENT_TARGET_SECTION[target]);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const y = managementSectionOffsets.current[target];
+        detailScrollRef.current?.scrollTo({ y: Math.max(0, (y ?? 0) - 12), animated: true });
+      });
+    });
   };
 
   const biz = businesses.find((b) => b?.id === id);
@@ -733,7 +741,7 @@ export default function BusinessDetailScreen() {
 
         <Pressable
           style={[styles.nextActionCard, { borderColor: `${nextAction.tone}55`, backgroundColor: `${nextAction.tone}12` }]}
-          onPress={() => scrollToSection(nextAction.target)}
+          onPress={() => activateSection(nextAction.target)}
         >
           <View style={[styles.nextActionIcon, { backgroundColor: `${nextAction.tone}22` }]}>
             <Ionicons name={nextAction.icon as any} size={20} color={nextAction.tone} />
@@ -748,13 +756,21 @@ export default function BusinessDetailScreen() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionJumpRow}>
           {BUSINESS_SECTION_CHIPS.map((section) => (
-            <Pressable key={section.key} style={styles.sectionJumpChip} onPress={() => scrollToSection(section.key)}>
-              <Ionicons name={section.icon as any} size={13} color={Colors.textSecondary} />
-              <Text style={styles.sectionJumpText}>{section.label}</Text>
+            <Pressable
+              key={section.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeSection === section.key }}
+              style={[styles.sectionJumpChip, activeSection === section.key && styles.sectionJumpChipActive]}
+              onPress={() => activateSection(section.key)}
+            >
+              <Ionicons name={section.icon as any} size={13} color={activeSection === section.key ? Colors.business : Colors.textSecondary} />
+              <Text style={[styles.sectionJumpText, activeSection === section.key && styles.sectionJumpTextActive]}>{section.label}</Text>
             </Pressable>
           ))}
         </ScrollView>
 
+        {activeSection === 'overview' && (
+          <>
         {/* Family Business */}
         <GameCard title="Family Business">
           {biz.familyBusiness?.isFamilyBusiness ? (
@@ -1048,7 +1064,12 @@ export default function BusinessDetailScreen() {
           )}
         </GameCard>
 
-        <View collapsable={false} onLayout={(event) => recordSection('ownership', event)} />
+          </>
+        )}
+
+        {activeSection === 'ownership' && (
+          <>
+        <View collapsable={false} />
         <GameCard title="Ownership Structure">
           <View style={styles.ownershipSummary}>
             <View>
@@ -1249,7 +1270,12 @@ export default function BusinessDetailScreen() {
           </GameCard>
         )}
 
-        <View collapsable={false} onLayout={(event) => recordSection('leadership', event)} />
+          </>
+        )}
+
+        {activeSection === 'leadership' && (
+          <>
+        <View collapsable={false} />
         {((biz.valuation ?? 0) >= 10_000_000 || (biz.executives?.length ?? 0) > 0 || !!biz.pendingExecutiveSearch || !!biz.boardGovernance) && (
           <GameCard title="Executive Leadership & Board">
             <Text style={styles.sectionHint}>
@@ -1672,7 +1698,12 @@ export default function BusinessDetailScreen() {
         )}
 
         {/* Weekly Financials */}
-        <View collapsable={false} onLayout={(event) => recordSection('finance', event)} />
+          </>
+        )}
+
+        {activeSection === 'finance' && (
+          <>
+        <View collapsable={false} />
         <GameCard title="Weekly Financials">
           <Text style={styles.sectionHint}>Revenue = employees × productivity × reputation demand × market share × upgrades. Reputation improves demand; upgrades add revenue; market share changes customer volume. Lower-reputation companies use leaner overhead and premises.</Text>
           <StatRow label="Revenue" value={biz.lastWeekRevenue} positive />
@@ -1898,7 +1929,12 @@ export default function BusinessDetailScreen() {
           </View>
         </GameCard>
 
-        <View collapsable={false} onLayout={(event) => recordSection('people', event)} />
+          </>
+        )}
+
+        {activeSection === 'people' && (
+          <>
+        <View collapsable={false} />
         {/* Employees */}
         <GameCard title={`Employees (${biz.employees?.length ?? 0}/${maxEmployees})`}>
           <Text style={{ color: Colors.textMuted, fontSize: 12, marginBottom: 8 }}>
@@ -2001,7 +2037,12 @@ export default function BusinessDetailScreen() {
           })}
         </GameCard>
 
-        <View collapsable={false} onLayout={(event) => recordSection('risk', event)} />
+          </>
+        )}
+
+        {activeSection === 'risk' && (
+          <>
+        <View collapsable={false} />
         <GameCard title="Insurance & Risk">
           <View style={styles.insuranceSummary}>
             <View style={styles.insuranceScoreBox}>
@@ -2170,7 +2211,12 @@ export default function BusinessDetailScreen() {
         </GameCard>
 
         {/* Active Business Projects */}
-        <View collapsable={false} onLayout={(event) => recordSection('growth', event)} />
+          </>
+        )}
+
+        {activeSection === 'growth' && (
+          <>
+        <View collapsable={false} />
         <GameCard title="Business Projects">
           <View style={styles.slotAccessRow}>
             <View style={styles.slotAccessStatus}>
@@ -2563,10 +2609,15 @@ export default function BusinessDetailScreen() {
           })}
         </GameCard>
 
+          </>
+        )}
+
+        {activeSection === 'capital' && (
+          <>
         <View collapsable={false} onLayout={(event) => recordManagementSection('finance', event)} />
         {corporateScaleTier !== 'local' && (
           <>
-            <View collapsable={false} onLayout={(event) => recordSection('capital', event)} />
+            <View collapsable={false} />
             <GameCard title="Corporate Financing">
               <View style={styles.creditHeader}>
                 <View style={styles.creditRatingBox}>
@@ -2671,7 +2722,7 @@ export default function BusinessDetailScreen() {
         )}
 
         {corporateScaleTier === 'local' && (
-          <View collapsable={false} onLayout={(event) => recordSection('capital', event)} />
+          <View collapsable={false} />
         )}
         {/* Business Loans */}
         <GameCard title="Business Loans">
@@ -2745,6 +2796,9 @@ export default function BusinessDetailScreen() {
               </View>
             ))}
           </GameCard>
+        )}
+
+          </>
         )}
 
         <View style={{ height: 32 }} />
@@ -3721,7 +3775,9 @@ const styles = StyleSheet.create({
   nextActionDetail: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
   sectionJumpRow: { gap: 7, paddingRight: 10 },
   sectionJumpChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
+  sectionJumpChipActive: { borderColor: `${Colors.business}66`, backgroundColor: `${Colors.business}14` },
   sectionJumpText: { color: Colors.textSecondary, fontSize: 10, fontWeight: '800' },
+  sectionJumpTextActive: { color: Colors.business },
   automationLabel: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
   automationTrack: { height: 6, backgroundColor: Colors.elevated, borderRadius: 3 },
   automationFill: { height: 6, backgroundColor: Colors.primary, borderRadius: 3 },
