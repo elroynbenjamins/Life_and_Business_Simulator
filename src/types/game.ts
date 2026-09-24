@@ -1648,6 +1648,8 @@ export interface OwnedBusiness {
   businessEventCooldowns?: Record<string, number>;
   familyBusiness?: FamilyBusinessState | null;
   strategicFocus?: BusinessStrategicFocus;
+  /** Automatically resolves routine strategic and corporate-HR choices. Crises remain manual. */
+  autoStrategicDecisions?: boolean;
   strategyModifiers?: BusinessStrategyModifier[];
   pendingDecision?: BusinessPendingDecision | null;
   nextStrategicDecisionWeek?: number;
@@ -1669,7 +1671,7 @@ export interface OwnedBusiness {
   capitalInvested?: number | null;
   /** Lifetime distributions paid specifically to the player from this business. */
   totalPlayerDistributions?: number;
-  /** Routine management automation. Strategic decisions/crises always remain manual. */
+  /** Routine pricing/staffing automation. Strategic choices use autoStrategicDecisions; crises stay manual. */
   delegationPolicy?: BusinessDelegationPolicy;
   delegatedManagerEmployeeId?: string | null;
   delegatedManagerName?: string | null;
@@ -1883,6 +1885,8 @@ export interface PlayerProfile {
   adFreeEducationRewardClaimDate?: string;
   /** Account-wide number of concurrently owned businesses allowed (2-10). */
   businessCapacity?: number;
+  /** Achievement Gem rewards are account-wide and can only be earned once per achievement ID. */
+  rewardedAchievementGemIds?: string[];
 }
 
 export const INITIAL_PROFILE: PlayerProfile = {
@@ -1899,6 +1903,7 @@ export const INITIAL_PROFILE: PlayerProfile = {
   adFreeSlotRewardClaimDate: '',
   adFreeEducationRewardClaimDate: '',
   businessCapacity: 2,
+  rewardedAchievementGemIds: [],
 };
 
 /** Save slot metadata */
