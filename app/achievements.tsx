@@ -36,6 +36,7 @@ export default function AchievementsScreen() {
   const unlocked = allAchievements.filter((a) => unlockedAchievements.includes(a?.id));
   const locked = allAchievements.filter((a) => !unlockedAchievements.includes(a?.id));
   const totalXp = unlocked.reduce((t, a) => t + (a?.xpReward ?? 0), 0);
+  const totalAvailableGems = allAchievements.reduce((total, achievement) => total + (achievement?.gemReward ?? 0), 0);
   const categoryCounts = useMemo(() => {
     const counts = Object.fromEntries(ACHIEVEMENT_CATEGORIES.map((item) => [item, 0])) as Record<AchievementCategory, number>;
     for (const achievement of allAchievements) {
@@ -70,7 +71,9 @@ export default function AchievementsScreen() {
         >
           <Text style={styles.statsValue}>{Math.round((unlocked.length / Math.max(1, achievementsData.length)) * 100)}% complete</Text>
           <Text style={styles.xpText}>{totalXp} XP earned from completed achievements</Text>
-          <Text style={styles.achievementRewardNote}>Achievements award XP and Prestige Points, not Gems.</Text>
+          <Text style={styles.achievementRewardNote}>
+            Standard achievements award 2 Gems; harder 100+ XP milestones award 3. Gem rewards are account-wide and paid once per achievement. {totalAvailableGems} Gems are available across the full set.
+          </Text>
         </GameCard>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -110,6 +113,7 @@ export default function AchievementsScreen() {
               </View>
               <View style={styles.rewardCol}>
                 <Text style={unlockedItem ? styles.achXp : styles.achXpLocked}>+{a?.xpReward} XP</Text>
+                <Text style={unlockedItem ? styles.achGem : styles.achGemLocked}>+{a?.gemReward ?? 0} Gems</Text>
               </View>
             </View>
           </GameCard>
@@ -155,6 +159,8 @@ const styles = StyleSheet.create({
   achDesc: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
   rewardCol: { alignItems: 'flex-end', minWidth: 58 },
   achXp: { color: Colors.warning, fontSize: 13, fontWeight: '700' },
+  achGem: { color: Colors.premium, fontSize: 11, fontWeight: '800', marginTop: 2 },
+  achGemLocked: { color: Colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 },
   achGems: { color: '#A78BFA', fontSize: 11, fontWeight: '700', marginTop: 2 },
   achXpLocked: { color: Colors.textMuted, fontSize: 13 },
   achGemsLocked: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
