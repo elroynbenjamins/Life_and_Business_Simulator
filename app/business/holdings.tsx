@@ -1212,7 +1212,7 @@ export default function HoldingCompaniesScreen() {
                               router.push(`/business/${business.id}?section=overview&focus=${attentionAction.focus}`);
                               return;
                             }
-                            router.push(`/business/${business.id}?section=finance`);
+                            router.push(`/business/${business.id}?section=finance&focus=${attentionAction.focus}`);
                           }}
                           style={[
                             styles.subsidiaryAttentionAction,
