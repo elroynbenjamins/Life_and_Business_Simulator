@@ -189,11 +189,17 @@ export function getAchievementProgress(
     case 'first_million': return progress(netWorth, 1_000_000, 'currency');
     case 'net_worth_5m': return progress(netWorth, 5_000_000, 'currency');
     case 'net_worth_10m': return progress(netWorth, 10_000_000, 'currency');
+    case 'net_worth_25m': return progress(netWorth, 25_000_000, 'currency');
     case 'cash_100k': return progress(Math.max(state.cash ?? 0, state.statistics?.highestCash ?? 0), 100_000, 'currency');
     case 'tax_payer': return progress(state.statistics?.totalTaxesPaid ?? 0, 50_000, 'currency');
     case 'debt_free_after_loan': return progress((state.statistics?.loansTaken ?? 0) > 0 && (state.loans?.length ?? 0) === 0 ? 1 : 0, 1, 'count');
     case 'three_loans': return progress(state.loans?.length ?? 0, 3, 'count', 'loans');
     case 'first_deposit': return progress(state.bankDeposits?.length ?? 0, 1, 'count', 'deposit');
+    case 'bank_deposit_100k': return progress(
+      (state.bankDeposits ?? []).reduce((sum, deposit) => sum + Math.max(0, deposit.amount ?? 0), 0),
+      100_000,
+      'currency'
+    );
 
     case 'buy_first_car': return progress(state.currentCarId && state.currentCarId !== 'none' ? 1 : 0, 1, 'count');
     case 'luxury_life': return progress((state.currentCarId === 'luxury_car' ? 1 : 0) + (state.currentHousingId === 'mansion' ? 1 : 0), 2, 'count', 'luxury assets');
@@ -218,15 +224,19 @@ export function getAchievementProgress(
     case 'first_holding': return progress(state.holdingCompanies?.length ?? 0, 1, 'count', 'holding');
     case 'holding_3_companies': return progress(maxHoldingCompanies, 3, 'count', 'companies');
     case 'holding_services_5': return progress(maxHoldingServices, 5, 'count', 'service levels');
+    case 'holding_services_max': return progress(maxHoldingServices, 15, 'count', 'service levels');
     case 'legendary_hire': return progress(businesses.some((business) => (business.employees ?? []).some((employee) => employee.tier === 'legendary')) ? 1 : 0, 1, 'count');
+    case 'corporate_workforce_first': return progress(businesses.some((business) => !!business.corporateWorkforce) ? 1 : 0, 1, 'count');
     case 'first_executive': return progress(maxExecutiveTeam, 1, 'count', 'executive');
     case 'executive_team_3': return progress(maxExecutiveTeam, 3, 'count', 'executives');
     case 'board_established': return progress(businesses.some((business) => !!business.boardGovernance) ? 1 : 0, 1, 'count');
     case 'first_corporate_capex': return progress(totalCorporateCapex, 1, 'count', 'project');
     case 'corporate_capex_3': return progress(totalCorporateCapex, 3, 'count', 'projects');
+    case 'auto_strategy_first': return progress(autoStrategyCount, 1, 'count', 'business');
     case 'auto_strategy_3': return progress(autoStrategyCount, 3, 'count', 'businesses');
     case 'identity_trait_first': return progress(identityTraits.size, 1, 'count', 'trait');
     case 'identity_traits_3': return progress(identityTraits.size, 3, 'count', 'traits');
+    case 'first_business_exit': return progress(state.soldBusinesses?.length ?? 0, 1, 'count', 'exit');
     case 'profitable_exit': return progress((state.soldBusinesses ?? []).filter((sale) => (sale.lifetimeCashResult ?? 0) > 0).length, 1, 'count', 'profitable exit');
     case 'fully_insured': return progress(maxComprehensiveInsurance, 4, 'count', 'coverage areas');
     case 'reinvestment_cycle': return progress(maxReinvestmentCycles, 3, 'count', 'renewal tracks');
@@ -293,6 +303,7 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   check('first_million', netWorth >= 1000000);
   check('net_worth_5m', netWorth >= 5000000);
   check('net_worth_10m', netWorth >= 10000000);
+  check('net_worth_25m', netWorth >= 25000000);
 
   // Courses
   const basicCourses = (coursesData ?? []).filter((c) => c?.level === 1);
@@ -346,6 +357,7 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   check('debt_free_after_loan', everHadLoan && (state?.loans ?? []).length === 0);
   check('three_loans', (state?.loans ?? []).length >= 3);
   check('first_deposit', (state?.bankDeposits?.length ?? 0) >= 1);
+  check('bank_deposit_100k', (state?.bankDeposits ?? []).reduce((sum, deposit) => sum + Math.max(0, deposit.amount ?? 0), 0) >= 100000);
 
   // Lifestyle
   check('luxury_life', (state?.currentCarId === 'luxury_car') && (state?.currentHousingId === 'mansion'));
@@ -441,14 +453,18 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   check('first_holding', (state.holdingCompanies?.length ?? 0) >= 1);
   check('holding_3_companies', maxHoldingCompanies >= 3);
   check('holding_services_5', maxHoldingSharedServiceLevels >= 5);
+  check('holding_services_max', maxHoldingSharedServiceLevels >= 15);
+  check('corporate_workforce_first', businesses.some((business) => !!business.corporateWorkforce));
   check('first_executive', businesses.some((business) => (business.executives?.length ?? 0) >= 1));
   check('executive_team_3', maxExecutiveTeam >= 3);
   check('board_established', businesses.some((business) => !!business.boardGovernance));
   check('first_corporate_capex', totalCorporateCapex >= 1);
   check('corporate_capex_3', totalCorporateCapex >= 3);
+  check('auto_strategy_first', autoStrategyCount >= 1);
   check('auto_strategy_3', autoStrategyCount >= 3);
   check('identity_trait_first', distinctIdentityTraits.size >= 1);
   check('identity_traits_3', distinctIdentityTraits.size >= 3);
+  check('first_business_exit', (state.soldBusinesses ?? []).length >= 1);
   check('profitable_exit', (state.soldBusinesses ?? []).some((sale) => (sale.lifetimeCashResult ?? 0) > 0));
   check('fully_insured', fullyInsuredBusiness);
   check('reinvestment_cycle', completedReinvestmentCycle);
