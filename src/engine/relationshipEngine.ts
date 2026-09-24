@@ -294,7 +294,7 @@ export function generateRelationshipCandidates(state: GameState, count = 3): Rel
       gender,
       age,
       occupationId: occupation.id,
-      occupationTitle: startsEntrepreneur ? 'Young Entrepreneur' : occupation.title,
+      occupationTitle: occupation.title,
       weeklyIncome,
       careerLevel,
       savings,
