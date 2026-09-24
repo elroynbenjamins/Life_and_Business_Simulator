@@ -1,4 +1,4 @@
-import { getLatestStockChanges, initializeMarketCompanyPool, initializeStocks, mergeStocks, processDividends, processMarketCompanyLifecycle, processPublicCompanyEvents, processStocks } from '../stockEngine';
+import { getCryptoRiskProfile, getLatestStockChanges, initializeMarketCompanyPool, initializeStocks, mergeStocks, processDividends, processMarketCompanyLifecycle, processPublicCompanyEvents, processStocks } from '../stockEngine';
 import { GameState, INITIAL_GAME_STATE } from '../../types/game';
 import marketSectorEvents from '../../data/market_sector_events.json';
 import stocksData from '../../data/stocks.json';
@@ -298,6 +298,21 @@ describe('stockEngine market reporting and type events', () => {
     expect(mojo.maxWeeklyChange).toBeCloseTo(0.25);
     expect(aurx.baseVolatility * 0.85).toBeLessThan(nexa.baseVolatility);
     expect(nexa.baseVolatility).toBeLessThan(mojo.baseVolatility * 1.15);
+  });
+
+  test('crypto risk profile uses the same configured bounds shown to players', () => {
+    const aurx = getCryptoRiskProfile((stocksData as any[]).find((asset) => asset.ticker === 'AURX'));
+    const nexa = getCryptoRiskProfile((stocksData as any[]).find((asset) => asset.ticker === 'NEXA'));
+    const mojo = getCryptoRiskProfile((stocksData as any[]).find((asset) => asset.ticker === 'MOJO'));
+
+    expect(aurx?.label).toBe('Moderate');
+    expect(nexa?.label).toBe('High');
+    expect(mojo?.label).toBe('Very High');
+    expect(aurx!.ordinaryRandomMovePct).toBeLessThan(nexa!.ordinaryRandomMovePct);
+    expect(nexa!.ordinaryRandomMovePct).toBeLessThan(mojo!.ordinaryRandomMovePct);
+    expect(mojo?.maniaChance).toBeCloseTo(0.0075);
+    expect(mojo?.minWeeklyChange).toBeCloseTo(-0.22);
+    expect(mojo?.maxWeeklyChange).toBeCloseTo(0.25);
   });
 
   test('MOJO carries strong short-term momentum in both directions', () => {
