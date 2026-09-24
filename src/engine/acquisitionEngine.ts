@@ -287,39 +287,70 @@ export const ACQUISITION_MAX_DEBT_SERVICE_SHARE: Record<AcquisitionRisk, number>
   high: 0.40,
 };
 
+export function getAcquisitionUnderwrittenProfit(
+  target: Pick<BusinessAcquisitionTarget, 'weeklyRevenue' | 'weeklyProfit' | 'integrationPenalty'>,
+): number {
+  const revenue = Math.max(0, target.weeklyRevenue ?? 0);
+  const quotedProfit = Math.max(0, target.weeklyProfit ?? 0);
+  const quotedExpenses = Math.max(0, revenue - quotedProfit);
+  const integrationPenalty = clamp(target.integrationPenalty ?? 0, 0, 0.25);
+
+  // Match the standard integration disruption used after closing:
+  // revenue falls by the penalty while operating expenses rise by 75% of it.
+  const stressedRevenue = revenue * (1 - integrationPenalty);
+  const stressedExpenses = quotedExpenses * (1 + integrationPenalty * 0.75);
+  return Math.max(0, Math.round(stressedRevenue - stressedExpenses));
+}
+
 export function getAcquisitionDebtServiceSafety(
-  target: Pick<BusinessAcquisitionTarget, 'weeklyProfit' | 'risk'>,
+  target: Pick<BusinessAcquisitionTarget, 'weeklyRevenue' | 'weeklyProfit' | 'risk' | 'integrationPenalty'>,
   quote: Pick<AcquisitionFinancingQuote, 'weeklyPayment'>,
 ): {
+  quotedWeeklyProfit: number;
+  underwrittenWeeklyProfit: number;
+  profitHaircutPct: number;
   debtServiceShare: number;
   maxDebtServiceShare: number;
   coverageRatio: number | null;
   allowed: boolean;
 } {
-  const weeklyProfit = Math.max(0, target.weeklyProfit ?? 0);
+  const quotedWeeklyProfit = Math.max(0, target.weeklyProfit ?? 0);
+  const underwrittenWeeklyProfit = getAcquisitionUnderwrittenProfit(target);
+  const profitHaircutPct = quotedWeeklyProfit > 0
+    ? Math.max(0, Math.min(1, 1 - underwrittenWeeklyProfit / quotedWeeklyProfit))
+    : 1;
   const weeklyPayment = Math.max(0, quote.weeklyPayment ?? 0);
   const maxDebtServiceShare = ACQUISITION_MAX_DEBT_SERVICE_SHARE[target.risk] ?? 0.50;
   if (weeklyPayment <= 0) {
     return {
+      quotedWeeklyProfit,
+      underwrittenWeeklyProfit,
+      profitHaircutPct,
       debtServiceShare: 0,
       maxDebtServiceShare,
       coverageRatio: null,
       allowed: true,
     };
   }
-  if (weeklyProfit <= 0) {
+  if (underwrittenWeeklyProfit <= 0) {
     return {
+      quotedWeeklyProfit,
+      underwrittenWeeklyProfit,
+      profitHaircutPct,
       debtServiceShare: Number.POSITIVE_INFINITY,
       maxDebtServiceShare,
       coverageRatio: 0,
       allowed: false,
     };
   }
-  const debtServiceShare = weeklyPayment / weeklyProfit;
+  const debtServiceShare = weeklyPayment / underwrittenWeeklyProfit;
   return {
+    quotedWeeklyProfit,
+    underwrittenWeeklyProfit,
+    profitHaircutPct,
     debtServiceShare,
     maxDebtServiceShare,
-    coverageRatio: weeklyProfit / weeklyPayment,
+    coverageRatio: underwrittenWeeklyProfit / weeklyPayment,
     allowed: debtServiceShare <= maxDebtServiceShare,
   };
 }
