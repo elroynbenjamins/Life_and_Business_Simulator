@@ -57,6 +57,27 @@ describe('business strategy, crises and ownership', () => {
     expect((result.updatedBusiness.pendingDecision?.deadlineGlobalWeek ?? 0) - (result.updatedBusiness.pendingDecision?.createdGlobalWeek ?? 0)).toBe(3);
   });
 
+  test('does not open a new strategic review while a prior strategic program is still active', () => {
+    const business = staffedBusiness();
+    business.nextStrategicDecisionWeek = 1;
+    business.nextCrisisCheckWeek = 999;
+    business.strategyModifiers = [{
+      id: 'strategy_previous:choice',
+      title: 'Existing strategic program',
+      revenueMultiplier: 1.05,
+      expenseMultiplier: 1,
+      reputationPerWeek: 0,
+      moralePerWeek: 0,
+      weeksRemaining: 8,
+    }];
+
+    jest.spyOn(Math, 'random').mockReturnValue(0.6);
+    const result = processBusinessWeek(business, 1, 2, 1);
+
+    expect(result.updatedBusiness.pendingDecision).toBeNull();
+    expect((result.updatedBusiness.nextStrategicDecisionWeek ?? 0) - 2).toBeGreaterThanOrEqual(7);
+  });
+
   test('Auto Strategy resolves routine choices but never crises', () => {
     const automatic = staffedBusiness();
     automatic.autoStrategicDecisions = true;
