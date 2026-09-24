@@ -2,6 +2,7 @@ import {
   applyDelegatedBusinessRoutine,
   createBusiness,
   getEffectiveDelegationPolicyConfig,
+  getHoldingSharedServiceUpgradeEconomics,
   getHoldingSynergyProfile,
 } from '../businessEngine';
 import {
@@ -169,6 +170,31 @@ describe('holding shared services and delegated management', () => {
     expect(effects.revenueBonus).toBeLessThanOrEqual(0.04);
     expect(effects.expenseReduction).toBeLessThanOrEqual(0.05);
     expect(effects.crisisReduction).toBeLessThanOrEqual(0.08);
+  });
+
+  test('shared-service upgrade economics estimate marginal capped benefit and payback', () => {
+    const business = {
+      ...makeManagedBusiness(),
+      delegationPolicy: 'manual' as const,
+      lastWeekRevenue: 100_000,
+      lastWeekExpenses: 80_000,
+    };
+    const holding = makeHolding();
+
+    const economics = getHoldingSharedServiceUpgradeEconomics(
+      holding,
+      [business],
+      'marketing',
+      1,
+    );
+
+    expect(economics.cost).toBe(2_000_000);
+    expect(economics.currentLevel).toBe(0);
+    expect(economics.nextLevel).toBe(1);
+    expect(economics.affectedSubsidiaries).toBe(1);
+    expect(economics.weeklyFinancialBenefit).toBe(500);
+    expect(economics.revenueBonusDelta).toBeCloseTo(0.005);
+    expect(economics.paybackWeeks).toBe(4_000);
   });
 
   test('shared services benefit even a single subsidiary without inventing organic synergies', () => {
