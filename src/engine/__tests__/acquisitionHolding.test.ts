@@ -6,6 +6,7 @@ import {
   generateAcquisitionTargets,
   getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
+  getAcquisitionUnderwrittenProfit,
   getAcquisitionPrice,
   getAcquisitionReturn,
   getAcquisitionTransactionCost,
@@ -210,15 +211,45 @@ describe('business acquisitions and holding companies', () => {
   });
 
   test('risk-sensitive underwriting requires more debt-service headroom for weaker targets', () => {
+    const baseTarget = {
+      weeklyRevenue: 300_000,
+      weeklyProfit: 100_000,
+      integrationPenalty: 0,
+    };
     const quote = { weeklyPayment: 55_000 };
 
-    expect(getAcquisitionDebtServiceSafety({ weeklyProfit: 100_000, risk: 'low' }, quote).allowed).toBe(true);
-    expect(getAcquisitionDebtServiceSafety({ weeklyProfit: 100_000, risk: 'medium' }, quote).allowed).toBe(false);
-    expect(getAcquisitionDebtServiceSafety({ weeklyProfit: 100_000, risk: 'high' }, quote).allowed).toBe(false);
+    expect(getAcquisitionDebtServiceSafety({ ...baseTarget, risk: 'low' }, quote).allowed).toBe(true);
+    expect(getAcquisitionDebtServiceSafety({ ...baseTarget, risk: 'medium' }, quote).allowed).toBe(false);
+    expect(getAcquisitionDebtServiceSafety({ ...baseTarget, risk: 'high' }, quote).allowed).toBe(false);
 
     const saferQuote = { weeklyPayment: 40_000 };
-    expect(getAcquisitionDebtServiceSafety({ weeklyProfit: 100_000, risk: 'high' }, saferQuote).allowed).toBe(true);
-    expect(getAcquisitionDebtServiceSafety({ weeklyProfit: 100_000, risk: 'high' }, saferQuote).coverageRatio).toBeCloseTo(2.5);
+    expect(getAcquisitionDebtServiceSafety({ ...baseTarget, risk: 'high' }, saferQuote).allowed).toBe(true);
+    expect(getAcquisitionDebtServiceSafety({ ...baseTarget, risk: 'high' }, saferQuote).coverageRatio).toBeCloseTo(2.5);
+  });
+
+  test('acquisition underwriting uses integration-stressed profit instead of seller headline profit', () => {
+    const target = {
+      weeklyRevenue: 500_000,
+      weeklyProfit: 100_000,
+      integrationPenalty: 0.05,
+      risk: 'low' as const,
+    };
+
+    expect(getAcquisitionUnderwrittenProfit(target)).toBe(60_000);
+
+    const safety = getAcquisitionDebtServiceSafety(target, { weeklyPayment: 35_000 });
+    expect(safety.quotedWeeklyProfit).toBe(100_000);
+    expect(safety.underwrittenWeeklyProfit).toBe(60_000);
+    expect(safety.profitHaircutPct).toBeCloseTo(0.40);
+    expect(safety.debtServiceShare).toBeCloseTo(35_000 / 60_000);
+    expect(safety.allowed).toBe(true);
+
+    const highDisruption = getAcquisitionDebtServiceSafety(
+      { ...target, integrationPenalty: 0.16, risk: 'high' },
+      { weeklyPayment: 1_000 },
+    );
+    expect(highDisruption.underwrittenWeeklyProfit).toBe(0);
+    expect(highDisruption.allowed).toBe(false);
   });
 
   test('supports all-cash, balanced, and leveraged acquisition structures', () => {
