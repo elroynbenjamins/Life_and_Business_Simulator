@@ -72,13 +72,21 @@ export default function AchievementsScreen() {
   }, [allAchievements, gameState, currentWeeklySalary]);
   const totalAvailableGems = allAchievements.reduce((total, achievement) => total + (achievement?.gemReward ?? 0), 0);
   const categoryCounts = useMemo(() => {
-    const counts = Object.fromEntries(ACHIEVEMENT_CATEGORIES.map((item) => [item, 0])) as Record<AchievementScreenCategory, number>;
+    const counts = Object.fromEntries(
+      ACHIEVEMENT_CATEGORIES.map((item) => [item, { completed: 0, total: 0 }])
+    ) as Record<AchievementScreenCategory, { completed: number; total: number }>;
     for (const achievement of allAchievements) {
-      counts.All += 1;
-      counts[getAchievementCategory(achievement)] += 1;
+      const achievementCategory = getAchievementCategory(achievement);
+      const completed = unlockedAchievements.includes(achievement.id);
+      counts.All.total += 1;
+      counts[achievementCategory].total += 1;
+      if (completed) {
+        counts.All.completed += 1;
+        counts[achievementCategory].completed += 1;
+      }
     }
     return counts;
-  }, [allAchievements]);
+  }, [allAchievements, unlockedAchievements]);
   const visibleAchievements = useMemo(() => {
     const items = allAchievements.filter((achievement) => {
       const unlockedItem = unlockedAchievements.includes(achievement?.id);
@@ -152,7 +160,9 @@ export default function AchievementsScreen() {
           {ACHIEVEMENT_CATEGORIES.map((item) => (
             <Pressable key={item} style={[styles.chip, category === item && styles.chipActive]} onPress={() => setCategory(item)}>
               <Text style={[styles.chipText, category === item && styles.chipTextActive]}>{item}</Text>
-              <Text style={[styles.chipCount, category === item && styles.chipTextActive]}>{categoryCounts[item]}</Text>
+              <Text style={[styles.chipCount, category === item && styles.chipTextActive]}>
+                {categoryCounts[item].completed}/{categoryCounts[item].total}
+              </Text>
             </Pressable>
           ))}
         </ScrollView>
