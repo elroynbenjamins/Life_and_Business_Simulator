@@ -50,7 +50,7 @@ import {
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
 import { claimBusinessCapacityReward, getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity } from '../engine/businessCapacityEngine';
-import { getHoldingSharedServiceUpgradeCost, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
+import { getHoldingSharedServiceUpgradeCost, normalizeHoldingManagementFeeRate, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
 import {
   canStartCorporateCapex,
   getCorporateCapexCost,
@@ -258,6 +258,8 @@ interface GameStore extends GameState {
   setAcquisitionIntegrationStrategy: (businessId: string, strategy: Exclude<AcquisitionIntegrationStrategy, 'pending'>) => void;
   createHoldingCompany: (name: string) => void;
   fundHoldingCompany: (holdingCompanyId: string, amount: number) => void;
+  distributeHoldingCash: (holdingCompanyId: string, amount: number) => void;
+  setHoldingManagementFeeRate: (holdingCompanyId: string, rate: number) => void;
   upgradeHoldingSharedService: (holdingCompanyId: string, serviceId: HoldingSharedServiceId) => void;
   allocateHoldingCapital: (holdingCompanyId: string, businessId: string, amount: number, purpose: HoldingCapitalPurpose) => void;
   setBusinessDelegation: (businessId: string, policy: BusinessDelegationPolicy, managerEmployeeId?: string | null) => void;
@@ -532,6 +534,10 @@ const useGameStore = create<GameStore>((set, get) => ({
           designatedSuccessorChildId: holding.designatedSuccessorChildId ?? null,
           designatedSuccessorChildName: holding.designatedSuccessorChildName ?? null,
           sharedServices: normalizeHoldingSharedServices(holding.sharedServices),
+          managementFeeRate: normalizeHoldingManagementFeeRate(holding.managementFeeRate),
+          totalManagementFeesCollected: holding.totalManagementFeesCollected ?? 0,
+          totalDividendsReceived: holding.totalDividendsReceived ?? 0,
+          totalOwnerDistributions: holding.totalOwnerDistributions ?? 0,
         })),
         acquisitionTargets: (saved.acquisitionTargets ?? []).map((target) => ({
           ...target,
@@ -606,6 +612,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         lifecycle: { ...INITIAL_LIFECYCLE_STATE, ...(saved.lifecycle ?? {}) },
         lastMacroCrashWeek: saved.lastMacroCrashWeek ?? 0,
         activeMacroCrash: saved.activeMacroCrash ?? null,
+        economicCycle: saved.economicCycle ?? INITIAL_GAME_STATE.economicCycle,
         generation: saved.generation ?? 1,
         familyLegacy: saved.familyLegacy ?? [],
         familyTree: saved.familyTree ?? createInitialFamilyTree(saved.playerName ?? 'Player', saved.age ?? 20, saved.year ?? 1, saved.generation ?? 1),
@@ -3453,6 +3460,49 @@ const useGameStore = create<GameStore>((set, get) => ({
         : holding
     );
     const updates = { cash: (state.cash ?? 0) - funding, holdingCompanies };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  distributeHoldingCash: (holdingCompanyId, amount) => {
+    const state = get();
+    if (state.lifecycle?.isDead || !Number.isFinite(amount) || amount <= 0) return;
+    const holding = (state.holdingCompanies ?? []).find((item) => item.id === holdingCompanyId);
+    if (!holding) return;
+    const payout = Math.min(Math.round(amount), Math.max(0, holding.cashReserve ?? 0));
+    if (payout <= 0) return;
+    const holdingCompanies = (state.holdingCompanies ?? []).map((item) =>
+      item.id === holdingCompanyId
+        ? {
+            ...item,
+            cashReserve: Math.max(0, (item.cashReserve ?? 0) - payout),
+            totalOwnerDistributions: (item.totalOwnerDistributions ?? 0) + payout,
+          }
+        : item
+    );
+    const updates = {
+      cash: (state.cash ?? 0) + payout,
+      holdingCompanies,
+      currentHeadline: holding.name + ' distributed ' + formatCurrencySafe(payout) + ' to the owner.',
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  setHoldingManagementFeeRate: (holdingCompanyId, rate) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const normalizedRate = normalizeHoldingManagementFeeRate(rate);
+    const holdingCompanies = (state.holdingCompanies ?? []).map((holding) =>
+      holding.id === holdingCompanyId
+        ? { ...holding, managementFeeRate: normalizedRate }
+        : holding
+    );
+    if (!(state.holdingCompanies ?? []).some((holding) => holding.id === holdingCompanyId)) return;
+    const updates = {
+      holdingCompanies,
+      currentHeadline: 'Holding management fee set to ' + (normalizedRate * 100).toFixed(1) + '% of subsidiary revenue.',
+    };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
