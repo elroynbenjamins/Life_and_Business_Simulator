@@ -116,7 +116,7 @@ export default function PeriodReportModal() {
             )}
           </ScrollView>
 
-          <GameButton label="Continue" trailingIcon="arrow-forward" onPress={dismissPeriodReport} />
+          <GameButton label="Close Report" icon="close-outline" onPress={dismissPeriodReport} />
         </View>
       </View>
     </Modal>
