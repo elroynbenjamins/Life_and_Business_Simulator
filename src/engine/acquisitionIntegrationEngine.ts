@@ -53,6 +53,18 @@ export function resolveAcquisitionIntegrationOutcome(
   return 'failed';
 }
 
+export function getAcquisitionIntegrationHoldingSynergyFactor(
+  strategy: AcquisitionIntegrationStrategy,
+  outcome: AcquisitionIntegrationOutcome,
+): number {
+  if (strategy === 'pending') return 0.25;
+  if (strategy === 'independent') return 0.50;
+  if (outcome === 'pending') return 0.60;
+  if (outcome === 'failed') return 0.65;
+  if (outcome === 'mixed') return 0.85;
+  return 1;
+}
+
 export function getAcquisitionIntegrationOutcomeEffect(
   strategy: ActiveAcquisitionIntegrationStrategy,
   outcome: ResolvedAcquisitionIntegrationOutcome,
