@@ -190,18 +190,18 @@ describe('business reinvestment and corporate financing', () => {
       businessLoans: [{
         id: 'coverage_debt',
         amount: 500_000,
-        remainingAmount: 550_000,
-        weeklyPayment: 50_000,
-        weeksRemaining: 11,
-        interestRate: 0.10,
+        remainingAmount: 600_000,
+        weeklyPayment: 60_000,
+        weeksRemaining: 10,
+        interestRate: 0.20,
         purpose: 'corporate_bond',
       }],
     });
 
     const profile = getCorporateCreditProfile(business);
 
-    expect(profile.weeklyDebtService).toBe(50_000);
-    expect(profile.debtServiceCoverage).toBeCloseTo(2.2);
+    expect(profile.weeklyDebtService).toBe(60_000);
+    expect(profile.debtServiceCoverage).toBeCloseTo(110_000 / 60_000);
     expect(profile.interestCoverage).toBeCloseTo(13);
   });
 
