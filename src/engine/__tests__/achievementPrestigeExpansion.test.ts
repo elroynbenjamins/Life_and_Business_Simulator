@@ -291,6 +291,21 @@ describe('achievement and Prestige expansion', () => {
     expect(achievements.reduce((total, achievement) => total + achievement.gemReward, 0)).toBe(166);
   });
 
+  test('achievement Gem settlement is account-wide and exactly once per achievement', () => {
+    const first = getAchievementGemRewardSettlement(['first_job', 'first_million'], []);
+    expect(first.gemsGained).toBe(5);
+    expect(first.rewards).toEqual({ first_job: 2, first_million: 3 });
+    expect(first.rewardedAchievementGemIds).toEqual(expect.arrayContaining(['first_job', 'first_million']));
+
+    const repeated = getAchievementGemRewardSettlement(
+      ['first_job', 'first_million'],
+      first.rewardedAchievementGemIds,
+    );
+    expect(repeated.gemsGained).toBe(0);
+    expect(repeated.rewards).toEqual({});
+    expect(repeated.rewardedAchievementGemIds).toEqual(expect.arrayContaining(['first_job', 'first_million']));
+  });
+
   test('education achievement tiers no longer double-unlock from the same condition', () => {
     const advancedCourses = (coursesData as any[])
       .filter((course) => (course.level ?? 1) <= 2)
