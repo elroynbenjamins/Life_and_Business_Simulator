@@ -1208,7 +1208,11 @@ export default function HoldingCompaniesScreen() {
                               setExpandedSubsidiaryId(business.id);
                               return;
                             }
-                            router.push(`/business/${business.id}?section=${attentionAction.kind === 'business_finance' ? 'finance' : 'overview'}`);
+                            if (attentionAction.kind === 'business_overview') {
+                              router.push(`/business/${business.id}?section=overview&focus=${attentionAction.focus}`);
+                              return;
+                            }
+                            router.push(`/business/${business.id}?section=finance`);
                           }}
                           style={[
                             styles.subsidiaryAttentionAction,
