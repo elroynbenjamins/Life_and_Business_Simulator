@@ -20,6 +20,8 @@ export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
 export const ACQUISITION_TARGET_COUNT = 6;
 
+export type AcquisitionTargetSortMode = 'price' | 'premium' | 'profit' | 'diligence' | 'risk';
+
 export interface AcquisitionFinancingQuote {
   mode: AcquisitionFundingMode;
   purchasePrice: number;
@@ -582,6 +584,39 @@ export function generateAcquisitionTargets(
   }
 
   return targets;
+}
+
+export function sortAcquisitionTargets(
+  targets: BusinessAcquisitionTarget[],
+  mode: AcquisitionTargetSortMode,
+  negotiationBonus = 0,
+): BusinessAcquisitionTarget[] {
+  const riskRank: Record<AcquisitionRisk, number> = { low: 0, medium: 1, high: 2 };
+  const priceOf = (target: BusinessAcquisitionTarget) => getAcquisitionPrice(target, negotiationBonus);
+  const premiumOf = (target: BusinessAcquisitionTarget) => {
+    const estimatedValue = Math.max(1, target.estimatedValue ?? 0);
+    return priceOf(target) / estimatedValue;
+  };
+
+  return [...(targets ?? [])].sort((a, b) => {
+    if (mode === 'profit') {
+      const difference = (b.weeklyProfit ?? 0) - (a.weeklyProfit ?? 0);
+      return difference || priceOf(a) - priceOf(b);
+    }
+    if (mode === 'diligence') {
+      const difference = (b.diligenceScore ?? 0) - (a.diligenceScore ?? 0);
+      return difference || priceOf(a) - priceOf(b);
+    }
+    if (mode === 'risk') {
+      const difference = riskRank[a.risk] - riskRank[b.risk];
+      return difference || (b.diligenceScore ?? 0) - (a.diligenceScore ?? 0) || priceOf(a) - priceOf(b);
+    }
+    if (mode === 'premium') {
+      const difference = premiumOf(a) - premiumOf(b);
+      return difference || priceOf(a) - priceOf(b);
+    }
+    return priceOf(a) - priceOf(b);
+  });
 }
 
 function acquisitionEmployeeCount(tier: AcquisitionTier, maxEmployees: number): number {
