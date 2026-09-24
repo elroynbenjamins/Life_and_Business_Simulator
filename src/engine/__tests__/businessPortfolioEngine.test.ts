@@ -273,6 +273,25 @@ describe('business portfolio engine', () => {
     expect(getBusinessEmpireSummary([business], [], 4).attentionCount).toBe(1);
   });
 
+  test('empire summary separates gross group scale from the player-owned stake', () => {
+    const business = {
+      ...makeBusiness(),
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 60, votingPercent: 60 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside', percent: 40, votingPercent: 40 },
+      ],
+    };
+
+    const summary = getBusinessEmpireSummary([business]);
+
+    expect(summary.totalValue).toBe(300_000);
+    expect(summary.totalDebt).toBe(50_000);
+    expect(summary.netBusinessEquity).toBe(250_000);
+    expect(summary.playerBusinessValue).toBe(180_000);
+    expect(summary.playerBusinessDebt).toBe(30_000);
+    expect(summary.playerNetBusinessEquity).toBe(150_000);
+  });
+
   test('summarizes empire debt, cash and attention without double counting', () => {
     const business = {
       ...makeBusiness(),
@@ -308,6 +327,9 @@ describe('business portfolio engine', () => {
     expect(summary.totalValue).toBe(300_000);
     expect(summary.totalDebt).toBe(50_000);
     expect(summary.netBusinessEquity).toBe(250_000);
+    expect(summary.playerBusinessValue).toBe(300_000);
+    expect(summary.playerBusinessDebt).toBe(50_000);
+    expect(summary.playerNetBusinessEquity).toBe(250_000);
     expect(summary.operatingCash).toBe(25_000);
     expect(summary.holdingCash).toBe(75_000);
     expect(summary.totalEmpireCash).toBe(100_000);
