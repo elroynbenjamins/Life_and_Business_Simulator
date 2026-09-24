@@ -1335,6 +1335,8 @@ export interface CorporateKpiHistoryPoint {
   productivityIndex: number;
   departmentProductivity: Record<CorporateDepartmentId, number>;
   debtService: number;
+  /** Cash generated before scheduled interest/principal payments; optional for legacy history. */
+  cashAvailableForDebtService?: number;
   /** Outstanding business debt at the end of this reporting week. */
   debtBalance?: number;
   averageMaintenanceCondition: number;
