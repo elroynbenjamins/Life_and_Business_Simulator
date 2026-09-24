@@ -430,11 +430,16 @@
     "type": "crypto",
     "cryptoStyle": "speculative",
     "annualTrend": 0.01,
-    "baseVolatility": 0.16,
-    "momentumFactor": 0.08,
+    "baseVolatility": 0.11,
+    "momentumFactor": 0.05,
+    "momentumCap": 0.035,
     "macroShockMultiplier": 1.15,
-    "maniaChance": 0.0125,
+    "maniaChance": 0.0075,
+    "maniaMinMove": 0.05,
+    "maniaMaxMove": 0.12,
+    "minWeeklyChange": -0.22,
+    "maxWeeklyChange": 0.25,
     "description": "A culture-driven speculative coin powered by hype, momentum and retail sentiment.",
-    "mechanic": "High volatility, moderate short-term momentum, rare mania/crash bursts, and no yield."
+    "mechanic": "Highest crypto volatility, lighter short-term momentum, occasional bounded hype/crash bursts, and no yield."
   }
 ]
