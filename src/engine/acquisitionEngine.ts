@@ -697,6 +697,10 @@ export function createHoldingCompany(
       marketing: 0,
       it: 0,
     },
+    managementFeeRate: 0.01,
+    totalManagementFeesCollected: 0,
+    totalDividendsReceived: 0,
+    totalOwnerDistributions: 0,
   };
 }
 
@@ -747,6 +751,10 @@ export function getHoldingCompanySummary(holding: HoldingCompany, businesses: Ow
     weeklyProfit,
     cashReserve: holding.cashReserve ?? 0,
     totalCapitalDeployed: holding.totalCapitalDeployed ?? 0,
+    managementFeeRate: holding.managementFeeRate ?? 0.01,
+    totalManagementFeesCollected: holding.totalManagementFeesCollected ?? 0,
+    totalDividendsReceived: holding.totalDividendsReceived ?? 0,
+    totalOwnerDistributions: holding.totalOwnerDistributions ?? 0,
     familyControlledValue,
     familyControlledPct: totalValue > 0 ? familyControlledValue / totalValue * 100 : 0,
     protectedAssets,
