@@ -230,9 +230,10 @@ describe('business acquisitions and holding companies', () => {
     expect(cash.debtPrincipal).toBe(0);
     expect(balanced.cashContribution).toBe(60_000_000);
     expect(balanced.debtPrincipal).toBe(40_000_000);
-    expect(balanced.interestRate).toBeCloseTo(0.05);
+    expect(balanced.interestRate).toBeCloseTo(0.07);
     expect(leveraged.cashContribution).toBe(30_000_000);
     expect(leveraged.debtPrincipal).toBe(70_000_000);
+    expect(leveraged.interestRate).toBeCloseTo(0.15);
     expect(leveraged.weeklyPayment).toBeGreaterThan(0);
   });
 
