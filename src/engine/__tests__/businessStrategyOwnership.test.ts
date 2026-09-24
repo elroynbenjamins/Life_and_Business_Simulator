@@ -284,6 +284,31 @@ describe('business strategy, crises and ownership', () => {
     expect(getPlayerOwnershipPct(business)).toBe(60);
   });
 
+  test('underwater company debt cannot make a limited-liability stake negative in personal net worth', () => {
+    const business = staffedBusiness();
+    business.valuation = 50_000;
+    business.businessLoans = [{
+      id: 'underwater-loan',
+      amount: 100_000,
+      remainingAmount: 110_000,
+      interestRate: 0.10,
+      weeklyPayment: 5_500,
+      weeksRemaining: 20,
+    }] as any;
+    business.ownership = [
+      { ownerType: 'player', ownerId: 'player', ownerName: 'Player', percent: 60, votingPercent: 60 },
+      { ownerType: 'investor', ownerId: 'outside', ownerName: 'Outside', percent: 40, votingPercent: 40 },
+    ];
+
+    const state = {
+      ...INITIAL_GAME_STATE,
+      cash: 10_000,
+      businesses: [business],
+    };
+
+    expect(getNetWorth(state)).toBe(10_000);
+  });
+
   test('estate succession taxes only the deceased player stake in a family business', () => {
     const business = staffedBusiness();
     business.valuation = 1_000_000;
