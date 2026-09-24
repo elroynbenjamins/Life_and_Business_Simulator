@@ -13,7 +13,8 @@ jest.mock('../../store/gameStore', () => ({
 }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: mockRouterReplace, back: jest.fn() }),
+  usePathname: () => '/business/acq-sale-regression',
+  useRouter: () => ({ push: jest.fn(), replace: mockRouterReplace, back: jest.fn(), navigate: jest.fn() }),
   useLocalSearchParams: () => ({ id: 'acq-sale-regression' }),
 }));
 jest.mock('react-native-chart-kit', () => ({ PieChart: () => null }));
