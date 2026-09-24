@@ -29,6 +29,8 @@ import { getCorporateGroupManagementReport } from '../../src/engine/corporateGro
 import { CorporateReportPeriod } from '../../src/engine/corporateReportingEngine';
 
 const CAPITAL_AMOUNTS = [1_000_000, 5_000_000, 10_000_000];
+const PAYOUT_AMOUNTS = [1_000_000, 5_000_000, 10_000_000];
+const MANAGEMENT_FEE_RATES = [0, 0.01, 0.02, 0.03];
 
 export default function HoldingCompaniesScreen() {
   const router = useRouter();
@@ -42,6 +44,8 @@ export default function HoldingCompaniesScreen() {
   const getNetWorthValue = useGameStore((s) => s.getNetWorthValue);
   const createHoldingCompany = useGameStore((s) => s.createHoldingCompany);
   const fundHoldingCompany = useGameStore((s) => s.fundHoldingCompany);
+  const distributeHoldingCash = useGameStore((s) => s.distributeHoldingCash);
+  const setHoldingManagementFeeRate = useGameStore((s) => s.setHoldingManagementFeeRate);
   const upgradeHoldingSharedService = useGameStore((s) => s.upgradeHoldingSharedService);
   const allocateHoldingCapital = useGameStore((s) => s.allocateHoldingCapital);
   const setBusinessDelegation = useGameStore((s) => s.setBusinessDelegation);
