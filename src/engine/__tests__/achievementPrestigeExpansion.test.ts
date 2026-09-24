@@ -293,7 +293,7 @@ describe('achievement and Prestige expansion', () => {
   test('Top of the Game requires career level 5 rather than level 3', () => {
     const level4 = {
       ...INITIAL_GAME_STATE,
-      career: { ...INITIAL_GAME_STATE.career, companyId: 'company', careerPathId: 'path', positionLevel: 4 },
+      career: { ...((INITIAL_GAME_STATE.career ?? {}) as any), companyId: 'company', careerPathId: 'path', positionLevel: 4 },
     };
     const level5 = {
       ...level4,
