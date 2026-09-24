@@ -320,6 +320,21 @@ describe('achievement and Prestige expansion', () => {
     expect(checkAchievements(completeState, 0, 0)).toEqual(expect.arrayContaining(['all_courses', 'complete_all_courses']));
   });
 
+  test('Two Decades requires 400 played weeks', () => {
+    const early = {
+      ...INITIAL_GAME_STATE,
+      year: 20,
+      statistics: { ...INITIAL_GAME_STATE.statistics, weeksPlayed: 399 },
+    };
+    const complete = {
+      ...early,
+      statistics: { ...early.statistics, weeksPlayed: 400 },
+    };
+
+    expect(checkAchievements(early, 0, 0)).not.toContain('survive_20_years');
+    expect(checkAchievements(complete, 0, 0)).toContain('survive_20_years');
+  });
+
   test('Top of the Game requires career level 5 rather than level 3', () => {
     const level4 = {
       ...INITIAL_GAME_STATE,
