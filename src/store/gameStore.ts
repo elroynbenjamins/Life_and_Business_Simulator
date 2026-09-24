@@ -351,12 +351,34 @@ const useGameStore = create<GameStore>((set, get) => ({
   slotMeta: {},
 
   loadSavedGame: async () => {
-    const [profile, slotMeta, activeSlot] = await Promise.all([
+    const [profile, slotMeta, activeSlot, savedSlots] = await Promise.all([
       loadProfile(),
       loadAllSlotMeta(),
       getActiveSlot(),
+      Promise.all([0, 1, 2].map((slot) => loadGame(slot))),
     ]);
-    const saved = await loadGame(activeSlot);
+    const saved = savedSlots[activeSlot] ?? null;
+    const historicalAchievementIds = savedSlots.flatMap((slot) => slot?.unlockedAchievements ?? []);
+    const historicalBusinessCapacity = savedSlots.reduce(
+      (max, slot) => Math.max(max, slot?.businesses?.length ?? 0),
+      0,
+    );
+    const startupCapacity = Math.min(
+      MAX_BUSINESS_CAPACITY,
+      Math.max(getBusinessCapacity(profile), historicalBusinessCapacity),
+    );
+    const rewardedAchievementGemIds = [...new Set([
+      ...(profile.rewardedAchievementGemIds ?? []),
+      ...historicalAchievementIds,
+    ])];
+    const startupProfileNeedsMigration =
+      startupCapacity !== getBusinessCapacity(profile)
+      || rewardedAchievementGemIds.length !== (profile.rewardedAchievementGemIds ?? []).length;
+    const startupProfile = startupProfileNeedsMigration
+      ? { ...profile, businessCapacity: startupCapacity, rewardedAchievementGemIds }
+      : profile;
+    if (startupProfileNeedsMigration) await saveProfile(startupProfile);
+
     if (saved?.initialized) {
       const merged: GameState = {
         ...INITIAL_GAME_STATE,
@@ -587,21 +609,9 @@ const useGameStore = create<GameStore>((set, get) => ({
         (profile as any).prestigePoints = profile.totalXp ?? 0;
         (profile as any).unlockedPrestige = (profile as any).unlockedPrestige ?? [];
       }
-      const grandfatheredCapacity = Math.min(MAX_BUSINESS_CAPACITY, Math.max(getBusinessCapacity(profile), merged.businesses.length));
-      const rewardedAchievementGemIds = [...new Set([
-        ...(profile.rewardedAchievementGemIds ?? []),
-        ...(saved.unlockedAchievements ?? []),
-      ])];
-      const profileNeedsMigration =
-        grandfatheredCapacity !== getBusinessCapacity(profile)
-        || rewardedAchievementGemIds.length !== (profile.rewardedAchievementGemIds ?? []).length;
-      const migratedProfile = profileNeedsMigration
-        ? { ...profile, businessCapacity: grandfatheredCapacity, rewardedAchievementGemIds }
-        : profile;
-      if (profileNeedsMigration) await saveProfile(migratedProfile);
-      set({ ...merged, isLoading: false, showNameModal: false, showMainMenu: true, showRelationshipEventModal: false, showContentUpdateModal: false, relationshipFeedback: null, profile: migratedProfile, slotMeta, activeSlot });
+      set({ ...merged, isLoading: false, showNameModal: false, showMainMenu: true, showRelationshipEventModal: false, showContentUpdateModal: false, relationshipFeedback: null, profile: startupProfile, slotMeta, activeSlot });
     } else {
-      set({ isLoading: false, showMainMenu: true, showSlotPicker: false, profile, slotMeta, activeSlot });
+      set({ isLoading: false, showMainMenu: true, showSlotPicker: false, profile: startupProfile, slotMeta, activeSlot });
     }
   },
 
