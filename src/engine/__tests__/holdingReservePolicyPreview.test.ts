@@ -1,4 +1,4 @@
-import { getHoldingReservePolicyPreview } from '../holdingCompanyEngine';
+import { getHoldingReservePolicyPreview, getHoldingReserveTarget } from '../holdingCompanyEngine';
 
 describe('holding reserve policy preview', () => {
   const holding = {
@@ -42,5 +42,19 @@ describe('holding reserve policy preview', () => {
 
     expect(preview.nextTarget).toBe(4_800_000);
     expect(preview.nextAvailableDistributionCash).toBe(0);
+  });
+
+  test('uses the same rounding basis as the live reserve target calculation', () => {
+    const fractionalBusinesses = [
+      { id: 'a', holdingCompanyId: 'holding-1', lastWeekExpenses: 100.4 },
+      { id: 'b', holdingCompanyId: 'holding-1', lastWeekExpenses: 100.4 },
+    ] as any[];
+    const preview = getHoldingReservePolicyPreview(holding, fractionalBusinesses, 8);
+    const liveTarget = getHoldingReserveTarget(
+      { ...holding, reserveTargetWeeks: 8 } as any,
+      fractionalBusinesses,
+    );
+
+    expect(preview.nextTarget).toBe(liveTarget);
   });
 });
