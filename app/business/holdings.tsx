@@ -260,7 +260,8 @@ export default function HoldingCompaniesScreen() {
               </GameCard>
             ) : visibleSummaries.map(({
               holding, subsidiaries, subsidiaryCount, totalValue, totalDebt, netGroupEquity, ownerNetEquity, weeklyProfit,
-              cashReserve, reserveTargetWeeks, reserveTarget, availableDistributionCash,
+              cashReserve, ownerGroupValue, totalCapitalDeployed, totalHoldingInflows, totalDividendsReceived,
+              totalManagementFeesCollected, totalOwnerDistributions, reserveTargetWeeks, reserveTarget, availableDistributionCash,
               familyControlledPct, protectedAssets, avgRevenueSynergy, avgExpenseSynergy, diversification,
               sharedServiceEffects, managementFeeEligibleCount, quarterlyManagementReport, annualManagementReport,
             }) => (
@@ -418,11 +419,26 @@ export default function HoldingCompaniesScreen() {
                       <Text style={styles.capitalMeta}>Fund the reserve, receive subsidiary cash flows, then redeploy or distribute capital.</Text>
                     </View>
                   </View>
+                  <View style={styles.capitalLedgerGrid}>
+                    <View style={styles.capitalLedgerItem}>
+                      <Text style={styles.capitalLedgerLabel}>Owner Group Value</Text>
+                      <Text style={[styles.capitalLedgerValue, { color: Colors.info }]}>{formatCurrency(ownerGroupValue)}</Text>
+                    </View>
+                    <View style={styles.capitalLedgerItem}>
+                      <Text style={styles.capitalLedgerLabel}>Cumulative Deployed</Text>
+                      <Text style={styles.capitalLedgerValue}>{formatCurrency(totalCapitalDeployed)}</Text>
+                    </View>
+                    <View style={styles.capitalLedgerItem}>
+                      <Text style={styles.capitalLedgerLabel}>Upstreamed Cash</Text>
+                      <Text style={[styles.capitalLedgerValue, { color: Colors.primary }]}>{formatCurrency(totalHoldingInflows)}</Text>
+                    </View>
+                    <View style={styles.capitalLedgerItem}>
+                      <Text style={styles.capitalLedgerLabel}>Paid to Owner</Text>
+                      <Text style={styles.capitalLedgerValue}>{formatCurrency(totalOwnerDistributions)}</Text>
+                    </View>
+                  </View>
                   <Text style={styles.capitalMeta}>
-                    Lifetime inflows: {formatCurrency(holding.totalDividendsReceived ?? 0)} dividends • {formatCurrency(holding.totalManagementFeesCollected ?? 0)} fees
-                  </Text>
-                  <Text style={styles.capitalMeta}>
-                    Owner distributions: {formatCurrency(holding.totalOwnerDistributions ?? 0)}
+                    Upstream mix: {formatCurrency(totalDividendsReceived)} dividends • {formatCurrency(totalManagementFeesCollected)} management fees.
                   </Text>
                   <View style={styles.buttonRow}>
                     {CAPITAL_AMOUNTS.map((amount) => (
@@ -794,6 +810,10 @@ const styles = StyleSheet.create({
   capitalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   capitalTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   capitalMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
+  capitalLedgerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9, marginBottom: 3 },
+  capitalLedgerItem: { width: '48.5%', backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7 },
+  capitalLedgerLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '700' },
+  capitalLedgerValue: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900', marginTop: 3 },
   buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   smallAction: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 7, backgroundColor: Colors.elevated },
   disabledAction: { opacity: 0.35 },
