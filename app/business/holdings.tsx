@@ -100,9 +100,6 @@ export default function HoldingCompaniesScreen() {
       annualManagementReport,
     };
   }), [holdings, businesses, globalGameWeek, inflationMultiplier]);
-  const hasManagementReports = summaries.some(
-    (summary) => !!summary.quarterlyManagementReport && !!summary.annualManagementReport,
-  );
   const selectedSummary = summaries.find((summary) => summary.holding.id === selectedHoldingId) ?? summaries[0] ?? null;
   const visibleSummaries = selectedSummary ? [selectedSummary] : [];
 
@@ -465,6 +462,13 @@ export default function HoldingCompaniesScreen() {
 
                 {holdingView === 'subsidiaries' && (
                   <>
+                {subsidiaries.length === 0 && (
+                  <View style={styles.emptySubsidiaries}>
+                    <Ionicons name="business-outline" size={24} color={Colors.textMuted} />
+                    <Text style={styles.emptySubsidiariesTitle}>No companies assigned yet</Text>
+                    <Text style={styles.emptySubsidiariesText}>Assign an existing company below or acquire a new target for this holding.</Text>
+                  </View>
+                )}
                 {subsidiaries.map((business) => {
                   const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
                   const acquisitionReturn = getAcquisitionReturn(business);
@@ -718,6 +722,9 @@ const styles = StyleSheet.create({
   roleButton: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 6 },
   roleButtonActive: { borderColor: Colors.primary, backgroundColor: '#10382D' },
   roleText: { color: Colors.textSecondary, fontSize: 8, fontWeight: '800' },
+  emptySubsidiaries: { alignItems: 'center', paddingVertical: 18, paddingHorizontal: 12 },
+  emptySubsidiariesTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', marginTop: 7 },
+  emptySubsidiariesText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, textAlign: 'center', marginTop: 3 },
   subsidiaryBlock: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, paddingTop: 10, marginTop: 10 },
   subsidiaryRow: { flexDirection: 'row', alignItems: 'center' },
   subsidiaryName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
