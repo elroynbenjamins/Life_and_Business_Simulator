@@ -23,6 +23,8 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
   const week = useGameStore((st: any) => st.week);
   const year = useGameStore((st: any) => st.year);
   const age = useGameStore((st: any) => st.age);
+  const annualReports = useGameStore((st) => st.annualReports ?? []);
+  const openAnnualReport = useGameStore((st) => st.openAnnualReport);
   const gameState = useGameStore(useShallow((st) => ({
     currentJobId: st.currentJobId,
     cash: st.cash,
@@ -226,6 +228,30 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
 
         {activeView === 'lifetime' && (
           <>
+        {annualReports.length > 0 && (
+          <GameCard compact eyebrow="HISTORY" title="Annual Reports" accentColor={Colors.info}>
+            {annualReports.slice(0, 5).map((report, index) => {
+              const netFlow = report.totalIncome - report.totalExpenses - report.totalTax;
+              return (
+                <Pressable key={report.toWeek} style={styles.annualRow} onPress={() => openAnnualReport(index)}>
+                  <View style={styles.annualYear}>
+                    <Text style={styles.annualYearLabel}>YEAR</Text>
+                    <Text style={styles.annualYearValue}>{Math.floor(report.toWeek / 20)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.annualRowTitle}>Net flow {netFlow >= 0 ? '+' : ''}{formatCurrency(netFlow)}</Text>
+                    <Text style={styles.annualRowMeta}>Net worth {formatCurrency(report.currentNetWorth)} • {report.achievementsUnlocked} achievement{report.achievementsUnlocked === 1 ? '' : 's'}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+                </Pressable>
+              );
+            })}
+            {annualReports.length > 5 && (
+              <Text style={styles.annualArchiveNote}>Latest 5 shown • {annualReports.length} reports saved</Text>
+            )}
+          </GameCard>
+        )}
+
         <View style={styles.sectionHeading}>
           <Text style={styles.sectionHeadingTitle}>Lifetime Progress</Text>
           <Text style={styles.sectionHeadingSub}>{s?.weeksPlayed ?? 0} weeks played</Text>
@@ -288,6 +314,13 @@ const styles = StyleSheet.create({
   heroMetric: { flex: 1, minWidth: 0, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 8 },
   heroMetricLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.35 },
   heroMetricValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '900', marginTop: 3 },
+  annualRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
+  annualYear: { width: 38, height: 38, borderRadius: 9, backgroundColor: `${Colors.info}12`, alignItems: 'center', justifyContent: 'center' },
+  annualYearLabel: { color: Colors.textMuted, fontSize: 7, fontWeight: '900' },
+  annualYearValue: { color: Colors.info, fontSize: 14, fontWeight: '900', marginTop: 1 },
+  annualRowTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  annualRowMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
+  annualArchiveNote: { color: Colors.textMuted, fontSize: 9, textAlign: 'center', marginTop: 6 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 5 },
   label: { flex: 1, color: Colors.textMuted, fontSize: 12 },
   value: { color: Colors.textPrimary, fontWeight: '700', fontSize: 12, textAlign: 'right' },
