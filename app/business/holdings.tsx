@@ -53,6 +53,7 @@ const COMPANY_FILTER_OPTIONS: Array<{ key: HoldingSubsidiaryFilter; label: strin
   { key: 'watch', label: 'Watch' },
   { key: 'loss', label: 'Loss-making' },
   { key: 'reserve', label: 'Reserve shortfall' },
+  { key: 'material-debt', label: 'Material debt' },
   { key: 'debt', label: 'Has debt' },
   { key: 'manual', label: 'Manual' },
   { key: 'delegated', label: 'Delegated' },
@@ -407,7 +408,7 @@ export default function HoldingCompaniesScreen() {
                 { key: 'watch', label: 'Watch', count: attentionSummary.watch, icon: 'warning-outline', color: Colors.warning },
                 { key: 'loss', label: 'Loss', count: attentionSummary.loss, icon: 'trending-down-outline', color: Colors.negative },
                 { key: 'reserve', label: 'Reserve', count: attentionSummary.reserve, icon: 'shield-outline', color: Colors.warning },
-                { key: 'debt', label: 'Debt', count: attentionSummary.debt, icon: 'card-outline', color: Colors.info },
+                { key: 'material-debt', label: 'Material debt', count: attentionSummary.materialDebt, icon: 'card-outline', color: Colors.info },
               ];
               const activeFilterLabel = COMPANY_FILTER_OPTIONS.find((option) => option.key === companyFilter)?.label ?? 'All companies';
               const activeSortLabel = COMPANY_SORT_OPTIONS.find((option) => option.key === companySort)?.label ?? 'Attention first';
@@ -1143,9 +1144,21 @@ export default function HoldingCompaniesScreen() {
                               </Text>
                             </View>
                             {health.debtPrincipal > 0 && (
-                              <View style={styles.subsidiaryHealthChip}>
-                                <Ionicons name="card-outline" size={11} color={Colors.info} />
-                                <Text style={styles.subsidiaryHealthText}>Debt {formatCurrency(health.debtPrincipal)}</Text>
+                              <View style={[
+                                styles.subsidiaryHealthChip,
+                                health.materialDebt && styles.subsidiaryDebtChipMaterial,
+                              ]}>
+                                <Ionicons
+                                  name={health.materialDebt ? 'alert-circle-outline' : 'card-outline'}
+                                  size={11}
+                                  color={health.materialDebt ? Colors.warning : Colors.info}
+                                />
+                                <Text style={[
+                                  styles.subsidiaryHealthText,
+                                  health.materialDebt && { color: Colors.warning },
+                                ]}>
+                                  {health.materialDebt ? 'Debt risk ' : 'Debt '}{formatCurrency(health.debtPrincipal)}
+                                </Text>
                               </View>
                             )}
                             <View style={[
@@ -1740,6 +1753,7 @@ const styles = StyleSheet.create({
   subsidiaryHealthRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
   subsidiaryHealthChip: { minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, backgroundColor: Colors.elevated, paddingHorizontal: 6, paddingVertical: 4 },
   subsidiaryHealthChipWarning: { borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}0A` },
+  subsidiaryDebtChipMaterial: { borderColor: `${Colors.warning}66`, backgroundColor: `${Colors.warning}0D` },
   subsidiaryHealthText: { color: Colors.textSecondary, fontSize: 7, fontWeight: '800' },
   subsidiaryAttentionReason: { fontSize: 8, lineHeight: 11, fontWeight: '800', marginTop: 6 },
   subsidiaryAttentionAction: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 7, marginTop: 7 },
