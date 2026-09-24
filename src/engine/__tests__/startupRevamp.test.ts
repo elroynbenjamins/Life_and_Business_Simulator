@@ -22,7 +22,7 @@ describe('lean startup business model', () => {
     expect(getBusinessUpgradeWeeks(0)).toBe(12);
     expect(getBusinessUpgradeWeeks(1)).toBe(23);
   });
-  test('profitable companies retain six weeks of costs before paying dividends', () => {
+  test('profitable companies retain the Balanced eight-week buffer before paying dividends', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const business = createBusiness('coffee_shop', null, 1, 1, 1)!;
     business.balance = 0;
@@ -32,7 +32,7 @@ describe('lean startup business model', () => {
     expect(result.playerDividend).toBe(0);
     expect(result.updatedBusiness.balance).toBe(result.weeklyProfit);
     const rich = processBusinessWeek({...business,balance:100000},1,2,1);
-    expect(rich.playerDividend).toBe(Math.round(rich.weeklyProfit * 0.7));
+    expect(rich.playerDividend).toBe(Math.round(rich.weeklyProfit * 0.25));
   });
   test('no first-level startup-support cliff at low reputation', () => {
     const initial = simulateBusinessScenario({businessTypeId:'coffee_shop',weeks:1,seed:11,employeeQuality:'average',upgrades:'none'}).endingBusiness;
