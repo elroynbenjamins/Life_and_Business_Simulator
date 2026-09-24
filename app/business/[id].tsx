@@ -275,10 +275,15 @@ export default function BusinessDetailScreen() {
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
   const [transferError, setTransferError] = useState('');
   const detailScrollRef = useRef<ScrollView>(null);
+  const sectionTabScrollRef = useRef<ScrollView>(null);
   const managementSectionOffsets = useRef<Partial<Record<CorporateManagementActionTarget, number>>>({});
 
   const activateSection = (target: BusinessDetailSection) => {
     setActiveSection(target);
+    const tabIndex = BUSINESS_SECTION_CHIPS.findIndex((section) => section.key === target);
+    if (tabIndex >= 0) {
+      sectionTabScrollRef.current?.scrollTo({ x: Math.max(0, tabIndex * 86 - 18), animated: true });
+    }
     requestAnimationFrame(() => detailScrollRef.current?.scrollTo({ y: 0, animated: true }));
   };
 
@@ -286,7 +291,7 @@ export default function BusinessDetailScreen() {
     managementSectionOffsets.current[target] = event.nativeEvent.layout.y;
   };
   const scrollToManagementSection = (target: CorporateManagementActionTarget) => {
-    setActiveSection(MANAGEMENT_TARGET_SECTION[target]);
+    activateSection(MANAGEMENT_TARGET_SECTION[target]);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const y = managementSectionOffsets.current[target];
@@ -642,7 +647,7 @@ export default function BusinessDetailScreen() {
       </View>
 
       <View style={styles.sectionTabShell}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionJumpRow}>
+        <ScrollView ref={sectionTabScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionJumpRow}>
           {BUSINESS_SECTION_CHIPS.map((section) => (
             <Pressable
               key={section.key}
