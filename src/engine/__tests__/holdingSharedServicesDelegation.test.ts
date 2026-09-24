@@ -195,6 +195,9 @@ describe('holding shared services and delegated management', () => {
     expect(preview.growth.protectedCash).toBe(800_000);
     expect(preview.growth.reserveGapBefore).toBe(600_000);
     expect(preview.growth.reserveGapAfter).toBe(400_000);
+    expect(preview.growth.reserveGapReduction).toBe(200_000);
+    expect(preview.growth.protectedCoverageBefore).toBeCloseTo(0.25);
+    expect(preview.growth.protectedCoverageAfter).toBeCloseTo(0.5);
     expect(preview.growth.additionalRunwayWeeks).toBeCloseTo(2);
 
     expect(preview.debt.cashUsed).toBe(200_000);
@@ -205,6 +208,7 @@ describe('holding shared services and delegated management', () => {
     expect(preview.debt.weeklyDebtServiceBefore).toBe(55_000);
     expect(preview.debt.weeklyDebtServiceAfter).toBe(33_000);
     expect(preview.debt.weeklyDebtServiceReduction).toBe(22_000);
+    expect(preview.debt.principalReductionPct).toBeCloseTo(0.4);
     expect(preview.ownership.playerOwnershipPct).toBe(100);
     expect(preview.growth.minorityValueTransfer).toBe(0);
     expect(preview.debt.minorityValueTransfer).toBe(0);
