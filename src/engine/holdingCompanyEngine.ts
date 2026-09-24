@@ -301,6 +301,93 @@ export function getHoldingManagementFeeForWeek(
 }
 
 
+export function getHoldingManagementFeePolicyPreview(
+  holding: HoldingCompany,
+  businesses: OwnedBusiness[],
+  inflationMultiplier: number,
+  nextRate: number,
+) {
+  const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
+  const currentRate = normalizeHoldingManagementFeeRate(holding.managementFeeRate);
+  const normalizedNextRate = normalizeHoldingManagementFeeRate(nextRate);
+
+  const estimateAtRate = (rate: number) => {
+    let eligibleCount = 0;
+    let excludedMinorityCount = 0;
+    let eligibleRevenue = 0;
+    let eligiblePreFeeProfit = 0;
+    let grossRevenueFee = 0;
+    let afterProfitCapFee = 0;
+    let estimatedFee = 0;
+    let profitLimitedCount = 0;
+    let reserveLimitedCount = 0;
+
+    for (const business of subsidiaries) {
+      if (!canChargeHoldingManagementFee(business)) {
+        excludedMinorityCount += 1;
+        continue;
+      }
+
+      eligibleCount += 1;
+      const revenue = Math.max(0, business.lastWeekRevenue ?? 0);
+      const expenses = Math.max(0, business.lastWeekExpenses ?? 0);
+      const balance = Math.max(0, business.balance ?? 0);
+      const preFeeProfit = Math.max(0, revenue - expenses);
+      const protectedCash = getBusinessProtectedCash(
+        business,
+        inflationMultiplier,
+        expenses,
+      );
+      const revenueFee = Math.round(revenue * rate);
+      const profitCap = Math.round(preFeeProfit * 0.35);
+      const profitCappedFee = Math.min(revenueFee, profitCap);
+      const finalFee = getHoldingManagementFeeForWeek(
+        { ...holding, managementFeeRate: rate },
+        revenue,
+        balance,
+        expenses,
+        protectedCash,
+      );
+
+      eligibleRevenue += revenue;
+      eligiblePreFeeProfit += preFeeProfit;
+      grossRevenueFee += revenueFee;
+      afterProfitCapFee += profitCappedFee;
+      estimatedFee += finalFee;
+      if (revenueFee > profitCappedFee) profitLimitedCount += 1;
+      if (profitCappedFee > finalFee) reserveLimitedCount += 1;
+    }
+
+    return {
+      rate,
+      eligibleCount,
+      excludedMinorityCount,
+      eligibleRevenue: Math.round(eligibleRevenue),
+      eligiblePreFeeProfit: Math.round(eligiblePreFeeProfit),
+      grossRevenueFee: Math.round(grossRevenueFee),
+      afterProfitCapFee: Math.round(afterProfitCapFee),
+      estimatedFee: Math.round(estimatedFee),
+      profitCapReduction: Math.max(0, Math.round(grossRevenueFee - afterProfitCapFee)),
+      reserveProtectionReduction: Math.max(0, Math.round(afterProfitCapFee - estimatedFee)),
+      profitLimitedCount,
+      reserveLimitedCount,
+    };
+  };
+
+  const current = estimateAtRate(currentRate);
+  const next = estimateAtRate(normalizedNextRate);
+
+  return {
+    currentRate,
+    nextRate: normalizedNextRate,
+    subsidiaryCount: subsidiaries.length,
+    current,
+    next,
+    estimatedFeeDelta: next.estimatedFee - current.estimatedFee,
+  };
+}
+
+
 export function getHoldingCapitalAllocationPreview(
   business: OwnedBusiness,
   requestedAmount: number,
