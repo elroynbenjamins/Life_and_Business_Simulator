@@ -2179,6 +2179,8 @@ export default function BusinessDetailScreen() {
             </View>
             {!biz.projectSlot2Unlocked && !biz.temporaryProjectSlot2 && activeProjectCount === 1 && (
               <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
                 style={[styles.slotMiniButton, (slotAdLoading === 'project' || (profile.adsRemoved && !adFreeSlotReward.available)) && styles.disabledRow]}
                 disabled={slotAdLoading !== null || (profile.adsRemoved && !adFreeSlotReward.available)}
                 onPress={() => handleSlotRewardedAd('project')}
@@ -2191,6 +2193,8 @@ export default function BusinessDetailScreen() {
             )}
             {!biz.projectSlot2Unlocked && (
               <Pressable
+                accessibilityRole="button"
+                hitSlop={10}
                 style={[styles.slotMiniButton, styles.slotGemButton, (profile.gems ?? 0) < BUSINESS_PROJECT_SLOT_2_GEM_COST && styles.disabledRow]}
                 disabled={(profile.gems ?? 0) < BUSINESS_PROJECT_SLOT_2_GEM_COST}
                 onPress={() => confirmAction(
@@ -2444,6 +2448,8 @@ export default function BusinessDetailScreen() {
               </View>
               {!biz.upgradeSlot2Unlocked && !biz.temporaryUpgradeSlot2 && activeUpgradeCount === 1 && (
                 <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
                   style={[styles.slotMiniButton, (slotAdLoading === 'upgrade' || (profile.adsRemoved && !adFreeSlotReward.available)) && styles.disabledRow]}
                   disabled={slotAdLoading !== null || (profile.adsRemoved && !adFreeSlotReward.available)}
                   onPress={() => handleSlotRewardedAd('upgrade')}
@@ -2456,6 +2462,8 @@ export default function BusinessDetailScreen() {
               )}
               {!biz.upgradeSlot2Unlocked && (
                 <Pressable
+                  accessibilityRole="button"
+                  hitSlop={10}
                   style={[styles.slotMiniButton, styles.slotGemButton, (profile.gems ?? 0) < BUSINESS_UPGRADE_SLOT_2_GEM_COST && styles.disabledRow]}
                   disabled={(profile.gems ?? 0) < BUSINESS_UPGRADE_SLOT_2_GEM_COST}
                   onPress={() => confirmAction(
