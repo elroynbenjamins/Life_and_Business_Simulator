@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { AD_CONFIG, RewardedAdPlacement } from './adConfig';
 import { canRequestAds } from './adPrivacyManager';
+import { loadGoogleMobileAdsModule } from './nativeAdsModule';
 
 type AdState = 'idle' | 'loading' | 'ready' | 'showing' | 'error';
 type Listener = (state: AdState) => void;
@@ -63,7 +64,7 @@ export async function loadRewardedAd(placement: RewardedAdPlacement): Promise<bo
       RewardedAd,
       RewardedAdEventType,
       AdEventType,
-    } = await import('react-native-google-mobile-ads');
+    } = await loadGoogleMobileAdsModule();
 
     const adUnitId = AD_CONFIG.USE_TEST_ADS
       ? (Platform.OS === 'ios' ? AD_CONFIG.REWARDED_TEST_AD_UNIT_ID_IOS : AD_CONFIG.REWARDED_TEST_AD_UNIT_ID_ANDROID)
@@ -179,7 +180,7 @@ export async function loadInterstitialAd(): Promise<boolean> {
       return false;
     }
 
-    const { InterstitialAd, AdEventType } = await import('react-native-google-mobile-ads');
+    const { InterstitialAd, AdEventType } = await loadGoogleMobileAdsModule();
     const unitId = AD_CONFIG.USE_TEST_ADS
       ? (Platform.OS === 'ios' ? AD_CONFIG.INTERSTITIAL_TEST_AD_UNIT_ID_IOS : AD_CONFIG.INTERSTITIAL_TEST_AD_UNIT_ID_ANDROID)
       : (Platform.OS === 'ios' ? AD_CONFIG.INTERSTITIAL_TEST_AD_UNIT_ID_IOS : AD_CONFIG.SCHEDULED_INTERSTITIAL_AD_UNIT_ID_ANDROID);
@@ -227,7 +228,7 @@ export async function showInterstitialAd(onClosed: () => void): Promise<boolean>
   const ad = interstitialAd;
 
   try {
-    const { AdEventType } = await import('react-native-google-mobile-ads');
+    const { AdEventType } = await loadGoogleMobileAdsModule();
     const closed = ad.addAdEventListener(AdEventType.CLOSED, () => {
       closed();
       if (interstitialAd === ad) interstitialAd = null;
