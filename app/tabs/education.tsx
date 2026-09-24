@@ -57,6 +57,7 @@ export default function EducationScreen() {
   const [adMessage, setAdMessage] = useState('');
   const [simulatedAdReady, setSimulatedAdReady] = useState(false);
   const [simulatedAdPlaying, setSimulatedAdPlaying] = useState(false);
+  const [nativeAdPhase, setNativeAdPhase] = useState<'idle' | 'loading' | 'showing'>('idle');
   const [courseLevel, setCourseLevel] = useState<1 | 2 | 3>(1);
   const [showCompleted, setShowCompleted] = useState(false);
   const weeksEmployed = useGameStore((s) => s?.statistics?.weeksEmployed ?? 0);
@@ -87,7 +88,6 @@ export default function EducationScreen() {
       return;
     }
 
-    setAdMessage('Loading advertisement...');
     const grant = () => { speedUpEducationWithAd?.(); setAdMessage('Education completed!'); };
     if (shouldSimulateNativeFeatures()) {
       if (simulatedAdReady) {
@@ -105,9 +105,24 @@ export default function EducationScreen() {
       }, 5000);
       return;
     }
-    const loaded = await loadRewardedAd('education');
-    if (!loaded) { setAdMessage('Ad unavailable. Please try again later.'); return; }
-    if (!(await showRewardedAd(grant))) setAdMessage('No reward earned. Watch the complete ad to finish your education.');
+
+    if (nativeAdPhase !== 'idle') return;
+    setNativeAdPhase('loading');
+    setAdMessage('Loading advertisement...');
+    try {
+      const loaded = await loadRewardedAd('education');
+      if (!loaded) {
+        setAdMessage('Ad unavailable or another rewarded ad is already active. Please try again.');
+        return;
+      }
+      setNativeAdPhase('showing');
+      setAdMessage('Advertisement is playing...');
+      if (!(await showRewardedAd(grant))) {
+        setAdMessage('No reward earned. Watch the complete ad to finish your education.');
+      }
+    } finally {
+      setNativeAdPhase('idle');
+    }
   };
 
   const groupedCourses: Record<string, any[]> = {};
@@ -152,14 +167,19 @@ export default function EducationScreen() {
           const adjDur = getStudentStudyDuration((currentCourse.duration ?? 1), studentWork?.id ?? null);
           const remaining = Math.max(0, adjDur - courseWeeksCompleted);
           const accent = levelAccent(currentCourse.level ?? 1);
-          const rewardDisabled = simulatedAdPlaying || (adsRemoved && !adFreeEducationReward.available);
+          const nativeAdBusy = nativeAdPhase !== 'idle';
+          const rewardDisabled = simulatedAdPlaying || nativeAdBusy || (adsRemoved && !adFreeEducationReward.available);
           const rewardLabel = adsRemoved
             ? (adFreeEducationReward.available ? 'Claim Daily Instant Completion' : 'Daily Instant Completion Used')
-            : simulatedAdReady
-              ? 'Claim Reward • Finish Education'
-              : simulatedAdPlaying
-                ? 'Watching Ad...'
-                : 'Watch Ad • Finish Education';
+            : nativeAdPhase === 'loading'
+              ? 'Loading Ad...'
+              : nativeAdPhase === 'showing'
+                ? 'Ad Playing...'
+                : simulatedAdReady
+                  ? 'Claim Reward • Finish Education'
+                  : simulatedAdPlaying
+                    ? 'Watching Ad...'
+                    : 'Watch Ad • Finish Education';
 
           return (
             <GameCard
@@ -223,7 +243,13 @@ export default function EducationScreen() {
                 </View>
                 <GameButton
                   accentColor={Colors.education}
-                  icon={adsRemoved ? 'gift-outline' : simulatedAdReady ? 'checkmark-circle-outline' : 'play-circle'}
+                  icon={adsRemoved
+                    ? 'gift-outline'
+                    : nativeAdPhase !== 'idle'
+                      ? 'hourglass-outline'
+                      : simulatedAdReady
+                        ? 'checkmark-circle-outline'
+                        : 'play-circle'}
                   label={rewardLabel}
                   onPress={speedUp}
                   disabled={rewardDisabled}
