@@ -8,6 +8,8 @@ import { Colors, resolveThemeColor } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
 import StatusPill from '../../src/components/StatusPill';
 import FeatureTourModal, { FeatureTourStep } from '../../src/components/FeatureTourModal';
+import TutorialScrollView from '../../src/components/TutorialScrollView';
+import TutorialChapterLauncher, { useTutorialChapterScreen, useTutorialScreenBlocker, cancelTutorialReveal } from '../../src/components/TutorialChapterLauncher';
 import useGameStore from '../../src/store/gameStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
@@ -359,6 +361,7 @@ export default function BusinessDetailScreen() {
   const handledBusinessFocus = useRef<string | null>(null);
 
   const activateSection = (target: BusinessDetailSection) => {
+    cancelTutorialReveal();
     setActiveSection(target);
     const tabIndex = BUSINESS_SECTION_CHIPS.findIndex((section) => section.key === target);
     if (tabIndex >= 0) {
@@ -425,6 +428,16 @@ export default function BusinessDetailScreen() {
   }, [id, requestedFocus]);
 
   const biz = businesses.find((b) => b?.id === id);
+  const chapterAnchor = useTutorialChapterScreen('business', biz?.id, activeSection, (step) => {
+    const target = normalizeBusinessDetailSection(step.section);
+    if (!target) return;
+    setActiveSection(target);
+    const tabIndex = BUSINESS_SECTION_CHIPS.findIndex((item) => item.key === target);
+    sectionTabScrollRef.current?.scrollTo({ x: Math.max(0, tabIndex * 86 - 18), animated: false });
+  });
+  useTutorialScreenBlocker(Boolean(
+    showHireModal || showTransferModal || dialog || showTrainingModal || showProjectsModal || slotAdLoading
+  ));
   useEffect(() => {
     // Low-balance warnings are handled globally, including away from this screen.
   }, [biz?.balance]);
@@ -885,7 +898,8 @@ export default function BusinessDetailScreen() {
 
       </View>
 
-      <ScrollView ref={detailScrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <TutorialScrollView ref={detailScrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <TutorialChapterLauncher chapter="business" subjectId={biz.id} />
         {/* Understaffed Warning */}
         {isUnderStaffed && (
           <View style={styles.warningBanner}>
@@ -923,7 +937,7 @@ export default function BusinessDetailScreen() {
         {activeSection === 'overview' && (
           <>
         {/* Top Info */}
-        <GameCard>
+        <GameCard tutorialId={chapterAnchor('business.summary')}>
           <View style={styles.topInfo}>
             <Image source={businessTypeImages[biz.typeId]} style={styles.topArtwork} resizeMode="contain" accessibilityLabel={`${type?.name ?? 'Business'} pixel art`} />
             <View style={styles.topDetails}>
@@ -2272,7 +2286,7 @@ export default function BusinessDetailScreen() {
 
         {/* Cash Management */}
         <View collapsable={false} onLayout={(event) => recordBusinessFocus('cash-management', event)} />
-        <GameCard title="Cash Management">
+        <GameCard title="Cash Management" tutorialId={chapterAnchor('business.cash')}>
           <View style={styles.cashBtnRow}>
             <Pressable
               disabled={!!biz.holdingCompanyId}
@@ -2339,7 +2353,7 @@ export default function BusinessDetailScreen() {
           <>
         <View collapsable={false} />
         {/* Employees */}
-        <GameCard title={`Employees (${biz.employees?.length ?? 0}/${maxEmployees})`}>
+        <GameCard title={`Employees (${biz.employees?.length ?? 0}/${maxEmployees})`} tutorialId={chapterAnchor('business.team')}>
           <Text style={{ color: Colors.textMuted, fontSize: 12, marginBottom: 8 }}>
             Skill boosts productivity (0.4x-1.2x). Potential caps how high skill can grow. Morale multiplies output (0.5x-1.2x).
           </Text>
@@ -3210,7 +3224,7 @@ export default function BusinessDetailScreen() {
         )}
 
         <View style={{ height: 32 }} />
-      </ScrollView>
+      </TutorialScrollView>
 
       {/* Hire Modal — select role */}
       <Modal visible={showHireModal} transparent animationType="fade">
