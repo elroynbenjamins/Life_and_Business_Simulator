@@ -167,6 +167,15 @@ export function getHoldingAvailableDistributionCash(
   );
 }
 
+export function canChargeHoldingManagementFee(
+  business: OwnedBusiness,
+): boolean {
+  // Management fees are a parent-level cash extraction. Once another owner has
+  // economic rights in the subsidiary, cash must leave through pro-rata dividends
+  // instead of bypassing minority shareholders.
+  return getPlayerEquityOwnershipPct(business) >= 99.999;
+}
+
 export function normalizeHoldingManagementFeeRate(rate: number | null | undefined): number {
   const value = Number.isFinite(rate as number) ? Number(rate) : HOLDING_MANAGEMENT_FEE_DEFAULT;
   return Math.max(0, Math.min(HOLDING_MANAGEMENT_FEE_MAX, value));
