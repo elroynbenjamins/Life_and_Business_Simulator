@@ -7,6 +7,7 @@ import {
   getAcquisitionDebtServiceSafety,
   getAcquisitionIntegrationDecisionPreview,
   getAcquisitionFinancingQuote,
+  getAcquisitionFundingAvailabilityMatrix,
   getAcquisitionFundingSafetyMatrix,
   getAcquisitionUnderwrittenProfit,
   getAcquisitionPrice,
@@ -286,6 +287,40 @@ describe('business acquisitions and holding companies', () => {
     expect(matrix.find((entry) => entry.mode === 'balanced')?.safety.allowed).toBe(true);
     expect(matrix.find((entry) => entry.mode === 'leveraged')?.safety.allowed).toBe(false);
     expect(matrix.find((entry) => entry.mode === 'leveraged')?.quote.interestRate).toBeCloseTo(0.15);
+  });
+
+  test('funding availability separates underwriting failure from cash shortfall', () => {
+    const target = {
+      tier: 'regional' as const,
+      acquisitionTransactionCostRate: 0.015,
+      weeklyRevenue: 1_000_000,
+      weeklyProfit: 600_000,
+      integrationPenalty: 0.05,
+      risk: 'low' as const,
+    };
+
+    const matrix = getAcquisitionFundingAvailabilityMatrix(
+      target,
+      100_000_000,
+      35_000_000,
+      0,
+      0,
+    );
+    const cash = matrix.find((entry) => entry.mode === 'cash')!;
+    const balanced = matrix.find((entry) => entry.mode === 'balanced')!;
+    const leveraged = matrix.find((entry) => entry.mode === 'leveraged')!;
+
+    expect(cash.safety.allowed).toBe(true);
+    expect(cash.cashReady).toBe(false);
+    expect(cash.cashShortfall).toBeGreaterThan(0);
+    expect(cash.executable).toBe(false);
+
+    expect(balanced.safety.allowed).toBe(true);
+    expect(balanced.cashReady).toBe(false);
+    expect(balanced.executable).toBe(false);
+
+    expect(leveraged.safety.allowed).toBe(false);
+    expect(leveraged.executable).toBe(false);
   });
 
   test('supports all-cash, balanced, and leveraged acquisition structures', () => {
