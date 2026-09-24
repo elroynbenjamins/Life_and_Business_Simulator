@@ -1,5 +1,5 @@
 import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany, HoldingSharedServiceId, EconomicCyclePhase } from '../types/game';
-import { canChargeHoldingManagementFee, getHoldingManagementFeeForWeek, getHoldingSharedServiceEffects, getHoldingSharedServiceLevel, getHoldingSharedServiceUpgradeCost, normalizeHoldingSharedServices } from './holdingCompanyEngine';
+import { HOLDING_SHARED_SERVICE_MAX_LEVEL, canChargeHoldingManagementFee, getHoldingManagementFeeForWeek, getHoldingSharedServiceEffects, getHoldingSharedServiceLevel, getHoldingSharedServiceUpgradeCost, normalizeHoldingSharedServices } from './holdingCompanyEngine';
 import { getIndustryEconomicCycleMultiplier } from './economyEngine';
 import { getBusinessDebtPrincipal, processScheduledBusinessLoanPayments } from './businessDebtEngine';
 import {
@@ -258,6 +258,25 @@ export function getHoldingSynergyProfile(
   };
 }
 
+function getHoldingExpenseReductionEligibleBase(business: OwnedBusiness): number {
+  const breakdown = business.lastExpenseBreakdown;
+  if (!breakdown) {
+    // Conservative fallback for older/partial history: holding shared services
+    // do not reduce payroll, financing costs or taxes.
+    return Math.max(0, (business.lastWeekExpenses ?? 0) * 0.60);
+  }
+
+  return Math.max(
+    0,
+    (breakdown.rent ?? 0)
+      + (breakdown.cogs ?? 0)
+      + (breakdown.utilities ?? 0)
+      + (breakdown.marketing ?? 0)
+      + (breakdown.maintenance ?? 0)
+      + (breakdown.misc ?? 0),
+  );
+}
+
 export function getHoldingSharedServiceUpgradeEconomics(
   holding: HoldingCompany,
   businesses: OwnedBusiness[],
@@ -275,7 +294,7 @@ export function getHoldingSharedServiceUpgradeEconomics(
   paybackWeeks: number | null;
 } {
   const currentLevel = getHoldingSharedServiceLevel(holding, serviceId);
-  const nextLevel = Math.min(3, currentLevel + 1);
+  const nextLevel = Math.min(HOLDING_SHARED_SERVICE_MAX_LEVEL, currentLevel + 1);
   const cost = getHoldingSharedServiceUpgradeCost(holding, serviceId, inflationMultiplier);
   const group = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
 
@@ -315,7 +334,7 @@ export function getHoldingSharedServiceUpgradeEconomics(
     const crisisDelta = Math.max(0, next.crisisReduction - current.crisisReduction);
 
     weeklyFinancialBenefit += Math.max(0, business.lastWeekRevenue ?? 0) * revenueDelta;
-    weeklyFinancialBenefit += Math.max(0, business.lastWeekExpenses ?? 0) * expenseDelta;
+    weeklyFinancialBenefit += getHoldingExpenseReductionEligibleBase(business) * expenseDelta;
     revenueBonusDelta += revenueDelta;
     expenseReductionDelta += expenseDelta;
     crisisReductionDelta += crisisDelta;
