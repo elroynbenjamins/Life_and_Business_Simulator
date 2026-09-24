@@ -48,7 +48,7 @@ import {
 } from '../services/adRewardEntitlements';
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
-import { getBusinessOwnershipTable, getInvestmentForPostMoneyIssuePct, issueNewBusinessEquity } from '../engine/businessOwnershipEngine';
+import { getBusinessOwnershipEquityValue, getBusinessOwnershipStakeValue, getBusinessOwnershipTable, getInvestmentForPostMoneyIssuePct, issueNewBusinessEquity } from '../engine/businessOwnershipEngine';
 import { claimBusinessCapacityReward, getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity } from '../engine/businessCapacityEngine';
 import { HOLDING_COMPANY_SETUP_COST, createHoldingCompany as buildHoldingCompany, getHoldingAvailableDistributionCash, getHoldingSharedServiceUpgradeCost, normalizeHoldingManagementFeeRate, normalizeHoldingReserveTargetWeeks, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
 import {
@@ -4434,9 +4434,12 @@ const useGameStore = create<GameStore>((set, get) => ({
       ownership.splice(0, ownership.length, ...issuance.ownership);
       // executedPct is a post-money ownership percentage. Price the new
       // shares from post-money math, then apply the intended 10% placement discount.
+      const preMoneyEquityValue = getBusinessOwnershipEquityValue(business);
+      if (preMoneyEquityValue <= 0) return;
       capitalRaised = Math.round(
-        getInvestmentForPostMoneyIssuePct(Math.max(0, business.valuation ?? 0), executedPct) * 0.90,
+        getInvestmentForPostMoneyIssuePct(preMoneyEquityValue, executedPct) * 0.90,
       );
+      if (capitalRaised <= 0) return;
     } else {
       // Family gifts/trust funding transfer existing player shares and therefore
       // do not create cash inside the company.
@@ -4450,7 +4453,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         if (!child) return;
         ownerId = child.id;
         ownerName = child.name;
-        const stakeValue = Math.round((business.valuation ?? 0) * transferPct / 100);
+        const stakeValue = getBusinessOwnershipStakeValue(business, transferPct);
         personalTransferTax = calculateChildInheritanceTax(stakeValue);
         if ((state.cash ?? 0) < personalTransferTax) return;
         relationshipState = {
@@ -4469,7 +4472,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         if (state.relationshipState?.estatePlan?.structure !== 'family_trust') return;
         ownerId = 'family_trust';
         ownerName = 'Family Trust';
-        const stakeValue = Math.round((business.valuation ?? 0) * transferPct / 100);
+        const stakeValue = getBusinessOwnershipStakeValue(business, transferPct);
         personalTransferTax = Math.round(stakeValue * 0.075);
         if ((state.cash ?? 0) < personalTransferTax) return;
       }
@@ -4533,7 +4536,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const playerIndex = ownership.findIndex((stake) => stake.ownerType === 'player');
     if (investorIndex < 0 || playerIndex < 0) return;
     const buyPct = Math.min(ownership[investorIndex].percent, Math.min(25, Math.round(percent * 10) / 10));
-    const cost = Math.round((business.valuation ?? 0) * (buyPct / 100) * 1.05);
+    const cost = Math.round(getBusinessOwnershipStakeValue(business, buyPct) * 1.05);
     if ((business.balance ?? 0) < cost) return;
 
     const remainingRaw = ownership.map((stake, index) => ({
@@ -4586,7 +4589,8 @@ const useGameStore = create<GameStore>((set, get) => ({
 
     // Trust capital is new equity, not a free transfer to existing shareholders.
     // Use the same dilution/control helper as outside-investor issuance.
-    const valuationBefore = Math.max(1, business.valuation ?? calculateValuation(business));
+    const valuationBefore = getBusinessOwnershipEquityValue(business);
+    if (valuationBefore <= 0) return;
     const requestedIssuePct = requestedInvestment / (valuationBefore + requestedInvestment) * 100;
     const issuance = issueNewBusinessEquity(
       ownership,
