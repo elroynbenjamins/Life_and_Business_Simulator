@@ -55,7 +55,7 @@ export default function LoansScreen() {
     const effectiveRate = Math.max(0, (template?.interestRate ?? 0) + macroRateModifier - loanRateReduction);
     const totalRepayment = (template?.amount ?? 0) * (1 + effectiveRate);
     const weeklyPayment = Math.ceil(totalRepayment / (template?.durationWeeks ?? 1));
-    showGameDialog({ title: 'Take Loan', message: `Borrow ${formatCurrency(template?.amount)}?\n\nInterest: ${(effectiveRate * 100).toFixed(0)}%${loanRateReduction > 0 ? ` (Prestige reduced by ${(loanRateReduction * 100).toFixed(0)}%)` : ''}\nDuration: ${template?.durationWeeks} weeks\nWeekly payment: ${formatCurrency(weeklyPayment)}\nTotal repayment: ${formatCurrency(Math.round(totalRepayment))}`, confirmText: 'Borrow', onConfirm: () => takeLoan?.(template?.id) });
+    showGameDialog({ title: 'Take Loan', message: `Borrow ${formatCurrency(template?.amount)}?\n\nInterest: ${(effectiveRate * 100).toFixed(1)}%${loanRateReduction > 0 ? ` (Prestige reduced by ${(loanRateReduction * 100).toFixed(0)}%)` : ''}\nDuration: ${template?.durationWeeks} weeks\nWeekly payment: ${formatCurrency(weeklyPayment)}\nTotal repayment: ${formatCurrency(Math.round(totalRepayment))}`, confirmText: 'Borrow', onConfirm: () => takeLoan?.(template?.id) });
   };
 
   const handlePayOff = (loan: (typeof loans)[0]) => {
@@ -192,7 +192,7 @@ export default function LoansScreen() {
             <View style={styles.termRow}>
               {([20, 40, 60] as const).map((term) => {
                 const rate = Math.max(1, (term === 20 ? 5 : term === 40 ? 9 : 14) + depositInterestBonus * 100 + macroRateModifier * 75);
-                return <Pressable key={term} style={[styles.term, depositTerm === term && styles.activeTerm]} onPress={() => setDepositTerm(term)}><Text style={styles.termTitle}>{term} weeks</Text><Text style={styles.termRate}>+{rate}%</Text></Pressable>;
+                return <Pressable key={term} style={[styles.term, depositTerm === term && styles.activeTerm]} onPress={() => setDepositTerm(term)}><Text style={styles.termTitle}>{term} weeks</Text><Text style={styles.termRate}>+{rate.toFixed(1)}%</Text></Pressable>;
               })}
             </View>
             <Pressable
