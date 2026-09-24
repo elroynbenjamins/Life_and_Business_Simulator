@@ -3,7 +3,7 @@ import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INI
 import { getLegacyMarketCompanyPool, initializeMarketCompanyPool, initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
-import { inflated } from '../engine/economyEngine';
+import { getEconomicCycleEffects, inflated } from '../engine/economyEngine';
 import { BUSINESS_PROJECT_SLOT_2_GEM_COST, BUSINESS_UPGRADE_SLOT_2_GEM_COST, getBusinessUpgradeSlotLimit, getBusinessUpgradeWeeks } from '../engine/businessEngine';
 import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts, getBusinessDecisionChoiceCost, getAutomaticStrategicDecisionChoice } from '../engine/businessEngine';
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
@@ -2973,7 +2973,11 @@ const useGameStore = create<GameStore>((set, get) => ({
     const nw = getNetWorth(state);
     if (nw < (template?.amount ?? 0)) return;
     const prestigeEffects = getPrestigeEffects(state.profile);
-    const effectiveInterestRate = Math.max(0, (template?.interestRate ?? 0) - (prestigeEffects.loan_rate_reduction ?? 0));
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
+    const effectiveInterestRate = Math.max(
+      0,
+      (template?.interestRate ?? 0) + macroRateModifier - (prestigeEffects.loan_rate_reduction ?? 0),
+    );
     const totalRepayment = (template?.amount ?? 0) * (1 + effectiveInterestRate);
     const weeklyPayment = Math.ceil(totalRepayment / (template?.durationWeeks ?? 1));
     const newLoan: ActiveLoan = {
@@ -3022,12 +3026,13 @@ const useGameStore = create<GameStore>((set, get) => ({
     if ((state.bankDeposits ?? []).length >= 3) return;
     const rates: Record<number, number> = { 20: 0.05, 40: 0.09, 60: 0.14 };
     const depositInterestBonus = getPrestigeEffects(state.profile).bank_deposit_interest_bonus ?? 0;
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
     const deposit: BankDeposit = {
       id: `deposit_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       amount: Math.floor(amount),
       durationWeeks,
       weeksRemaining: durationWeeks,
-      interestRate: rates[durationWeeks] + depositInterestBonus,
+      interestRate: Math.max(0.01, rates[durationWeeks] + depositInterestBonus + macroRateModifier * 0.75),
     };
     const updates = { cash: state.cash - deposit.amount, bankDeposits: [...(state.bankDeposits ?? []), deposit] };
     set(updates);
@@ -3307,6 +3312,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     const acquisitionTargets = generateAcquisitionTargets(
       globalWeek,
       state.inflationMultiplier ?? 1,
+      undefined,
+      state.economicCycle?.phase ?? 'expansion',
     );
     const updates = {
       acquisitionTargets,
@@ -3351,7 +3358,13 @@ const useGameStore = create<GameStore>((set, get) => ({
 
     const effects = getPrestigeEffects(state.profile);
     const purchasePrice = getAcquisitionPrice(target, effects.negotiation ?? 0);
-    const financing = getAcquisitionFinancingQuote(purchasePrice, fundingMode, effects.loan_rate_reduction ?? 0);
+    const macroRateModifier = getEconomicCycleEffects(state.economicCycle?.phase ?? 'expansion').interestRateModifier;
+    const financing = getAcquisitionFinancingQuote(
+      purchasePrice,
+      fundingMode,
+      effects.loan_rate_reduction ?? 0,
+      macroRateModifier,
+    );
     const acquisitionTransactionCost = getAcquisitionTransactionCost(target, purchasePrice);
     const closingCashNeeded = financing.cashContribution + acquisitionTransactionCost;
     const sourceCash = holding ? (holding.cashReserve ?? 0) : (state.cash ?? 0);
@@ -3366,6 +3379,7 @@ const useGameStore = create<GameStore>((set, get) => ({
       purchasePrice,
       fundingMode,
       effects.loan_rate_reduction ?? 0,
+      macroRateModifier,
     );
     if (!acquired) return;
 
