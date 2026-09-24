@@ -14,7 +14,7 @@ import {
   AcquisitionTargetSortMode,
   getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
-  getAcquisitionFundingSafetyMatrix,
+  getAcquisitionFundingAvailabilityMatrix,
   getAcquisitionPrice,
   getAcquisitionTransactionCost,
   sortAcquisitionTargets,
@@ -270,9 +270,10 @@ export default function BusinessAcquisitionsScreen() {
               const price = getAcquisitionPrice(target, negotiationBonus);
               const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction, macroRateModifier);
               const debtServiceSafety = getAcquisitionDebtServiceSafety(target, quote);
-              const fundingSafetyMatrix = getAcquisitionFundingSafetyMatrix(
+              const fundingAvailabilityMatrix = getAcquisitionFundingAvailabilityMatrix(
                 target,
                 price,
+                sourceCash,
                 loanRateReduction,
                 macroRateModifier,
               );
@@ -332,31 +333,39 @@ export default function BusinessAcquisitionsScreen() {
 
                   <View style={styles.fundingSafetyRow}>
                     <Text style={styles.fundingSafetyLabel}>Underwriting</Text>
-                    {fundingSafetyMatrix.map(({ mode, safety }) => {
+                    {fundingAvailabilityMatrix.map(({ mode, safety, cashReady, cashShortfall }) => {
                       const option = FUNDING_OPTIONS.find((item) => item.key === mode)!;
                       const selected = fundingMode === mode;
+                      const blocked = !safety.allowed;
+                      const needsCash = safety.allowed && !cashReady;
+                      const label = option.label === 'All Cash' ? 'Cash' : option.label;
                       return (
                         <Pressable
                           key={mode}
-                          disabled={!safety.allowed}
+                          disabled={blocked}
                           onPress={() => setFundingMode(mode)}
                           style={[
                             styles.fundingSafetyChip,
-                            safety.allowed ? styles.fundingSafetyChipSafe : styles.fundingSafetyChipBlocked,
-                            selected && safety.allowed && styles.fundingSafetyChipSelected,
+                            blocked
+                              ? styles.fundingSafetyChipBlocked
+                              : needsCash
+                                ? styles.fundingSafetyChipNeedsCash
+                                : styles.fundingSafetyChipSafe,
+                            selected && !blocked && styles.fundingSafetyChipSelected,
                           ]}
                         >
                           <Ionicons
-                            name={safety.allowed ? 'checkmark-circle' : 'close-circle'}
+                            name={blocked ? 'close-circle' : needsCash ? 'wallet-outline' : 'checkmark-circle'}
                             size={11}
-                            color={safety.allowed ? (selected ? Colors.white : Colors.primary) : Colors.negative}
+                            color={blocked ? Colors.negative : selected ? Colors.white : needsCash ? Colors.warning : Colors.primary}
                           />
                           <Text style={[
                             styles.fundingSafetyText,
-                            safety.allowed && { color: selected ? Colors.white : Colors.primary },
-                            !safety.allowed && { color: Colors.negative },
+                            blocked && { color: Colors.negative },
+                            needsCash && { color: selected ? Colors.white : Colors.warning },
+                            !blocked && !needsCash && { color: selected ? Colors.white : Colors.primary },
                           ]}>
-                            {option.label === 'All Cash' ? 'Cash' : option.label}
+                            {label}{needsCash ? ` +${formatCurrency(cashShortfall)}` : ''}
                           </Text>
                         </Pressable>
                       );
@@ -555,6 +564,7 @@ const styles = StyleSheet.create({
   fundingSafetyLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', marginRight: 1 },
   fundingSafetyChip: { minHeight: 24, borderRadius: 12, borderWidth: 1, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', gap: 3 },
   fundingSafetyChipSafe: { borderColor: `${Colors.primary}55`, backgroundColor: `${Colors.primary}0D` },
+  fundingSafetyChipNeedsCash: { borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}0D` },
   fundingSafetyChipBlocked: { borderColor: `${Colors.negative}44`, backgroundColor: `${Colors.negative}0A`, opacity: 0.72 },
   fundingSafetyChipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   fundingSafetyText: { fontSize: 8, fontWeight: '900' },
