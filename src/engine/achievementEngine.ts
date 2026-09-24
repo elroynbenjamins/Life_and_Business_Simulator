@@ -64,12 +64,12 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   const hasCareerLvl2 = (state?.career?.positionLevel ?? 0) >= 2;
   check('first_promotion', hasLvl2Job || hasCareerLvl2);
 
-  const hasLvl3Job = (state?.careerHistory ?? []).some((ch) => {
+  const hasLvl5Job = (state?.careerHistory ?? []).some((ch) => {
     const jd = (jobsData ?? []).find((j) => j?.id === ch?.jobId);
-    return (jd?.level ?? 0) >= 3;
+    return (jd?.level ?? 0) >= 5;
   });
-  const hasCareerLvl3 = (state?.career?.positionLevel ?? 0) >= 3;
-  check('max_level_job', hasLvl3Job || hasCareerLvl3);
+  const hasCareerLvl5 = (state?.career?.positionLevel ?? 0) >= 5;
+  check('max_level_job', hasLvl5Job || hasCareerLvl5);
 
   // Career level 7 (C-Suite)
   check('career_level_7', (state?.career?.positionLevel ?? 0) >= 7);
