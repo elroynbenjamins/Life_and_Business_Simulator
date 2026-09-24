@@ -1,7 +1,7 @@
 import achievementsData from '../../data/achievements.json';
 import coursesData from '../../data/courses.json';
 import prestigeData from '../../data/prestige_tree_v2.json';
-import { checkAchievements, getAchievementGemRewardSettlement } from '../achievementEngine';
+import { checkAchievements, getAchievementRewardSettlement } from '../achievementEngine';
 import { canUnlockPrestige, getPrestigeEffects, unlockPrestige } from '../prestigeEngine';
 import { getSuccessionPreview } from '../lifecycleEngine';
 import { processStocks } from '../stockEngine';
@@ -262,25 +262,34 @@ describe('achievement and Prestige expansion', () => {
     }
   });
 
-  test('account-wide achievement Gem settlement pays each achievement only once', () => {
-    const first = getAchievementGemRewardSettlement(['first_job', 'first_million'], []);
+  test('account-wide achievement settlement pays XP, PP and Gems only once', () => {
+    const first = getAchievementRewardSettlement(['first_job', 'first_million'], []);
+    expect(first.xpGained).toBe(140);
+    expect(first.prestigePointsGained).toBe(140);
     expect(first.gemsGained).toBe(5);
-    expect(first.rewards).toEqual({ first_job: 2, first_million: 3 });
-    expect(first.rewardedAchievementGemIds).toEqual(expect.arrayContaining(['first_job', 'first_million']));
+    expect(first.gemRewards).toEqual({ first_job: 2, first_million: 3 });
+    expect(first.rewardedThisCallIds).toEqual(['first_job', 'first_million']);
+    expect(first.rewardedAchievementIds).toEqual(expect.arrayContaining(['first_job', 'first_million']));
 
-    const repeated = getAchievementGemRewardSettlement(
+    const repeated = getAchievementRewardSettlement(
       ['first_job', 'first_million', 'first_job'],
-      first.rewardedAchievementGemIds,
+      first.rewardedAchievementIds,
     );
+    expect(repeated.xpGained).toBe(0);
+    expect(repeated.prestigePointsGained).toBe(0);
     expect(repeated.gemsGained).toBe(0);
-    expect(repeated.rewards).toEqual({});
+    expect(repeated.gemRewards).toEqual({});
+    expect(repeated.rewardedThisCallIds).toEqual([]);
 
-    const mixed = getAchievementGemRewardSettlement(
+    const mixed = getAchievementRewardSettlement(
       ['first_job', 'buy_first_car'],
-      first.rewardedAchievementGemIds,
+      first.rewardedAchievementIds,
     );
+    expect(mixed.xpGained).toBe(10);
+    expect(mixed.prestigePointsGained).toBe(10);
     expect(mixed.gemsGained).toBe(2);
-    expect(mixed.rewards).toEqual({ buy_first_car: 2 });
+    expect(mixed.gemRewards).toEqual({ buy_first_car: 2 });
+    expect(mixed.rewardedThisCallIds).toEqual(['buy_first_car']);
   });
 
   test('achievements award 2 Gems normally and 3 Gems for 100+ XP milestones', () => {
@@ -289,21 +298,6 @@ describe('achievement and Prestige expansion', () => {
     expect(achievements.filter((achievement) => (achievement.xpReward ?? 0) >= 100).every((achievement) => achievement.gemReward === 3)).toBe(true);
     expect(achievements.filter((achievement) => (achievement.xpReward ?? 0) < 100).every((achievement) => achievement.gemReward === 2)).toBe(true);
     expect(achievements.reduce((total, achievement) => total + achievement.gemReward, 0)).toBe(166);
-  });
-
-  test('achievement Gem settlement is account-wide and exactly once per achievement', () => {
-    const first = getAchievementGemRewardSettlement(['first_job', 'first_million'], []);
-    expect(first.gemsGained).toBe(5);
-    expect(first.rewards).toEqual({ first_job: 2, first_million: 3 });
-    expect(first.rewardedAchievementGemIds).toEqual(expect.arrayContaining(['first_job', 'first_million']));
-
-    const repeated = getAchievementGemRewardSettlement(
-      ['first_job', 'first_million'],
-      first.rewardedAchievementGemIds,
-    );
-    expect(repeated.gemsGained).toBe(0);
-    expect(repeated.rewards).toEqual({});
-    expect(repeated.rewardedAchievementGemIds).toEqual(expect.arrayContaining(['first_job', 'first_million']));
   });
 
   test('education achievement tiers no longer double-unlock from the same condition', () => {
