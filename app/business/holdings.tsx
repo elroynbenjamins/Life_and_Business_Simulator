@@ -455,7 +455,7 @@ export default function HoldingCompaniesScreen() {
                   </View>
 
                   <Text style={styles.synergyTitle}>Management fee</Text>
-                  <Text style={styles.capitalMeta}>0–3% of subsidiary revenue, only on profitable weeks and capped at 35% of pre-fee profit. Full subsidiary budget reserves stay protected, with a four-week minimum buffer.</Text>
+                  <Text style={styles.capitalMeta}>0–3% of revenue for wholly owned subsidiaries only. Fees require a profitable week, are capped at 35% of pre-fee profit, and cannot touch protected reserves. Co-owned companies upstream cash only through pro-rata dividends.</Text>
                   <View style={styles.buttonRow}>
                     {MANAGEMENT_FEE_RATES.map((rate) => {
                       const active = Math.abs((holding.managementFeeRate ?? 0.01) - rate) < 0.0001;
