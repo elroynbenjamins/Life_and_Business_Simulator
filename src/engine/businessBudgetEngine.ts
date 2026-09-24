@@ -19,15 +19,17 @@ export const BUSINESS_BUDGET_PRESETS: Record<BusinessBudgetProfile, {
   reinvestmentPct: number;
   growthPct: number;
 }> = {
+  // Legacy save alias. Runtime normalization maps this to Balanced so there is
+  // no second "default" policy that actually behaves like Shareholder Returns.
   standard: {
     profile: 'standard',
-    label: 'Standard',
-    description: 'Legacy-style cash policy: strong dividends with a six-week operating buffer.',
-    targetReserveWeeks: 6,
-    dividendPct: 0.70,
-    debtPaydownPct: 0,
-    reinvestmentPct: 0.15,
-    growthPct: 0.15,
+    label: 'Legacy Standard',
+    description: 'Legacy policy retained only for save compatibility; it normalizes to Balanced.',
+    targetReserveWeeks: 8,
+    dividendPct: 0.25,
+    debtPaydownPct: 0.20,
+    reinvestmentPct: 0.25,
+    growthPct: 0.30,
   },
   balanced: {
     profile: 'balanced',
@@ -86,12 +88,13 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function createBusinessBudgetPlan(
-  profile: BusinessBudgetProfile = 'standard',
+  profile: BusinessBudgetProfile = 'balanced',
   reviewYear = 1,
 ): BusinessBudgetPlan {
-  const preset = BUSINESS_BUDGET_PRESETS[profile] ?? BUSINESS_BUDGET_PRESETS.standard;
+  const normalizedProfile: BusinessBudgetProfile = profile === 'standard' ? 'balanced' : profile;
+  const preset = BUSINESS_BUDGET_PRESETS[normalizedProfile] ?? BUSINESS_BUDGET_PRESETS.balanced;
   return {
-    profile,
+    profile: normalizedProfile,
     targetReserveWeeks: preset.targetReserveWeeks,
     dividendPct: preset.dividendPct,
     debtPaydownPct: preset.debtPaydownPct,
@@ -105,9 +108,10 @@ export function normalizeBusinessBudgetPlan(
   plan: Partial<BusinessBudgetPlan> | null | undefined,
   reviewYear = 1,
 ): BusinessBudgetPlan {
-  const profile = plan?.profile && BUSINESS_BUDGET_PRESETS[plan.profile]
+  const requestedProfile = plan?.profile && BUSINESS_BUDGET_PRESETS[plan.profile]
     ? plan.profile
-    : 'standard';
+    : 'balanced';
+  const profile: BusinessBudgetProfile = requestedProfile === 'standard' ? 'balanced' : requestedProfile;
   const preset = BUSINESS_BUDGET_PRESETS[profile];
   const normalized = {
     profile,
