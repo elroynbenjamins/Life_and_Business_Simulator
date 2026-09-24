@@ -11,6 +11,7 @@ import { formatCurrency } from '../../src/utils/format';
 import {
   ACQUISITION_MARKET_REFRESH_WEEKS,
   ACQUISITION_UNLOCK_NET_WORTH,
+  getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
   getAcquisitionTransactionCost,
@@ -83,6 +84,8 @@ export default function BusinessAcquisitionsScreen() {
     if (!target || capacityFull) return;
     const price = getAcquisitionPrice(target, negotiationBonus);
     const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction, macroRateModifier);
+    const debtServiceSafety = getAcquisitionDebtServiceSafety(target, quote);
+    if (!debtServiceSafety.allowed) return;
     const transactionCost = getAcquisitionTransactionCost(target, price);
     const totalCashNeeded = quote.cashContribution + transactionCost;
     const destination = selectedHolding?.name ?? 'your direct portfolio';
@@ -194,7 +197,7 @@ export default function BusinessAcquisitionsScreen() {
             <GameCard>
               <Text style={styles.sectionTitle}>Financing</Text>
               <Text style={styles.sectionSub}>
-                Acquisition debt stays on the acquired company and reduces net worth until repaid.
+                Acquisition debt stays on the acquired company. Underwriting limits debt service to 60% / 50% / 40% of quoted profit for low / medium / high-risk targets.
               </Text>
               <View style={styles.fundingGrid}>
                 {FUNDING_OPTIONS.map((option) => (
@@ -237,12 +240,13 @@ export default function BusinessAcquisitionsScreen() {
               const risk = RISK_LABELS[target.risk];
               const price = getAcquisitionPrice(target, negotiationBonus);
               const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction, macroRateModifier);
+              const debtServiceSafety = getAcquisitionDebtServiceSafety(target, quote);
               const transactionCost = getAcquisitionTransactionCost(target, price);
               const totalCashNeeded = quote.cashContribution + transactionCost;
               const premiumPct = target.estimatedValue > 0
                 ? Math.round((price / target.estimatedValue - 1) * 100)
                 : 0;
-              const debtServiceSafe = quote.weeklyPayment <= Math.max(1, target.weeklyProfit) * 0.80;
+              const debtServiceSafe = debtServiceSafety.allowed;
               const canAfford = sourceCash >= totalCashNeeded && debtServiceSafe && !capacityFull;
               const expanded = expandedTargetId === target.id;
 
@@ -319,6 +323,12 @@ export default function BusinessAcquisitionsScreen() {
                       </Text>
                     </View>
                   </View>
+
+                  {quote.weeklyPayment > 0 && (
+                    <Text style={[styles.underwritingText, { color: debtServiceSafe ? Colors.textSecondary : Colors.negative }]}>
+                      Underwriting: {Math.round(debtServiceSafety.debtServiceShare * 100)}% of quoted profit used for debt service • maximum {Math.round(debtServiceSafety.maxDebtServiceShare * 100)}% for this {target.risk}-risk target • {debtServiceSafety.coverageRatio?.toFixed(1)}× cover
+                    </Text>
+                  )}
 
                   <View style={styles.metrics}>
                     <View style={styles.metric}>
@@ -470,6 +480,7 @@ const styles = StyleSheet.create({
   fundingOptionActive: { borderColor: Colors.primary, backgroundColor: '#10382D' },
   fundingLabel: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   fundingDesc: { color: Colors.textMuted, fontSize: 10, marginTop: 3 },
+  underwritingText: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 7 },
   marketHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 4 },
   marketTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
   marketSub: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
