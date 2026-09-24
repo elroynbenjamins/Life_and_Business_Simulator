@@ -163,6 +163,37 @@ describe('holding shared services and delegated management', () => {
     expect(preview.debt.weeklyDebtServiceBefore).toBe(55_000);
     expect(preview.debt.weeklyDebtServiceAfter).toBe(33_000);
     expect(preview.debt.weeklyDebtServiceReduction).toBe(22_000);
+    expect(preview.ownership.playerOwnershipPct).toBe(100);
+    expect(preview.growth.minorityValueTransfer).toBe(0);
+    expect(preview.debt.minorityValueTransfer).toBe(0);
+  });
+
+  test('holding capital preview exposes value transferred to minority owners', () => {
+    const business = {
+      ...makeManagedBusiness(),
+      balance: 200_000,
+      lastWeekExpenses: 100_000,
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside', percent: 20, votingPercent: 20 },
+      ],
+      businessLoans: [{
+        id: 'minority-debt',
+        amount: 500_000,
+        remainingAmount: 550_000,
+        weeklyPayment: 55_000,
+        weeksRemaining: 10,
+        interestRate: 0.10,
+        purpose: 'operating' as const,
+      }],
+    };
+
+    const preview = getHoldingCapitalAllocationPreview(business, 200_000, 1);
+
+    expect(preview.ownership.playerOwnershipPct).toBe(80);
+    expect(preview.ownership.minorityOwnershipPct).toBe(20);
+    expect(preview.growth.minorityValueTransfer).toBe(40_000);
+    expect(preview.debt.minorityValueTransfer).toBe(40_000);
   });
 
   test('holding reserve defaults to a four-week group contingency buffer', () => {
