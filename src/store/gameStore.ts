@@ -147,6 +147,8 @@ interface GameStore extends GameState {
   dismissSummary: () => void;
   dismissNegativeCash: () => void;
   dismissPeriodReport: () => void;
+  openAnnualReport: (reportIndex?: number) => void;
+  togglePinnedAchievementGoal: (achievementId: string) => boolean;
   dismissScheduledAd: () => void;
   dismissEducationCareerReminder: () => void;
   openSlotPicker: () => void;
@@ -1006,7 +1008,9 @@ const useGameStore = create<GameStore>((set, get) => ({
         totalDividends: newState.statistics?.totalDividendsReceived ?? 0,
       };
       periodReportUpdate = {
-        periodReport: report,
+        annualReports: [report, ...(state.annualReports ?? [])].slice(0, 10),
+        annualReportUnread: true,
+        periodReport: null,
         // Reset accumulators
         periodIncome: 0,
         periodExpenses: 0,
@@ -1033,7 +1037,10 @@ const useGameStore = create<GameStore>((set, get) => ({
       ...(profileUpdated ? { profile: newProfile } : {}),
       ...(is20WeekMark ? periodReportUpdate : periodAccum),
     });
-    saveGame(finalNewState, state.activeSlot);
+    saveGame(extractGameState({
+      ...finalNewState,
+      ...(is20WeekMark ? periodReportUpdate : periodAccum),
+    }), state.activeSlot);
     if (profileUpdated) saveProfile(newProfile);
   },
 
@@ -1047,8 +1054,6 @@ const useGameStore = create<GameStore>((set, get) => ({
       set({ showSummary: false, showEventModal: true, pendingEvent: summary.lifeEvent, showScheduledAd: scheduledAd });
     } else if (summary?.relationshipEventTitle && state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
       set({ showSummary: false, showRelationshipEventModal: true, showScheduledAd: scheduledAd });
-    } else if (state.periodReport && !state.showPeriodReport) {
-      set({ showSummary: false, showPeriodReport: true, showScheduledAd: scheduledAd });
     } else {
       set({ showSummary: false, showScheduledAd: scheduledAd, showEducationCareerReminder: !scheduledAd && !!state.educationCareerReminder });
     }
@@ -1057,6 +1062,28 @@ const useGameStore = create<GameStore>((set, get) => ({
   dismissPeriodReport: () => {
     const state = get();
     set({ showPeriodReport: false, periodReport: null, showEducationCareerReminder: !state.showScheduledAd && !!state.educationCareerReminder });
+  },
+  openAnnualReport: (reportIndex = 0) => {
+    const state = get();
+    const report = (state.annualReports ?? [])[reportIndex];
+    if (!report) return;
+    const annualReportUnread = false;
+    set({ periodReport: report, showPeriodReport: true, annualReportUnread });
+    saveGame(extractGameState({ ...state, annualReportUnread }), state.activeSlot);
+  },
+  togglePinnedAchievementGoal: (achievementId) => {
+    const state = get();
+    const current = state.pinnedAchievementGoals ?? [];
+    const alreadyPinned = current.includes(achievementId);
+    const next = alreadyPinned
+      ? current.filter((id) => id !== achievementId)
+      : current.length < 3
+        ? [...current, achievementId]
+        : current;
+    if (!alreadyPinned && next === current) return false;
+    set({ pinnedAchievementGoals: next });
+    saveGame(extractGameState({ ...state, pinnedAchievementGoals: next }), state.activeSlot);
+    return true;
   },
   dismissScheduledAd: () => {
     const state = get();
@@ -1068,8 +1095,6 @@ const useGameStore = create<GameStore>((set, get) => ({
     // After business event, show any pending personal-life decision next.
     if (state.lastSummary?.relationshipEventTitle && state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
       set({ showEventModal: false, pendingEvent: null, showRelationshipEventModal: true });
-    } else if (state.periodReport && !state.showPeriodReport) {
-      set({ showEventModal: false, pendingEvent: null, showPeriodReport: true });
     } else {
       set({ showEventModal: false, pendingEvent: null, showEducationCareerReminder: !state.showScheduledAd && !!state.educationCareerReminder });
     }
@@ -1145,8 +1170,6 @@ const useGameStore = create<GameStore>((set, get) => ({
     // Dismiss event modal
     if (state.lastSummary?.relationshipEventTitle && state.relationshipModeEnabled && state.relationshipState?.pendingEvent) {
       set({ showEventModal: false, pendingEvent: null, showRelationshipEventModal: true });
-    } else if (state.periodReport && !state.showPeriodReport) {
-      set({ showEventModal: false, pendingEvent: null, showPeriodReport: true });
     } else {
       set({ showEventModal: false, pendingEvent: null });
     }
@@ -2764,11 +2787,7 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   dismissRelationshipEventModal: () => {
     const state = get();
-    if (state.periodReport && !state.showPeriodReport) {
-      set({ showRelationshipEventModal: false, showPeriodReport: true });
-    } else {
-      set({ showRelationshipEventModal: false, showEducationCareerReminder: !state.showScheduledAd && !!state.educationCareerReminder });
-    }
+    set({ showRelationshipEventModal: false, showEducationCareerReminder: !state.showScheduledAd && !!state.educationCareerReminder });
   },
 
   handleRelationshipEventChoice: (choiceIndex) => {
@@ -2895,11 +2914,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
 
-    if (state.periodReport && !state.showPeriodReport) {
-      set({ showRelationshipEventModal: false, showPeriodReport: true });
-    } else {
-      set({ showRelationshipEventModal: false });
-    }
+    set({ showRelationshipEventModal: false });
   },
 
   dismissRelationshipFeedback: () => set({ relationshipFeedback: null }),
@@ -5208,6 +5223,21 @@ function extractGameState(state: Partial<GameStore> & Partial<GameState>): GameS
     familyTree: state?.familyTree ?? createInitialFamilyTree(state?.playerName ?? 'Player', state?.age ?? 20, state?.year ?? 1, state?.generation ?? 1),
     contentUpdateSeenId: state?.contentUpdateSeenId ?? '',
     reviewPromptedWeeks: state?.reviewPromptedWeeks ?? [],
+    annualReports: state?.annualReports ?? [],
+    annualReportUnread: state?.annualReportUnread ?? false,
+    pinnedAchievementGoals: state?.pinnedAchievementGoals ?? [],
+    periodIncome: state?.periodIncome ?? 0,
+    periodExpenses: state?.periodExpenses ?? 0,
+    periodTax: state?.periodTax ?? 0,
+    periodWeeksEmployed: state?.periodWeeksEmployed ?? 0,
+    periodWeeksUnemployed: state?.periodWeeksUnemployed ?? 0,
+    periodJobChanges: state?.periodJobChanges ?? 0,
+    periodCoursesCompleted: state?.periodCoursesCompleted ?? 0,
+    periodStocksPurchased: state?.periodStocksPurchased ?? 0,
+    periodLoansTaken: state?.periodLoansTaken ?? 0,
+    periodLoansRepaid: state?.periodLoansRepaid ?? 0,
+    periodAchievements: state?.periodAchievements ?? 0,
+    periodStartWeek: state?.periodStartWeek ?? 1,
   };
 }
 
