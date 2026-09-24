@@ -7,6 +7,7 @@ import {
 import {
   EMPTY_HOLDING_SHARED_SERVICES,
   getHoldingAvailableDistributionCash,
+  getHoldingManagementFeeForWeek,
   getHoldingReserveTarget,
   getHoldingSharedServiceEffects,
   getHoldingSharedServiceUpgradeCost,
