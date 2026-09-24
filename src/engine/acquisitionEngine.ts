@@ -412,6 +412,32 @@ export function getAcquisitionFinancingQuote(
   };
 }
 
+export function getAcquisitionFundingSafetyMatrix(
+  target: Pick<BusinessAcquisitionTarget, 'weeklyRevenue' | 'weeklyProfit' | 'risk' | 'integrationPenalty'>,
+  purchasePrice: number,
+  loanRateReduction = 0,
+  macroInterestRateModifier = 0,
+): Array<{
+  mode: AcquisitionFundingMode;
+  quote: AcquisitionFinancingQuote;
+  safety: ReturnType<typeof getAcquisitionDebtServiceSafety>;
+}> {
+  const modes: AcquisitionFundingMode[] = ['cash', 'balanced', 'leveraged'];
+  return modes.map((mode) => {
+    const quote = getAcquisitionFinancingQuote(
+      purchasePrice,
+      mode,
+      loanRateReduction,
+      macroInterestRateModifier,
+    );
+    return {
+      mode,
+      quote,
+      safety: getAcquisitionDebtServiceSafety(target, quote),
+    };
+  });
+}
+
 export function getIntegrationStrategyProfile(
   baseWeeks: number,
   basePenalty: number,
