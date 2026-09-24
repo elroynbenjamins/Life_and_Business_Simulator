@@ -150,9 +150,9 @@ export default function BusinessSaleScreen() {
         </GameCard>
 
         <GameCard>
-          <Text style={styles.sectionTitle}>Lifetime Deal Result</Text>
+          <Text style={styles.sectionTitle}>Owner Deal Result</Text>
           <Text style={styles.sectionSub}>
-            Includes tracked distributions already paid to you plus the cash you receive at closing.
+            Includes tracked owner or holding distributions already received plus the cash delivered to the sale destination at closing.
           </Text>
           <View style={styles.rows}>
             <View style={styles.row}>
@@ -162,7 +162,7 @@ export default function BusinessSaleScreen() {
               </Text>
             </View>
             <View style={styles.row}>
-              <Text style={styles.rowLabel}>Player distributions received</Text>
+              <Text style={styles.rowLabel}>{holding ? 'Holding distributions received' : 'Owner distributions received'}</Text>
               <Text style={styles.rowValue}>{formatCurrency(quote.totalPlayerDistributions)}</Text>
             </View>
             <View style={styles.divider} />
