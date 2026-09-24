@@ -194,7 +194,7 @@ export default function BusinessDetailScreen() {
   const gameYear = useGameStore((s) => s.year ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
   const {
-    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessBudgetProfile, setBusinessManagementTargetProfile,
+    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessDecisionAutomation, setBusinessBudgetProfile, setBusinessManagementTargetProfile,
     openExecutiveSearch, hireExecutiveCandidate, cancelExecutiveSearch, dismissBusinessExecutive, setBusinessBoardMandate,
     setCorporateDepartmentTarget, setCorporateCompensationPolicy, setCorporateTrainingPolicy, resolveBusinessDecision,
     setAcquisitionIntegrationStrategy,
@@ -212,6 +212,7 @@ export default function BusinessDetailScreen() {
     designateFamilyBusiness: s.designateFamilyBusiness,
     toggleLongTermFamilyAsset: s.toggleLongTermFamilyAsset,
     setBusinessStrategicFocus: s.setBusinessStrategicFocus,
+    setBusinessDecisionAutomation: s.setBusinessDecisionAutomation,
     setBusinessBudgetProfile: s.setBusinessBudgetProfile,
     setBusinessManagementTargetProfile: s.setBusinessManagementTargetProfile,
     openExecutiveSearch: s.openExecutiveSearch,
@@ -1072,7 +1073,37 @@ export default function BusinessDetailScreen() {
         )}
 
         <GameCard title="Strategic Direction">
-          <Text style={styles.sectionHint}>Persistent company posture. Strategic decisions and crises add temporary effects on top of this.</Text>
+          <Text style={styles.sectionHint}>Persistent company posture. Routine strategic reviews are spaced roughly 12–24 weeks apart and their meaningful effects usually last 16–24 weeks.</Text>
+
+          <View style={styles.autoStrategyRow}>
+            <View style={{ flex: 1 }}>
+              <View style={styles.autoStrategyTitleRow}>
+                <Ionicons name="flash-outline" size={15} color={biz.autoStrategicDecisions ? Colors.primary : Colors.textMuted} />
+                <Text style={styles.autoStrategyTitle}>Auto Strategy</Text>
+                <StatusPill
+                  compact
+                  label={biz.autoStrategicDecisions ? 'ON' : 'OFF'}
+                  color={biz.autoStrategicDecisions ? Colors.primary : Colors.textSecondary}
+                />
+              </View>
+              <Text style={styles.autoStrategyDesc}>
+                {biz.autoStrategicDecisions
+                  ? 'Routine strategy and corporate HR choices follow the strategic focus below. Crises still require your decision.'
+                  : 'Turn this on to reduce routine choice prompts. Crises always remain manual.'}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: !!biz.autoStrategicDecisions }}
+              hitSlop={{ top: 8, bottom: 8 }}
+              style={[styles.autoStrategyToggle, biz.autoStrategicDecisions && styles.autoStrategyToggleOn]}
+              onPress={() => setBusinessDecisionAutomation(biz.id, !biz.autoStrategicDecisions)}
+            >
+              <View style={[styles.autoStrategyThumb, biz.autoStrategicDecisions && styles.autoStrategyThumbOn]} />
+            </Pressable>
+          </View>
+
+          <Text style={styles.subHeading}>Strategic Focus</Text>
           <View style={styles.strategyFocusGrid}>
             {STRATEGIC_FOCUS_OPTIONS.map((option) => (
               <Pressable
@@ -4038,6 +4069,14 @@ const styles = StyleSheet.create({
   decisionChoiceDesc: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
   decisionEffects: { color: Colors.info, fontSize: 9, marginTop: 4 },
   decisionCost: { color: Colors.warning, fontSize: 11, fontWeight: '800' },
+  autoStrategyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, padding: 10, marginTop: 9, marginBottom: 10 },
+  autoStrategyTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  autoStrategyTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '900' },
+  autoStrategyDesc: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 4 },
+  autoStrategyToggle: { width: 46, height: 26, borderRadius: 13, padding: 3, backgroundColor: Colors.cardBorder, justifyContent: 'center' },
+  autoStrategyToggleOn: { backgroundColor: Colors.primary },
+  autoStrategyThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.white },
+  autoStrategyThumbOn: { alignSelf: 'flex-end' },
   strategyFocusGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   strategyFocus: { width: '48%', borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 9, padding: 9 },
   strategyFocusActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
