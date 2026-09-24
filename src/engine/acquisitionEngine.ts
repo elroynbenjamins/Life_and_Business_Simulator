@@ -26,6 +26,7 @@ export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
 export const ACQUISITION_TARGET_COUNT = 6;
 
 export type AcquisitionTargetSortMode = 'price' | 'premium' | 'profit' | 'diligence' | 'risk';
+export type AcquisitionTargetFundingFilter = 'all' | 'ready' | 'financeable';
 
 export interface AcquisitionFinancingQuote {
   mode: AcquisitionFundingMode;
@@ -482,6 +483,30 @@ export function getAcquisitionFundingAvailabilityMatrix(
       cashReady,
       executable: safety.allowed && cashReady,
     };
+  });
+}
+
+export function filterAcquisitionTargetsByFunding(
+  targets: BusinessAcquisitionTarget[],
+  filter: AcquisitionTargetFundingFilter,
+  sourceCash: number,
+  negotiationBonus = 0,
+  loanRateReduction = 0,
+  macroInterestRateModifier = 0,
+): BusinessAcquisitionTarget[] {
+  if (filter === 'all') return [...(targets ?? [])];
+
+  return (targets ?? []).filter((target) => {
+    const purchasePrice = getAcquisitionPrice(target, negotiationBonus);
+    const matrix = getAcquisitionFundingAvailabilityMatrix(
+      target,
+      purchasePrice,
+      sourceCash,
+      loanRateReduction,
+      macroInterestRateModifier,
+    );
+    if (filter === 'ready') return matrix.some((entry) => entry.executable);
+    return matrix.some((entry) => entry.safety.allowed);
   });
 }
 
