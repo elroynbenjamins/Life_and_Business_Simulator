@@ -395,21 +395,37 @@ export function generateAcquisitionTargets(
     if (!type) continue;
 
     const estimatedValue = Math.round(randomBetween(band.min, band.max) * safeInflation * cycleValueMultiplier);
-    const reputation = Math.round(randomBetween(52, 92));
+    const isDistressed = economicCyclePhase === 'recession'
+      && (index === 0 || Math.random() < 0.35);
+    const marketCondition: BusinessAcquisitionTarget['marketCondition'] = isDistressed
+      ? 'distressed'
+      : economicCyclePhase === 'boom'
+        ? 'competitive'
+        : 'normal';
+    const reputation = Math.round(randomBetween(isDistressed ? 45 : 52, isDistressed ? 80 : 92));
     const profitMultiple = 2 + (reputation / 100) * 3;
-    const weeklyProfit = Math.max(25_000, Math.round(estimatedValue / (20 * profitMultiple)));
-    const margin = randomBetween(0.09, 0.21);
+    const baselineWeeklyProfit = Math.max(25_000, Math.round(estimatedValue / (20 * profitMultiple)));
+    const weeklyProfit = Math.max(
+      20_000,
+      Math.round(baselineWeeklyProfit * (isDistressed ? randomBetween(0.68, 0.82) : 1)),
+    );
+    const margin = isDistressed ? randomBetween(0.06, 0.14) : randomBetween(0.09, 0.21);
     const weeklyRevenue = Math.round(weeklyProfit / margin);
-    const diligenceScore = Math.round(randomBetween(50, 94));
+    const diligenceScore = Math.round(randomBetween(isDistressed ? 45 : 50, isDistressed ? 78 : 94));
     const risk = riskFromDiligence(diligenceScore);
     const traits = acquisitionTraitsForRisk(risk);
     const traitModifiers = getTraitOperatingModifiers(traits);
     const diligenceFindings = buildDiligenceFindings(diligenceScore, risk, traits);
-    const sellerReasonProfile = SELLER_REASONS[Math.floor(Math.random() * SELLER_REASONS.length)];
-    // Established companies command a control premium. Seller circumstances
-    // alter the premium range, but even pressured sales do not spawn as instant
-    // below-fair-value arbitrage opportunities.
-    const premium = randomBetween(sellerReasonProfile.premiumMin, sellerReasonProfile.premiumMax);
+    const sellerReasonProfile = isDistressed
+      ? { label: 'Recession-driven liquidity pressure', premiumMin: 1.10, premiumMax: 1.14 }
+      : SELLER_REASONS[Math.floor(Math.random() * SELLER_REASONS.length)];
+    // Established companies still command a control premium. Distressed targets
+    // receive a smaller premium, but never spawn below estimated fair value.
+    const boomPremiumLift = economicCyclePhase === 'boom' ? 0.02 : 0;
+    const premium = randomBetween(
+      Math.min(1.30, sellerReasonProfile.premiumMin + boomPremiumLift),
+      Math.min(1.30, sellerReasonProfile.premiumMax + boomPremiumLift),
+    );
     const askingPrice = Math.round(estimatedValue * premium);
     const prefix = COMPANY_PREFIXES[Math.floor(Math.random() * COMPANY_PREFIXES.length)];
     const suffix = COMPANY_SUFFIXES[Math.floor(Math.random() * COMPANY_SUFFIXES.length)];
@@ -428,6 +444,7 @@ export function generateAcquisitionTargets(
       diligenceScore,
       risk,
       diligenceNotes: diligenceFindings.map((finding) => finding.title),
+      marketCondition,
       companyAgeYears: acquisitionCompanyAgeYears(band.tier),
       sellerReason: sellerReasonProfile.label,
       traits,
