@@ -90,8 +90,9 @@ export default function AchievementsScreen() {
       items.sort((a, b) => {
         const progressDelta = progressRatio(progressById.get(b.id)) - progressRatio(progressById.get(a.id));
         if (Math.abs(progressDelta) > 0.001) return progressDelta;
-        return (b.xpReward ?? 0) - (a.xpReward ?? 0);
+        return (a.xpReward ?? 0) - (b.xpReward ?? 0);
       });
+      return items.slice(0, 20);
     }
     return items;
   }, [allAchievements, category, filter, unlockedAchievements, progressById]);
@@ -160,13 +161,20 @@ export default function AchievementsScreen() {
           {(['progress', 'completed', 'all'] as const).map((item) => (
             <Pressable key={item} style={[styles.toggleButton, filter === item && styles.toggleActive]} onPress={() => setFilter(item)}>
               <Text style={[styles.toggleText, filter === item && styles.toggleTextActive]}>
-                {item === 'progress' ? 'In Progress' : item === 'completed' ? 'Completed' : 'All'}
+                {item === 'progress' ? 'Closest' : item === 'completed' ? 'Completed' : 'All'}
               </Text>
             </Pressable>
           ))}
         </View>
 
-        <Text style={styles.sectionHeader}>{visibleAchievements.length} achievement{visibleAchievements.length === 1 ? '' : 's'} shown</Text>
+        <Text style={styles.sectionHeader}>
+          {filter === 'progress'
+            ? `${visibleAchievements.length} closest achievement${visibleAchievements.length === 1 ? '' : 's'}`
+            : `${visibleAchievements.length} achievement${visibleAchievements.length === 1 ? '' : 's'} shown`}
+        </Text>
+        {filter === 'progress' && locked.length > visibleAchievements.length && (
+          <Text style={styles.closestHint}>Showing the nearest 20 locked milestones. Use a category or All to browse the full set.</Text>
+        )}
         {visibleAchievements.map((a) => {
           const unlockedItem = unlockedAchievements.includes(a?.id);
           const accountRewardClaimed = accountRewardedAchievementIds.has(a?.id);
@@ -235,6 +243,7 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', borderRadius: 3, backgroundColor: Colors.primary },
   rowProgressBlock: { marginTop: 4 },
   sectionHeader: { color: Colors.textSecondary, fontSize: 16, fontWeight: '600', marginTop: 12, marginBottom: 8 },
+  closestHint: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: -4, marginBottom: 8 },
   chipRow: { gap: 8, marginTop: 12, paddingRight: 16 },
   chip: { minHeight: 36, borderRadius: 18, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
   chipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}18` },
