@@ -1,7 +1,7 @@
 import achievementsData from '../../data/achievements.json';
 import coursesData from '../../data/courses.json';
 import prestigeData from '../../data/prestige_tree_v2.json';
-import { checkAchievements, getAchievementRewardSettlement } from '../achievementEngine';
+import { checkAchievements, getAchievementProgress, getAchievementRewardSettlement } from '../achievementEngine';
 import { canUnlockPrestige, getPrestigeEffects, unlockPrestige } from '../prestigeEngine';
 import { getSuccessionPreview } from '../lifecycleEngine';
 import { processStocks } from '../stockEngine';
@@ -294,10 +294,14 @@ describe('achievement and Prestige expansion', () => {
 
   test('achievements award 2 Gems normally and 3 Gems for 100+ XP milestones', () => {
     const achievements = achievementsData as any[];
+    expect(achievements).toHaveLength(100);
     expect(achievements.every((achievement) => [2, 3].includes(achievement.gemReward))).toBe(true);
     expect(achievements.filter((achievement) => (achievement.xpReward ?? 0) >= 100).every((achievement) => achievement.gemReward === 3)).toBe(true);
     expect(achievements.filter((achievement) => (achievement.xpReward ?? 0) < 100).every((achievement) => achievement.gemReward === 2)).toBe(true);
-    expect(achievements.reduce((total, achievement) => total + achievement.gemReward, 0)).toBe(166);
+    expect(achievements.reduce((total, achievement) => total + achievement.gemReward, 0)).toBe(251);
+    expect(new Set(achievements.map((achievement) => achievement.category))).toEqual(new Set([
+      'Career', 'Education', 'Investing', 'Business', 'Real Estate', 'Family', 'Wealth', 'Lifestyle',
+    ]));
   });
 
   test('education achievement tiers no longer double-unlock from the same condition', () => {
@@ -349,12 +353,137 @@ describe('achievement and Prestige expansion', () => {
     expect(checkAchievements(level5 as any, 0, 0)).toContain('max_level_job');
   });
 
-  test('achievement data contains all new milestone IDs', () => {
+  test('achievement data covers the major modern gameplay systems', () => {
     const ids = new Set((achievementsData as any[]).map((achievement) => achievement.id));
-    expect(ids.size).toBeGreaterThanOrEqual(69);
-    expect(ids.has('generation_3')).toBe(true);
-    expect(ids.has('family_business_gen3')).toBe(true);
-    expect(ids.has('business_crisis_resolved')).toBe(true);
-    expect(ids.has('crypto_trinity')).toBe(true);
+    expect(ids.size).toBe(100);
+    for (const id of [
+      'generation_3',
+      'family_business_gen3',
+      'business_crisis_resolved',
+      'crypto_trinity',
+      'first_business',
+      'corporate_scale',
+      'first_acquisition',
+      'first_holding',
+      'first_executive',
+      'board_established',
+      'first_corporate_capex',
+      'auto_strategy_3',
+      'auction_winner',
+      'property_value_1m',
+      'expert_five',
+      'dividends_100k',
+      'fully_insured',
+      'reinvestment_cycle',
+    ]) {
+      expect(ids.has(id)).toBe(true);
+    }
+  });
+
+  test('modern business, holding, acquisition and property achievements unlock from real state', () => {
+    const business = {
+      id: 'corp-1',
+      name: 'Empire One',
+      level: 5,
+      valuation: 180_000_000,
+      autoStrategicDecisions: true,
+      executives: [
+        { id: 'cfo', role: 'cfo' },
+        { id: 'coo', role: 'coo' },
+        { id: 'cto', role: 'cto' },
+      ],
+      boardGovernance: { mandate: 'balanced_oversight' },
+      completedCorporateCapex: [
+        { projectId: 'corporate_hq' },
+        { projectId: 'automation_platform' },
+        { projectId: 'national_logistics' },
+      ],
+      identityTraits: [
+        { id: 'premium_brand' },
+        { id: 'efficient_operator' },
+        { id: 'innovation_leader' },
+      ],
+      insurancePolicies: {
+        property: 'comprehensive',
+        equipment: 'comprehensive',
+        cyber: 'comprehensive',
+        liability: 'comprehensive',
+      },
+      reinvestment: {
+        technology: { condition: 100, lastRenewedGlobalWeek: 10 },
+        premises: { condition: 100, lastRenewedGlobalWeek: 11 },
+        equipment: { condition: 100, lastRenewedGlobalWeek: 12 },
+      },
+      holdingCompanyId: 'holding-1',
+      acquisition: {
+        integrationOutcome: 'success',
+      },
+    } as any;
+    const second = { ...business, id: 'corp-2', valuation: 30_000_000, completedCorporateCapex: [], executives: [], identityTraits: [], holdingCompanyId: 'holding-1' } as any;
+    const third = { ...business, id: 'corp-3', valuation: 10_000_000, completedCorporateCapex: [], executives: [], identityTraits: [], holdingCompanyId: 'holding-1' } as any;
+    const state = {
+      ...INITIAL_GAME_STATE,
+      businesses: [business, second, third],
+      holdingCompanies: [{
+        id: 'holding-1',
+        sharedServices: { finance: 1, hr: 1, procurement: 1, marketing: 1, it: 1 },
+      }] as any,
+      properties: [
+        { id: 'p1', currentValue: 600_000, acquisitionType: 'auction', isRenovated: true, isRentedOut: true },
+        { id: 'p2', currentValue: 250_000, isRentedOut: true },
+        { id: 'p3', currentValue: 250_000, isRentedOut: true },
+      ] as any,
+      soldBusinesses: [{ id: 'sold', lifetimeCashResult: 50_000 }] as any,
+    };
+
+    const unlocked = checkAchievements(state as any, 0, 0);
+    expect(unlocked).toEqual(expect.arrayContaining([
+      'first_business',
+      'multi_business_3',
+      'corporate_scale',
+      'global_corporation',
+      'first_acquisition',
+      'integration_success',
+      'first_holding',
+      'holding_3_companies',
+      'holding_services_5',
+      'first_executive',
+      'executive_team_3',
+      'board_established',
+      'first_corporate_capex',
+      'corporate_capex_3',
+      'auto_strategy_3',
+      'identity_trait_first',
+      'identity_traits_3',
+      'profitable_exit',
+      'fully_insured',
+      'reinvestment_cycle',
+      'first_property',
+      'auction_winner',
+      'renovator',
+      'rental_portfolio_3',
+      'property_value_1m',
+    ]));
+  });
+
+  test('achievement progress reports useful quantitative progress', () => {
+    const state = {
+      ...INITIAL_GAME_STATE,
+      businesses: [
+        { id: 'a', valuation: 10_000_000, level: 3, autoStrategicDecisions: true, executives: [] },
+        { id: 'b', valuation: 5_000_000, level: 2, autoStrategicDecisions: true, executives: [] },
+      ] as any,
+      properties: [
+        { id: 'p1', currentValue: 400_000, isRentedOut: true },
+        { id: 'p2', currentValue: 200_000, isRentedOut: true },
+      ] as any,
+      statistics: { ...INITIAL_GAME_STATE.statistics, weeksPlayed: 150 },
+    };
+
+    expect(getAchievementProgress(state as any, 'own_5_businesses')).toMatchObject({ current: 2, target: 5 });
+    expect(getAchievementProgress(state as any, 'corporate_scale')).toMatchObject({ current: 10_000_000, target: 25_000_000, format: 'currency' });
+    expect(getAchievementProgress(state as any, 'rental_portfolio_3')).toMatchObject({ current: 2, target: 3 });
+    expect(getAchievementProgress(state as any, 'property_value_1m')).toMatchObject({ current: 600_000, target: 1_000_000 });
+    expect(getAchievementProgress(state as any, 'ten_years')).toMatchObject({ current: 150, target: 200, format: 'weeks' });
   });
 });
