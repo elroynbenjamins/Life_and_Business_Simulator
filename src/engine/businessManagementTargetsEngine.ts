@@ -86,6 +86,28 @@ export const BUSINESS_MANAGEMENT_TARGET_PROFILES: Record<BusinessManagementTarge
   },
 };
 
+export function deriveBusinessManagementTargetProfile(
+  business: Pick<OwnedBusiness, 'strategicFocus' | 'budgetPlan'>,
+): BusinessManagementTargetProfile {
+  const budgetProfile = business.budgetPlan?.profile === 'standard'
+    ? 'balanced'
+    : (business.budgetPlan?.profile ?? 'balanced');
+
+  // Capital safety policies take precedence because quarterly targets should not
+  // ask management to grow aggressively while the cash plan says deleverage or
+  // build resilience.
+  if (budgetProfile === 'deleveraging') return 'deleveraging';
+  if (budgetProfile === 'resilient') return 'resilient';
+
+  const focus = business.strategicFocus ?? 'balanced';
+  if (focus === 'growth' || focus === 'rd') return 'growth';
+  if (focus === 'margin' || focus === 'automation' || focus === 'premium') return 'margin';
+
+  if (budgetProfile === 'growth') return 'growth';
+  if (budgetProfile === 'shareholder_returns') return 'margin';
+  return 'balanced';
+}
+
 export type BusinessManagementTargetMetricId =
   | 'revenue'
   | 'margin'
@@ -295,11 +317,11 @@ export function ensureBusinessManagementTargetPlan(
     && existing.year === period.year
     && existing.quarter === period.quarter
     && existing.periodStartGlobalWeek === period.startGlobalWeek;
-  const profile = profileOverride
-    ?? existing?.profile
-    ?? 'balanced';
-
   if (samePeriod && !profileOverride) return existing;
+
+  const profile = profileOverride
+    ?? deriveBusinessManagementTargetProfile(business);
+
   return createPlanFromBaseline(
     business,
     profile,
