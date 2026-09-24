@@ -551,6 +551,40 @@ function getCombinedMarketEffects(
   return { sectorEffects, volatilityMult };
 }
 
+export function getCryptoRiskProfile(metadata: any) {
+  if (metadata?.type !== 'crypto') return null;
+  const style = metadata.cryptoStyle as 'reserve' | 'utility' | 'speculative' | undefined;
+  const volatilityAdjustment = style === 'reserve' ? 0.85 : style === 'speculative' ? 1.15 : 1;
+  const baseVolatility = Math.max(0, Number(metadata.baseVolatility ?? 0));
+  const defaultMomentumCap = style === 'speculative' ? 0.07 : style === 'utility' ? 0.025 : 0.012;
+  const defaultMinWeeklyChange = style === 'reserve' ? -0.18 : style === 'utility' ? -0.25 : -0.35;
+  const defaultMaxWeeklyChange = style === 'reserve' ? 0.18 : style === 'utility' ? 0.28 : 0.40;
+  const minWeeklyChange = Number.isFinite(Number(metadata.minWeeklyChange))
+    ? Math.max(-0.50, Math.min(0, Number(metadata.minWeeklyChange)))
+    : defaultMinWeeklyChange;
+  const maxWeeklyChange = Number.isFinite(Number(metadata.maxWeeklyChange))
+    ? Math.max(0, Math.min(0.50, Number(metadata.maxWeeklyChange)))
+    : defaultMaxWeeklyChange;
+  const maniaChance = style === 'speculative' ? Math.max(0, Number(metadata.maniaChance ?? 0)) : 0;
+  const maniaMinMove = style === 'speculative' ? Math.max(0, Number(metadata.maniaMinMove ?? 0.08)) : 0;
+  const maniaMaxMove = style === 'speculative'
+    ? Math.max(maniaMinMove, Number(metadata.maniaMaxMove ?? 0.20))
+    : 0;
+
+  return {
+    style,
+    label: style === 'reserve' ? 'Moderate' : style === 'utility' ? 'High' : 'Very High',
+    volatilityAdjustment,
+    ordinaryRandomMovePct: baseVolatility * volatilityAdjustment * 0.5 * 100,
+    momentumCap: Math.max(0, Number(metadata.momentumCap ?? defaultMomentumCap)),
+    maniaChance,
+    maniaMinMove,
+    maniaMaxMove,
+    minWeeklyChange,
+    maxWeeklyChange,
+  };
+}
+
 /**
  * Process annual investment distributions (every 20 weeks).
  * Stocks/ETFs can pay dividends; selected crypto can pay staking rewards.
@@ -606,6 +640,7 @@ export function processStocks(
     const isEtf = data?.type === 'etf';
     const isCrypto = data?.type === 'crypto';
     const cryptoStyle = metadata.cryptoStyle as 'reserve' | 'utility' | 'speculative' | undefined;
+    const cryptoRisk = isCrypto ? getCryptoRiskProfile(metadata) : null;
 
     const { sectorEffects: marketEffects, volatilityMult } = getCombinedMarketEffects(
       state?.activeMarketSentiment ?? null,
@@ -627,8 +662,7 @@ export function processStocks(
       : isCrypto && configuredVolatility > 0
         ? configuredVolatility
         : isEtf ? 0.025 : isCommodity ? 0.08 : 0.06;
-    const cryptoVolatilityAdjustment = cryptoStyle === 'reserve' ? 0.85
-      : cryptoStyle === 'speculative' ? 1.15 : 1;
+    const cryptoVolatilityAdjustment = cryptoRisk?.volatilityAdjustment ?? 1;
     const volatility = baseVolatility * volatilityMult * cryptoVolatilityAdjustment;
     const baseChange = (Math.random() - 0.5) * volatility;
 
@@ -667,7 +701,7 @@ export function processStocks(
         const previousMove = (last - previous) / previous;
         const factor = Number(metadata.momentumFactor ?? 0);
         const defaultCap = cryptoStyle === 'speculative' ? 0.07 : cryptoStyle === 'utility' ? 0.025 : 0.012;
-        const cap = Math.max(0, Number(metadata.momentumCap ?? defaultCap));
+        const cap = cryptoRisk?.momentumCap ?? defaultCap;
         momentumEffect = Math.max(-cap, Math.min(cap, previousMove * factor));
       }
     }
@@ -682,10 +716,10 @@ export function processStocks(
       : 0;
 
     let maniaEffect = 0;
-    if (cryptoStyle === 'speculative' && Math.random() < Number(metadata.maniaChance ?? 0)) {
+    if (cryptoStyle === 'speculative' && Math.random() < (cryptoRisk?.maniaChance ?? 0)) {
       const direction = Math.random() < 0.55 ? 1 : -1;
-      const maniaMin = Math.max(0, Number(metadata.maniaMinMove ?? 0.08));
-      const maniaMax = Math.max(maniaMin, Number(metadata.maniaMaxMove ?? 0.20));
+      const maniaMin = cryptoRisk?.maniaMinMove ?? 0.08;
+      const maniaMax = cryptoRisk?.maniaMaxMove ?? 0.20;
       maniaEffect = direction * (maniaMin + Math.random() * (maniaMax - maniaMin));
     }
 
@@ -720,12 +754,8 @@ export function processStocks(
         : cryptoStyle === 'utility' ? 0.28
           : cryptoStyle === 'speculative' ? 0.40
             : 0.10;
-    const minChange = isCrypto && Number.isFinite(Number(metadata.minWeeklyChange))
-      ? Math.max(-0.50, Math.min(0, Number(metadata.minWeeklyChange)))
-      : defaultMinChange;
-    const maxChange = isCrypto && Number.isFinite(Number(metadata.maxWeeklyChange))
-      ? Math.max(0, Math.min(0.50, Number(metadata.maxWeeklyChange)))
-      : defaultMaxChange;
+    const minChange = cryptoRisk?.minWeeklyChange ?? defaultMinChange;
+    const maxChange = cryptoRisk?.maxWeeklyChange ?? defaultMaxChange;
     const totalChange = Math.max(minChange, Math.min(maxChange, protectedRawChange));
 
     let newPrice = (stock?.currentPrice ?? 100) * (1 + totalChange);
