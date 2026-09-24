@@ -3,17 +3,16 @@ import {
   ACQUISITION_UNLOCK_NET_WORTH,
   applyIntegrationStrategy,
   createAcquiredBusiness,
-  createHoldingCompany,
   generateAcquisitionTargets,
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
   getAcquisitionReturn,
   getAcquisitionTransactionCost,
-  getHoldingCompanySummary,
   migrateAcquiredBusinessAssets,
 } from '../acquisitionEngine';
 import { getAllBusinessLocationTemplates, getBusinessType, getHoldingSynergyProfile, processBusinessWeek } from '../businessEngine';
 import { getNetWorth } from '../financeEngine';
+import { createHoldingCompany, getHoldingCompanySummary } from '../holdingCompanyEngine';
 import { INITIAL_GAME_STATE } from '../../types/game';
 
 describe('business acquisitions and holding companies', () => {
