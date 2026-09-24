@@ -179,10 +179,16 @@ const MANAGEMENT_TARGET_SECTION: Record<CorporateManagementActionTarget, Busines
   investments: 'growth',
 };
 
+function normalizeBusinessDetailSection(value: string | string[] | undefined): BusinessDetailSection | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return BUSINESS_SECTION_CHIPS.some((section) => section.key === raw) ? raw as BusinessDetailSection : null;
+}
+
 export default function BusinessDetailScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
-  const { id = '', newBusiness } = useLocalSearchParams();
+  const { id = '', newBusiness, section } = useLocalSearchParams();
+  const requestedSection = normalizeBusinessDetailSection(section);
   const businesses = useGameStore((s) => s?.businesses ?? []);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
@@ -272,7 +278,7 @@ export default function BusinessDetailScreen() {
   const [slotAdLoading, setSlotAdLoading] = useState<'project' | 'upgrade' | null>(null);
   const [slotAdMessage, setSlotAdMessage] = useState<{ kind: 'project' | 'upgrade'; text: string } | null>(null);
   const [showFundingNotice, setShowFundingNotice] = useState(newBusiness === '1');
-  const [activeSection, setActiveSection] = useState<BusinessDetailSection>('overview');
+  const [activeSection, setActiveSection] = useState<BusinessDetailSection>(() => requestedSection ?? 'overview');
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
   const [transferError, setTransferError] = useState('');
   const detailScrollRef = useRef<ScrollView>(null);
@@ -300,6 +306,18 @@ export default function BusinessDetailScreen() {
       });
     });
   };
+
+  useEffect(() => {
+    if (!requestedSection) return;
+    setActiveSection(requestedSection);
+    const tabIndex = BUSINESS_SECTION_CHIPS.findIndex((item) => item.key === requestedSection);
+    requestAnimationFrame(() => {
+      if (tabIndex >= 0) {
+        sectionTabScrollRef.current?.scrollTo({ x: Math.max(0, tabIndex * 86 - 18), animated: true });
+      }
+      detailScrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+  }, [requestedSection]);
 
   const biz = businesses.find((b) => b?.id === id);
   useEffect(() => {
@@ -433,6 +451,17 @@ export default function BusinessDetailScreen() {
   const familyTrustCash = relationshipState?.familyTrustCash ?? 0;
   const pendingDecision = biz.pendingDecision ?? null;
   const globalGameWeek = ((gameYear - 1) * 20) + gameWeek;
+  const strategicPrograms = (biz.strategyModifiers ?? []).filter((modifier) => modifier.id.startsWith('strategy_'));
+  const primaryStrategicProgram = strategicPrograms
+    .slice()
+    .sort((a, b) => (b.weeksRemaining ?? 0) - (a.weeksRemaining ?? 0))[0] ?? null;
+  const strategyProgramWeeksRemaining = strategicPrograms.reduce(
+    (max, modifier) => Math.max(max, modifier.weeksRemaining ?? 0),
+    0,
+  );
+  const scheduledStrategicReviewWeeks = Math.max(0, (biz.nextStrategicDecisionWeek ?? (globalGameWeek + 18)) - globalGameWeek);
+  const estimatedStrategicReviewWeeks = Math.max(scheduledStrategicReviewWeeks, strategyProgramWeeksRemaining);
+  const waitingStrategicDecision = pendingDecision?.kind === 'strategy';
   const reinvestmentState = normalizeBusinessReinvestmentState(biz.reinvestment, globalGameWeek);
   const reinvestmentEffects = getBusinessReinvestmentEffects(biz);
   const insurancePolicies = normalizeBusinessInsurancePolicies(biz.insurancePolicies);
@@ -1075,6 +1104,35 @@ export default function BusinessDetailScreen() {
         <GameCard title="Strategic Direction">
           <Text style={styles.sectionHint}>Persistent company posture. Routine strategic reviews are spaced roughly 12–24 weeks apart and their meaningful effects usually last 16–24 weeks.</Text>
 
+          <View style={styles.strategyStatusGrid}>
+            <View style={styles.strategyStatusCard}>
+              <Text style={styles.strategyStatusLabel}>CURRENT PROGRAM</Text>
+              <Text style={styles.strategyStatusValue} numberOfLines={1}>
+                {primaryStrategicProgram ? primaryStrategicProgram.title.replace(' (Auto)', '') : 'No active program'}
+              </Text>
+              <Text style={styles.strategyStatusMeta}>
+                {primaryStrategicProgram
+                  ? `${strategyProgramWeeksRemaining} week${strategyProgramWeeksRemaining === 1 ? '' : 's'} remaining`
+                  : 'Company is between strategic programs'}
+              </Text>
+            </View>
+            <View style={styles.strategyStatusCard}>
+              <Text style={styles.strategyStatusLabel}>NEXT BOARD REVIEW</Text>
+              <Text style={[styles.strategyStatusValue, waitingStrategicDecision && { color: Colors.warning }]}>
+                {waitingStrategicDecision ? 'Decision waiting' : estimatedStrategicReviewWeeks <= 0 ? 'Due now' : `~${estimatedStrategicReviewWeeks} weeks`}
+              </Text>
+              <Text style={styles.strategyStatusMeta}>
+                {waitingStrategicDecision
+                  ? `${pendingDecision?.title ?? 'Strategic review'} needs a choice`
+                  : strategyProgramWeeksRemaining > scheduledStrategicReviewWeeks
+                    ? 'Current program must finish first'
+                    : biz.autoStrategicDecisions
+                      ? 'Auto Strategy will handle routine review'
+                      : 'You will be asked for the next direction'}
+              </Text>
+            </View>
+          </View>
+
           <View style={styles.autoStrategyRow}>
             <View style={{ flex: 1 }}>
               <View style={styles.autoStrategyTitleRow}>
@@ -1119,12 +1177,23 @@ export default function BusinessDetailScreen() {
           {(biz.strategyModifiers ?? []).length > 0 && (
             <View style={styles.activeStrategyBox}>
               <Text style={styles.subHeading}>Temporary Effects</Text>
-              {(biz.strategyModifiers ?? []).map((modifier) => (
-                <View key={modifier.id} style={styles.activeStrategyRow}>
-                  <Text style={styles.actionName}>{modifier.title}</Text>
-                  <Text style={styles.rivalMeta}>{modifier.weeksRemaining}wk</Text>
-                </View>
-              ))}
+              {(biz.strategyModifiers ?? []).map((modifier) => {
+                const revenuePct = Math.round(((modifier.revenueMultiplier ?? 1) - 1) * 100);
+                const expensePct = Math.round(((modifier.expenseMultiplier ?? 1) - 1) * 100);
+                const effectParts = [
+                  revenuePct !== 0 ? `Revenue ${revenuePct > 0 ? '+' : ''}${revenuePct}%` : null,
+                  expensePct !== 0 ? `Costs ${expensePct > 0 ? '+' : ''}${expensePct}%` : null,
+                ].filter(Boolean);
+                return (
+                  <View key={modifier.id} style={styles.activeStrategyRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.actionName}>{modifier.title}</Text>
+                      {effectParts.length > 0 && <Text style={styles.strategyEffectMeta}>{effectParts.join(' • ')}</Text>}
+                    </View>
+                    <Text style={styles.rivalMeta}>{modifier.weeksRemaining}wk</Text>
+                  </View>
+                );
+              })}
             </View>
           )}
         </GameCard>
@@ -4069,6 +4138,12 @@ const styles = StyleSheet.create({
   decisionChoiceDesc: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
   decisionEffects: { color: Colors.info, fontSize: 9, marginTop: 4 },
   decisionCost: { color: Colors.warning, fontSize: 11, fontWeight: '800' },
+  strategyStatusGrid: { flexDirection: 'row', gap: 7, marginTop: 9 },
+  strategyStatusCard: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 8 },
+  strategyStatusLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '900', letterSpacing: 0.35 },
+  strategyStatusValue: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900', marginTop: 3 },
+  strategyStatusMeta: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  strategyEffectMeta: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
   autoStrategyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, padding: 10, marginTop: 9, marginBottom: 10 },
   autoStrategyTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   autoStrategyTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '900' },
