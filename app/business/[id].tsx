@@ -22,7 +22,7 @@ import {
 } from '../../src/engine/businessEngine';
 import { loadRewardedAd, showRewardedAd } from '../../src/services/adManager';
 import { shouldSimulateNativeFeatures } from '../../src/services/runtimeEnvironment';
-import { inflated } from '../../src/engine/economyEngine';
+import { getEconomicCycleEffects, inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { businessTypeImages, employeeRoleImages } from '../../src/assets/progressionImages';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
@@ -202,6 +202,7 @@ export default function BusinessDetailScreen() {
   const gameWeek = useGameStore((s) => s.week ?? 1);
   const gameYear = useGameStore((s) => s.year ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
+  const businessMacroRateModifier = getEconomicCycleEffects(economicCycle?.phase ?? 'expansion').interestRateModifier;
   const rivalCyclePhase = economicCycle?.phase ?? 'expansion';
   const rivalCycleLabel = rivalCyclePhase.charAt(0).toUpperCase() + rivalCyclePhase.slice(1);
   const rivalCycleHint = rivalCyclePhase === 'recession'
@@ -2576,7 +2577,7 @@ export default function BusinessDetailScreen() {
                 {CORPORATE_CAPEX_PROJECTS.map((project) => {
                   const eligibility = canStartCorporateCapex(biz, project);
                   const cost = getCorporateCapexCost(project, inflationMultiplier);
-                  const projectFinance = getProjectFinanceQuote(biz, cost, loanRateReduction);
+                  const projectFinance = getProjectFinanceQuote(biz, cost, loanRateReduction, businessMacroRateModifier);
                   const completed = (biz.completedCorporateCapex ?? []).some((item) => item.projectId === project.id);
                   const active = biz.activeCorporateCapex?.projectId === project.id;
                   const blocked = completed || active || !!biz.activeCorporateCapex || !eligibility.allowed;
@@ -2832,7 +2833,7 @@ export default function BusinessDetailScreen() {
               </Text>
               <View style={styles.financeButtons}>
                 {REVOLVER_DRAWS.map((amount) => {
-                  const quote = getRevolverDrawQuote(biz, amount, loanRateReduction);
+                  const quote = getRevolverDrawQuote(biz, amount, loanRateReduction, businessMacroRateModifier);
                   return (
                     <Pressable
                       key={amount}
@@ -2865,7 +2866,7 @@ export default function BusinessDetailScreen() {
               </Text>
               <View style={styles.financeButtons}>
                 {BOND_ISSUES.map((amount) => {
-                  const quote = getBondQuote(biz, amount, loanRateReduction);
+                  const quote = getBondQuote(biz, amount, loanRateReduction, businessMacroRateModifier);
                   return (
                     <Pressable
                       key={amount}
@@ -2884,7 +2885,7 @@ export default function BusinessDetailScreen() {
                 })}
               </View>
               {(() => {
-                const sample = getBondQuote(biz, BOND_ISSUES[0], loanRateReduction);
+                const sample = getBondQuote(biz, BOND_ISSUES[0], loanRateReduction, businessMacroRateModifier);
                 return !sample.allowed
                   ? <Text style={styles.financeLocked}>{sample.reason}</Text>
                   : null;
@@ -2921,7 +2922,7 @@ export default function BusinessDetailScreen() {
                       {debtLabel} • scheduled balance {formatCurrency(payoffBalance)} • {(Math.max(0, loan.interestRate ?? 0) * 100).toFixed(1)}% • {formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk
                     </Text>
                   </View>
-                  {(loan.purpose === 'corporate_revolver' || loan.purpose === 'project_finance' || loan.purpose === 'corporate_bond') && (
+                  {(loan.remainingAmount ?? 0) > 0 && (
                     <View style={styles.loanRepayButtons}>
                       <Pressable
                         disabled={(biz.balance ?? 0) <= 0 || quarterRepayment <= 0}
@@ -2943,7 +2944,7 @@ export default function BusinessDetailScreen() {
               </View>
             );
           })}
-          {(biz.businessLoans?.length ?? 0) < 3 && (
+          {corporateScaleTier === 'local' && (biz.businessLoans?.length ?? 0) < 3 && (
             <View style={styles.loanOptions}>
               {LOAN_OPTIONS.map((opt) => (
                 <Pressable
@@ -2951,7 +2952,7 @@ export default function BusinessDetailScreen() {
                   style={styles.loanBtn}
                   onPress={() => takeBusinessLoan(biz.id, opt.amount, opt.rate, opt.weeks)}
                 >
-                  <Text style={styles.loanBtnText}>{formatCurrency(opt.amount)} · {(Math.max(0, opt.rate - loanRateReduction) * 100).toFixed(0)}% · {opt.weeks}wk</Text>
+                  <Text style={styles.loanBtnText}>{formatCurrency(opt.amount)} · {(Math.max(0, opt.rate + businessMacroRateModifier - loanRateReduction) * 100).toFixed(1)}% · {opt.weeks}wk</Text>
                 </Pressable>
               ))}
             </View>
