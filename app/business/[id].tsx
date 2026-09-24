@@ -670,6 +670,32 @@ export default function BusinessDetailScreen() {
           </View>
         )}
 
+        <View style={styles.businessContextRow}>
+          <View style={styles.businessContextItem}>
+            <Text style={styles.businessContextLabel}>Value</Text>
+            <Text style={styles.businessContextValue} numberOfLines={1}>{formatCurrency(biz.valuation)}</Text>
+          </View>
+          <View style={styles.businessContextItem}>
+            <Text style={styles.businessContextLabel}>Balance</Text>
+            <Text style={[styles.businessContextValue, { color: (biz.balance ?? 0) >= 0 ? Colors.primary : Colors.negative }]} numberOfLines={1}>
+              {formatCurrency(biz.balance)}
+            </Text>
+          </View>
+          <View style={styles.businessContextItem}>
+            <Text style={styles.businessContextLabel}>Health</Text>
+            <Text
+              style={[
+                styles.businessContextValue,
+                { color: getBusinessHealthScore(biz) >= 70 ? Colors.primary : getBusinessHealthScore(biz) >= 45 ? Colors.warning : Colors.negative },
+              ]}
+            >
+              {getBusinessHealthScore(biz)}/100
+            </Text>
+          </View>
+        </View>
+
+        {activeSection === 'overview' && (
+          <>
         {/* Top Info */}
         <GameCard>
           <View style={styles.topInfo}>
@@ -754,6 +780,8 @@ export default function BusinessDetailScreen() {
             </Text>
           )}
         </GameCard>
+          </>
+        )}
 
         <Pressable
           style={[styles.nextActionCard, { borderColor: `${nextAction.tone}55`, backgroundColor: `${nextAction.tone}12` }]}
@@ -3775,6 +3803,10 @@ const styles = StyleSheet.create({
   nextActionTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '900', marginTop: 2 },
   nextActionDetail: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
   sectionTabShell: { flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder, backgroundColor: Colors.background, paddingHorizontal: 16, paddingBottom: 8 },
+  businessContextRow: { flexDirection: 'row', gap: 6, marginBottom: 9 },
+  businessContextItem: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7 },
+  businessContextLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', textTransform: 'uppercase' },
+  businessContextValue: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900', marginTop: 2 },
   sectionJumpRow: { gap: 7, paddingRight: 10 },
   sectionJumpChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
   sectionJumpChipActive: { borderColor: `${Colors.business}66`, backgroundColor: `${Colors.business}14` },
