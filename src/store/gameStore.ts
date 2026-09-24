@@ -3193,8 +3193,11 @@ const useGameStore = create<GameStore>((set, get) => ({
   grantBusinessCapacityAdUnlock: () => {
     const state = get();
     if (getBusinessCapacity(state.profile) >= MAX_BUSINESS_CAPACITY) return false;
-    const profile = unlockBusinessCapacity(state.profile);
-    if (!profile) return false;
+    const localDay = getLocalDayKey();
+    if (state.profile.businessCapacityRewardClaimDate === localDay) return false;
+    const unlocked = unlockBusinessCapacity(state.profile);
+    if (!unlocked) return false;
+    const profile = { ...unlocked, businessCapacityRewardClaimDate: localDay };
     set({ profile });
     saveProfile(profile);
     return true;
