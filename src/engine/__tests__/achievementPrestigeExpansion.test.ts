@@ -261,8 +261,12 @@ describe('achievement and Prestige expansion', () => {
     }
   });
 
-  test('achievements no longer award Gems', () => {
-    expect((achievementsData as any[]).every((achievement) => (achievement.gemReward ?? 0) === 0)).toBe(true);
+  test('achievements award 2 Gems normally and 3 Gems for 100+ XP milestones', () => {
+    const achievements = achievementsData as any[];
+    expect(achievements.every((achievement) => [2, 3].includes(achievement.gemReward))).toBe(true);
+    expect(achievements.filter((achievement) => (achievement.xpReward ?? 0) >= 100).every((achievement) => achievement.gemReward === 3)).toBe(true);
+    expect(achievements.filter((achievement) => (achievement.xpReward ?? 0) < 100).every((achievement) => achievement.gemReward === 2)).toBe(true);
+    expect(achievements.reduce((total, achievement) => total + achievement.gemReward, 0)).toBe(166);
   });
 
   test('achievement data contains all new milestone IDs', () => {
