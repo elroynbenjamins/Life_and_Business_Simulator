@@ -1,5 +1,5 @@
 import { GameState, WeekSummary, LifetimeStatistics, INITIAL_STATISTICS, INITIAL_CAREER_STATE, TriggeredEvent, TempHappinessEffect, PendingInvestment, AuctionResult, RealEstateAuction } from '../types/game';
-import { processEconomy } from './economyEngine';
+import { getEconomicCycleDescription, processEconomy } from './economyEngine';
 import { getPlayerFamilyWorkFraction, processRelationships } from './relationshipEngine';
 import { processLifecycle } from './lifecycleEngine';
 import { syncFamilyTree } from './familyTreeEngine';
@@ -70,6 +70,12 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
 
   // ---------- Step 3: News ----------
   const news = processNews();
+  const previousCyclePhase = state?.economicCycle?.phase ?? 'expansion';
+  const cycleChanged = previousCyclePhase !== economy.economicCycle.phase;
+  const cycleLabel = economy.economicCycle.phase.charAt(0).toUpperCase() + economy.economicCycle.phase.slice(1);
+  const cycleHeadline = cycleChanged
+    ? `Economy enters ${cycleLabel}: ${getEconomicCycleDescription(economy.economicCycle.phase)}`
+    : news.headline;
 
   // ---------- Step 4: Stocks ----------
   const stockResult = processStocks(
@@ -369,7 +375,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     bankDeposits: updatedBankDeposits,
     earningsSinceLastTax: taxes.newEarningsSinceLastTax,
     totalTaxPaid: (state?.totalTaxPaid ?? 0) + taxes.taxAmount,
-    currentHeadline: news.headline,
+    currentHeadline: cycleHeadline,
     initialized: true,
     tempHappinessEffects: updatedTempEffects,
     pendingInvestments: updatedInvestments,
@@ -388,7 +394,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     totalRealizedProfitLoss: (state?.totalRealizedProfitLoss ?? 0) + marketRealizedProfitLoss,
     newsHistory: (() => {
       const prev = state?.newsHistory ?? [];
-      const next = [...prev, news.headline];
+      const next = [...prev, cycleHeadline];
       return next.length > 40 ? next.slice(next.length - 40) : next;
     })(),
     partTimeJob: partTimeActive,
@@ -489,7 +495,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     loanPayments: loanResult.totalPaid,
     stockChanges: finalStockChanges,
     courseProgress: edu.courseProgress,
-    headline: news.headline,
+    headline: cycleHeadline,
     newWeek,
     happiness,
     newAchievements,
