@@ -1,5 +1,7 @@
 import { INITIAL_PROFILE, PlayerProfile } from '../../types/game';
 import {
+  canClaimBusinessCapacityReward,
+  claimBusinessCapacityReward,
   getBusinessCapacity,
   getNextBusinessCapacityCost,
   purchaseBusinessCapacity,
@@ -49,6 +51,21 @@ describe('businessCapacityEngine', () => {
 
     expect(purchaseBusinessCapacity({ ...profile, prestigePoints: 9 })).toBeNull();
     expect(purchaseBusinessCapacity({ ...profile, gems: 9 })).toBeNull();
+  });
+
+  test('daily rewarded capacity unlock can only be claimed once per local day', () => {
+    const day = '2026-09-24';
+    const profile = { ...INITIAL_PROFILE, businessCapacity: 2 };
+    expect(canClaimBusinessCapacityReward(profile, day)).toBe(true);
+
+    const claimed = claimBusinessCapacityReward(profile, day);
+    expect(claimed?.businessCapacity).toBe(3);
+    expect(claimed?.businessCapacityRewardClaimDate).toBe(day);
+    expect(canClaimBusinessCapacityReward(claimed!, day)).toBe(false);
+    expect(claimBusinessCapacityReward(claimed!, day)).toBeNull();
+
+    expect(canClaimBusinessCapacityReward(claimed!, '2026-09-25')).toBe(true);
+    expect(claimBusinessCapacityReward(claimed!, '2026-09-25')?.businessCapacity).toBe(4);
   });
 
   test('rewarded unlocks add exactly one permanent slot and stop at ten', () => {
