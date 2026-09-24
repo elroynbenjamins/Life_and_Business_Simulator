@@ -1,4 +1,5 @@
 import { BusinessOwnershipStake, OwnedBusiness } from '../types/game';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 
 export function getBusinessOwnershipTable(
   business: OwnedBusiness,
@@ -93,6 +94,26 @@ export function issueNewBusinessEquity(
     .reduce((sum, stake) => sum + (stake.votingPercent ?? 0), 0);
 
   return { ownership: updated, issuePct, playerVotingPct };
+}
+
+export function getBusinessOwnershipEquityValue(
+  business: OwnedBusiness,
+): number {
+  return Math.max(
+    0,
+    Math.round(
+      Math.max(0, business.valuation ?? 0)
+        - getBusinessDebtPrincipal(business),
+    ),
+  );
+}
+
+export function getBusinessOwnershipStakeValue(
+  business: OwnedBusiness,
+  ownershipPct: number,
+): number {
+  const pct = Math.max(0, Math.min(100, ownershipPct));
+  return Math.round(getBusinessOwnershipEquityValue(business) * pct / 100);
 }
 
 export function getInvestmentForPostMoneyIssuePct(
