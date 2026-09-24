@@ -1209,7 +1209,7 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     activeReinvestment: null,
     insurancePolicies: { property: 'none', equipment: 'none', cyber: 'none', liability: 'none' },
     insuranceClaims: [],
-    budgetPlan: createBusinessBudgetPlan('standard', year),
+    budgetPlan: createBusinessBudgetPlan('balanced', year),
     budgetReserves: { reinvestment: 0, growth: 0 },
     lastBudgetAllocation: null,
     businessLoans: [],
