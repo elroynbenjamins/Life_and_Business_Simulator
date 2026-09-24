@@ -436,7 +436,7 @@ export default function BusinessDetailScreen() {
     sectionTabScrollRef.current?.scrollTo({ x: Math.max(0, tabIndex * 86 - 18), animated: false });
   });
   useTutorialScreenBlocker(Boolean(
-    showHireModal || showTransferModal || dialog || showTrainingModal || showProjectsModal || slotAdLoading
+    showBusinessTour || showHireModal || showTransferModal || dialog || showTrainingModal || showProjectsModal || slotAdLoading
   ));
   useEffect(() => {
     // Low-balance warnings are handled globally, including away from this screen.
