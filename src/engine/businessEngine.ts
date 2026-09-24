@@ -304,6 +304,8 @@ function getStrategyModifierTotals(biz: OwnedBusiness): {
   return { revenue, expense, reputation, morale };
 }
 
+// Longer programs use gentler weekly multipliers so doubling their duration
+// does not also double their total economic power.
 export const STRATEGIC_DECISION_MIN_GAP_WEEKS = 12;
 export const STRATEGIC_DECISION_MAX_GAP_WEEKS = 24;
 
@@ -324,8 +326,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'hold_course',
       choices: [
-        { id: 'budget_push', text: 'Push Lower Prices', description: 'Chase volume at thinner margins.', revenueMultiplier: 1.10, expenseMultiplier: 1.05, reputationDelta: -1, marketShareDelta: 2, durationWeeks: 16 },
-        { id: 'move_upscale', text: 'Move Upscale', description: 'Accept lower volume for brand strength and margin.', revenueMultiplier: 1.04, expenseMultiplier: 0.98, reputationDelta: 3, marketShareDelta: -1, durationWeeks: 20 },
+        { id: 'budget_push', text: 'Push Lower Prices', description: 'Chase volume at thinner margins.', revenueMultiplier: 1.05, expenseMultiplier: 1.025, reputationDelta: -1, marketShareDelta: 2, durationWeeks: 16 },
+        { id: 'move_upscale', text: 'Move Upscale', description: 'Accept lower volume for brand strength and margin.', revenueMultiplier: 1.025, expenseMultiplier: 0.99, reputationDelta: 3, marketShareDelta: -1, durationWeeks: 20 },
         { id: 'hold_course', text: 'Stay Balanced', description: 'Avoid disruption and preserve flexibility.', durationWeeks: 1 },
       ],
     },
@@ -339,8 +341,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'no_change',
       choices: [
-        { id: 'raise_wages', text: 'Invest in the Team', description: 'Higher costs, better morale and retention.', businessCashCost: 3000, expenseMultiplier: 1.04, moraleDelta: 7, reputationDelta: 1, durationWeeks: 20 },
-        { id: 'automate', text: 'Accelerate Automation', description: 'Lower costs but put more pressure on morale.', businessCashCost: 7000, revenueMultiplier: 1.03, expenseMultiplier: 0.91, moraleDelta: -6, durationWeeks: 24 },
+        { id: 'raise_wages', text: 'Invest in the Team', description: 'Higher costs, better morale and retention.', businessCashCost: 3000, expenseMultiplier: 1.02, moraleDelta: 7, reputationDelta: 1, durationWeeks: 20 },
+        { id: 'automate', text: 'Accelerate Automation', description: 'Lower costs but put more pressure on morale.', businessCashCost: 7000, revenueMultiplier: 1.02, expenseMultiplier: 0.95, moraleDelta: -6, durationWeeks: 24 },
         { id: 'no_change', text: 'No Major Change', description: 'Keep the current operating model.', durationWeeks: 1 },
       ],
     },
@@ -354,8 +356,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'cash_reserve',
       choices: [
-        { id: 'rd', text: 'Invest in R&D', description: 'Spend now for stronger demand and reputation over time.', businessCashCost: 10000, revenueMultiplier: 1.08, expenseMultiplier: 1.04, reputationDelta: 3, durationWeeks: 24 },
-        { id: 'cost_program', text: 'Cut Operating Waste', description: 'Improve efficiency, with a modest morale cost.', businessCashCost: 4000, expenseMultiplier: 0.90, moraleDelta: -3, durationWeeks: 20 },
+        { id: 'rd', text: 'Invest in R&D', description: 'Spend now for stronger demand and reputation over time.', businessCashCost: 10000, revenueMultiplier: 1.04, expenseMultiplier: 1.025, reputationDelta: 3, durationWeeks: 24 },
+        { id: 'cost_program', text: 'Cut Operating Waste', description: 'Improve efficiency, with a modest morale cost.', businessCashCost: 4000, expenseMultiplier: 0.95, moraleDelta: -3, durationWeeks: 20 },
         { id: 'cash_reserve', text: 'Protect Cash', description: 'Retain liquidity and avoid a temporary operating modifier.', durationWeeks: 1 },
       ],
     },
@@ -369,8 +371,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'supplier_status_quo',
       choices: [
-        { id: 'supplier_consolidate', text: 'Consolidate Suppliers', description: 'Negotiate harder and simplify purchasing, but accept more concentration risk.', businessCashCost: 3500, expenseMultiplier: 0.93, reputationDelta: -1, durationWeeks: 20 },
-        { id: 'supplier_resilience', text: 'Build Redundancy', description: 'Pay more for dependable supply and customer reliability.', businessCashCost: 6500, expenseMultiplier: 1.03, revenueMultiplier: 1.03, reputationDelta: 3, durationWeeks: 22 },
+        { id: 'supplier_consolidate', text: 'Consolidate Suppliers', description: 'Negotiate harder and simplify purchasing, but accept more concentration risk.', businessCashCost: 3500, expenseMultiplier: 0.965, reputationDelta: -1, durationWeeks: 20 },
+        { id: 'supplier_resilience', text: 'Build Redundancy', description: 'Pay more for dependable supply and customer reliability.', businessCashCost: 6500, expenseMultiplier: 1.015, revenueMultiplier: 1.015, reputationDelta: 3, durationWeeks: 22 },
         { id: 'supplier_status_quo', text: 'Keep the Current Network', description: 'Avoid disruption and preserve current relationships.', durationWeeks: 1 },
       ],
     },
@@ -384,8 +386,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'service_steady',
       choices: [
-        { id: 'service_premium', text: 'Raise Service Standards', description: 'Spend on customer experience and build a stronger brand.', businessCashCost: 6000, expenseMultiplier: 1.04, revenueMultiplier: 1.04, reputationDelta: 4, moraleDelta: 2, durationWeeks: 20 },
-        { id: 'service_conversion', text: 'Optimize for Conversion', description: 'Push sales and throughput harder, with some brand pressure.', businessCashCost: 3500, revenueMultiplier: 1.08, expenseMultiplier: 1.02, marketShareDelta: 2, reputationDelta: -1, durationWeeks: 18 },
+        { id: 'service_premium', text: 'Raise Service Standards', description: 'Spend on customer experience and build a stronger brand.', businessCashCost: 6000, expenseMultiplier: 1.02, revenueMultiplier: 1.02, reputationDelta: 4, moraleDelta: 2, durationWeeks: 20 },
+        { id: 'service_conversion', text: 'Optimize for Conversion', description: 'Push sales and throughput harder, with some brand pressure.', businessCashCost: 3500, revenueMultiplier: 1.04, expenseMultiplier: 1.01, marketShareDelta: 2, reputationDelta: -1, durationWeeks: 18 },
         { id: 'service_steady', text: 'Keep Service Consistent', description: 'Maintain current standards without a major program.', durationWeeks: 1 },
       ],
     },
@@ -399,8 +401,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'channel_current',
       choices: [
-        { id: 'channel_sales', text: 'Expand Sales Reach', description: 'Spend aggressively to win share and grow revenue.', businessCashCost: 8000, revenueMultiplier: 1.09, expenseMultiplier: 1.05, marketShareDelta: 3, durationWeeks: 20 },
-        { id: 'channel_brand', text: 'Build the Brand', description: 'Grow reputation first and let demand follow.', businessCashCost: 6000, revenueMultiplier: 1.04, reputationDelta: 5, marketShareDelta: 1, durationWeeks: 22 },
+        { id: 'channel_sales', text: 'Expand Sales Reach', description: 'Spend aggressively to win share and grow revenue.', businessCashCost: 8000, revenueMultiplier: 1.045, expenseMultiplier: 1.025, marketShareDelta: 3, durationWeeks: 20 },
+        { id: 'channel_brand', text: 'Build the Brand', description: 'Grow reputation first and let demand follow.', businessCashCost: 6000, revenueMultiplier: 1.02, reputationDelta: 5, marketShareDelta: 1, durationWeeks: 22 },
         { id: 'channel_current', text: 'Stay with Current Channels', description: 'Keep acquisition spending stable.', durationWeeks: 1 },
       ],
     },
@@ -414,8 +416,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'operations_flexible',
       choices: [
-        { id: 'operations_lean', text: 'Run Leaner', description: 'Remove overhead and tighten processes at a small morale cost.', businessCashCost: 4500, expenseMultiplier: 0.88, moraleDelta: -4, durationWeeks: 24 },
-        { id: 'operations_standardize', text: 'Standardize & Digitize', description: 'Invest in repeatable systems that support growth and efficiency.', businessCashCost: 9000, revenueMultiplier: 1.04, expenseMultiplier: 0.94, reputationDelta: 1, durationWeeks: 22 },
+        { id: 'operations_lean', text: 'Run Leaner', description: 'Remove overhead and tighten processes at a small morale cost.', businessCashCost: 4500, expenseMultiplier: 0.96, moraleDelta: -4, durationWeeks: 24 },
+        { id: 'operations_standardize', text: 'Standardize & Digitize', description: 'Invest in repeatable systems that support growth and efficiency.', businessCashCost: 9000, revenueMultiplier: 1.02, expenseMultiplier: 0.97, reputationDelta: 1, durationWeeks: 22 },
         { id: 'operations_flexible', text: 'Keep Flexibility', description: 'Avoid a major operating-model change.', durationWeeks: 1 },
       ],
     },
@@ -429,8 +431,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'brand_steady',
       choices: [
-        { id: 'brand_premium', text: 'Own the Premium Position', description: 'Invest in quality and reputation, accepting somewhat higher costs.', businessCashCost: 7500, revenueMultiplier: 1.05, expenseMultiplier: 1.03, reputationDelta: 6, marketShareDelta: -1, durationWeeks: 22 },
-        { id: 'brand_broad', text: 'Broaden the Audience', description: 'Make the offer more accessible and chase a wider customer base.', businessCashCost: 5000, revenueMultiplier: 1.07, marketShareDelta: 2, reputationDelta: -1, durationWeeks: 20 },
+        { id: 'brand_premium', text: 'Own the Premium Position', description: 'Invest in quality and reputation, accepting somewhat higher costs.', businessCashCost: 7500, revenueMultiplier: 1.025, expenseMultiplier: 1.015, reputationDelta: 6, marketShareDelta: -1, durationWeeks: 22 },
+        { id: 'brand_broad', text: 'Broaden the Audience', description: 'Make the offer more accessible and chase a wider customer base.', businessCashCost: 5000, revenueMultiplier: 1.035, marketShareDelta: 2, reputationDelta: -1, durationWeeks: 20 },
         { id: 'brand_steady', text: 'Protect the Current Brand', description: 'Keep positioning stable.', durationWeeks: 1 },
       ],
     },
