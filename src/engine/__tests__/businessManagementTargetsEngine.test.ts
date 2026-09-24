@@ -83,7 +83,7 @@ function makeCorporateBusiness(): OwnedBusiness {
     businessLoans: [{
       id: 'target-debt',
       amount: 10_000_000,
-      remainingAmount: 10_000_000,
+      remainingAmount: 10_800_000,
       weeklyPayment: 100_000,
       weeksRemaining: 100,
       interestRate: 0.08,
@@ -141,7 +141,7 @@ describe('business management targets', () => {
     business.lastWeekRevenue = 4_000_000;
     business.businessLoans = [{
       ...business.businessLoans[0],
-      remainingAmount: 7_000_000,
+      remainingAmount: 7_560_000,
     }];
 
     business = setBusinessManagementTargetProfile(business, 'margin', 23);
@@ -176,7 +176,7 @@ describe('business management targets', () => {
     );
     business.businessLoans = [{
       ...business.businessLoans[0],
-      remainingAmount: 8_000_000,
+      remainingAmount: 8_640_000,
     }];
 
     const rolled = ensureBusinessManagementTargetPlan(business, 26)!;
@@ -201,7 +201,7 @@ describe('business management targets', () => {
     );
     business.businessLoans = [{
       ...business.businessLoans[0],
-      remainingAmount: 9_800_000,
+      remainingAmount: 10_584_000,
     }];
 
     const report = {
@@ -229,7 +229,7 @@ describe('business management targets', () => {
     business.corporateKpiHistory = Array.from({ length: 5 }, (_, index) => point(16 + index));
     business.businessLoans = [{
       ...business.businessLoans[0],
-      remainingAmount: 10_000_000,
+      remainingAmount: 10_800_000,
     }];
 
     business.managementTargets = ensureBusinessManagementTargetPlan(
@@ -262,7 +262,7 @@ describe('business management targets', () => {
     business.managementTargets = ensureBusinessManagementTargetPlan(business, 25, 'balanced');
     business.businessLoans = [{
       ...business.businessLoans[0],
-      remainingAmount: 9_400_000,
+      remainingAmount: 10_152_000,
     }];
 
     const progress = getBusinessManagementTargetProgress(
