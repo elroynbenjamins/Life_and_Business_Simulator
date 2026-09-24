@@ -169,7 +169,7 @@ function formatIntegrationOutcomeEffect(
     : `+${(Math.abs(expenseReduction) * 100).toFixed(1)}% costs`;
   const reputationText = reputationDelta === 0
     ? ''
-    : ` • ${reputationDelta > 0 ? '+' : ''}${reputationDelta} rep`;
+    : ` • ${reputationDelta > 0 ? '+' : ''}${Number.isInteger(reputationDelta) ? reputationDelta.toFixed(0) : reputationDelta.toFixed(1)} rep`;
   return `${revenueText} • ${expenseText}${reputationText}`;
 }
 
