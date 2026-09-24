@@ -85,6 +85,11 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
     return (cd?.level ?? 0) >= 3;
   });
   check('expert_course', hasExpert);
+  const expertCourseCount = (state?.completedCourses ?? []).filter((completed) => {
+    const course = (coursesData ?? []).find((item) => item?.id === completed.courseId);
+    return (course?.level ?? 0) >= 3;
+  }).length;
+  check('expert_five', expertCourseCount >= 5);
 
   const advancedCourseIds = (coursesData ?? []).filter((course) => (course?.level ?? 1) <= 2).map((course) => course?.id);
   const allAdvancedDone = advancedCourseIds.length > 0 && advancedCourseIds.every((courseId) =>
@@ -119,6 +124,7 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   const everHadLoan = (state?.statistics?.loansTaken ?? 0) > 0;
   check('debt_free_after_loan', everHadLoan && (state?.loans ?? []).length === 0);
   check('three_loans', (state?.loans ?? []).length >= 3);
+  check('first_deposit', (state?.bankDeposits?.length ?? 0) >= 1);
 
   // Lifestyle
   check('luxury_life', (state?.currentCarId === 'luxury_car') && (state?.currentHousingId === 'mansion'));
@@ -168,17 +174,81 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   });
   check('stock_profit_25', hasStock25);
 
-  // Business empire
-  check('own_5_businesses', (state?.businesses?.length ?? 0) >= 5);
+  // Business empire and corporate progression
+  const businesses = state?.businesses ?? [];
+  const acquiredBusinesses = businesses.filter((business) => !!business.acquisition);
+  const maxBusinessValue = businesses.reduce((max, business) => Math.max(max, business.valuation ?? 0), 0);
+  const totalCorporateCapex = businesses.reduce((total, business) => total + (business.completedCorporateCapex?.length ?? 0), 0);
+  const distinctIdentityTraits = new Set(
+    businesses.flatMap((business) => (business.identityTraits ?? []).map((trait) => trait.id))
+  );
+  const maxExecutiveTeam = businesses.reduce((max, business) => Math.max(max, business.executives?.length ?? 0), 0);
+  const autoStrategyCount = businesses.filter((business) => !!business.autoStrategicDecisions).length;
+  const maxHoldingCompanies = (state.holdingCompanies ?? []).reduce((max, holding) => {
+    const count = businesses.filter((business) => business.holdingCompanyId === holding.id).length;
+    return Math.max(max, count);
+  }, 0);
+  const maxHoldingSharedServiceLevels = (state.holdingCompanies ?? []).reduce((max, holding) => {
+    const services = holding.sharedServices ?? {};
+    const levels = ['finance', 'hr', 'procurement', 'marketing', 'it']
+      .reduce((sum, key) => sum + Number((services as any)[key] ?? 0), 0);
+    return Math.max(max, levels);
+  }, 0);
+  const fullyInsuredBusiness = businesses.some((business) => {
+    const policies = business.insurancePolicies ?? {};
+    return ['property', 'equipment', 'cyber', 'liability']
+      .every((area) => (policies as any)[area] === 'comprehensive');
+  });
+  const completedReinvestmentCycle = businesses.some((business) => {
+    const reinvestment = business.reinvestment;
+    return !!reinvestment
+      && (reinvestment.technology?.lastRenewedGlobalWeek ?? 0) > 0
+      && (reinvestment.premises?.lastRenewedGlobalWeek ?? 0) > 0
+      && (reinvestment.equipment?.lastRenewedGlobalWeek ?? 0) > 0;
+  });
 
-  // Property mogul
-  check('own_5_properties', (state?.properties?.length ?? 0) >= 5);
+  check('first_business', businesses.length >= 1);
+  check('multi_business_3', businesses.length >= 3);
+  check('own_5_businesses', businesses.length >= 5);
+  check('business_10', businesses.length >= 10);
+  check('business_level_5', businesses.some((business) => (business.level ?? 0) >= 4));
+  check('corporate_scale', maxBusinessValue >= 25_000_000);
+  check('global_corporation', maxBusinessValue >= 175_000_000);
+  check('first_acquisition', acquiredBusinesses.length >= 1);
+  check('acquisition_3', acquiredBusinesses.length >= 3);
+  check('integration_success', acquiredBusinesses.some((business) => business.acquisition?.integrationOutcome === 'success'));
+  check('first_holding', (state.holdingCompanies?.length ?? 0) >= 1);
+  check('holding_3_companies', maxHoldingCompanies >= 3);
+  check('holding_services_5', maxHoldingSharedServiceLevels >= 5);
+  check('first_executive', businesses.some((business) => (business.executives?.length ?? 0) >= 1));
+  check('executive_team_3', maxExecutiveTeam >= 3);
+  check('board_established', businesses.some((business) => !!business.boardGovernance));
+  check('first_corporate_capex', totalCorporateCapex >= 1);
+  check('corporate_capex_3', totalCorporateCapex >= 3);
+  check('auto_strategy_3', autoStrategyCount >= 3);
+  check('identity_trait_first', distinctIdentityTraits.size >= 1);
+  check('identity_traits_3', distinctIdentityTraits.size >= 3);
+  check('profitable_exit', (state.soldBusinesses ?? []).some((sale) => (sale.lifetimeCashResult ?? 0) > 0));
+  check('fully_insured', fullyInsuredBusiness);
+  check('reinvestment_cycle', completedReinvestmentCycle);
+
+  // Real estate progression
+  const properties = state?.properties ?? [];
+  const totalPropertyValue = properties.reduce((total, property) => total + (property.currentValue ?? 0), 0);
+  const rentedPropertyCount = properties.filter((property) => property.isRentedOut).length;
+  check('first_property', properties.length >= 1);
+  check('own_5_properties', properties.length >= 5);
+  check('auction_winner', properties.some((property) => property.acquisitionType === 'auction'));
+  check('renovator', properties.some((property) => property.isRenovated));
+  check('rental_portfolio_3', rentedPropertyCount >= 3);
+  check('property_value_1m', totalPropertyValue >= 1_000_000);
 
   // Realized profit
   check('realized_profit_100k', (state?.totalRealizedProfitLoss ?? 0) >= 100000);
   check('realized_profit_1m', (state?.totalRealizedProfitLoss ?? 0) >= 1000000);
   check('realized_profit_2_5m', (state?.totalRealizedProfitLoss ?? 0) >= 2500000);
   check('realized_profit_5m', (state?.totalRealizedProfitLoss ?? 0) >= 5000000);
+  check('dividends_100k', (state?.statistics?.totalDividendsReceived ?? 0) >= 100000);
 
   // Relationships, family and dynasty
   const activePartner = state.relationshipState?.partnerId
@@ -190,6 +260,7 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   check('parent_bond_90', (state.relationshipState?.children ?? []).some((child) => (child.parentRelationship ?? 0) >= 90));
   check('grandparent', (state.relationshipState?.children ?? []).some((child) => (child.descendants?.length ?? 0) > 0));
   check('family_tree_10', (state.familyTree?.people?.length ?? 0) >= 10);
+  check('family_tree_25', (state.familyTree?.people?.length ?? 0) >= 25);
   check('generation_2', (state.generation ?? 1) >= 2);
   check('generation_3', (state.generation ?? 1) >= 3);
 
@@ -236,11 +307,10 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   check('mojo_double', !!mojoHolding && (mojoHolding.avgBuyPrice ?? 0) > 0
     && mojoPrice >= (mojoHolding.avgBuyPrice ?? 0) * 2);
 
-  // New achievements
-  check('multi_business_3', (state?.businesses?.length ?? 0) >= 3);
-  check('legendary_hire', (state?.businesses ?? []).some((b) => (b.employees ?? []).some((e) => e.tier === 'legendary')));
+  // Additional long-horizon achievements
+  check('legendary_hire', businesses.some((business) => (business.employees ?? []).some((employee) => employee.tier === 'legendary')));
   check('survive_20_years', (state?.statistics?.weeksPlayed ?? 0) >= 400);
-  check('complete_all_courses', allCourseIds.length > 0 && allCourseIds.every((cid) => (state?.completedCourses ?? []).some((cc) => cc.courseId === cid)));
+  check('complete_all_courses', allCourseIds.length > 0 && allCourseIds.every((courseId) => (state?.completedCourses ?? []).some((completed) => completed.courseId === courseId)));
 
   return newlyUnlocked;
 }
