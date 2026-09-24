@@ -7,7 +7,7 @@ import {
 import { getCorporateScaleTier } from './corporateScaleEngine';
 import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
 import { getCorporateWorkforceEffects } from './businessWorkforceEngine';
-import { getBusinessDebtPrincipal, getBusinessLoanOutstandingPrincipal, getBusinessWeeklyDebtService } from './businessDebtEngine';
+import { getBusinessDebtPrincipal, getBusinessLoanOutstandingPrincipal, getBusinessWeeklyDebtService, getBusinessWeeklyInterestExpense } from './businessDebtEngine';
 
 export interface CorporateCreditProfile {
   rating: CorporateCreditRating;
@@ -15,6 +15,7 @@ export interface CorporateCreditProfile {
   totalDebt: number;
   debtToValue: number;
   weeklyDebtService: number;
+  debtServiceCoverage: number;
   interestCoverage: number;
   maxDebtCapacity: number;
   remainingDebtCapacity: number;
@@ -74,10 +75,25 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
   const debtToValue = totalDebt / valuation;
   const revenue = Math.max(1, business.lastWeekRevenue ?? 0);
   const profit = business.lastWeekProfit ?? 0;
-  const operatingCashFlowBeforeDebt = (business.lastWeekCashFlow ?? profit) + weeklyDebtService;
-  const interestCoverage = weeklyDebtService > 0
-    ? operatingCashFlowBeforeDebt / weeklyDebtService
-    : operatingCashFlowBeforeDebt > 0 ? 10 : 1;
+  const weeklyInterestExpense = Math.max(
+    0,
+    business.lastExpenseBreakdown?.loanInterest
+      ?? getBusinessWeeklyInterestExpense(business),
+  );
+  const weeklyTaxes = Math.max(0, business.lastExpenseBreakdown?.taxes ?? 0);
+  // Profit is after interest and tax. Add interest back for cash available to
+  // service principal, and add tax as well for an EBIT-style interest cover.
+  const cashAvailableForDebtService = Math.max(0, profit + weeklyInterestExpense);
+  const earningsBeforeInterestAndTax = Math.max(
+    0,
+    profit + weeklyInterestExpense + weeklyTaxes,
+  );
+  const debtServiceCoverage = weeklyDebtService > 0
+    ? cashAvailableForDebtService / weeklyDebtService
+    : cashAvailableForDebtService > 0 ? 10 : 1;
+  const interestCoverage = weeklyInterestExpense > 0
+    ? earningsBeforeInterestAndTax / weeklyInterestExpense
+    : earningsBeforeInterestAndTax > 0 ? 10 : 1;
 
   const scaleTier = getCorporateScaleTier(business);
   const scaleScore = scaleTier === 'global' ? 20 : scaleTier === 'major' ? 17 : scaleTier === 'corporate' ? 14 : 5;
@@ -94,10 +110,10 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
         : debtToValue <= 0.40 ? 10
           : debtToValue <= 0.50 ? 5
             : 0;
-  const coverageScore = interestCoverage >= 4 ? 10
-    : interestCoverage >= 2.5 ? 8
-      : interestCoverage >= 1.5 ? 5
-        : interestCoverage >= 1 ? 2
+  const coverageScore = debtServiceCoverage >= 2 ? 10
+    : debtServiceCoverage >= 1.5 ? 8
+      : debtServiceCoverage >= 1.25 ? 5
+        : debtServiceCoverage >= 1 ? 2
           : 0;
 
   const governance = getBusinessGovernanceEffects(business);
@@ -141,6 +157,7 @@ export function getCorporateCreditProfile(business: OwnedBusiness): CorporateCre
     totalDebt,
     debtToValue,
     weeklyDebtService,
+    debtServiceCoverage,
     interestCoverage,
     maxDebtCapacity,
     remainingDebtCapacity,
@@ -192,15 +209,20 @@ function buildDebtQuote(
     reason = 'This would exceed the company’s principal debt capacity.';
   }
 
-  const operatingCashFlowBeforeDebt = Math.max(
+  const weeklyInterestExpense = Math.max(
     0,
-    (business.lastWeekProfit ?? 0) + profile.weeklyDebtService,
+    business.lastExpenseBreakdown?.loanInterest
+      ?? getBusinessWeeklyInterestExpense(business),
+  );
+  const cashAvailableForDebtService = Math.max(
+    0,
+    (business.lastWeekProfit ?? 0) + weeklyInterestExpense,
   );
   const projectedDebtService = profile.weeklyDebtService + weeklyPayment;
-  if (allowed && operatingCashFlowBeforeDebt <= 0) {
+  if (allowed && cashAvailableForDebtService <= 0) {
     allowed = false;
     reason = 'The company needs positive operating cash flow before taking new corporate debt.';
-  } else if (allowed && projectedDebtService > operatingCashFlowBeforeDebt * 0.65) {
+  } else if (allowed && projectedDebtService > cashAvailableForDebtService * 0.65) {
     allowed = false;
     reason = 'Projected debt service would consume too much current operating cash flow.';
   }
