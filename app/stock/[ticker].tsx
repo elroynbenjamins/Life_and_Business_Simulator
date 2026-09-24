@@ -14,6 +14,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { showGameDialog } from '../../src/components/GameDialog';
 import RepeatStepperButton from '../../src/components/RepeatStepperButton';
 import StatusPill from '../../src/components/StatusPill';
+import { getCryptoRiskProfile } from '../../src/engine/stockEngine';
 
 export default function StockDetailScreen() {
   const { width: screenWidth } = useWindowDimensions();
@@ -55,6 +56,7 @@ export default function StockDetailScreen() {
   const price = stock?.currentPrice ?? 0;
   const assetMeta = sd as any;
   const isCrypto = sd?.type === 'crypto';
+  const cryptoRisk = isCrypto ? getCryptoRiskProfile(assetMeta) : null;
   const isEmergingCompany = assetMeta.marketRole === 'emerging';
   const isDelisted = stock.marketStatus === 'delisted';
   const acquiredBy = stock.acquiredByTicker
@@ -189,6 +191,22 @@ export default function StockDetailScreen() {
                     : 'Speculative / Meme'}
               </Text>
             </View>
+            {cryptoRisk && (
+              <>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Risk</Text>
+                  <Text style={[styles.val, { color: cryptoRisk.label === 'Very High' ? Colors.warning : Colors.info }]}>
+                    {cryptoRisk.label} • random ~±{cryptoRisk.ordinaryRandomMovePct.toFixed(1)}%
+                  </Text>
+                </View>
+                <Text style={styles.cryptoRiskText}>
+                  Weekly band {(cryptoRisk.minWeeklyChange * 100).toFixed(0)}% to +{(cryptoRisk.maxWeeklyChange * 100).toFixed(0)}%
+                  {cryptoRisk.maniaChance > 0
+                    ? ` • hype/crash burst ${(cryptoRisk.maniaChance * 100).toFixed(2)}%/wk, ${(cryptoRisk.maniaMinMove * 100).toFixed(0)}–${(cryptoRisk.maniaMaxMove * 100).toFixed(0)}%`
+                    : ''}
+                </Text>
+              </>
+            )}
             {assetMeta.stakingYield ? (
               <View style={styles.row}>
                 <Text style={styles.label}>Annual Staking</Text>
@@ -384,6 +402,7 @@ const styles = StyleSheet.create({
   cryptoMechanicBox: { backgroundColor: `${Colors.info}12`, borderRadius: 8, padding: 10, marginVertical: 10, borderWidth: 1, borderColor: `${Colors.info}28` },
   cryptoMechanicTitle: { color: Colors.info, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
   cryptoMechanicText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 3 },
+  cryptoRiskText: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 2, marginBottom: 4 },
   bigPrice: { color: Colors.textPrimary, fontSize: 32, fontWeight: '700' },
   changeText: { fontSize: 16, fontWeight: '600' },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
