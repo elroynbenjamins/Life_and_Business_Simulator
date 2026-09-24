@@ -1495,6 +1495,15 @@ export interface BusinessAcquisitionState {
   referenceExpenseMultiplier?: number;
 }
 
+export type EconomicCyclePhase = 'expansion' | 'boom' | 'slowdown' | 'recession' | 'recovery';
+
+export interface EconomicCycleState {
+  phase: EconomicCyclePhase;
+  weeksRemaining: number;
+  totalWeeks: number;
+  startedGlobalWeek: number;
+}
+
 export interface HoldingCompany {
   id: string;
   name: string;
@@ -1511,6 +1520,11 @@ export interface HoldingCompany {
   designatedSuccessorChildId: string | null;
   designatedSuccessorChildName: string | null;
   sharedServices?: HoldingSharedServices;
+  /** Annualized management fee as a share of subsidiary revenue (0-3%). */
+  managementFeeRate?: number;
+  totalManagementFeesCollected?: number;
+  totalDividendsReceived?: number;
+  totalOwnerDistributions?: number;
 }
 
 export interface BusinessOwnershipStake {
@@ -1806,6 +1820,7 @@ export interface GameState {
   lifecycle: LifecycleState;
   lastMacroCrashWeek: number;
   activeMacroCrash: ActiveMacroCrash | null;
+  economicCycle: EconomicCycleState;
   generation: number;
   familyLegacy: FamilyLegacyEntry[];
   familyTree: FamilyTreeState;
@@ -1891,6 +1906,7 @@ export const INITIAL_GAME_STATE: GameState = {
   lifecycle: { ...INITIAL_LIFECYCLE_STATE },
   lastMacroCrashWeek: 0,
   activeMacroCrash: null,
+  economicCycle: { phase: 'expansion', weeksRemaining: 12, totalWeeks: 12, startedGlobalWeek: 1 },
   generation: 1,
   familyLegacy: [],
   familyTree: { ...INITIAL_FAMILY_TREE_STATE },
