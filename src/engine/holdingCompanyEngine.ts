@@ -448,6 +448,62 @@ export function getHoldingSubsidiaryHealthSnapshot(
   };
 }
 
+export type HoldingSubsidiaryAttentionAction =
+  | { kind: 'business_overview'; label: string; detail: string }
+  | { kind: 'business_finance'; label: string; detail: string }
+  | { kind: 'holding_capital'; label: string; detail: string };
+
+export function getHoldingSubsidiaryAttentionAction(
+  business: OwnedBusiness,
+  inflationMultiplier = 1,
+): HoldingSubsidiaryAttentionAction | null {
+  const health = getHoldingSubsidiaryHealthSnapshot(business, inflationMultiplier);
+
+  if (health.integrationPending) {
+    return {
+      kind: 'business_overview',
+      label: 'Choose integration',
+      detail: 'Open the acquisition integration choices.',
+    };
+  }
+  if (health.decisionPending) {
+    return {
+      kind: 'business_overview',
+      label: 'Resolve decision',
+      detail: 'Open the pending business decision.',
+    };
+  }
+  if (health.cash < 0) {
+    return {
+      kind: 'business_finance',
+      label: 'Repair cash',
+      detail: 'Open Finance to review cash funding and budget controls.',
+    };
+  }
+  if (health.protectedCashGap > 0 && health.protectedCashCoverage < 0.5) {
+    return {
+      kind: 'holding_capital',
+      label: 'Fund reserve',
+      detail: 'Expand Holding capital allocation for this subsidiary.',
+    };
+  }
+  if (health.weeklyProfit < 0) {
+    return {
+      kind: 'business_finance',
+      label: 'Review loss',
+      detail: 'Open Finance to review budget, cash flow and funding.',
+    };
+  }
+  if (health.protectedCashGap > 0) {
+    return {
+      kind: 'holding_capital',
+      label: 'Fund reserve',
+      detail: 'Expand Holding capital allocation for this subsidiary.',
+    };
+  }
+  return null;
+}
+
 export function getHoldingSubsidiaryAttentionSummary(
   businesses: OwnedBusiness[],
   inflationMultiplier = 1,
