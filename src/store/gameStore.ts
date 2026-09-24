@@ -3822,7 +3822,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     const businesses = (state.businesses ?? []).map((business) => {
       if (business.id !== businessId) return business;
-      let updated = {
+      let updated: OwnedBusiness = {
         ...business,
         strategicFocus: focus,
         timeline: [
@@ -3927,7 +3927,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     const businesses = (state.businesses ?? []).map((item) => {
       if (item.id !== businessId) return item;
-      let updated = {
+      let updated: OwnedBusiness = {
         ...item,
         budgetPlan: plan,
         timeline: [
