@@ -1699,6 +1699,7 @@ export function processBusinessWeek(
   const timelineAdds: BusinessTimelineEntry[] = [];
   let updatedAcquisition = acquisition ? { ...acquisition } : null;
   let integrationRepDelta = 0;
+  let integrationResolutionEvent: { businessName: string; eventTitle: string; icon: string } | null = null;
   if (updatedAcquisition && updatedAcquisition.integrationStrategy !== 'pending') {
     const remaining = Math.max(0, updatedAcquisition.integrationWeeksRemaining ?? 0);
     if (remaining === 1) {
@@ -1714,13 +1715,24 @@ export function processBusinessWeek(
         postIntegrationRevenueBonus: outcomeEffect.revenueBonus,
         postIntegrationExpenseReduction: outcomeEffect.expenseReduction,
       };
+      const strategyLabel = strategy === 'independent'
+        ? 'Keep Independent'
+        : strategy === 'integrate'
+          ? 'Integrate Operations'
+          : 'Aggressive Turnaround';
+      const outcomeIcon = outcome === 'success' ? '✅' : outcome === 'mixed' ? '⚖️' : '⚠️';
       timelineAdds.push({
         week: currentWeek,
         year: currentYear,
-        title: `Acquisition integration ${outcome}: ${strategy.replace('_', ' ')}`,
-        icon: outcome === 'success' ? '✅' : outcome === 'mixed' ? '⚖️' : '⚠️',
+        title: `Acquisition integration ${outcome}: ${strategyLabel}`,
+        icon: outcomeIcon,
         kind: 'event',
       });
+      integrationResolutionEvent = {
+        businessName: biz.name,
+        eventTitle: `Integration ${outcome}: ${strategyLabel}`,
+        icon: outcomeIcon,
+      };
     } else if (remaining > 1) {
       updatedAcquisition = { ...updatedAcquisition, integrationWeeksRemaining: remaining - 1 };
     }
@@ -1754,7 +1766,7 @@ export function processBusinessWeek(
   }
 
   // Morale incident: a single 5% roll, only for teams averaging at least 75 morale.
-  let newEvent: { businessName: string; eventTitle: string; icon: string } | null = null;
+  let newEvent: { businessName: string; eventTitle: string; icon: string } | null = integrationResolutionEvent;
   let eventRepChange = 0;
   let moraleDrop = 0;
   const averageMorale = (biz.employees?.length ?? 0) > 0
@@ -1764,7 +1776,7 @@ export function processBusinessWeek(
   const eventCooldowns = { ...(biz.businessEventCooldowns ?? {}) };
   const availableMoraleEvents = (moraleEventsData as any[]).filter((event: any) => globalWeek - (eventCooldowns[event.id] ?? -100) >= 40);
   let triggeredEventId: string | null = null;
-  if (eventSpacingReady && averageMorale >= 75 && availableMoraleEvents.length > 0 && Math.random() < 0.05) {
+  if (!newEvent && eventSpacingReady && averageMorale >= 75 && availableMoraleEvents.length > 0 && Math.random() < 0.05) {
     const moraleEvent: any = availableMoraleEvents[Math.floor(Math.random() * availableMoraleEvents.length)];
     if (moraleEvent) {
       moraleDrop = Math.min(10, Math.max(5, moraleEvent.moraleDecrease ?? 5));
