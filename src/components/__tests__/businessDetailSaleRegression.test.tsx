@@ -63,6 +63,9 @@ describe('business detail sale regression', () => {
       applyMoraleActionToBusiness: jest.fn(),
       startEmployeeTraining: jest.fn(),
       startBusinessProject: jest.fn(),
+      getAdFreeSlotRewardUsage: () => ({ claimedToday: 0, remaining: 1, limit: 1, available: true }),
+      claimAdFreeBusinessSlotReward: jest.fn(),
+      setBusinessDecisionAutomation: jest.fn(),
       resolveBusinessRetention: jest.fn(),
     };
   });
