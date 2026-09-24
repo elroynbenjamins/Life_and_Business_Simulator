@@ -5,6 +5,7 @@ import {
   createAcquiredBusiness,
   generateAcquisitionTargets,
   getAcquisitionDebtServiceSafety,
+  getAcquisitionIntegrationDecisionPreview,
   getAcquisitionFinancingQuote,
   getAcquisitionFundingSafetyMatrix,
   getAcquisitionUnderwrittenProfit,
@@ -434,6 +435,42 @@ describe('business acquisitions and holding companies', () => {
 
     const returnInfo = getAcquisitionReturn(business)!;
     expect(returnInfo.returnPct).toBeLessThan(100);
+  });
+
+  test('integration decision preview ranks temporary disruption and exposes expected outcomes', () => {
+    const independent = getAcquisitionIntegrationDecisionPreview(
+      8,
+      0.08,
+      70,
+      'independent',
+      1_000_000,
+      150_000,
+    );
+    const integrate = getAcquisitionIntegrationDecisionPreview(
+      8,
+      0.08,
+      70,
+      'integrate',
+      1_000_000,
+      150_000,
+    );
+    const turnaround = getAcquisitionIntegrationDecisionPreview(
+      8,
+      0.08,
+      70,
+      'turnaround',
+      1_000_000,
+      150_000,
+    );
+
+    expect(independent.estimatedWeeklyProfitDuringIntegration)
+      .toBeGreaterThan(integrate.estimatedWeeklyProfitDuringIntegration);
+    expect(integrate.estimatedWeeklyProfitDuringIntegration)
+      .toBeGreaterThan(turnaround.estimatedWeeklyProfitDuringIntegration);
+    expect(independent.expectedRevenueBonus).toBe(0);
+    expect(integrate.probabilities.failed).toBeGreaterThan(0);
+    expect(turnaround.probabilities.failed).toBeGreaterThan(integrate.probabilities.failed);
+    expect(turnaround.expectedRevenueBonus).toBeGreaterThan(integrate.expectedRevenueBonus);
   });
 
   test('integration strategy resolves into persistent operating effects', () => {
