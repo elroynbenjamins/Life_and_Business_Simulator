@@ -50,6 +50,7 @@ export default function HoldingCompaniesScreen() {
   const [name, setName] = useState('');
   const [managerSelections, setManagerSelections] = useState<Record<string, string>>({});
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
+  const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
@@ -99,6 +100,8 @@ export default function HoldingCompaniesScreen() {
   const hasManagementReports = summaries.some(
     (summary) => !!summary.quarterlyManagementReport && !!summary.annualManagementReport,
   );
+  const selectedSummary = summaries.find((summary) => summary.holding.id === selectedHoldingId) ?? summaries[0] ?? null;
+  const visibleSummaries = selectedSummary ? [selectedSummary] : [];
 
   const createHolding = () => {
     const cleanName = name.trim();
@@ -172,6 +175,28 @@ export default function HoldingCompaniesScreen() {
               </View>
             </GameCard>
 
+            {summaries.length > 1 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.holdingSelector}>
+                {summaries.map((summary) => {
+                  const active = summary.holding.id === (selectedHoldingId ?? summaries[0]?.holding.id);
+                  return (
+                    <Pressable
+                      key={summary.holding.id}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => setSelectedHoldingId(summary.holding.id)}
+                      style={[styles.holdingSelectorChip, active && styles.holdingSelectorChipActive]}
+                    >
+                      <Ionicons name="business-outline" size={14} color={active ? Colors.info : Colors.textMuted} />
+                      <Text style={[styles.holdingSelectorText, active && styles.holdingSelectorTextActive]} numberOfLines={1}>
+                        {summary.holding.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+
             {hasManagementReports && (
               <View style={styles.reportingToolbar}>
                 <View>
@@ -206,7 +231,7 @@ export default function HoldingCompaniesScreen() {
                   Create one when you want acquisitions and family businesses managed as a single dynasty portfolio.
                 </Text>
               </GameCard>
-            ) : summaries.map(({
+            ) : visibleSummaries.map(({
               holding, subsidiaries, subsidiaryCount, totalValue, totalDebt, netGroupEquity, weeklyProfit,
               cashReserve, familyControlledPct, protectedAssets, avgRevenueSynergy, avgExpenseSynergy, diversification,
               sharedServiceEffects, quarterlyManagementReport, annualManagementReport,
@@ -568,6 +593,11 @@ const styles = StyleSheet.create({
   headerTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 36 },
+  holdingSelector: { gap: 7, paddingBottom: 10, paddingRight: 6 },
+  holdingSelectorChip: { maxWidth: 190, minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 7 },
+  holdingSelectorChipActive: { borderColor: `${Colors.info}66`, backgroundColor: `${Colors.info}12` },
+  holdingSelectorText: { color: Colors.textSecondary, fontSize: 11, fontWeight: '800', maxWidth: 145 },
+  holdingSelectorTextActive: { color: Colors.info },
   introHeader: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   iconWrap: { width: 44, height: 44, borderRadius: 11, backgroundColor: '#17263A', alignItems: 'center', justifyContent: 'center' },
   introTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
