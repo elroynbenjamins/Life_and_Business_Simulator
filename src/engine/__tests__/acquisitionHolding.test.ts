@@ -7,6 +7,7 @@ import {
   getAcquisitionDebtServiceSafety,
   getAcquisitionIntegrationDecisionPreview,
   getAcquisitionFinancingQuote,
+  filterAcquisitionTargetsByFunding,
   getAcquisitionFundingAvailabilityMatrix,
   getAcquisitionFundingSafetyMatrix,
   getAcquisitionUnderwrittenProfit,
@@ -321,6 +322,44 @@ describe('business acquisitions and holding companies', () => {
 
     expect(leveraged.safety.allowed).toBe(false);
     expect(leveraged.executable).toBe(false);
+  });
+
+  test('funding readiness filter distinguishes ready deals from merely financeable deals', () => {
+    const base = generateAcquisitionTargets(700, 1, 1)[0];
+    const readyTarget = {
+      ...base,
+      id: 'ready',
+      askingPrice: 20_000_000,
+      estimatedValue: 18_000_000,
+      weeklyRevenue: 1_000_000,
+      weeklyProfit: 500_000,
+      integrationPenalty: 0.05,
+      risk: 'low' as const,
+    };
+    const cashHungryTarget = {
+      ...readyTarget,
+      id: 'cash-hungry',
+      askingPrice: 100_000_000,
+      estimatedValue: 90_000_000,
+    };
+    const unfinanceableTarget = {
+      ...readyTarget,
+      id: 'blocked',
+      askingPrice: 100_000_000,
+      estimatedValue: 90_000_000,
+      weeklyRevenue: 1_000_000,
+      weeklyProfit: 120_000,
+      integrationPenalty: 0.16,
+      risk: 'high' as const,
+    };
+    const targets = [readyTarget, cashHungryTarget, unfinanceableTarget];
+
+    expect(filterAcquisitionTargetsByFunding(targets, 'all', 15_000_000).map((target) => target.id))
+      .toEqual(['ready', 'cash-hungry', 'blocked']);
+    expect(filterAcquisitionTargetsByFunding(targets, 'ready', 15_000_000).map((target) => target.id))
+      .toEqual(['ready']);
+    expect(filterAcquisitionTargetsByFunding(targets, 'financeable', 15_000_000).map((target) => target.id))
+      .toEqual(['ready', 'cash-hungry']);
   });
 
   test('supports all-cash, balanced, and leveraged acquisition structures', () => {
