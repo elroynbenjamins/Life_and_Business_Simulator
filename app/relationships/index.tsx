@@ -86,8 +86,11 @@ export default function RelationshipsScreen() {
     [relationship?.activeConnections, relationship?.partnerId]
   );
   useEffect(() => {
-    if (partner && activeTab === 'dating') setActiveTab('relationship');
-    if (!partner && activeTab === 'relationship') setActiveTab('dating');
+    setActiveTab((current) => {
+      if (partner && current === 'dating') return 'relationship';
+      if (!partner && current === 'relationship') return 'dating';
+      return current;
+    });
   }, [partner?.id]);
   const dating = (relationship?.activeConnections ?? []).filter((item) => item.stage === 'dating');
   const cohabiting = !!partner && (partner.isCohabiting || partner.stage === 'living_together' || partner.stage === 'married');
