@@ -172,6 +172,54 @@ export function getHoldingAvailableDistributionCash(
   );
 }
 
+export type HoldingTreasuryAction = 'fund' | 'distribution';
+
+export function getHoldingTreasuryTransactionPreview({
+  action,
+  personalCash,
+  cashReserve,
+  amount,
+  reserveTarget = 0,
+}: {
+  action: HoldingTreasuryAction;
+  personalCash: number;
+  cashReserve: number;
+  amount: number;
+  reserveTarget?: number;
+}) {
+  const personalBefore = Math.max(0, Math.round(Number.isFinite(personalCash) ? personalCash : 0));
+  const reserveBefore = Math.max(0, Math.round(Number.isFinite(cashReserve) ? cashReserve : 0));
+  const target = Math.max(0, Math.round(Number.isFinite(reserveTarget) ? reserveTarget : 0));
+  const requestedAmount = Math.max(0, Math.round(Number.isFinite(amount) ? amount : 0));
+  const maxAmount = action === 'fund'
+    ? personalBefore
+    : Math.max(0, reserveBefore - target);
+  const transactionAmount = Math.min(requestedAmount, maxAmount);
+  const canExecute = requestedAmount > 0 && transactionAmount === requestedAmount;
+
+  const personalAfter = action === 'fund'
+    ? personalBefore - transactionAmount
+    : personalBefore + transactionAmount;
+  const reserveAfter = action === 'fund'
+    ? reserveBefore + transactionAmount
+    : reserveBefore - transactionAmount;
+
+  return {
+    action,
+    requestedAmount,
+    transactionAmount,
+    canExecute,
+    personalCashBefore: personalBefore,
+    personalCashAfter: personalAfter,
+    cashReserveBefore: reserveBefore,
+    cashReserveAfter: reserveAfter,
+    reserveTarget: target,
+    cashAboveTargetBefore: Math.max(0, reserveBefore - target),
+    cashAboveTargetAfter: Math.max(0, reserveAfter - target),
+  };
+}
+
+
 export function canChargeHoldingManagementFee(
   business: OwnedBusiness,
 ): boolean {
