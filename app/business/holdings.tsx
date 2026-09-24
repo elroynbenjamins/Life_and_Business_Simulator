@@ -29,7 +29,7 @@ import { getCorporateGroupManagementReport } from '../../src/engine/corporateGro
 import { CorporateReportPeriod } from '../../src/engine/corporateReportingEngine';
 
 const CAPITAL_AMOUNTS = [1_000_000, 5_000_000, 10_000_000];
-const PAYOUT_AMOUNTS = [1_000_000, 5_000_000, 10_000_000];
+const PAYOUT_AMOUNTS = [100_000, 500_000, 1_000_000, 5_000_000];
 const MANAGEMENT_FEE_RATES = [0, 0.01, 0.02, 0.03];
 
 export default function HoldingCompaniesScreen() {
