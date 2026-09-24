@@ -22,6 +22,7 @@ import {
   canChargeHoldingManagementFee,
   getHoldingCapitalAllocationPreview,
   getHoldingCompanySummary,
+  getHoldingSubsidiaryHealthSnapshot,
   getHoldingManagementFeePolicyPreview,
   getHoldingReservePolicyPreview,
   getHoldingSharedServiceEffects,
@@ -840,6 +841,15 @@ export default function HoldingCompaniesScreen() {
                   const debtHoldingCashAfter = Math.max(0, cashReserve - capitalPreview.debt.cashUsed);
                   const growthFundingGap = Math.max(0, allocationAmount - cashReserve);
                   const debtFundingGap = Math.max(0, capitalPreview.debt.cashUsed - cashReserve);
+                  const health = getHoldingSubsidiaryHealthSnapshot(business, inflationMultiplier);
+                  const attentionColor = health.attention === 'critical'
+                    ? Colors.negative
+                    : health.attention === 'watch'
+                      ? Colors.warning
+                      : Colors.primary;
+                  const managementMode = business.delegationPolicy && business.delegationPolicy !== 'manual'
+                    ? BUSINESS_DELEGATION_POLICIES[business.delegationPolicy].label
+                    : 'Manual';
                   const managers = getDelegationManagers(business);
                   const selectedManagerId = managerSelections[business.id]
                     ?? business.delegatedManagerEmployeeId
@@ -850,17 +860,73 @@ export default function HoldingCompaniesScreen() {
                     <View key={business.id} style={styles.subsidiaryBlock}>
                       <View style={styles.subsidiaryRow}>
                         <Pressable style={{ flex: 1 }} onPress={() => router.push(`/business/${business.id}`)}>
-                          <Text style={styles.subsidiaryName}>{business.name}</Text>
+                          <View style={styles.subsidiaryTitleRow}>
+                            <Text style={styles.subsidiaryName} numberOfLines={1}>{business.name}</Text>
+                            <View style={[styles.subsidiaryAttentionPill, { borderColor: `${attentionColor}66`, backgroundColor: `${attentionColor}12` }]}>
+                              <View style={[styles.subsidiaryAttentionDot, { backgroundColor: attentionColor }]} />
+                              <Text style={[styles.subsidiaryAttentionText, { color: attentionColor }]}>
+                                {health.attention === 'critical' ? 'Attention' : health.attention === 'watch' ? 'Watch' : 'Stable'}
+                              </Text>
+                            </View>
+                          </View>
                           <Text style={styles.subsidiaryMeta}>
-                            {formatCurrency(business.valuation ?? 0)} • {(business.lastWeekProfit ?? 0) >= 0 ? '+' : ''}{formatCurrency(business.lastWeekProfit ?? 0)}/wk
+                            {formatCurrency(business.valuation ?? 0)}
+                            {acquisitionReturn ? ` • owner ${acquisitionReturn.playerOwnershipPct.toFixed(0)}%` : ''}
                           </Text>
-                          {acquisitionReturn && (
-                            <Text style={[styles.returnText, { color: acquisitionReturn.returnPct >= 0 ? Colors.primary : Colors.negative }]}>
-                              Owner return ({acquisitionReturn.playerOwnershipPct.toFixed(0)}% stake): {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
+
+                          <View style={styles.subsidiaryHealthRow}>
+                            <View style={styles.subsidiaryHealthChip}>
+                              <Ionicons name="cash-outline" size={11} color={health.cash < 0 ? Colors.negative : Colors.textMuted} />
+                              <Text style={[styles.subsidiaryHealthText, health.cash < 0 && { color: Colors.negative }]}>
+                                {formatCurrency(health.cash)}
+                              </Text>
+                            </View>
+                            <View style={styles.subsidiaryHealthChip}>
+                              <Ionicons name={health.weeklyProfit >= 0 ? 'trending-up-outline' : 'trending-down-outline'} size={11} color={health.weeklyProfit >= 0 ? Colors.primary : Colors.negative} />
+                              <Text style={[styles.subsidiaryHealthText, { color: health.weeklyProfit >= 0 ? Colors.primary : Colors.negative }]}>
+                                {health.weeklyProfit >= 0 ? '+' : ''}{formatCurrency(health.weeklyProfit)}/wk
+                              </Text>
+                            </View>
+                            {health.debtPrincipal > 0 && (
+                              <View style={styles.subsidiaryHealthChip}>
+                                <Ionicons name="card-outline" size={11} color={Colors.info} />
+                                <Text style={styles.subsidiaryHealthText}>Debt {formatCurrency(health.debtPrincipal)}</Text>
+                              </View>
+                            )}
+                            <View style={[
+                              styles.subsidiaryHealthChip,
+                              health.protectedCashGap > 0 && styles.subsidiaryHealthChipWarning,
+                            ]}>
+                              <Ionicons
+                                name={health.protectedCashGap > 0 ? 'shield-outline' : 'shield-checkmark-outline'}
+                                size={11}
+                                color={health.protectedCashGap > 0 ? Colors.warning : Colors.primary}
+                              />
+                              <Text style={[styles.subsidiaryHealthText, { color: health.protectedCashGap > 0 ? Colors.warning : Colors.primary }]}>
+                                {health.protectedCashGap > 0
+                                  ? `Reserve ${Math.round(health.protectedCashCoverage * 100)}%`
+                                  : 'Reserve OK'}
+                              </Text>
+                            </View>
+                            <View style={styles.subsidiaryHealthChip}>
+                              <Ionicons
+                                name={managementMode === 'Manual' ? 'hand-left-outline' : 'briefcase-outline'}
+                                size={11}
+                                color={managementMode === 'Manual' ? Colors.textMuted : Colors.info}
+                              />
+                              <Text style={styles.subsidiaryHealthText}>{managementMode}</Text>
+                            </View>
+                          </View>
+
+                          {health.attentionReasons.length > 0 && (
+                            <Text style={[styles.subsidiaryAttentionReason, { color: attentionColor }]} numberOfLines={2}>
+                              {health.attention === 'critical' ? 'Needs attention' : 'Watch'}: {health.attentionReasons.join(' • ')}
                             </Text>
                           )}
-                          {business.acquisition?.integrationStrategy === 'pending' && (
-                            <Text style={styles.integrationWarning}>Integration decision required</Text>
+                          {acquisitionReturn && (
+                            <Text style={[styles.returnText, { color: acquisitionReturn.returnPct >= 0 ? Colors.primary : Colors.negative }]}>
+                              Owner return: {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
+                            </Text>
                           )}
                           {business.portfolioIntent === 'long_term_family' && (
                             <Text style={styles.longTermText}>◆ Protected long-term family asset</Text>
@@ -1312,8 +1378,17 @@ const styles = StyleSheet.create({
   subsidiaryBlock: { borderTopWidth: 1, borderTopColor: Colors.cardBorder, paddingTop: 10, marginTop: 10 },
   subsidiaryRow: { flexDirection: 'row', alignItems: 'center' },
   subsidiaryManageButton: { width: 34, height: 34, borderRadius: 9, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
-  subsidiaryName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
+  subsidiaryTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  subsidiaryName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', flex: 1 },
   subsidiaryMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
+  subsidiaryAttentionPill: { minHeight: 20, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 3 },
+  subsidiaryAttentionDot: { width: 5, height: 5, borderRadius: 3 },
+  subsidiaryAttentionText: { fontSize: 7, fontWeight: '900' },
+  subsidiaryHealthRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
+  subsidiaryHealthChip: { minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, backgroundColor: Colors.elevated, paddingHorizontal: 6, paddingVertical: 4 },
+  subsidiaryHealthChipWarning: { borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}0A` },
+  subsidiaryHealthText: { color: Colors.textSecondary, fontSize: 7, fontWeight: '800' },
+  subsidiaryAttentionReason: { fontSize: 8, lineHeight: 11, fontWeight: '800', marginTop: 6 },
   capitalAllocationBox: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 9, marginTop: 9 },
   capitalAllocationHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   capitalAllocationTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
