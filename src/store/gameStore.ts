@@ -5233,6 +5233,8 @@ const useGameStore = create<GameStore>((set, get) => ({
 
   injectCashIntoBusiness: (businessId: string, amount: number) => {
     const state = get();
+    const targetBusiness = (state?.businesses ?? []).find((business) => business?.id === businessId);
+    if (!targetBusiness || targetBusiness.holdingCompanyId) return;
     if (amount <= 0 || (state?.cash ?? 0) < amount) return;
     const businesses = (state?.businesses ?? []).map((business) => {
       if (business?.id !== businessId) return business;
