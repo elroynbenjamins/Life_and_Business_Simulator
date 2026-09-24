@@ -1,5 +1,6 @@
 import { GameState, StockState, StockHolding, ActiveLoan } from '../types/game';
 import { getPlayerOwnershipPct } from './businessEngine';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 import { inflated } from './economyEngine';
 import housingData from '../data/housing.json';
 import jobsData from '../data/jobs.json';
@@ -205,8 +206,7 @@ export function getNetWorth(state: GameState): number {
   // Valuation already includes available business cash.
   const businessValue = (state?.businesses ?? []).reduce((t, b) => t + (b?.valuation ?? 0) * (getPlayerOwnershipPct(b) / 100), 0);
   const businessLoanDebt = (state?.businesses ?? []).reduce((t, b) => {
-    const debt = (b?.businessLoans ?? []).reduce((lt, l) => lt + (l?.remainingAmount ?? 0), 0);
-    return t + debt * (getPlayerOwnershipPct(b) / 100);
+    return t + getBusinessDebtPrincipal(b) * (getPlayerOwnershipPct(b) / 100);
   }, 0);
   // Cash parked inside holding companies remains part of the player's net worth.
   const holdingCash = (state?.holdingCompanies ?? []).reduce((total, holding) => total + Math.max(0, holding?.cashReserve ?? 0), 0);
