@@ -22,6 +22,7 @@ import {
   canChargeHoldingManagementFee,
   filterAndSortHoldingSubsidiaries,
   getHoldingCapitalAllocationPreview,
+  getHoldingSubsidiaryAttentionAction,
   getHoldingSubsidiaryAttentionSummary,
   getHoldingCompanySummary,
   getHoldingSubsidiaryHealthSnapshot,
@@ -1092,6 +1093,7 @@ export default function HoldingCompaniesScreen() {
                   const growthFundingGap = Math.max(0, allocationAmount - cashReserve);
                   const debtFundingGap = Math.max(0, capitalPreview.debt.cashUsed - cashReserve);
                   const health = getHoldingSubsidiaryHealthSnapshot(business, inflationMultiplier);
+                  const attentionAction = getHoldingSubsidiaryAttentionAction(business, inflationMultiplier);
                   const attentionColor = health.attention === 'critical'
                     ? Colors.negative
                     : health.attention === 'watch'
@@ -1195,6 +1197,47 @@ export default function HoldingCompaniesScreen() {
                           <Ionicons name="remove-circle-outline" size={19} color={Colors.textMuted} />
                         </Pressable>
                       </View>
+
+                      {attentionAction && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${attentionAction.label} for ${business.name}`}
+                          onPress={() => {
+                            setCompanyControlOpen(null);
+                            if (attentionAction.kind === 'holding_capital') {
+                              setExpandedSubsidiaryId(business.id);
+                              return;
+                            }
+                            router.push(`/business/${business.id}?section=${attentionAction.kind === 'business_finance' ? 'finance' : 'overview'}`);
+                          }}
+                          style={[
+                            styles.subsidiaryAttentionAction,
+                            attentionAction.kind === 'holding_capital'
+                              ? styles.subsidiaryAttentionActionHolding
+                              : styles.subsidiaryAttentionActionBusiness,
+                          ]}
+                        >
+                          <Ionicons
+                            name={attentionAction.kind === 'holding_capital'
+                              ? 'add-circle-outline'
+                              : attentionAction.kind === 'business_finance'
+                                ? 'cash-outline'
+                                : 'open-outline'}
+                            size={14}
+                            color={attentionAction.kind === 'holding_capital' ? Colors.primary : Colors.info}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text style={[
+                              styles.subsidiaryAttentionActionTitle,
+                              { color: attentionAction.kind === 'holding_capital' ? Colors.primary : Colors.info },
+                            ]}>
+                              {attentionAction.label}
+                            </Text>
+                            <Text style={styles.subsidiaryAttentionActionDetail}>{attentionAction.detail}</Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                        </Pressable>
+                      )}
 
                       {expanded && (
                         <>
@@ -1674,6 +1717,11 @@ const styles = StyleSheet.create({
   subsidiaryHealthChipWarning: { borderColor: `${Colors.warning}55`, backgroundColor: `${Colors.warning}0A` },
   subsidiaryHealthText: { color: Colors.textSecondary, fontSize: 7, fontWeight: '800' },
   subsidiaryAttentionReason: { fontSize: 8, lineHeight: 11, fontWeight: '800', marginTop: 6 },
+  subsidiaryAttentionAction: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 7, marginTop: 7 },
+  subsidiaryAttentionActionHolding: { borderColor: `${Colors.primary}44`, backgroundColor: `${Colors.primary}08` },
+  subsidiaryAttentionActionBusiness: { borderColor: `${Colors.info}44`, backgroundColor: '#17263A' },
+  subsidiaryAttentionActionTitle: { fontSize: 8, fontWeight: '900' },
+  subsidiaryAttentionActionDetail: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 1 },
   capitalAllocationBox: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 9, marginTop: 9 },
   capitalAllocationHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   capitalAllocationTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
