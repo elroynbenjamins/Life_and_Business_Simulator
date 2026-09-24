@@ -3333,6 +3333,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     const acquisitionTargets = generateAcquisitionTargets(
       globalWeek,
       state.inflationMultiplier ?? 1,
+      undefined,
+      state.economicCycle?.phase ?? 'expansion',
     );
     const updates = {
       acquisitionTargets,
