@@ -5,6 +5,7 @@ import { isBusinessBudgetReviewDue } from './businessBudgetEngine';
 import { getBusinessGovernanceAttentionReason } from './businessGovernanceEngine';
 import { getCorporateWorkforceAttentionReason } from './businessWorkforceEngine';
 import { getCorporateManagementAttentionReason } from './corporateReportingEngine';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 
 export interface BusinessSaleQuote {
   grossSalePrice: number;
@@ -33,10 +34,7 @@ export interface BusinessEmpireSummary {
 }
 
 export function getBusinessDebt(business: OwnedBusiness): number {
-  return (business.businessLoans ?? []).reduce(
-    (sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0),
-    0,
-  );
+  return getBusinessDebtPrincipal(business);
 }
 
 export function getBusinessInvestmentBasis(business: OwnedBusiness): number | null {
