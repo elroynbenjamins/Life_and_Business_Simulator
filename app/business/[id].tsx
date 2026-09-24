@@ -1077,7 +1077,8 @@ export default function BusinessDetailScreen() {
         </GameCard>
 
         {biz.acquisition && (
-          <GameCard title="Acquisition & Integration">
+          <View collapsable={false} onLayout={(event) => recordBusinessFocus('integration', event)}>
+            <GameCard title="Acquisition & Integration">
             <View style={styles.acquisitionHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.acquisitionTitle}>
@@ -1266,11 +1267,13 @@ export default function BusinessDetailScreen() {
                 )}
               </View>
             )}
-          </GameCard>
+            </GameCard>
+          </View>
         )}
 
         {pendingDecision && (
-          <GameCard>
+          <View collapsable={false} onLayout={(event) => recordBusinessFocus('decision', event)}>
+            <GameCard>
             <View style={[styles.decisionBanner, pendingDecision.kind === 'crisis' && styles.crisisBanner]}>
               <Text style={styles.decisionIcon}>{pendingDecision.icon}</Text>
               <View style={{ flex: 1 }}>
@@ -1328,7 +1331,8 @@ export default function BusinessDetailScreen() {
                 </Pressable>
               );
             })}
-          </GameCard>
+            </GameCard>
+          </View>
         )}
 
         <GameCard title="Strategic Direction">
