@@ -6,6 +6,7 @@ import { getBusinessGovernanceAttentionReason } from './businessGovernanceEngine
 import { getCorporateWorkforceAttentionReason } from './businessWorkforceEngine';
 import { getCorporateManagementAttentionReason } from './corporateReportingEngine';
 import { getBusinessDebtPrincipal } from './businessDebtEngine';
+import { getPlayerEquityOwnershipPct } from './businessOwnershipEngine';
 
 export interface BusinessSaleQuote {
   grossSalePrice: number;
@@ -53,7 +54,12 @@ export function getBusinessInvestmentBasis(business: OwnedBusiness): number | nu
 
 export function getBusinessEquityReturn(business: OwnedBusiness) {
   const debt = getBusinessDebt(business);
-  const equityValue = Math.max(0, (business.valuation ?? 0) - debt);
+  const totalCompanyEquity = Math.max(0, (business.valuation ?? 0) - debt);
+  const playerOwnershipPct = getPlayerEquityOwnershipPct(business);
+  // capitalInvested and totalPlayerDistributions are player/holding-side values.
+  // Match them with only the player's current share of company equity so issuing
+  // new shares cannot make the player's ROI jump simply by adding outside capital.
+  const equityValue = Math.round(totalCompanyEquity * playerOwnershipPct / 100);
   const investmentBasis = getBusinessInvestmentBasis(business);
   const totalPlayerDistributions = Math.max(0, business.totalPlayerDistributions ?? 0);
   const lifetimeValue = equityValue + totalPlayerDistributions;
@@ -64,6 +70,8 @@ export function getBusinessEquityReturn(business: OwnedBusiness) {
 
   return {
     debt,
+    totalCompanyEquity,
+    playerOwnershipPct,
     equityValue,
     investmentBasis,
     totalPlayerDistributions,
