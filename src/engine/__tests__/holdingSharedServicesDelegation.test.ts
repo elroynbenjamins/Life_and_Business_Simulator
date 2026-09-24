@@ -1,6 +1,7 @@
 import {
   applyDelegatedBusinessRoutine,
   createBusiness,
+  getEffectiveDelegationPolicyConfig,
   getHoldingSynergyProfile,
 } from '../businessEngine';
 import {
@@ -139,6 +140,23 @@ describe('holding shared services and delegated management', () => {
     expect(profile.serviceExpenseReduction).toBeCloseTo(0.012);
     expect(profile.revenueBonus).toBeCloseTo(0.015);
     expect(profile.expenseReduction).toBeCloseTo(0.012);
+  });
+
+  test('Follow Strategy delegation inherits the company strategic focus', () => {
+    const growth = makeManagedBusiness();
+    growth.delegationPolicy = 'balanced';
+    growth.strategicFocus = 'growth';
+    const growthConfig = getEffectiveDelegationPolicyConfig(growth, 'balanced');
+
+    const margin = makeManagedBusiness();
+    margin.delegationPolicy = 'balanced';
+    margin.strategicFocus = 'margin';
+    const marginConfig = getEffectiveDelegationPolicyConfig(margin, 'balanced');
+
+    expect(growthConfig.advertising).toBe('aggressive');
+    expect(growthConfig.targetStaffRatio).toBeGreaterThan(marginConfig.targetStaffRatio);
+    expect(marginConfig.pricing).toBe('premium');
+    expect(marginConfig.reserveWeeks).toBeGreaterThan(growthConfig.reserveWeeks);
   });
 
   test('growth delegation reviews every four weeks and can hire toward its staffing target', () => {
