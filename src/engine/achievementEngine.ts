@@ -6,6 +6,38 @@ import housingData from '../data/housing.json';
 // house upgrades removed
 import { getPortfolioValue } from './financeEngine';
 
+export function getAchievementGemRewardSettlement(
+  newlyUnlockedIds: string[],
+  rewardedAchievementGemIds: string[] = [],
+): {
+  gemsGained: number;
+  rewards: Record<string, number>;
+  rewardedAchievementGemIds: string[];
+} {
+  const rewardedIds = new Set(rewardedAchievementGemIds);
+  const rewards: Record<string, number> = {};
+  let gemsGained = 0;
+
+  for (const id of newlyUnlockedIds) {
+    if (rewardedIds.has(id)) continue;
+    const achievement = (achievementsData as any[]).find((item) => item?.id === id);
+    if (!achievement) continue;
+
+    const gemReward = Math.max(0, Number(achievement.gemReward ?? 0));
+    if (gemReward > 0) {
+      rewards[id] = gemReward;
+      gemsGained += gemReward;
+    }
+    rewardedIds.add(id);
+  }
+
+  return {
+    gemsGained,
+    rewards,
+    rewardedAchievementGemIds: [...rewardedIds],
+  };
+}
+
 export function checkAchievements(state: GameState, netWorth: number, weeklySalary: number): string[] {
   const unlocked = state?.unlockedAchievements ?? [];
   const newlyUnlocked: string[] = [];
