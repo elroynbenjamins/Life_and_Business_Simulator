@@ -2053,7 +2053,12 @@ export function processBusinessWeek(
       corporateWorkforce,
       marketShareModifier: resolvedMarketShareModifier,
     };
-    const choice = getAutomaticStrategicDecisionChoice(autoBusiness, decision, inflationMultiplier);
+    const choice = getAutomaticStrategicDecisionChoice(
+      autoBusiness,
+      decision,
+      inflationMultiplier,
+      modifiers.macroCyclePhase ?? 'expansion',
+    );
     if (!choice) return false;
 
     const cost = getBusinessDecisionChoiceCost(choice, inflationMultiplier);
@@ -2198,7 +2203,11 @@ export function processBusinessWeek(
       const shortestRemaining = Math.min(...activeStrategicPrograms.map((modifier) => Math.max(1, modifier.weeksRemaining ?? 1)));
       nextStrategicDecisionWeek = globalWeek + Math.max(2, shortestRemaining);
     } else {
-      const strategicDecision = makeStrategicDecision(biz, globalWeek);
+      const strategicDecision = makeStrategicDecision(
+        biz,
+        globalWeek,
+        modifiers.macroCyclePhase ?? 'expansion',
+      );
       nextStrategicDecisionWeek = scheduleNextStrategicDecisionWeek(globalWeek);
       if (applyAutomaticStrategicChoice(strategicDecision)) {
         pendingDecision = null;
@@ -2607,6 +2616,7 @@ export function applyDelegatedBusinessRoutine(
   inflationMultiplier: number,
   currentWeek: number,
   currentYear: number,
+  macroCyclePhase: EconomicCyclePhase = 'expansion',
 ): OwnedBusiness {
   const policy = biz.delegationPolicy ?? 'manual';
   if (policy === 'manual') return biz;
@@ -2643,14 +2653,45 @@ export function applyDelegatedBusinessRoutine(
   if (!type) return biz;
   const config = BUSINESS_DELEGATION_POLICIES[policy];
   const estimatedWeeklyCosts = Math.max(1, biz.lastWeekExpenses ?? type.baseWeeklyExpenses ?? 1);
-  const protectedReserve = estimatedWeeklyCosts * config.reserveWeeks;
+  const reserveWeekAdjustment = macroCyclePhase === 'recession'
+    ? 4
+    : macroCyclePhase === 'slowdown'
+      ? 2
+      : macroCyclePhase === 'boom'
+        ? -2
+        : macroCyclePhase === 'recovery'
+          ? -1
+          : 0;
+  const protectedReserveWeeks = Math.max(6, config.reserveWeeks + reserveWeekAdjustment);
+  const protectedReserve = estimatedWeeklyCosts * protectedReserveWeeks;
   let pricingStrategy = config.pricing;
   let advertisingLevel = config.advertising;
   const notes: string[] = [];
 
   if ((biz.balance ?? 0) < protectedReserve) {
     advertisingLevel = policy === 'growth' ? 'basic' : 'none';
-    notes.push('protected cash reserves');
+    notes.push(`protected ${protectedReserveWeeks}w cash reserve`);
+  } else if (macroCyclePhase === 'recession') {
+    if (policy === 'growth') {
+      pricingStrategy = 'budget';
+      advertisingLevel = 'moderate';
+      notes.push('used recession to pursue market share');
+    } else if (policy === 'balanced') {
+      advertisingLevel = 'basic';
+      notes.push('balanced defense with selective marketing');
+    } else {
+      advertisingLevel = 'none';
+      notes.push('preserved liquidity through the recession');
+    }
+  } else if (macroCyclePhase === 'slowdown') {
+    advertisingLevel = policy === 'growth' ? 'moderate' : policy === 'balanced' ? 'basic' : 'none';
+    notes.push('reduced risk ahead of softer demand');
+  } else if (macroCyclePhase === 'boom') {
+    advertisingLevel = policy === 'growth' ? 'aggressive' : policy === 'balanced' ? 'moderate' : 'basic';
+    notes.push('used strong demand selectively');
+  } else if (macroCyclePhase === 'recovery') {
+    advertisingLevel = policy === 'conservative' ? 'basic' : policy === 'growth' ? 'aggressive' : 'moderate';
+    notes.push('increased activity as demand recovered');
   } else {
     notes.push('reviewed pricing and marketing');
   }
@@ -2660,9 +2701,20 @@ export function applyDelegatedBusinessRoutine(
   let recruitCharges = biz.recruitCharges ?? 0;
   let balance = biz.balance ?? 0;
   const maxEmployees = type.maxEmployees ?? employees.length;
+  let targetStaffRatio = config.targetStaffRatio;
+  if (macroCyclePhase === 'boom') {
+    targetStaffRatio += policy === 'growth' ? 0.10 : policy === 'balanced' ? 0.05 : 0;
+  } else if (macroCyclePhase === 'recovery') {
+    targetStaffRatio += policy === 'growth' ? 0.08 : policy === 'balanced' ? 0.04 : 0;
+  } else if (macroCyclePhase === 'recession') {
+    targetStaffRatio -= policy === 'conservative' ? 0.10 : policy === 'balanced' ? 0.05 : ((biz.balance ?? 0) < protectedReserve ? 0.05 : 0);
+  } else if (macroCyclePhase === 'slowdown') {
+    targetStaffRatio -= policy === 'conservative' ? 0.05 : 0;
+  }
+  targetStaffRatio = Math.max(0.45, Math.min(1, targetStaffRatio));
   const targetEmployees = Math.max(
     MIN_EMPLOYEES_REQUIRED,
-    Math.min(maxEmployees, Math.ceil(maxEmployees * config.targetStaffRatio)),
+    Math.min(maxEmployees, Math.ceil(maxEmployees * targetStaffRatio)),
   );
 
   if (employees.length < targetEmployees && employees.length < maxEmployees && !(biz.pendingCandidates?.length)) {
@@ -2740,7 +2792,13 @@ export function processAllBusinesses(
   let createdDecisionThisWeek = false;
 
   for (const biz of businesses ?? []) {
-    const managedBiz = applyDelegatedBusinessRoutine(biz, inflationMultiplier, currentWeek, currentYear);
+    const managedBiz = applyDelegatedBusinessRoutine(
+      biz,
+      inflationMultiplier,
+      currentWeek,
+      currentYear,
+      modifiers.macroCyclePhase ?? 'expansion',
+    );
     const holdingSynergy = getHoldingSynergyProfile(managedBiz, businesses, holdingCompanies);
     const result = processBusinessWeek(managedBiz, inflationMultiplier, currentWeek, currentYear, {
       ...modifiers,
