@@ -4,6 +4,7 @@ import {
   applyIntegrationStrategy,
   createAcquiredBusiness,
   generateAcquisitionTargets,
+  getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
   getAcquisitionReturn,
@@ -208,6 +209,18 @@ describe('business acquisitions and holding companies', () => {
     expect(migrateAcquiredBusinessAssets(migrated, 1, 160)).toBe(migrated);
   });
 
+  test('risk-sensitive underwriting requires more debt-service headroom for weaker targets', () => {
+    const quote = { weeklyPayment: 55_000 };
+
+    expect(getAcquisitionDebtServiceSafety({ weeklyProfit: 100_000, risk: 'low' }, quote).allowed).toBe(true);
+    expect(getAcquisitionDebtServiceSafety({ weeklyProfit: 100_000, risk: 'medium' }, quote).allowed).toBe(false);
+    expect(getAcquisitionDebtServiceSafety({ weeklyProfit: 100_000, risk: 'high' }, quote).allowed).toBe(false);
+
+    const saferQuote = { weeklyPayment: 40_000 };
+    expect(getAcquisitionDebtServiceSafety({ weeklyProfit: 100_000, risk: 'high' }, saferQuote).allowed).toBe(true);
+    expect(getAcquisitionDebtServiceSafety({ weeklyProfit: 100_000, risk: 'high' }, saferQuote).coverageRatio).toBeCloseTo(2.5);
+  });
+
   test('supports all-cash, balanced, and leveraged acquisition structures', () => {
     const cash = getAcquisitionFinancingQuote(100_000_000, 'cash', 0);
     const balanced = getAcquisitionFinancingQuote(100_000_000, 'balanced', 0.03);
@@ -278,6 +291,44 @@ describe('business acquisitions and holding companies', () => {
     expect(acquisitionReturn.equityValue).toBe(portfolioReturn.equityValue);
     expect(acquisitionReturn.investedCapital).toBe(portfolioReturn.investmentBasis);
     expect(acquisitionReturn.returnPct).toBe(portfolioReturn.returnPct);
+  });
+
+  test('bullish 20-week acquisition stress matrix stays below extreme owner returns', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const target = generateAcquisitionTargets(121, 1, 1)[0];
+    const fundingModes = ['cash', 'balanced', 'leveraged'] as const;
+    const strategies = ['independent', 'integrate', 'turnaround'] as const;
+
+    for (const fundingMode of fundingModes) {
+      for (const strategy of strategies) {
+        let business = createAcquiredBusiness(
+          target,
+          { ...INITIAL_GAME_STATE, week: 1, year: 7, inflationMultiplier: 1 },
+          null,
+          target.askingPrice,
+          fundingMode,
+          0,
+        )!;
+        business = applyIntegrationStrategy(business, strategy);
+        business.nextStrategicDecisionWeek = 999;
+        business.nextCrisisCheckWeek = 999;
+
+        const startGlobalWeek = ((7 - 1) * 20) + 1;
+        for (let offset = 1; offset <= 20; offset += 1) {
+          const globalWeek = startGlobalWeek + offset;
+          const year = Math.floor((globalWeek - 1) / 20) + 1;
+          const week = ((globalWeek - 1) % 20) + 1;
+          business = processBusinessWeek(business, 1, week, year).updatedBusiness;
+        }
+
+        const returnInfo = getAcquisitionReturn(business)!;
+        expect(Number.isFinite(returnInfo.returnPct)).toBe(true);
+        expect(returnInfo.returnPct).toBeGreaterThanOrEqual(-100);
+        expect(returnInfo.returnPct).toBeLessThan(150);
+        expect(returnInfo.debt).toBeGreaterThanOrEqual(0);
+        expect(Number.isFinite(business.valuation)).toBe(true);
+      }
+    }
   });
 
   test('baseline acquired company does not reach triple-digit return within one game year', () => {
