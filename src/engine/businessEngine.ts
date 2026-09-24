@@ -2670,7 +2670,7 @@ export function applyDelegatedBusinessRoutine(
 
   if ((biz.balance ?? 0) < protectedReserve) {
     advertisingLevel = policy === 'growth' ? 'basic' : 'none';
-    notes.push(`protected ${protectedReserveWeeks}w cash reserve`);
+    notes.push(`protected cash reserves (${protectedReserveWeeks}w buffer)`);
   } else if (macroCyclePhase === 'recession') {
     if (policy === 'growth') {
       pricingStrategy = 'budget';
