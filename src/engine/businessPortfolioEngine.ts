@@ -5,7 +5,7 @@ import { isBusinessBudgetReviewDue } from './businessBudgetEngine';
 import { getBusinessGovernanceAttentionReason } from './businessGovernanceEngine';
 import { getCorporateWorkforceAttentionReason } from './businessWorkforceEngine';
 import { getCorporateManagementAttentionReason } from './corporateReportingEngine';
-import { getBusinessDebtPrincipal } from './businessDebtEngine';
+import { getBusinessDebtPayoffBalance, getBusinessDebtPrincipal } from './businessDebtEngine';
 
 export interface BusinessSaleQuote {
   grossSalePrice: number;
@@ -106,7 +106,10 @@ export function getBusinessSaleQuote(
   year?: number,
 ): BusinessSaleQuote {
   const grossSalePrice = Math.max(0, business.valuation ?? 0);
-  const debtSettlement = getBusinessDebt(business);
+  // Portfolio leverage and net worth use economic principal, but a sale closes
+  // the loans entirely. At closing the company must settle the contractual
+  // payoff balance, including any remaining priced interest.
+  const debtSettlement = getBusinessDebtPayoffBalance(business);
   const heldWeeks = getBusinessHoldWeeks(business, week, year);
   const saleTransactionCostRate = getBusinessSaleTransactionCostRate(business, week, year);
   const saleTransactionCost = Math.round(grossSalePrice * saleTransactionCostRate);
