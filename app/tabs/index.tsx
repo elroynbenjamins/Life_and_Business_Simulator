@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,7 @@ import { averageStudentWorkIncome, getStudentStudyDuration, getStudentWorkOption
 export default function DashboardScreen() {
   const router = useRouter();
   const advanceWeek = useGameStore((s) => s?.advanceWeek);
+  const [advancingWeek, setAdvancingWeek] = useState(false);
   const currentJobId = useGameStore((s) => s?.currentJobId);
   const currentCourseId = useGameStore((s) => s?.currentCourseId);
   const courseWeeksCompleted = useGameStore((s) => s?.courseWeeksCompleted ?? 0);
@@ -100,9 +101,21 @@ export default function DashboardScreen() {
   };
 
   const handleNextWeek = () => {
-    if (lifecycle?.isDead) return;
-    tryHaptic();
-    advanceWeek?.();
+    if (lifecycle?.isDead || advancingWeek) return;
+    setAdvancingWeek(true);
+    void tryHaptic();
+
+    const runAfterPaint = typeof requestAnimationFrame === 'function'
+      ? (callback: () => void) => requestAnimationFrame(callback)
+      : (callback: () => void) => setTimeout(callback, 0);
+
+    runAfterPaint(() => {
+      try {
+        advanceWeek?.();
+      } finally {
+        setAdvancingWeek(false);
+      }
+    });
   };
 
   return (
@@ -180,9 +193,10 @@ export default function DashboardScreen() {
           )}
 
           <GameButton
-            label={lifecycle?.isDead ? 'Life Complete' : 'Advance to Next Week'}
-            trailingIcon={lifecycle?.isDead ? undefined : 'arrow-forward'}
-            disabled={!!lifecycle?.isDead}
+            label={lifecycle?.isDead ? 'Life Complete' : advancingWeek ? 'Processing Week...' : 'Advance to Next Week'}
+            icon={advancingWeek ? 'hourglass-outline' : undefined}
+            trailingIcon={lifecycle?.isDead || advancingWeek ? undefined : 'arrow-forward'}
+            disabled={!!lifecycle?.isDead || advancingWeek}
             onPress={handleNextWeek}
             style={styles.advanceButton}
           />
