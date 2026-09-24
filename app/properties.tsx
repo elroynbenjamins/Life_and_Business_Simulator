@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
 import ScreenHeader from '../src/components/ScreenHeader';
+import ScreenTabs from '../src/components/ScreenTabs';
 import StatusPill from '../src/components/StatusPill';
 import GameButton from '../src/components/GameButton';
 import useGameStore from '../src/store/gameStore';
@@ -35,7 +36,7 @@ export default function PropertiesScreen() {
   const placePropertyAuctionBid = useGameStore((s) => s?.placePropertyAuctionBid);
   const inspectPropertyAuction = useGameStore((s) => s?.inspectPropertyAuction);
   const leavePropertyAuction = useGameStore((s) => s?.leavePropertyAuction);
-  const [tab, setTab] = useState<'listings' | 'auctions'>('listings');
+  const [tab, setTab] = useState<'owned' | 'listings' | 'auctions'>(properties.length > 0 ? 'owned' : 'listings');
   const [expandedAuctionId, setExpandedAuctionId] = useState<string | null>(null);
   const globalWeek = ((year - 1) * 20) + week;
 
@@ -70,14 +71,19 @@ export default function PropertiesScreen() {
           <Text style={styles.summaryCaption}>Rental income {formatCurrency(weeklyIncome)}/week</Text>
         </GameCard>
 
-        <View style={styles.tabs}>
-          <Pressable style={[styles.tab, tab === 'listings' && styles.tabActive]} onPress={() => setTab('listings')}>
-            <Text style={[styles.tabText, tab === 'listings' && styles.tabTextActive]}>Listings</Text>
-          </Pressable>
-          <Pressable style={[styles.tab, tab === 'auctions' && styles.tabActive]} onPress={() => setTab('auctions')}>
-            <Text style={[styles.tabText, tab === 'auctions' && styles.tabTextActive]}>Auctions ({activeAuctions.length})</Text>
-          </Pressable>
-        </View>
+        <ScreenTabs
+          items={[
+            { key: 'owned', label: `Owned (${properties.length})`, icon: 'home-outline' },
+            { key: 'listings', label: 'Listings', icon: 'search-outline' },
+            { key: 'auctions', label: `Auctions (${activeAuctions.length})`, icon: 'hammer-outline' },
+          ]}
+          activeKey={tab}
+          onChange={(next) => {
+            setTab(next);
+            if (next !== 'auctions') setExpandedAuctionId(null);
+          }}
+          accentColor={Colors.business}
+        />
 
         <View style={styles.pixelArtCard}>
           <Image
@@ -89,7 +95,7 @@ export default function PropertiesScreen() {
         </View>
 
         {/* Owned Properties */}
-        {properties.length > 0 && (
+        {tab === 'owned' && properties.length > 0 && (
           <>
             <View style={styles.sectionHeading}>
               <Text style={styles.sectionTitle}>My Properties</Text>
@@ -189,6 +195,24 @@ export default function PropertiesScreen() {
               );
             })}
           </>
+        )}
+
+        {tab === 'owned' && properties.length === 0 && (
+          <GameCard variant="subtle">
+            <View style={styles.emptyOwned}>
+              <Ionicons name="home-outline" size={30} color={Colors.textMuted} />
+              <Text style={styles.emptyOwnedTitle}>No properties owned yet</Text>
+              <Text style={styles.emptyOwnedText}>Browse listings or auctions when you are ready to start a real-estate portfolio.</Text>
+              <GameButton
+                compact
+                accentColor={Colors.business}
+                icon="search-outline"
+                label="Browse Listings"
+                onPress={() => setTab('listings')}
+                style={{ marginTop: 10 }}
+              />
+            </View>
+          </GameCard>
         )}
 
         {tab === 'listings' && <>
@@ -390,11 +414,9 @@ const styles = StyleSheet.create({
   sectionHeading: { marginTop: 10, marginBottom: 8 },
   sectionTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '900' },
   sectionSub: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
-  tabs: { flexDirection: 'row', backgroundColor: Colors.card, borderRadius: 10, padding: 4, marginBottom: 10 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  tabActive: { backgroundColor: Colors.primary },
-  tabText: { color: Colors.textSecondary, fontWeight: '700' },
-  tabTextActive: { color: Colors.white },
+  emptyOwned: { alignItems: 'center', paddingVertical: 20, paddingHorizontal: 16 },
+  emptyOwnedTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 8 },
+  emptyOwnedText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 4 },
   pixelArtCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 12, marginBottom: 10, overflow: 'hidden' },
   pixelArt: { width: '100%', height: 126 },
   propCard: { marginBottom: 8 },
