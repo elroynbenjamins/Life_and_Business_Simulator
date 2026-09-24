@@ -73,6 +73,7 @@ import {
 import {
   consumeBusinessBudgetReserve,
   createBusinessBudgetPlan,
+  getBusinessAvailableOwnerDistributionCash,
   normalizeBusinessBudgetPlan,
   normalizeBusinessBudgetReserves,
 } from '../engine/businessBudgetEngine';
@@ -5245,17 +5246,43 @@ const useGameStore = create<GameStore>((set, get) => ({
   withdrawFromBusiness: (businessId: string, amount: number) => {
     const state = get();
     const biz = (state?.businesses ?? []).find((business) => business?.id === businessId);
-    if (!biz || amount <= 0 || (biz?.balance ?? 0) < amount) return;
-    const businesses = (state?.businesses ?? []).map((business) =>
-      business?.id === businessId
-        ? {
-            ...business,
-            balance: (business.balance ?? 0) - amount,
-            totalPlayerDistributions: (business.totalPlayerDistributions ?? 0) + amount,
-          }
-        : business
+    if (!biz || state.lifecycle?.isDead || !Number.isFinite(amount) || amount <= 0) return;
+
+    // Holding subsidiaries upstream cash through holding dividends/fees.
+    // Companies with other shareholders distribute through the normal pro-rata dividend policy.
+    if (biz.holdingCompanyId || getPlayerOwnershipPct(biz) < 99.999) return;
+
+    const availableCash = getBusinessAvailableOwnerDistributionCash(
+      biz,
+      state.inflationMultiplier ?? 1,
     );
-    const updates = { cash: (state?.cash ?? 0) + amount, businesses };
+    const distribution = Math.min(Math.round(amount), availableCash);
+    if (distribution <= 0 || distribution < Math.round(amount)) return;
+
+    const businesses = (state?.businesses ?? []).map((business) => {
+      if (business?.id !== businessId) return business;
+      const updated = {
+        ...business,
+        balance: Math.max(0, (business.balance ?? 0) - distribution),
+        totalPlayerDistributions: (business.totalPlayerDistributions ?? 0) + distribution,
+        timeline: [
+          ...(business.timeline ?? []),
+          {
+            week: state.week,
+            year: state.year,
+            title: '💶 Owner distribution ' + formatCurrencySafe(distribution),
+            icon: '💶',
+            kind: 'event' as const,
+          },
+        ].slice(-50),
+      };
+      return { ...updated, valuation: calculateValuation(updated) };
+    });
+    const updates = {
+      cash: (state?.cash ?? 0) + distribution,
+      businesses,
+      currentHeadline: 'Owner distribution received: ' + formatCurrencySafe(distribution) + '.',
+    };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
   },
