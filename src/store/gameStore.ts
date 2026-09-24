@@ -35,8 +35,7 @@ import jobsData from '../data/jobs.json';
 import housingData from '../data/housing.json';
 import carsData from '../data/cars.json';
 import loansData from '../data/loans.json';
-import achievementsData from '../data/achievements.json';
-import { getAchievementGemRewardSettlement } from '../engine/achievementEngine';
+import { getAchievementRewardSettlement } from '../engine/achievementEngine';
 import relationshipNamesData from '../data/relationship_names.json';
 import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
@@ -373,15 +372,16 @@ const useGameStore = create<GameStore>((set, get) => ({
       MAX_BUSINESS_CAPACITY,
       Math.max(getBusinessCapacity(profile), historicalBusinessCapacity),
     );
-    const rewardedAchievementGemIds = [...new Set([
+    const rewardedAchievementIds = [...new Set([
+      ...(profile.rewardedAchievementIds ?? []),
       ...(profile.rewardedAchievementGemIds ?? []),
       ...historicalAchievementIds,
     ])];
     const startupProfileNeedsMigration =
       startupCapacity !== getBusinessCapacity(profile)
-      || rewardedAchievementGemIds.length !== (profile.rewardedAchievementGemIds ?? []).length;
+      || rewardedAchievementIds.length !== (profile.rewardedAchievementIds ?? []).length;
     const startupProfile = startupProfileNeedsMigration
-      ? { ...profile, businessCapacity: startupCapacity, rewardedAchievementGemIds }
+      ? { ...profile, businessCapacity: startupCapacity, rewardedAchievementIds }
       : profile;
     if (startupProfileNeedsMigration) await saveProfile(startupProfile);
 
@@ -852,15 +852,16 @@ const useGameStore = create<GameStore>((set, get) => ({
       const slotMeta = await loadAllSlotMeta();
       const currentProfile = get().profile;
       const grandfatheredCapacity = Math.min(MAX_BUSINESS_CAPACITY, Math.max(getBusinessCapacity(currentProfile), merged.businesses.length));
-      const rewardedAchievementGemIds = [...new Set([
+      const rewardedAchievementIds = [...new Set([
+        ...(currentProfile.rewardedAchievementIds ?? []),
         ...(currentProfile.rewardedAchievementGemIds ?? []),
         ...(saved.unlockedAchievements ?? []),
       ])];
       const profileNeedsMigration =
         grandfatheredCapacity !== getBusinessCapacity(currentProfile)
-        || rewardedAchievementGemIds.length !== (currentProfile.rewardedAchievementGemIds ?? []).length;
+        || rewardedAchievementIds.length !== (currentProfile.rewardedAchievementIds ?? []).length;
       const migratedProfile = profileNeedsMigration
-        ? { ...currentProfile, businessCapacity: grandfatheredCapacity, rewardedAchievementGemIds }
+        ? { ...currentProfile, businessCapacity: grandfatheredCapacity, rewardedAchievementIds }
         : currentProfile;
       if (profileNeedsMigration) await saveProfile(migratedProfile);
       set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, showContentUpdateModal: (saved.contentUpdateSeenId ?? '') !== CURRENT_CONTENT_UPDATE_ID, relationshipFeedback: null, profile: migratedProfile, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
@@ -922,30 +923,25 @@ const useGameStore = create<GameStore>((set, get) => ({
 
     const { newState, summary } = weeklyTick(gameState, getPrestigeEffects(state.profile));
 
-    // Achievement XP/Prestige follows save progress. Gem rewards are account-wide
-    // and settle only once per achievement ID, preventing reward farming across save slots.
+    // Achievement rewards are account-wide and settle only once per ID.
+    // Save slots still track their own completion state for progression/UI.
     let profileUpdated = false;
     let newProfile = { ...state.profile };
     if ((summary.newAchievements?.length ?? 0) > 0) {
-      let xpGained = 0;
-      for (const id of summary.newAchievements) {
-        const ach = (achievementsData ?? []).find((a) => a?.id === id);
-        xpGained += ach?.xpReward ?? 0;
-      }
-
-      const gemSettlement = getAchievementGemRewardSettlement(
+      const rewardSettlement = getAchievementRewardSettlement(
         summary.newAchievements,
-        newProfile.rewardedAchievementGemIds ?? [],
+        newProfile.rewardedAchievementIds ?? newProfile.rewardedAchievementGemIds ?? [],
       );
-      summary.achievementGemRewards = gemSettlement.rewards;
+      summary.achievementRewardedIds = rewardSettlement.rewardedThisCallIds;
+      summary.achievementGemRewards = rewardSettlement.gemRewards;
       newProfile = {
         ...newProfile,
-        totalXp: (newProfile.totalXp ?? 0) + xpGained,
-        prestigePoints: (newProfile.prestigePoints ?? 0) + xpGained,
-        gems: (newProfile.gems ?? 0) + gemSettlement.gemsGained,
-        rewardedAchievementGemIds: gemSettlement.rewardedAchievementGemIds,
+        totalXp: (newProfile.totalXp ?? 0) + rewardSettlement.xpGained,
+        prestigePoints: (newProfile.prestigePoints ?? 0) + rewardSettlement.prestigePointsGained,
+        gems: (newProfile.gems ?? 0) + rewardSettlement.gemsGained,
+        rewardedAchievementIds: rewardSettlement.rewardedAchievementIds,
       };
-      profileUpdated = true;
+      profileUpdated = rewardSettlement.rewardedThisCallIds.length > 0;
     }
 
     // Accumulate period stats
