@@ -452,13 +452,20 @@ export default function WeekSummarySheet() {
                 <Text style={styles.sectionLabel}>New Achievements!</Text>
                 {(summary?.newAchievements ?? []).map((id) => {
                   const ach = (achievementsData ?? []).find((a) => a?.id === id);
+                  const rewardSettled = summary.achievementRewardedIds?.includes(id) ?? false;
                   const gemReward = summary.achievementGemRewards?.[id] ?? 0;
                   return (
                     <View key={id} style={styles.achievementRow}>
                       <Text style={styles.achievementName}>{ach?.name ?? id}</Text>
                       <View style={styles.achievementRewards}>
-                        <Text style={styles.achievementXp}>+{ach?.xpReward ?? 0} XP / PP</Text>
-                        {gemReward > 0 && <Text style={styles.achievementGems}>+{gemReward} Gems</Text>}
+                        {rewardSettled ? (
+                          <>
+                            <Text style={styles.achievementXp}>+{ach?.xpReward ?? 0} XP / PP</Text>
+                            {gemReward > 0 && <Text style={styles.achievementGems}>+{gemReward} Gems</Text>}
+                          </>
+                        ) : (
+                          <Text style={styles.achievementAlreadyClaimed}>Account reward already claimed</Text>
+                        )}
                       </View>
                     </View>
                   );
@@ -526,6 +533,7 @@ const styles = StyleSheet.create({
   achievementRewards: { alignItems: 'flex-end' },
   achievementXp: { color: Colors.warning, fontSize: 11, fontWeight: '700' },
   achievementGems: { color: Colors.premium, fontSize: 10, fontWeight: '800', marginTop: 1 },
+  achievementAlreadyClaimed: { color: Colors.textMuted, fontSize: 9, fontWeight: '700', textAlign: 'right', maxWidth: 110 },
   salaryWarning: { backgroundColor: '#F59E0B22', borderRadius: 6, padding: 8, marginTop: 4 },
   salaryWarningText: { color: Colors.warning, fontSize: 12, fontWeight: '500' },
   eventBox: { backgroundColor: `${Colors.info}15`, borderRadius: 10, padding: 12, marginTop: 10, borderWidth: 1, borderColor: `${Colors.info}33` },
