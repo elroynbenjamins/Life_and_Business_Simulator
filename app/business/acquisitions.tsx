@@ -48,6 +48,7 @@ export default function BusinessAcquisitionsScreen() {
 
   const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
   const [fundingMode, setFundingMode] = useState<AcquisitionFundingMode>('balanced');
+  const [expandedTargetId, setExpandedTargetId] = useState<string | null>(null);
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
@@ -237,10 +238,16 @@ export default function BusinessAcquisitionsScreen() {
                 : 0;
               const debtServiceSafe = quote.weeklyPayment <= Math.max(1, target.weeklyProfit) * 0.80;
               const canAfford = sourceCash >= totalCashNeeded && debtServiceSafe && !capacityFull;
+              const expanded = expandedTargetId === target.id;
 
               return (
                 <GameCard key={target.id}>
-                  <View style={styles.targetHeader}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    style={styles.targetHeader}
+                    onPress={() => setExpandedTargetId(expanded ? null : target.id)}
+                  >
                     <View style={styles.targetIcon}>
                       <Ionicons name="business" size={23} color={Colors.info} />
                     </View>
@@ -250,10 +257,13 @@ export default function BusinessAcquisitionsScreen() {
                         {target.industry} • {target.tier.toUpperCase()} • {target.companyAgeYears ?? 8}y operating history
                       </Text>
                     </View>
-                    <View style={[styles.riskBadge, { borderColor: risk.color }]}>
-                      <Text style={[styles.riskText, { color: risk.color }]}>{risk.label}</Text>
+                    <View style={styles.targetHeaderRight}>
+                      <View style={[styles.riskBadge, { borderColor: risk.color }]}>
+                        <Text style={[styles.riskText, { color: risk.color }]}>{risk.label}</Text>
+                      </View>
+                      <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={17} color={Colors.textMuted} />
                     </View>
-                  </View>
+                  </Pressable>
 
                   <View style={styles.metrics}>
                     <View style={styles.metric}>
@@ -272,6 +282,17 @@ export default function BusinessAcquisitionsScreen() {
                     </View>
                   </View>
 
+                  {!expanded && (
+                    <View style={styles.compactDealSummary}>
+                      <Text style={styles.compactDealText}>
+                        Profit {formatCurrency(target.weeklyProfit)}/wk • Cash {formatCurrency(totalCashNeeded)} • Diligence {target.diligenceScore}/100
+                      </Text>
+                      <Text style={styles.compactDealAction}>Details</Text>
+                    </View>
+                  )}
+
+                  {expanded && (
+                    <>
                   <View style={styles.metrics}>
                     <View style={styles.metric}>
                       <Text style={styles.metricLabel}>Cash at closing</Text>
@@ -384,6 +405,8 @@ export default function BusinessAcquisitionsScreen() {
                       Base integration: {target.integrationWeeks} weeks • {Math.round(target.integrationPenalty * 100)}% disruption. You choose the integration approach after closing.
                     </Text>
                   </View>
+                    </>
+                  )}
 
                   <View style={styles.sellerRow}>
                     <Text style={styles.sellerText}>{target.sellerName}</Text>
@@ -446,6 +469,10 @@ const styles = StyleSheet.create({
   emptyTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   emptyText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 5 },
   targetHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  targetHeaderRight: { alignItems: 'flex-end', gap: 5 },
+  compactDealSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 9, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  compactDealText: { flex: 1, color: Colors.textMuted, fontSize: 9, lineHeight: 13 },
+  compactDealAction: { color: Colors.info, fontSize: 9, fontWeight: '900' },
   targetIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#17263A', alignItems: 'center', justifyContent: 'center' },
   targetNameWrap: { flex: 1 },
   targetName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
