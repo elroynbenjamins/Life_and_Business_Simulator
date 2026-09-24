@@ -1899,6 +1899,8 @@ export interface PlayerProfile {
   adFreeEducationRewardClaimDate?: string;
   /** Account-wide number of concurrently owned businesses allowed (2-10). */
   businessCapacity?: number;
+  /** One permanent rewarded/ad-free company-capacity unlock may be claimed per local day. */
+  businessCapacityRewardClaimDate?: string;
   /** All achievement rewards (XP, PP and Gems) are account-wide and paid once per achievement ID. */
   rewardedAchievementIds?: string[];
   /** Transitional alias from the pre-release Gem-only ledger. */
@@ -1919,6 +1921,7 @@ export const INITIAL_PROFILE: PlayerProfile = {
   adFreeSlotRewardClaimDate: '',
   adFreeEducationRewardClaimDate: '',
   businessCapacity: 2,
+  businessCapacityRewardClaimDate: '',
   rewardedAchievementIds: [],
 };
 
