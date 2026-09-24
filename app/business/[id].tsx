@@ -2911,14 +2911,14 @@ export default function BusinessDetailScreen() {
                     : 'Business loan';
             const outstandingPrincipal = getBusinessLoanOutstandingPrincipal(loan);
             const payoffBalance = Math.max(0, loan.remainingAmount ?? 0);
-            const quarterRepayment = Math.min(payoffBalance, Math.max(0, Math.round(payoffBalance * 0.25)));
+            const quarterRepayment = Math.max(0, Math.round(outstandingPrincipal * 0.25));
             return (
               <View key={loan.id} style={styles.loanRow}>
                 <View style={styles.loanHeaderRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.loanAmount}>{formatCurrency(outstandingPrincipal)} principal outstanding</Text>
                     <Text style={styles.loanPayment}>
-                      {debtLabel} • payoff {formatCurrency(payoffBalance)} • {(Math.max(0, loan.interestRate ?? 0) * 100).toFixed(1)}% • {formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk
+                      {debtLabel} • scheduled balance {formatCurrency(payoffBalance)} • {(Math.max(0, loan.interestRate ?? 0) * 100).toFixed(1)}% • {formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk
                     </Text>
                   </View>
                   {(loan.purpose === 'corporate_revolver' || loan.purpose === 'project_finance' || loan.purpose === 'corporate_bond') && (
@@ -2931,9 +2931,9 @@ export default function BusinessDetailScreen() {
                         <Text style={styles.loanRepayText}>Repay 25%</Text>
                       </Pressable>
                       <Pressable
-                        disabled={(biz.balance ?? 0) < (loan.remainingAmount ?? 0)}
-                        style={[styles.loanRepayButton, (biz.balance ?? 0) < (loan.remainingAmount ?? 0) && styles.disabledAction]}
-                        onPress={() => repayBusinessLoan(biz.id, loan.id, loan.remainingAmount ?? 0)}
+                        disabled={(biz.balance ?? 0) < outstandingPrincipal}
+                        style={[styles.loanRepayButton, (biz.balance ?? 0) < outstandingPrincipal && styles.disabledAction]}
+                        onPress={() => repayBusinessLoan(biz.id, loan.id, outstandingPrincipal)}
                       >
                         <Text style={styles.loanRepayText}>Pay off</Text>
                       </Pressable>
