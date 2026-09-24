@@ -1,4 +1,5 @@
 import {
+  getAcquisitionIntegrationHoldingSynergyFactor,
   getAcquisitionIntegrationOutcomeEffect,
   getAcquisitionIntegrationOutcomeProbabilities,
   resolveAcquisitionIntegrationOutcome,
@@ -40,6 +41,15 @@ describe('acquisition integration outcomes', () => {
     expect(probabilities.failed).toBeCloseTo(0.22);
     expect(resolveAcquisitionIntegrationOutcome('turnaround', 0.60, 0.70)).toBe('mixed');
     expect(resolveAcquisitionIntegrationOutcome('turnaround', 0.60, 0.90)).toBe('failed');
+  });
+
+  test('holding synergy realization follows integration state and outcome', () => {
+    expect(getAcquisitionIntegrationHoldingSynergyFactor('pending', 'pending')).toBeCloseTo(0.25);
+    expect(getAcquisitionIntegrationHoldingSynergyFactor('independent', 'pending')).toBeCloseTo(0.50);
+    expect(getAcquisitionIntegrationHoldingSynergyFactor('integrate', 'pending')).toBeCloseTo(0.60);
+    expect(getAcquisitionIntegrationHoldingSynergyFactor('turnaround', 'failed')).toBeCloseTo(0.65);
+    expect(getAcquisitionIntegrationHoldingSynergyFactor('integrate', 'mixed')).toBeCloseTo(0.85);
+    expect(getAcquisitionIntegrationHoldingSynergyFactor('integrate', 'success')).toBeCloseTo(1);
   });
 
   test('integration outcome effects match the player-facing economics', () => {
