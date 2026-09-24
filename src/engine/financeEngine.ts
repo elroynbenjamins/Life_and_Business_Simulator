@@ -202,11 +202,15 @@ export function getNetWorth(state: GameState): number {
   const portfolioValue = getPortfolioValue(state?.stocks ?? [], state?.holdings ?? []);
   const loanDebt = (state?.loans ?? []).reduce((t, l) => t + (l?.remainingAmount ?? 0), 0);
   const lockedDeposits = (state?.bankDeposits ?? []).reduce((total, deposit) => total + (deposit?.amount ?? 0), 0);
-  // Business values
-  // Valuation already includes available business cash.
-  const businessValue = (state?.businesses ?? []).reduce((t, b) => t + (b?.valuation ?? 0) * (getPlayerOwnershipPct(b) / 100), 0);
-  const businessLoanDebt = (state?.businesses ?? []).reduce((t, b) => {
-    return t + getBusinessDebtPrincipal(b) * (getPlayerOwnershipPct(b) / 100);
+  // Business ownership contributes shareholder equity, not a personally
+  // guaranteed share of company liabilities. Debt can reduce a company's equity
+  // to zero, but cannot make a limited-liability ownership stake worth less than zero.
+  const businessEquityValue = (state?.businesses ?? []).reduce((total, business) => {
+    const companyEquity = Math.max(
+      0,
+      Math.max(0, business?.valuation ?? 0) - getBusinessDebtPrincipal(business),
+    );
+    return total + companyEquity * (getPlayerOwnershipPct(business) / 100);
   }, 0);
   // Cash parked inside holding companies remains part of the player's net worth.
   const holdingCash = (state?.holdingCompanies ?? []).reduce((total, holding) => total + Math.max(0, holding?.cashReserve ?? 0), 0);
@@ -215,5 +219,5 @@ export function getNetWorth(state: GameState): number {
   // Relationship/legal obligations are real liabilities once incurred.
   const relationshipDebt = (state?.relationshipState?.financialObligations ?? [])
     .reduce((total, obligation) => total + (obligation?.remainingAmount ?? 0), 0);
-  return (state?.cash ?? 0) + holdingCash + lockedDeposits + portfolioValue + businessValue + propertyValue - loanDebt - businessLoanDebt - relationshipDebt;
+  return (state?.cash ?? 0) + holdingCash + lockedDeposits + portfolioValue + businessEquityValue + propertyValue - loanDebt - relationshipDebt;
 }
