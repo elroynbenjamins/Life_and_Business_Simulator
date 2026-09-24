@@ -30,7 +30,7 @@ import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutive
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
-import { getBusinessOwnershipStakeValue } from '../../src/engine/businessOwnershipEngine';
+import { getBusinessOwnershipEquityValue, getBusinessOwnershipStakeValue, getInvestmentForPostMoneyIssuePct } from '../../src/engine/businessOwnershipEngine';
 import { getBusinessLoanOutstandingPrincipal } from '../../src/engine/businessDebtEngine';
 import { BUSINESS_IDENTITY_DEFINITIONS } from '../../src/engine/businessIdentityEngine';
 import {
@@ -570,9 +570,12 @@ export default function BusinessDetailScreen() {
     ? Math.max(0, (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4) - globalGameWeek)
     : 0;
   const equityStructuringUnlocked = (biz.level ?? 0) >= 3;
-  const canIssue5 = playerOwnershipPct * 0.95 >= 51;
-  const canIssue10 = playerOwnershipPct * 0.90 >= 51;
+  const ownershipEquityValue = getBusinessOwnershipEquityValue(biz);
+  const canIssue5 = ownershipEquityValue > 0 && playerOwnershipPct * 0.95 >= 51;
+  const canIssue10 = ownershipEquityValue > 0 && playerOwnershipPct * 0.90 >= 51;
   const canTransfer5 = playerOwnershipPct >= 56;
+  const investorRaise5 = Math.round(getInvestmentForPostMoneyIssuePct(ownershipEquityValue, 5) * 0.90);
+  const investorRaise10 = Math.round(getInvestmentForPostMoneyIssuePct(ownershipEquityValue, 10) * 0.90);
   const fivePctStakeValue = getBusinessOwnershipStakeValue(biz, 5);
   const childShareGiftTax = calculateChildInheritanceTax(fivePctStakeValue);
   const trustShareTransferTax = Math.round(fivePctStakeValue * 0.075);
@@ -1275,7 +1278,7 @@ export default function BusinessDetailScreen() {
                   style={[styles.shareButton, !canIssue5 && { opacity: 0.35 }]}
                   onPress={() => confirmAction(
                     'Issue New Shares',
-                    `Issue 5% new equity to outside investors? Existing owners will be diluted proportionally and the company should raise about ${formatCurrency(Math.round((biz.valuation ?? 0) * 0.05 * 0.90))}.`,
+                    `Issue 5% new equity to outside investors? Existing owners will be diluted proportionally and the company should raise about ${formatCurrency(investorRaise5)} based on current net equity.`,
                     () => transferBusinessShares(biz.id, 'investor', null, 5),
                   )}
                 >
@@ -1287,7 +1290,7 @@ export default function BusinessDetailScreen() {
                   style={[styles.shareButton, !canIssue10 && { opacity: 0.35 }]}
                   onPress={() => confirmAction(
                     'Issue New Shares',
-                    `Issue 10% new equity to outside investors? Existing owners will be diluted proportionally and the company should raise about ${formatCurrency(Math.round((biz.valuation ?? 0) * 0.10 * 0.90))}.`,
+                    `Issue 10% new equity to outside investors? Existing owners will be diluted proportionally and the company should raise about ${formatCurrency(investorRaise10)} based on current net equity.`,
                     () => transferBusinessShares(biz.id, 'investor', null, 10),
                   )}
                 >
@@ -1341,7 +1344,7 @@ export default function BusinessDetailScreen() {
           {investorOwnershipPct > 0 && (
             <Pressable style={styles.buybackButton} onPress={() => {
                 const pct = Math.min(5, investorOwnershipPct);
-                const cost = Math.round((biz.valuation ?? 0) * (pct / 100) * 1.05);
+                const cost = Math.round(getBusinessOwnershipStakeValue(biz, pct) * 1.05);
                 confirmAction(
                   'Buy Back Investor Shares',
                   `Use about ${formatCurrency(cost)} of company cash to repurchase and retire ${pct.toFixed(1)}% of investor equity?`,
