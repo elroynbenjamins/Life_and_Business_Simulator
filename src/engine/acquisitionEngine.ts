@@ -506,7 +506,9 @@ export function filterAcquisitionTargetsByFunding(
       macroInterestRateModifier,
     );
     if (filter === 'ready') return matrix.some((entry) => entry.executable);
-    return matrix.some((entry) => entry.safety.allowed);
+    // "Financeable" intentionally means debt-financeable. All-cash has no
+    // underwriting constraint and would otherwise make this filter identical to All.
+    return matrix.some((entry) => entry.mode !== 'cash' && entry.safety.allowed);
   });
 }
 
