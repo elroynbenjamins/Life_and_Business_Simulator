@@ -262,8 +262,8 @@ describe('business strategy, crises and ownership', () => {
     business.valuation = 200_000;
     business.businessLoans = [{
       id: 'biz-loan',
-      originalAmount: 50_000,
-      remainingAmount: 40_000,
+      amount: 50_000,
+      remainingAmount: 44_000,
       interestRate: 0.1,
       weeklyPayment: 1_000,
       weeksRemaining: 40,
