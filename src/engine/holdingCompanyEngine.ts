@@ -229,6 +229,8 @@ export function getHoldingCapitalAllocationPreview(
   const amount = Math.max(0, Math.round(requestedAmount ?? 0));
   const currentBalance = Math.max(0, business.balance ?? 0);
   const weeklyExpenses = Math.max(0, business.lastWeekExpenses ?? 0);
+  const playerOwnershipPct = getPlayerEquityOwnershipPct(business);
+  const minorityOwnershipPct = Math.max(0, 100 - playerOwnershipPct) / 100;
   const protectedCash = getBusinessProtectedCash(
     business,
     inflationMultiplier,
@@ -267,6 +269,7 @@ export function getHoldingCapitalAllocationPreview(
       reserveGapAfter: Math.round(reserveGapAfter),
       cashAboveProtected: Math.round(growthCashAboveProtected),
       additionalRunwayWeeks,
+      minorityValueTransfer: Math.round(amount * minorityOwnershipPct),
     },
     debt: {
       cashUsed: debtPayment.cashUsed,
@@ -277,6 +280,11 @@ export function getHoldingCapitalAllocationPreview(
       weeklyDebtServiceBefore: debtServiceBefore,
       weeklyDebtServiceAfter: debtServiceAfter,
       weeklyDebtServiceReduction: Math.max(0, debtServiceBefore - debtServiceAfter),
+      minorityValueTransfer: Math.round(debtPayment.cashUsed * minorityOwnershipPct),
+    },
+    ownership: {
+      playerOwnershipPct,
+      minorityOwnershipPct: 100 - playerOwnershipPct,
     },
   };
 }
