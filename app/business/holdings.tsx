@@ -22,6 +22,7 @@ import {
   canChargeHoldingManagementFee,
   filterAndSortHoldingSubsidiaries,
   getHoldingCapitalAllocationPreview,
+  getHoldingSubsidiaryAttentionSummary,
   getHoldingCompanySummary,
   getHoldingSubsidiaryHealthSnapshot,
   HoldingSubsidiaryFilter,
@@ -47,6 +48,8 @@ const RESERVE_TARGET_WEEKS = [0, 4, 8, 12];
 const COMPANY_FILTER_OPTIONS: Array<{ key: HoldingSubsidiaryFilter; label: string }> = [
   { key: 'all', label: 'All companies' },
   { key: 'attention', label: 'Needs attention' },
+  { key: 'critical', label: 'Critical' },
+  { key: 'watch', label: 'Watch' },
   { key: 'loss', label: 'Loss-making' },
   { key: 'reserve', label: 'Reserve shortfall' },
   { key: 'debt', label: 'Has debt' },
@@ -386,12 +389,24 @@ export default function HoldingCompaniesScreen() {
                 companyFilter,
                 companySort,
               );
-              const attentionCount = filterAndSortHoldingSubsidiaries(
+              const attentionSummary = getHoldingSubsidiaryAttentionSummary(
                 subsidiaries,
                 inflationMultiplier,
-                'attention',
-                'attention',
-              ).length;
+              );
+              const attentionCount = attentionSummary.attention;
+              const attentionShortcuts: Array<{
+                key: HoldingSubsidiaryFilter;
+                label: string;
+                count: number;
+                icon: React.ComponentProps<typeof Ionicons>['name'];
+                color: string;
+              }> = [
+                { key: 'critical', label: 'Critical', count: attentionSummary.critical, icon: 'alert-circle-outline', color: Colors.negative },
+                { key: 'watch', label: 'Watch', count: attentionSummary.watch, icon: 'warning-outline', color: Colors.warning },
+                { key: 'loss', label: 'Loss', count: attentionSummary.loss, icon: 'trending-down-outline', color: Colors.negative },
+                { key: 'reserve', label: 'Reserve', count: attentionSummary.reserve, icon: 'shield-outline', color: Colors.warning },
+                { key: 'debt', label: 'Debt', count: attentionSummary.debt, icon: 'card-outline', color: Colors.info },
+              ];
               const activeFilterLabel = COMPANY_FILTER_OPTIONS.find((option) => option.key === companyFilter)?.label ?? 'All companies';
               const activeSortLabel = COMPANY_SORT_OPTIONS.find((option) => option.key === companySort)?.label ?? 'Attention first';
 
@@ -865,6 +880,84 @@ export default function HoldingCompaniesScreen() {
                     <Text style={styles.emptySubsidiariesText}>Assign an existing company below or acquire a new target for this holding.</Text>
                   </View>
                 )}
+                {subsidiaries.length > 0 && (
+                  <View style={styles.companyAttentionSummary}>
+                    <View style={styles.companyAttentionSummaryHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.companyAttentionSummaryTitle}>Holding attention</Text>
+                        <Text style={styles.companyAttentionSummaryMeta}>
+                          {attentionSummary.critical > 0
+                            ? `${attentionSummary.critical} critical`
+                            : attentionSummary.watch > 0
+                              ? `${attentionSummary.watch} to watch`
+                              : 'No active attention issues'}
+                          {' • '}{attentionSummary.total} companies
+                        </Text>
+                      </View>
+                      {attentionSummary.attention > 0 && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Show all ${attentionSummary.attention} companies needing attention`}
+                          onPress={() => {
+                            setCompanyFilter('attention');
+                            setCompanySort('attention');
+                            setCompanyControlOpen(null);
+                          }}
+                          style={[
+                            styles.companyAttentionAllButton,
+                            companyFilter === 'attention' && styles.companyAttentionAllButtonActive,
+                          ]}
+                        >
+                          <Text style={[
+                            styles.companyAttentionAllText,
+                            companyFilter === 'attention' && styles.companyAttentionAllTextActive,
+                          ]}>
+                            Review {attentionSummary.attention}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.companyAttentionChips}
+                    >
+                      {attentionShortcuts.map((item) => {
+                        const active = companyFilter === item.key;
+                        return (
+                          <Pressable
+                            key={item.key}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active, disabled: item.count === 0 }}
+                            accessibilityLabel={`${item.label}: ${item.count} companies`}
+                            disabled={item.count === 0}
+                            onPress={() => {
+                              setCompanyFilter(item.key);
+                              setCompanySort('attention');
+                              setCompanyControlOpen(null);
+                            }}
+                            style={[
+                              styles.companyAttentionChip,
+                              { borderColor: item.count > 0 ? `${item.color}55` : Colors.cardBorder },
+                              active && { backgroundColor: `${item.color}14`, borderColor: item.color },
+                              item.count === 0 && styles.companyAttentionChipDisabled,
+                            ]}
+                          >
+                            <Ionicons name={item.icon} size={12} color={item.count > 0 ? item.color : Colors.textMuted} />
+                            <Text style={[styles.companyAttentionChipLabel, item.count > 0 && { color: item.color }]}>
+                              {item.label}
+                            </Text>
+                            <Text style={[styles.companyAttentionChipCount, item.count > 0 && { color: item.color }]}>
+                              {item.count}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+
                 {subsidiaries.length > 0 && (
                   <View style={styles.companyPortfolioToolbar}>
                     <View style={styles.companyPortfolioSummary}>
@@ -1533,6 +1626,19 @@ const styles = StyleSheet.create({
   emptySubsidiaries: { alignItems: 'center', paddingVertical: 18, paddingHorizontal: 12 },
   emptySubsidiariesTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', marginTop: 7 },
   emptySubsidiariesText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, textAlign: 'center', marginTop: 3 },
+  companyAttentionSummary: { borderWidth: 1, borderColor: `${Colors.warning}30`, borderRadius: 10, backgroundColor: Colors.elevated, padding: 9, marginTop: 8 },
+  companyAttentionSummaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  companyAttentionSummaryTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900' },
+  companyAttentionSummaryMeta: { color: Colors.textMuted, fontSize: 8, marginTop: 2 },
+  companyAttentionAllButton: { minHeight: 30, borderWidth: 1, borderColor: `${Colors.warning}55`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, justifyContent: 'center' },
+  companyAttentionAllButtonActive: { borderColor: Colors.warning, backgroundColor: '#33270F' },
+  companyAttentionAllText: { color: Colors.warning, fontSize: 7, fontWeight: '900' },
+  companyAttentionAllTextActive: { color: Colors.warning },
+  companyAttentionChips: { gap: 6, paddingTop: 8, paddingRight: 2 },
+  companyAttentionChip: { minHeight: 30, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 9, backgroundColor: Colors.card, paddingHorizontal: 7, paddingVertical: 5 },
+  companyAttentionChipDisabled: { opacity: 0.38 },
+  companyAttentionChipLabel: { color: Colors.textSecondary, fontSize: 7, fontWeight: '800' },
+  companyAttentionChipCount: { minWidth: 12, color: Colors.textPrimary, fontSize: 8, fontWeight: '900', textAlign: 'right' },
   companyPortfolioToolbar: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, backgroundColor: Colors.elevated, padding: 9, marginTop: 8 },
   companyPortfolioSummary: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   companyPortfolioTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900' },
