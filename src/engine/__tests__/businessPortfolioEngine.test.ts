@@ -64,6 +64,26 @@ describe('business portfolio engine', () => {
     expect(result.returnPct).toBeCloseTo(170);
   });
 
+  test('portfolio ROI values only the player-owned share after outside dilution', () => {
+    const business = {
+      ...makeBusiness(),
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside Investors', percent: 20, votingPercent: 20 },
+      ],
+    };
+
+    const result = getBusinessEquityReturn(business);
+
+    expect(result.totalCompanyEquity).toBe(250_000);
+    expect(result.playerOwnershipPct).toBe(80);
+    expect(result.equityValue).toBe(200_000);
+    expect(result.investmentBasis).toBe(100_000);
+    expect(result.lifetimeValue).toBe(220_000);
+    expect(result.gain).toBe(120_000);
+    expect(result.returnPct).toBeCloseTo(120);
+  });
+
   test('legacy acquisition basis falls back to shareholder cash contribution plus later capital', () => {
     const business = {
       ...makeBusiness(),
