@@ -585,6 +585,73 @@ export function getHoldingSubsidiaryAttentionSummary(
   };
 }
 
+export function getHoldingDebtOverview(
+  businesses: OwnedBusiness[],
+  inflationMultiplier = 1,
+) {
+  const rows = (businesses ?? []).map((business) => ({
+    business,
+    health: getHoldingSubsidiaryHealthSnapshot(business, inflationMultiplier),
+  }));
+  const indebted = rows.filter(({ health }) => health.debtPrincipal > 0);
+  const totalDebt = indebted.reduce((sum, { health }) => sum + health.debtPrincipal, 0);
+  const weeklyDebtService = indebted.reduce((sum, { health }) => sum + health.weeklyDebtService, 0);
+  const totalValue = rows.reduce((sum, { business }) => sum + Math.max(0, business.valuation ?? 0), 0);
+  const materialDebtCount = indebted.filter(({ health }) => health.materialDebt).length;
+  const debtServiceCoverageNumerator = indebted.reduce((sum, { business, health }) => {
+    const scheduledInterest = getBusinessWeeklyInterestExpense(business);
+    const reportedInterest = Math.max(
+      0,
+      business.lastExpenseBreakdown?.loanInterest ?? scheduledInterest,
+    );
+    return sum + Math.max(0, (business.lastWeekProfit ?? 0) + reportedInterest);
+  }, 0);
+  const groupDebtServiceCoverage = weeklyDebtService > 0
+    ? debtServiceCoverageNumerator / weeklyDebtService
+    : null;
+
+  const topRisks = indebted
+    .filter(({ health }) => health.materialDebt)
+    .sort((a, b) => {
+      const aCritical = a.health.debtServiceCoverage != null && a.health.debtServiceCoverage < 1
+        || a.health.debtToValue > 0.50;
+      const bCritical = b.health.debtServiceCoverage != null && b.health.debtServiceCoverage < 1
+        || b.health.debtToValue > 0.50;
+      if (aCritical !== bCritical) return aCritical ? -1 : 1;
+
+      const aCoverage = a.health.debtServiceCoverage ?? Number.POSITIVE_INFINITY;
+      const bCoverage = b.health.debtServiceCoverage ?? Number.POSITIVE_INFINITY;
+      if (aCoverage !== bCoverage) return aCoverage - bCoverage;
+      if (a.health.debtToValue !== b.health.debtToValue) return b.health.debtToValue - a.health.debtToValue;
+      return b.health.debtPrincipal - a.health.debtPrincipal;
+    })
+    .slice(0, 3)
+    .map(({ business, health }) => ({
+      businessId: business.id,
+      businessName: business.name,
+      debtPrincipal: health.debtPrincipal,
+      weeklyDebtService: health.weeklyDebtService,
+      debtServiceCoverage: health.debtServiceCoverage,
+      debtToValue: health.debtToValue,
+      severity: (
+        (health.debtServiceCoverage != null && health.debtServiceCoverage < 1)
+        || health.debtToValue > 0.50
+      ) ? 'critical' as const : 'watch' as const,
+    }));
+
+  return {
+    subsidiaryCount: rows.length,
+    indebtedCount: indebted.length,
+    totalDebt: Math.round(totalDebt),
+    weeklyDebtService: Math.round(weeklyDebtService),
+    totalValue: Math.round(totalValue),
+    groupDebtToValue: totalValue > 0 ? totalDebt / totalValue : totalDebt > 0 ? 1 : 0,
+    groupDebtServiceCoverage,
+    materialDebtCount,
+    topRisks,
+  };
+}
+
 export function filterAndSortHoldingSubsidiaries(
   businesses: OwnedBusiness[],
   inflationMultiplier = 1,
