@@ -11,7 +11,7 @@ import StatusPill from '../src/components/StatusPill';
 import GameButton from '../src/components/GameButton';
 import useGameStore from '../src/store/gameStore';
 import { formatCurrency } from '../src/utils/format';
-import { inflated } from '../src/engine/economyEngine';
+import { getEconomicCycleEffects, getPropertyCyclePurchaseMultiplier, inflated } from '../src/engine/economyEngine';
 import { getTotalPropertyValue, getPropertyWeeklyRent } from '../src/engine/propertyEngine';
 import { getPrestigeEffects } from '../src/engine/prestigeEngine';
 import propertiesData from '../src/data/properties.json';
@@ -28,6 +28,7 @@ export default function PropertiesScreen() {
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
   const week = useGameStore((s) => s?.week ?? 1);
   const year = useGameStore((s) => s?.year ?? 1);
+  const economicCycle = useGameStore((s) => s?.economicCycle);
   const activeAuctions = useGameStore((s) => s?.activeAuctions ?? []);
   const buyProperty = useGameStore((s) => s?.buyProperty);
   const sellProperty = useGameStore((s) => s?.sellProperty);
@@ -39,9 +40,14 @@ export default function PropertiesScreen() {
   const [tab, setTab] = useState<'owned' | 'listings' | 'auctions'>(properties.length > 0 ? 'owned' : 'listings');
   const [expandedAuctionId, setExpandedAuctionId] = useState<string | null>(null);
   const globalWeek = ((year - 1) * 20) + week;
+  const cyclePhase = economicCycle?.phase ?? 'expansion';
+  const cycleEffects = getEconomicCycleEffects(cyclePhase);
+  const propertyPurchaseMultiplier = getPropertyCyclePurchaseMultiplier(cyclePhase);
 
   const totalValue = getTotalPropertyValue(properties);
-  const weeklyIncome = properties.filter((p) => p.isRentedOut).reduce((t, p) => t + getPropertyWeeklyRent(p, inflationMultiplier, rentBonus), 0);
+  const weeklyIncome = properties
+    .filter((p) => p.isRentedOut)
+    .reduce((t, p) => t + getPropertyWeeklyRent(p, inflationMultiplier, rentBonus, cycleEffects.propertyIncomeMultiplier), 0);
 
   const confirmAction = (title: string, msg: string, action: () => void) => {
     const confirmText = title.includes('Bid') ? 'Bid' : title.includes('Sell') ? 'Sell' : title.includes('Inspect') ? 'Inspect' : title.includes('Renovat') ? 'Renovate' : title.includes('Buy') ? 'Buy' : 'Confirm';
@@ -102,7 +108,7 @@ export default function PropertiesScreen() {
               <Text style={styles.sectionSub}>Manage rent, condition and exit decisions.</Text>
             </View>
             {properties.map((prop) => {
-              const rent = getPropertyWeeklyRent(prop, inflationMultiplier, rentBonus);
+              const rent = getPropertyWeeklyRent(prop, inflationMultiplier, rentBonus, cycleEffects.propertyIncomeMultiplier);
               const maintenance = inflated(prop.weeklyMaintenance ?? 0, inflationMultiplier);
               const netRent = rent - maintenance;
               const invested = prop.purchasePrice + (prop.inspectionCostPaid ?? 0);
@@ -218,11 +224,13 @@ export default function PropertiesScreen() {
         {tab === 'listings' && <>
           <View style={styles.sectionHeading}>
             <Text style={styles.sectionTitle}>Buy Property</Text>
-            <Text style={styles.sectionSub}>Compare price with weekly rental potential.</Text>
+            <Text style={styles.sectionSub}>
+              {cyclePhase.charAt(0).toUpperCase() + cyclePhase.slice(1)} market • compare cycle-adjusted prices with rental potential.
+            </Text>
           </View>
           {(propertiesData as any[]).map((prop) => {
-            const price = inflated(prop.purchasePrice, inflationMultiplier);
-            const rent = inflated(prop.weeklyRentalIncome ?? 0, inflationMultiplier);
+            const price = Math.round(inflated(prop.purchasePrice, inflationMultiplier) * propertyPurchaseMultiplier);
+            const rent = Math.round(inflated(prop.weeklyRentalIncome ?? 0, inflationMultiplier) * cycleEffects.propertyIncomeMultiplier);
             const maintenance = inflated(prop.weeklyMaintenance ?? 0, inflationMultiplier);
             const net = rent - maintenance;
             const canAfford = cash >= price;
