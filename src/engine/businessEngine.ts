@@ -304,20 +304,28 @@ function getStrategyModifierTotals(biz: OwnedBusiness): {
   return { revenue, expense, reputation, morale };
 }
 
+export const STRATEGIC_DECISION_MIN_GAP_WEEKS = 12;
+export const STRATEGIC_DECISION_MAX_GAP_WEEKS = 24;
+
+function scheduleNextStrategicDecisionWeek(globalWeek: number): number {
+  const spread = STRATEGIC_DECISION_MAX_GAP_WEEKS - STRATEGIC_DECISION_MIN_GAP_WEEKS + 1;
+  return globalWeek + STRATEGIC_DECISION_MIN_GAP_WEEKS + Math.floor(Math.random() * spread);
+}
+
 function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): BusinessPendingDecision {
   const options: BusinessPendingDecision[] = [
     {
       id: `strategy_product_${biz.id}_${globalWeek}`,
       kind: 'strategy',
       title: 'Product Positioning Review',
-      description: `${biz.name} has room to reposition its offer. The decision will shape several weeks of performance.`,
+      description: `${biz.name} has room to reposition its offer. This direction should matter for much of the coming year.`,
       icon: '🎯',
       createdGlobalWeek: globalWeek,
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'hold_course',
       choices: [
-        { id: 'budget_push', text: 'Push Lower Prices', description: 'Chase volume at thinner margins.', revenueMultiplier: 1.10, expenseMultiplier: 1.05, reputationDelta: -1, marketShareDelta: 2, durationWeeks: 8 },
-        { id: 'move_upscale', text: 'Move Upscale', description: 'Accept lower volume for brand and margin.', revenueMultiplier: 1.04, expenseMultiplier: 0.98, reputationDelta: 3, marketShareDelta: -1, durationWeeks: 10 },
+        { id: 'budget_push', text: 'Push Lower Prices', description: 'Chase volume at thinner margins.', revenueMultiplier: 1.10, expenseMultiplier: 1.05, reputationDelta: -1, marketShareDelta: 2, durationWeeks: 16 },
+        { id: 'move_upscale', text: 'Move Upscale', description: 'Accept lower volume for brand strength and margin.', revenueMultiplier: 1.04, expenseMultiplier: 0.98, reputationDelta: 3, marketShareDelta: -1, durationWeeks: 20 },
         { id: 'hold_course', text: 'Stay Balanced', description: 'Avoid disruption and preserve flexibility.', durationWeeks: 1 },
       ],
     },
@@ -331,8 +339,8 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'no_change',
       choices: [
-        { id: 'raise_wages', text: 'Increase Wages', description: 'Higher costs, better morale and retention.', businessCashCost: 3000, expenseMultiplier: 1.04, moraleDelta: 7, reputationDelta: 1, durationWeeks: 10 },
-        { id: 'automate', text: 'Accelerate Automation', description: 'Lower costs but tougher on morale.', businessCashCost: 7000, revenueMultiplier: 1.03, expenseMultiplier: 0.91, moraleDelta: -6, durationWeeks: 12 },
+        { id: 'raise_wages', text: 'Invest in the Team', description: 'Higher costs, better morale and retention.', businessCashCost: 3000, expenseMultiplier: 1.04, moraleDelta: 7, reputationDelta: 1, durationWeeks: 20 },
+        { id: 'automate', text: 'Accelerate Automation', description: 'Lower costs but put more pressure on morale.', businessCashCost: 7000, revenueMultiplier: 1.03, expenseMultiplier: 0.91, moraleDelta: -6, durationWeeks: 24 },
         { id: 'no_change', text: 'No Major Change', description: 'Keep the current operating model.', durationWeeks: 1 },
       ],
     },
@@ -346,13 +354,152 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       deadlineGlobalWeek: globalWeek + 5,
       defaultChoiceId: 'cash_reserve',
       choices: [
-        { id: 'rd', text: 'Invest in R&D', description: 'Expensive now; stronger demand and reputation if sustained.', businessCashCost: 10000, revenueMultiplier: 1.08, expenseMultiplier: 1.04, reputationDelta: 3, durationWeeks: 12 },
-        { id: 'cost_program', text: 'Cut Operating Waste', description: 'Improve efficiency, with a small morale cost.', businessCashCost: 4000, expenseMultiplier: 0.90, moraleDelta: -3, durationWeeks: 10 },
-        { id: 'cash_reserve', text: 'Protect Cash', description: 'No temporary modifier; retain liquidity.', durationWeeks: 1 },
+        { id: 'rd', text: 'Invest in R&D', description: 'Spend now for stronger demand and reputation over time.', businessCashCost: 10000, revenueMultiplier: 1.08, expenseMultiplier: 1.04, reputationDelta: 3, durationWeeks: 24 },
+        { id: 'cost_program', text: 'Cut Operating Waste', description: 'Improve efficiency, with a modest morale cost.', businessCashCost: 4000, expenseMultiplier: 0.90, moraleDelta: -3, durationWeeks: 20 },
+        { id: 'cash_reserve', text: 'Protect Cash', description: 'Retain liquidity and avoid a temporary operating modifier.', durationWeeks: 1 },
+      ],
+    },
+    {
+      id: `strategy_supply_${biz.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Supply Chain Strategy',
+      description: `${biz.name} can trade resilience for lower costs, or build a more dependable supplier network.`,
+      icon: '🚚',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'supplier_status_quo',
+      choices: [
+        { id: 'supplier_consolidate', text: 'Consolidate Suppliers', description: 'Negotiate harder and simplify purchasing, but accept more concentration risk.', businessCashCost: 3500, expenseMultiplier: 0.93, reputationDelta: -1, durationWeeks: 20 },
+        { id: 'supplier_resilience', text: 'Build Redundancy', description: 'Pay more for dependable supply and customer reliability.', businessCashCost: 6500, expenseMultiplier: 1.03, revenueMultiplier: 1.03, reputationDelta: 3, durationWeeks: 22 },
+        { id: 'supplier_status_quo', text: 'Keep the Current Network', description: 'Avoid disruption and preserve current relationships.', durationWeeks: 1 },
+      ],
+    },
+    {
+      id: `strategy_customer_${biz.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Customer Experience Review',
+      description: `${biz.name} can decide whether the next phase prioritizes service, conversion, or consistency.`,
+      icon: '💬',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'service_steady',
+      choices: [
+        { id: 'service_premium', text: 'Raise Service Standards', description: 'Spend on customer experience and build a stronger brand.', businessCashCost: 6000, expenseMultiplier: 1.04, revenueMultiplier: 1.04, reputationDelta: 4, moraleDelta: 2, durationWeeks: 20 },
+        { id: 'service_conversion', text: 'Optimize for Conversion', description: 'Push sales and throughput harder, with some brand pressure.', businessCashCost: 3500, revenueMultiplier: 1.08, expenseMultiplier: 1.02, marketShareDelta: 2, reputationDelta: -1, durationWeeks: 18 },
+        { id: 'service_steady', text: 'Keep Service Consistent', description: 'Maintain current standards without a major program.', durationWeeks: 1 },
+      ],
+    },
+    {
+      id: `strategy_channels_${biz.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Growth Channel Review',
+      description: `${biz.name} has several ways to reach the next group of customers.`,
+      icon: '📈',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'channel_current',
+      choices: [
+        { id: 'channel_sales', text: 'Expand Sales Reach', description: 'Spend aggressively to win share and grow revenue.', businessCashCost: 8000, revenueMultiplier: 1.09, expenseMultiplier: 1.05, marketShareDelta: 3, durationWeeks: 20 },
+        { id: 'channel_brand', text: 'Build the Brand', description: 'Grow reputation first and let demand follow.', businessCashCost: 6000, revenueMultiplier: 1.04, reputationDelta: 5, marketShareDelta: 1, durationWeeks: 22 },
+        { id: 'channel_current', text: 'Stay with Current Channels', description: 'Keep acquisition spending stable.', durationWeeks: 1 },
+      ],
+    },
+    {
+      id: `strategy_operations_${biz.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Operating Model Review',
+      description: `${biz.name} can simplify operations, standardize them, or keep maximum flexibility.`,
+      icon: '⚙️',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'operations_flexible',
+      choices: [
+        { id: 'operations_lean', text: 'Run Leaner', description: 'Remove overhead and tighten processes at a small morale cost.', businessCashCost: 4500, expenseMultiplier: 0.88, moraleDelta: -4, durationWeeks: 24 },
+        { id: 'operations_standardize', text: 'Standardize & Digitize', description: 'Invest in repeatable systems that support growth and efficiency.', businessCashCost: 9000, revenueMultiplier: 1.04, expenseMultiplier: 0.94, reputationDelta: 1, durationWeeks: 22 },
+        { id: 'operations_flexible', text: 'Keep Flexibility', description: 'Avoid a major operating-model change.', durationWeeks: 1 },
+      ],
+    },
+    {
+      id: `strategy_brand_${biz.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: 'Brand Strategy',
+      description: `${biz.name} must decide how distinctive it wants to be in its market.`,
+      icon: '✨',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'brand_steady',
+      choices: [
+        { id: 'brand_premium', text: 'Own the Premium Position', description: 'Invest in quality and reputation, accepting somewhat higher costs.', businessCashCost: 7500, revenueMultiplier: 1.05, expenseMultiplier: 1.03, reputationDelta: 6, marketShareDelta: -1, durationWeeks: 22 },
+        { id: 'brand_broad', text: 'Broaden the Audience', description: 'Make the offer more accessible and chase a wider customer base.', businessCashCost: 5000, revenueMultiplier: 1.07, marketShareDelta: 2, reputationDelta: -1, durationWeeks: 20 },
+        { id: 'brand_steady', text: 'Protect the Current Brand', description: 'Keep positioning stable.', durationWeeks: 1 },
       ],
     },
   ];
   return options[Math.floor(Math.random() * options.length)];
+}
+
+export function getAutomaticStrategicDecisionChoice(
+  biz: OwnedBusiness,
+  decision: BusinessPendingDecision,
+  inflationMultiplier = 1,
+): BusinessPendingDecisionChoice | null {
+  if (decision.kind === 'crisis' || !(decision.choices?.length)) return null;
+
+  const balance = Math.max(0, biz.balance ?? 0);
+  const defaultChoice = decision.choices.find((choice) => choice.id === decision.defaultChoiceId)
+    ?? decision.choices[decision.choices.length - 1];
+
+  const affordable = decision.choices.filter((choice) => {
+    const cost = getBusinessDecisionChoiceCost(choice, inflationMultiplier);
+    if (cost > balance) return false;
+    if (choice.id === decision.defaultChoiceId) return true;
+    // Auto Strategy should not empty a company's operating cash for a discretionary program.
+    return cost <= Math.max(5_000, balance * 0.25);
+  });
+  const candidates = affordable.length > 0 ? affordable : [defaultChoice];
+  const focus = biz.strategicFocus ?? 'balanced';
+
+  const keywordBonus = (choice: BusinessPendingDecisionChoice, words: string[]) => {
+    const haystack = `${choice.id} ${choice.text} ${choice.description}`.toLowerCase();
+    return words.some((word) => haystack.includes(word)) ? 10 : 0;
+  };
+
+  const score = (choice: BusinessPendingDecisionChoice) => {
+    const revenue = ((choice.revenueMultiplier ?? 1) - 1) * 100;
+    const efficiency = (1 - (choice.expenseMultiplier ?? 1)) * 100;
+    const reputation = choice.reputationDelta ?? 0;
+    const share = choice.marketShareDelta ?? 0;
+    const morale = choice.moraleDelta ?? 0;
+    const relations = choice.workforceRelationsDelta ?? 0;
+    const cost = getBusinessDecisionChoiceCost(choice, inflationMultiplier);
+    const costPressure = balance > 0 ? (cost / balance) * 12 : (cost > 0 ? 20 : 0);
+    const defaultBonus = choice.id === decision.defaultChoiceId ? 3 : 0;
+
+    if (focus === 'growth') {
+      return revenue * 1.45 + share * 2.2 + reputation * 0.45 + morale * 0.15 + relations * 0.2
+        + keywordBonus(choice, ['growth', 'sales', 'market', 'channel', 'conversion', 'expand']) - costPressure;
+    }
+    if (focus === 'margin') {
+      return efficiency * 1.8 + revenue * 0.25 + reputation * 0.2 + morale * 0.1 + relations * 0.1
+        + keywordBonus(choice, ['cost', 'lean', 'efficien', 'consolidate', 'waste', 'hold_pay']) - costPressure * 1.2;
+    }
+    if (focus === 'premium') {
+      return reputation * 2 + revenue * 0.45 + morale * 0.35 + relations * 0.3 + efficiency * 0.2
+        + keywordBonus(choice, ['premium', 'quality', 'service', 'brand', 'competitive pay']) - costPressure;
+    }
+    if (focus === 'automation') {
+      return efficiency * 1.35 + revenue * 0.45 + reputation * 0.2 + relations * 0.1
+        + keywordBonus(choice, ['automat', 'digit', 'standardize', 'technology', 'process']) - costPressure;
+    }
+    if (focus === 'rd') {
+      return revenue * 0.8 + reputation * 1.2 + morale * 0.25 + relations * 0.35 + efficiency * 0.2
+        + keywordBonus(choice, ['r&d', 'innovation', 'develop', 'academy', 'technology', 'quality']) - costPressure;
+    }
+    return revenue * 0.45 + efficiency * 0.65 + reputation * 0.65 + share * 0.55 + morale * 0.35 + relations * 0.35
+      + defaultBonus - costPressure;
+  };
+
+  return [...candidates].sort((a, b) => score(b) - score(a))[0] ?? defaultChoice;
 }
 
 export function makeBusinessCrisis(biz: OwnedBusiness, globalWeek: number): BusinessPendingDecision {
@@ -964,7 +1111,8 @@ export function createBusiness(typeId: string, customName: string | null, week: 
     strategicFocus: 'balanced',
     strategyModifiers: [],
     pendingDecision: null,
-    nextStrategicDecisionWeek: ((year - 1) * 20 + week) + 6 + Math.floor(Math.random() * 7),
+    autoStrategicDecisions: false,
+    nextStrategicDecisionWeek: scheduleNextStrategicDecisionWeek(((year - 1) * 20) + week),
     nextCrisisCheckWeek: ((year - 1) * 20 + week) + 10 + Math.floor(Math.random() * 11),
     ownership: [{
       ownerType: 'player',
@@ -1761,10 +1909,76 @@ export function processBusinessWeek(
   }
 
   let pendingDecision = biz.pendingDecision ?? null;
-  let nextStrategicDecisionWeek = biz.nextStrategicDecisionWeek ?? (globalWeek + 8);
+  let nextStrategicDecisionWeek = biz.nextStrategicDecisionWeek ?? (globalWeek + 18);
   let nextCrisisCheckWeek = biz.nextCrisisCheckWeek ?? (globalWeek + 14);
   let autoResolvedDecision = false;
   let resolvedMarketShareModifier = biz.marketShareModifier ?? 0;
+
+  const applyAutomaticStrategicChoice = (decision: BusinessPendingDecision): boolean => {
+    if (!biz.autoStrategicDecisions || decision.kind === 'crisis') return false;
+    const autoBusiness = {
+      ...biz,
+      balance: newBalance,
+      reputation: newReputation,
+      employees: updatedEmployees,
+      corporateWorkforce,
+      marketShareModifier: resolvedMarketShareModifier,
+    };
+    const choice = getAutomaticStrategicDecisionChoice(autoBusiness, decision, inflationMultiplier);
+    if (!choice) return false;
+
+    const cost = getBusinessDecisionChoiceCost(choice, inflationMultiplier);
+    if (cost > newBalance) return false;
+    newBalance = Math.max(0, newBalance - cost);
+
+    if ((choice.durationWeeks ?? 0) > 1) {
+      strategyModifiers.push({
+        id: `${decision.id}:${choice.id}:auto-strategy`,
+        title: `${decision.title} — ${choice.text} (Auto)`,
+        revenueMultiplier: choice.revenueMultiplier ?? 1,
+        expenseMultiplier: choice.expenseMultiplier ?? 1,
+        reputationPerWeek: 0,
+        moralePerWeek: 0,
+        weeksRemaining: choice.durationWeeks ?? 1,
+      });
+    }
+    newReputation = Math.max(0, Math.min(100, newReputation + (choice.reputationDelta ?? 0)));
+    resolvedMarketShareModifier = Math.max(-30, Math.min(30, resolvedMarketShareModifier + (choice.marketShareDelta ?? 0)));
+    if (choice.moraleDelta) {
+      updatedEmployees = updatedEmployees.map((employee) => ({
+        ...employee,
+        morale: Math.max(10, Math.min(100, (employee.morale ?? 50) + (choice.moraleDelta ?? 0))),
+      }));
+    }
+    if (
+      corporateWorkforce
+      && (
+        choice.workforceCompensationPolicy
+        || choice.workforceTrainingPolicy
+        || choice.workforceRelationsDelta
+        || choice.workforceTargetMultiplier
+      )
+    ) {
+      corporateWorkforce = applyCorporateHrDecisionChoice(
+        { ...autoBusiness, corporateWorkforce },
+        corporateWorkforce,
+        choice,
+        globalWeek,
+        inflationMultiplier,
+      );
+    }
+    timeline = [
+      ...timeline,
+      {
+        week: currentWeek,
+        year: currentYear,
+        title: `🧭 ${decision.title}: ${choice.text} (Auto)`,
+        icon: '🧭',
+        kind: 'event' as const,
+      },
+    ].slice(-50);
+    return true;
+  };
 
   if (pendingDecision && globalWeek > (pendingDecision.deadlineGlobalWeek ?? pendingDecision.createdGlobalWeek + 4)) {
     const fallback = pendingDecision.choices.find((choice) => choice.id === pendingDecision!.defaultChoiceId)
@@ -1826,15 +2040,27 @@ export function processBusinessWeek(
     !pendingDecision
     && !autoResolvedDecision
     && corporateWorkforce
-    && globalWeek >= (corporateWorkforce.nextHrEventWeek ?? globalWeek + 12)
+    && globalWeek >= (corporateWorkforce.nextHrEventWeek ?? globalWeek + 18)
   ) {
-    pendingDecision = makeCorporateHrDecision({ ...biz, corporateWorkforce }, globalWeek);
-    if (pendingDecision) {
+    const hrDecision = makeCorporateHrDecision({ ...biz, corporateWorkforce }, globalWeek);
+    if (hrDecision) {
+      if (applyAutomaticStrategicChoice(hrDecision)) {
+        pendingDecision = null;
+        autoResolvedDecision = true;
+      } else {
+        pendingDecision = hrDecision;
+      }
       corporateWorkforce = scheduleNextCorporateHrEvent(corporateWorkforce, globalWeek);
     }
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextStrategicDecisionWeek) {
-    pendingDecision = makeStrategicDecision(biz, globalWeek);
-    nextStrategicDecisionWeek = globalWeek + 6 + Math.floor(Math.random() * 7);
+    const strategicDecision = makeStrategicDecision(biz, globalWeek);
+    nextStrategicDecisionWeek = scheduleNextStrategicDecisionWeek(globalWeek);
+    if (applyAutomaticStrategicChoice(strategicDecision)) {
+      pendingDecision = null;
+      autoResolvedDecision = true;
+    } else {
+      pendingDecision = strategicDecision;
+    }
   } else if (!pendingDecision && !autoResolvedDecision && globalWeek >= nextCrisisCheckWeek) {
     const corporateTier = getCorporateScaleTier(biz);
     const baseCrisisChance = corporateTier === 'local'
@@ -1902,6 +2128,7 @@ export function processBusinessWeek(
     lastBusinessEventWeek: triggeredEventId ? globalWeek : biz.lastBusinessEventWeek,
     businessEventCooldowns: triggeredEventId ? { ...eventCooldowns, [triggeredEventId]: globalWeek } : eventCooldowns,
     strategicFocus: biz.strategicFocus ?? 'balanced',
+    autoStrategicDecisions: biz.autoStrategicDecisions ?? false,
     strategyModifiers,
     familyRoles,
     executives: governanceTick.executives,
@@ -2377,10 +2604,10 @@ export function processAllBusinesses(
           ...updatedBusiness,
           pendingDecision: null,
           nextStrategicDecisionWeek: deferred.kind === 'strategy'
-            ? globalWeek + 2
+            ? globalWeek + 4 + (updatedBusinesses.length % 5)
             : updatedBusiness.nextStrategicDecisionWeek,
           nextCrisisCheckWeek: deferred.kind === 'crisis'
-            ? globalWeek + 2
+            ? globalWeek + 2 + (updatedBusinesses.length % 3)
             : updatedBusiness.nextCrisisCheckWeek,
         };
       } else {
