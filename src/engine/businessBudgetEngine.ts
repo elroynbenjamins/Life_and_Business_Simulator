@@ -338,3 +338,36 @@ export function isBusinessBudgetReviewDue(
   const plan = normalizeBusinessBudgetPlan(business.budgetPlan, business.foundedYear ?? currentYear);
   return plan.reviewYear < currentYear;
 }
+
+
+export function getBusinessProtectedCash(
+  business: OwnedBusiness,
+  inflationMultiplier = 1,
+  totalExpenses = Math.max(0, business.lastWeekExpenses ?? 0),
+): number {
+  const targets = getBusinessBudgetReserveTargets(
+    business,
+    Math.max(0, totalExpenses),
+    inflationMultiplier,
+  );
+  const reserves = normalizeBusinessBudgetReserves(business.budgetReserves);
+  return Math.round(
+    targets.operatingReserveTarget
+      + reserves.reinvestment
+      + reserves.growth,
+  );
+}
+
+export function getBusinessAvailableOwnerDistributionCash(
+  business: OwnedBusiness,
+  inflationMultiplier = 1,
+  totalExpenses = Math.max(0, business.lastWeekExpenses ?? 0),
+): number {
+  return Math.max(
+    0,
+    Math.round(
+      Math.max(0, business.balance ?? 0)
+        - getBusinessProtectedCash(business, inflationMultiplier, totalExpenses),
+    ),
+  );
+}
