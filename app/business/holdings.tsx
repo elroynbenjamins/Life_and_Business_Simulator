@@ -31,6 +31,7 @@ import { CorporateReportPeriod } from '../../src/engine/corporateReportingEngine
 const CAPITAL_AMOUNTS = [1_000_000, 5_000_000, 10_000_000];
 const PAYOUT_AMOUNTS = [100_000, 500_000, 1_000_000, 5_000_000];
 const MANAGEMENT_FEE_RATES = [0, 0.01, 0.02, 0.03];
+const RESERVE_TARGET_WEEKS = [0, 4, 8, 12];
 
 export default function HoldingCompaniesScreen() {
   const router = useRouter();
@@ -45,6 +46,7 @@ export default function HoldingCompaniesScreen() {
   const createHoldingCompany = useGameStore((s) => s.createHoldingCompany);
   const fundHoldingCompany = useGameStore((s) => s.fundHoldingCompany);
   const distributeHoldingCash = useGameStore((s) => s.distributeHoldingCash);
+  const setHoldingReserveTargetWeeks = useGameStore((s) => s.setHoldingReserveTargetWeeks);
   const setHoldingManagementFeeRate = useGameStore((s) => s.setHoldingManagementFeeRate);
   const upgradeHoldingSharedService = useGameStore((s) => s.upgradeHoldingSharedService);
   const allocateHoldingCapital = useGameStore((s) => s.allocateHoldingCapital);
@@ -255,7 +257,8 @@ export default function HoldingCompaniesScreen() {
               </GameCard>
             ) : visibleSummaries.map(({
               holding, subsidiaries, subsidiaryCount, totalValue, totalDebt, netGroupEquity, weeklyProfit,
-              cashReserve, familyControlledPct, protectedAssets, avgRevenueSynergy, avgExpenseSynergy, diversification,
+              cashReserve, reserveTargetWeeks, reserveTarget, availableDistributionCash,
+              familyControlledPct, protectedAssets, avgRevenueSynergy, avgExpenseSynergy, diversification,
               sharedServiceEffects, quarterlyManagementReport, annualManagementReport,
             }) => (
               <GameCard key={holding.id}>
@@ -431,6 +434,26 @@ export default function HoldingCompaniesScreen() {
                     ))}
                   </View>
 
+                  <Text style={styles.synergyTitle}>Reserve target</Text>
+                  <Text style={styles.capitalMeta}>
+                    Protect owner distributions below {reserveTargetWeeks} weeks of subsidiary operating expenses
+                    {reserveTargetWeeks > 0 ? ` • target ${formatCurrency(reserveTarget)}` : ' • disabled'}.
+                  </Text>
+                  <View style={styles.buttonRow}>
+                    {RESERVE_TARGET_WEEKS.map((weeks) => {
+                      const active = reserveTargetWeeks === weeks;
+                      return (
+                        <Pressable
+                          key={weeks}
+                          onPress={() => setHoldingReserveTargetWeeks(holding.id, weeks)}
+                          style={[styles.smallAction, active && styles.protectedAction]}
+                        >
+                          <Text style={styles.smallActionText}>{weeks === 0 ? 'Off' : `${weeks}w`}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
                   <Text style={styles.synergyTitle}>Management fee</Text>
                   <Text style={styles.capitalMeta}>0–3% of subsidiary revenue. A four-week operating buffer is protected automatically.</Text>
                   <View style={styles.buttonRow}>
@@ -449,13 +472,16 @@ export default function HoldingCompaniesScreen() {
                   </View>
 
                   <Text style={styles.synergyTitle}>Owner distribution</Text>
+                  <Text style={styles.capitalMeta}>
+                    Available above reserve target: {formatCurrency(availableDistributionCash)}. Strategic investments may still use the full Holding reserve.
+                  </Text>
                   <View style={styles.buttonRow}>
                     {PAYOUT_AMOUNTS.map((amount) => (
                       <Pressable
                         key={amount}
-                        disabled={cashReserve < amount}
+                        disabled={availableDistributionCash < amount}
                         onPress={() => distributeHoldingCash(holding.id, amount)}
-                        style={[styles.smallAction, cashReserve < amount && styles.disabledAction]}
+                        style={[styles.smallAction, availableDistributionCash < amount && styles.disabledAction]}
                       >
                         <Text style={styles.smallActionText}>{formatCurrency(amount)}</Text>
                       </Pressable>
