@@ -180,12 +180,16 @@ export default function HoldingCompaniesScreen() {
                 </View>
                 <View style={styles.reportingTabs}>
                   <Pressable
+                    accessibilityRole="button"
+                    hitSlop={{ top: 8, bottom: 8 }}
                     onPress={() => setManagementReportPeriod('quarter')}
                     style={[styles.reportingTab, managementReportPeriod === 'quarter' && styles.reportingTabActive]}
                   >
                     <Text style={[styles.reportingTabText, managementReportPeriod === 'quarter' && { color: Colors.info }]}>Quarter</Text>
                   </Pressable>
                   <Pressable
+                    accessibilityRole="button"
+                    hitSlop={{ top: 8, bottom: 8 }}
                     onPress={() => setManagementReportPeriod('annual')}
                     style={[styles.reportingTab, managementReportPeriod === 'annual' && styles.reportingTabActive]}
                   >
@@ -366,6 +370,8 @@ export default function HoldingCompaniesScreen() {
                           <Text style={styles.childMeta}>{child.occupationTitle ?? 'Independent'} • Relationship {Math.round(child.parentRelationship ?? 75)}</Text>
                         </View>
                         <Pressable
+                          accessibilityRole="button"
+                          hitSlop={{ top: 8, bottom: 8 }}
                           disabled={(child.parentRelationship ?? 75) < 30}
                           style={[styles.roleButton, holding.executiveChildId === child.id && styles.roleButtonActive]}
                           onPress={() => appointChildToHolding(holding.id, child.id, 'executive')}
@@ -373,6 +379,8 @@ export default function HoldingCompaniesScreen() {
                           <Text style={styles.roleText}>Executive</Text>
                         </Pressable>
                         <Pressable
+                          accessibilityRole="button"
+                          hitSlop={{ top: 8, bottom: 8 }}
                           disabled={(child.parentRelationship ?? 75) < 30}
                           style={[styles.roleButton, holding.designatedSuccessorChildId === child.id && styles.roleButtonActive]}
                           onPress={() => appointChildToHolding(holding.id, child.id, 'successor')}
@@ -470,6 +478,8 @@ export default function HoldingCompaniesScreen() {
                                 return (
                                   <Pressable
                                     key={manager.id}
+                                    accessibilityRole="button"
+                                    hitSlop={{ top: 8, bottom: 8 }}
                                     onPress={() => setManagerSelections((current) => ({ ...current, [business.id]: manager.id }))}
                                     style={[styles.managerChip, active && styles.managerChipActive]}
                                   >
@@ -486,6 +496,8 @@ export default function HoldingCompaniesScreen() {
                                 return (
                                   <Pressable
                                     key={policy}
+                                    accessibilityRole="button"
+                                    hitSlop={{ top: 8, bottom: 8 }}
                                     onPress={() => setBusinessDelegation(
                                       business.id,
                                       policy,
