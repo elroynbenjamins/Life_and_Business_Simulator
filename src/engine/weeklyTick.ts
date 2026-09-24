@@ -203,10 +203,9 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     economy.inflationMultiplier,
     prestigeEffects.property_income ?? 0,
     economy.propertyValueWeeklyAdjustment,
+    economy.propertyIncomeMultiplier,
   );
-  const propertyNetIncome = Math.round(
-    propResult.totalIncome * economy.propertyIncomeMultiplier - propResult.totalMaintenance
-  );
+  const propertyNetIncome = propResult.totalIncome - propResult.totalMaintenance;
   newCash += propertyNetIncome;
 
   // ---------- Step 12.4: Real-estate auctions ----------
