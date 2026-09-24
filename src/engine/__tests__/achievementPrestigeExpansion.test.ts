@@ -1,4 +1,5 @@
 import achievementsData from '../../data/achievements.json';
+import coursesData from '../../data/courses.json';
 import prestigeData from '../../data/prestige_tree_v2.json';
 import { checkAchievements } from '../achievementEngine';
 import { canUnlockPrestige, getPrestigeEffects, unlockPrestige } from '../prestigeEngine';
@@ -267,6 +268,40 @@ describe('achievement and Prestige expansion', () => {
     expect(achievements.filter((achievement) => (achievement.xpReward ?? 0) >= 100).every((achievement) => achievement.gemReward === 3)).toBe(true);
     expect(achievements.filter((achievement) => (achievement.xpReward ?? 0) < 100).every((achievement) => achievement.gemReward === 2)).toBe(true);
     expect(achievements.reduce((total, achievement) => total + achievement.gemReward, 0)).toBe(166);
+  });
+
+  test('education achievement tiers no longer double-unlock from the same condition', () => {
+    const advancedCourses = (coursesData as any[])
+      .filter((course) => (course.level ?? 1) <= 2)
+      .map((course) => ({ courseId: course.id, name: course.name, completedWeek: 10 }));
+    const advancedState = {
+      ...INITIAL_GAME_STATE,
+      completedCourses: advancedCourses,
+    };
+
+    const advancedUnlocked = checkAchievements(advancedState, 0, 0);
+    expect(advancedUnlocked).toContain('all_courses');
+    expect(advancedUnlocked).not.toContain('complete_all_courses');
+
+    const completeState = {
+      ...INITIAL_GAME_STATE,
+      completedCourses: (coursesData as any[]).map((course) => ({ courseId: course.id, name: course.name, completedWeek: 10 })),
+    };
+    expect(checkAchievements(completeState, 0, 0)).toEqual(expect.arrayContaining(['all_courses', 'complete_all_courses']));
+  });
+
+  test('Top of the Game requires career level 5 rather than level 3', () => {
+    const level4 = {
+      ...INITIAL_GAME_STATE,
+      career: { ...INITIAL_GAME_STATE.career, companyId: 'company', careerPathId: 'path', positionLevel: 4 },
+    };
+    const level5 = {
+      ...level4,
+      career: { ...level4.career, positionLevel: 5 },
+    };
+
+    expect(checkAchievements(level4 as any, 0, 0)).not.toContain('max_level_job');
+    expect(checkAchievements(level5 as any, 0, 0)).toContain('max_level_job');
   });
 
   test('achievement data contains all new milestone IDs', () => {
