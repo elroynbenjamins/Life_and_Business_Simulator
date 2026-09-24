@@ -1605,6 +1605,12 @@ export interface OwnedBusiness {
   lastWeekRevenue: number;
   lastWeekExpenses: number;
   lastWeekProfit: number;
+  /** Cash generated after scheduled debt principal repayment. */
+  lastWeekCashFlow?: number;
+  /** Total scheduled business debt service paid this week. */
+  lastWeekDebtService?: number;
+  /** Principal component of scheduled debt service paid this week. */
+  lastWeekPrincipalRepayment?: number;
   // Status
   reputation: number; // 0-100
   level: number; // 0-7 index into levelThresholds
