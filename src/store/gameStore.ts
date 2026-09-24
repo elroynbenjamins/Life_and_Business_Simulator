@@ -21,6 +21,7 @@ import {
   applyIntegrationStrategy,
   createAcquiredBusiness,
   generateAcquisitionTargets,
+  getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
   getAcquisitionPrice,
   getAcquisitionTransactionCost,
@@ -3380,8 +3381,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     const closingCashNeeded = financing.cashContribution + acquisitionTransactionCost;
     const sourceCash = holding ? (holding.cashReserve ?? 0) : (state.cash ?? 0);
     if (sourceCash < closingCashNeeded) return;
-    // Do not allow debt service that would consume nearly all target profit.
-    if (financing.weeklyPayment > 0 && financing.weeklyPayment > Math.max(1, target.weeklyProfit) * 0.80) return;
+    const debtServiceSafety = getAcquisitionDebtServiceSafety(target, financing);
+    if (!debtServiceSafety.allowed) return;
 
     const acquired = createAcquiredBusiness(
       target,
