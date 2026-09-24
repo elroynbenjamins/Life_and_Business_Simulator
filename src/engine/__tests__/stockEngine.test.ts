@@ -285,6 +285,9 @@ describe('stockEngine market reporting and type events', () => {
 
   test('MOJO risk metadata keeps the speculative profile bounded', () => {
     const mojo = (stocksData as any[]).find((asset) => asset.ticker === 'MOJO');
+    const aurx = (stocksData as any[]).find((asset) => asset.ticker === 'AURX');
+    const nexa = (stocksData as any[]).find((asset) => asset.ticker === 'NEXA');
+
     expect(mojo.baseVolatility).toBeCloseTo(0.11);
     expect(mojo.momentumFactor).toBeCloseTo(0.05);
     expect(mojo.momentumCap).toBeCloseTo(0.035);
@@ -293,6 +296,8 @@ describe('stockEngine market reporting and type events', () => {
     expect(mojo.maniaMaxMove).toBeCloseTo(0.12);
     expect(mojo.minWeeklyChange).toBeCloseTo(-0.22);
     expect(mojo.maxWeeklyChange).toBeCloseTo(0.25);
+    expect(aurx.baseVolatility * 0.85).toBeLessThan(nexa.baseVolatility);
+    expect(nexa.baseVolatility).toBeLessThan(mojo.baseVolatility * 1.15);
   });
 
   test('MOJO carries strong short-term momentum in both directions', () => {
