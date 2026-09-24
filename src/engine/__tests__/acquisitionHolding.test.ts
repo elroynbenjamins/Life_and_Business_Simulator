@@ -293,6 +293,7 @@ describe('business acquisitions and holding companies', () => {
       0,
     )!).map((business, index) => ({
       ...business,
+      id: `holding-synergy-${index}`,
       acquisition: {
         ...business.acquisition!,
         integrationStrategy: index === 0 ? 'independent' as const : 'integrate' as const,
