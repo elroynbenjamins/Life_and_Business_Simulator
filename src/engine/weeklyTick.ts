@@ -148,7 +148,8 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const compResult = processCompetitors(
     state?.businesses ?? [],
     state?.competitors ?? {},
-    globalWeek
+    globalWeek,
+    economy.economicCycle.phase,
   );
 
   // ---------- Step 7.5: Personal Life ----------
