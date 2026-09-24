@@ -599,6 +599,12 @@ export default function BusinessDetailScreen() {
   const childShareGiftTax = calculateChildInheritanceTax(fivePctStakeValue);
   const trustShareTransferTax = Math.round(fivePctStakeValue * 0.075);
   const acquisitionReturn = biz.acquisition ? getBusinessEquityReturn(biz) : null;
+  const activeIntegrationProbabilities = biz.acquisition && biz.acquisition.integrationStrategy !== 'pending'
+    ? getAcquisitionIntegrationOutcomeProbabilities(
+        biz.acquisition.integrationStrategy,
+        biz.acquisition.integrationSuccessChance ?? 1,
+      )
+    : null;
   // Market share pie chart data. Keep these as plain calculations rather than
   // hooks because selling the current business removes it from the store
   // synchronously and this screen then takes the early "not found" return.
@@ -1088,6 +1094,11 @@ export default function BusinessDetailScreen() {
                   <Text style={styles.integrationActiveText}>
                     {biz.acquisition.integrationWeeksRemaining} weeks remaining • {Math.round((biz.acquisition.integrationPenalty ?? 0) * 100)}% temporary disruption
                   </Text>
+                  {activeIntegrationProbabilities && (
+                    <Text style={styles.integrationActiveOdds}>
+                      Outcome odds: {Math.round(activeIntegrationProbabilities.success * 100)}% success • {Math.round(activeIntegrationProbabilities.mixed * 100)}% mixed • {Math.round(activeIntegrationProbabilities.failed * 100)}% fail
+                    </Text>
+                  )}
                 </View>
               </View>
             ) : (
@@ -4192,6 +4203,7 @@ const styles = StyleSheet.create({
   integrationActive: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#33270F', borderRadius: 9, padding: 10, marginTop: 8 },
   integrationActiveTitle: { color: Colors.warning, fontSize: 12, fontWeight: '800' },
   integrationActiveText: { color: Colors.textSecondary, fontSize: 9, marginTop: 2 },
+  integrationActiveOdds: { color: Colors.info, fontSize: 8, marginTop: 3, fontWeight: '700' },
   integrationResult: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 8 },
   integrationResultTitle: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
   integrationResultText: { color: Colors.textSecondary, fontSize: 9, marginTop: 3 },
