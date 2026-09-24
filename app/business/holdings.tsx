@@ -32,6 +32,7 @@ import { CorporateReportPeriod } from '../../src/engine/corporateReportingEngine
 
 const CAPITAL_AMOUNTS = [1_000_000, 5_000_000, 10_000_000];
 const PAYOUT_AMOUNTS = [100_000, 500_000, 1_000_000, 5_000_000];
+const SUBSIDIARY_ALLOCATION_AMOUNTS = [1_000_000, 5_000_000, 10_000_000] as const;
 const MANAGEMENT_FEE_RATES = [0, 0.01, 0.02, 0.03];
 const RESERVE_TARGET_WEEKS = [0, 4, 8, 12];
 
@@ -63,6 +64,7 @@ export default function HoldingCompaniesScreen() {
   const [holdingView, setHoldingView] = useState<'overview' | 'services' | 'subsidiaries'>('overview');
   const [showCreateHolding, setShowCreateHolding] = useState(holdings.length === 0);
   const [expandedSubsidiaryId, setExpandedSubsidiaryId] = useState<string | null>(null);
+  const [subsidiaryAllocationAmounts, setSubsidiaryAllocationAmounts] = useState<Record<string, number>>({});
 
   const netWorth = getNetWorthValue();
   const unlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
@@ -579,14 +581,17 @@ export default function HoldingCompaniesScreen() {
                   </View>
                 )}
                 {subsidiaries.map((business) => {
+                  const allocationAmount = subsidiaryAllocationAmounts[business.id] ?? 1_000_000;
                   const capitalPreview = getHoldingCapitalAllocationPreview(
                     business,
-                    1_000_000,
+                    allocationAmount,
                     inflationMultiplier,
                   );
                   const debt = capitalPreview.debt.principalBefore;
                   const acquisitionReturn = getAcquisitionReturn(business);
-                  const canAllocateMillion = cashReserve >= 1_000_000;
+                  const canAllocateGrowth = cashReserve >= allocationAmount;
+                  const canAllocateDebt = capitalPreview.debt.cashUsed > 0
+                    && cashReserve >= capitalPreview.debt.cashUsed;
                   const managers = getDelegationManagers(business);
                   const selectedManagerId = managerSelections[business.id]
                     ?? business.delegatedManagerEmployeeId
@@ -631,8 +636,27 @@ export default function HoldingCompaniesScreen() {
                         <>
                       <View style={styles.capitalAllocationBox}>
                         <Text style={styles.capitalAllocationTitle}>Capital Allocation</Text>
+                        <View style={styles.allocationAmountRow}>
+                          {SUBSIDIARY_ALLOCATION_AMOUNTS.map((amount) => {
+                            const active = allocationAmount === amount;
+                            return (
+                              <Pressable
+                                key={amount}
+                                onPress={() => setSubsidiaryAllocationAmounts((current) => ({
+                                  ...current,
+                                  [business.id]: amount,
+                                }))}
+                                style={[styles.allocationAmountChip, active && styles.allocationAmountChipActive]}
+                              >
+                                <Text style={[styles.allocationAmountText, active && styles.allocationAmountTextActive]}>
+                                  {formatCurrency(amount)}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
                         <Text style={styles.capitalAllocationText}>
-                          Growth +€1M: {capitalPreview.growth.additionalRunwayWeeks == null
+                          Growth +{formatCurrency(allocationAmount)}: {capitalPreview.growth.additionalRunwayWeeks == null
                             ? 'adds liquidity'
                             : `+${capitalPreview.growth.additionalRunwayWeeks.toFixed(1)} weeks of current expenses`}
                           {' • '}post-cash {formatCurrency(capitalPreview.growth.postBalance)}
@@ -641,35 +665,35 @@ export default function HoldingCompaniesScreen() {
                             : ` • ${formatCurrency(capitalPreview.growth.cashAboveProtected)} above protected cash`}
                         </Text>
                         <Text style={styles.capitalAllocationText}>
-                          Debt up to €1M: {capitalPreview.debt.cashUsed > 0
+                          Debt up to {formatCurrency(allocationAmount)}: {capitalPreview.debt.cashUsed > 0
                             ? `repay ${formatCurrency(capitalPreview.debt.principalRepaid)} principal • avoid ${formatCurrency(capitalPreview.debt.futureInterestAvoided)} future interest • debt service -${formatCurrency(capitalPreview.debt.weeklyDebtServiceReduction)}/wk`
                             : 'no principal outstanding'}
                         </Text>
                       </View>
                       <View style={styles.buttonRow}>
                         <Pressable
-                          disabled={!canAllocateMillion}
+                          disabled={!canAllocateGrowth}
                           onPress={() => showGameDialog({
-                            title: `Allocate €1M growth capital to ${business.name}?`,
-                            message: `Move €1M from ${holding.name}'s reserve into the subsidiary. ${capitalPreview.growth.additionalRunwayWeeks == null ? 'This adds liquidity.' : `This adds about ${capitalPreview.growth.additionalRunwayWeeks.toFixed(1)} weeks of current operating expenses.`} Balance rises to ${formatCurrency(capitalPreview.growth.postBalance)}. ${capitalPreview.growth.reserveGapAfter > 0 ? `The protected-cash gap would still be ${formatCurrency(capitalPreview.growth.reserveGapAfter)}.` : `Cash above the current protected level would be ${formatCurrency(capitalPreview.growth.cashAboveProtected)}.`} Growth capital increases tracked owner investment basis but does not directly increase revenue by itself.`,
+                            title: `Allocate ${formatCurrency(allocationAmount)} growth capital to ${business.name}?`,
+                            message: `Move ${formatCurrency(allocationAmount)} from ${holding.name}'s reserve into the subsidiary. ${capitalPreview.growth.additionalRunwayWeeks == null ? 'This adds liquidity.' : `This adds about ${capitalPreview.growth.additionalRunwayWeeks.toFixed(1)} weeks of current operating expenses.`} Balance rises to ${formatCurrency(capitalPreview.growth.postBalance)}. ${capitalPreview.growth.reserveGapAfter > 0 ? `The protected-cash gap would still be ${formatCurrency(capitalPreview.growth.reserveGapAfter)}.` : `Cash above the current protected level would be ${formatCurrency(capitalPreview.growth.cashAboveProtected)}.`} Growth capital increases tracked owner investment basis but does not directly increase revenue by itself.`,
                             confirmText: 'Allocate',
-                            onConfirm: () => allocateHoldingCapital(holding.id, business.id, 1_000_000, 'capital'),
+                            onConfirm: () => allocateHoldingCapital(holding.id, business.id, allocationAmount, 'capital'),
                           })}
-                          style={[styles.smallAction, !canAllocateMillion && styles.disabledAction]}
+                          style={[styles.smallAction, !canAllocateGrowth && styles.disabledAction]}
                         >
-                          <Text style={styles.smallActionText}>+€1M Growth</Text>
+                          <Text style={styles.smallActionText}>Growth</Text>
                         </Pressable>
                         <Pressable
-                          disabled={!canAllocateMillion || debt <= 0}
+                          disabled={!canAllocateDebt || debt <= 0}
                           onPress={() => showGameDialog({
                             title: `Repay debt for ${business.name}?`,
                             message: `Use ${formatCurrency(capitalPreview.debt.cashUsed)} from ${holding.name}'s reserve to repay ${formatCurrency(capitalPreview.debt.principalRepaid)} of subsidiary principal. This cancels about ${formatCurrency(capitalPreview.debt.futureInterestAvoided)} of future scheduled interest and reduces weekly debt service from ${formatCurrency(capitalPreview.debt.weeklyDebtServiceBefore)} to ${formatCurrency(capitalPreview.debt.weeklyDebtServiceAfter)}. Only the actual payoff amount is removed from the holding reserve.`,
                             confirmText: 'Repay',
-                            onConfirm: () => allocateHoldingCapital(holding.id, business.id, 1_000_000, 'debt'),
+                            onConfirm: () => allocateHoldingCapital(holding.id, business.id, allocationAmount, 'debt'),
                           })}
-                          style={[styles.smallAction, (!canAllocateMillion || debt <= 0) && styles.disabledAction]}
+                          style={[styles.smallAction, (!canAllocateDebt || debt <= 0) && styles.disabledAction]}
                         >
-                          <Text style={styles.smallActionText}>Debt ≤€1M</Text>
+                          <Text style={styles.smallActionText}>Debt</Text>
                         </Pressable>
                         {business.familyBusiness?.isFamilyBusiness && (
                           <Pressable
@@ -892,6 +916,11 @@ const styles = StyleSheet.create({
   subsidiaryMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
   capitalAllocationBox: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 9, marginTop: 9 },
   capitalAllocationTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
+  allocationAmountRow: { flexDirection: 'row', gap: 5, marginTop: 7, marginBottom: 2 },
+  allocationAmountChip: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 5 },
+  allocationAmountChipActive: { borderColor: Colors.info, backgroundColor: '#17263A' },
+  allocationAmountText: { color: Colors.textMuted, fontSize: 8, fontWeight: '800' },
+  allocationAmountTextActive: { color: Colors.info },
   capitalAllocationText: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, marginTop: 4 },
   returnText: { fontSize: 9, fontWeight: '700', marginTop: 3 },
   integrationWarning: { color: Colors.warning, fontSize: 9, fontWeight: '800', marginTop: 3 },
