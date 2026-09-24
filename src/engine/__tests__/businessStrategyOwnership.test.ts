@@ -1,4 +1,4 @@
-import { createBusiness, getPlayerOwnershipPct, processAllBusinesses, processBusinessWeek } from '../businessEngine';
+import { createBusiness, getAutomaticStrategicDecisionChoice, getPlayerOwnershipPct, processAllBusinesses, processBusinessWeek, STRATEGIC_DECISION_MAX_GAP_WEEKS, STRATEGIC_DECISION_MIN_GAP_WEEKS } from '../businessEngine';
 import { getNetWorth } from '../financeEngine';
 import { calculateEstateSettlement } from '../lifecycleEngine';
 import { INITIAL_GAME_STATE, INITIAL_RELATIONSHIP_STATE, OwnedBusiness } from '../../types/game';
@@ -23,19 +23,24 @@ describe('business strategy, crises and ownership', () => {
     jest.restoreAllMocks();
   });
 
-  test('creates a persistent strategic decision when its 6-12 week timer is due', () => {
+  test('creates a longer-lived strategic decision on the 12-24 week cadence', () => {
     const business = staffedBusiness();
     business.nextStrategicDecisionWeek = 1;
     business.nextCrisisCheckWeek = 999;
     jest.spyOn(Math, 'random').mockReturnValue(0.6);
 
     const result = processBusinessWeek(business, 1, 2, 1);
+    const decision = result.updatedBusiness.pendingDecision;
+    const nextGap = (result.updatedBusiness.nextStrategicDecisionWeek ?? 0) - 2;
 
-    expect(result.updatedBusiness.pendingDecision).not.toBeNull();
-    expect(result.updatedBusiness.pendingDecision?.kind).toBe('strategy');
-    expect(result.updatedBusiness.pendingDecision?.choices.length).toBeGreaterThanOrEqual(2);
-    expect(result.updatedBusiness.nextStrategicDecisionWeek).toBeGreaterThan(2);
-    expect((result.updatedBusiness.pendingDecision?.deadlineGlobalWeek ?? 0) - (result.updatedBusiness.pendingDecision?.createdGlobalWeek ?? 0)).toBe(5);
+    expect(decision).not.toBeNull();
+    expect(decision?.kind).toBe('strategy');
+    expect(decision?.choices.length).toBeGreaterThanOrEqual(3);
+    expect(nextGap).toBeGreaterThanOrEqual(STRATEGIC_DECISION_MIN_GAP_WEEKS);
+    expect(nextGap).toBeLessThanOrEqual(STRATEGIC_DECISION_MAX_GAP_WEEKS);
+    expect((decision?.deadlineGlobalWeek ?? 0) - (decision?.createdGlobalWeek ?? 0)).toBe(5);
+    const meaningfulChoices = (decision?.choices ?? []).filter((choice) => choice.id !== decision?.defaultChoiceId);
+    expect(meaningfulChoices.every((choice) => (choice.durationWeeks ?? 0) >= 16)).toBe(true);
   });
 
   test('can create a business crisis when the crisis check is due', () => {
@@ -50,6 +55,56 @@ describe('business strategy, crises and ownership', () => {
     expect(result.updatedBusiness.pendingDecision?.kind).toBe('crisis');
     expect(result.updatedBusiness.pendingDecision?.choices.length).toBe(3);
     expect((result.updatedBusiness.pendingDecision?.deadlineGlobalWeek ?? 0) - (result.updatedBusiness.pendingDecision?.createdGlobalWeek ?? 0)).toBe(3);
+  });
+
+  test('Auto Strategy resolves routine choices but never crises', () => {
+    const automatic = staffedBusiness();
+    automatic.autoStrategicDecisions = true;
+    automatic.strategicFocus = 'automation';
+    automatic.nextStrategicDecisionWeek = 1;
+    automatic.nextCrisisCheckWeek = 999;
+    jest.spyOn(Math, 'random').mockReturnValue(0.2);
+
+    const strategicResult = processBusinessWeek(automatic, 1, 2, 1);
+    expect(strategicResult.updatedBusiness.pendingDecision).toBeNull();
+    expect(strategicResult.updatedBusiness.strategyModifiers?.some((modifier) => modifier.title.includes('(Auto)'))).toBe(true);
+    expect(strategicResult.updatedBusiness.timeline?.some((entry) => entry.title.startsWith('🧭') && entry.title.includes('(Auto)'))).toBe(true);
+
+    jest.restoreAllMocks();
+    const crisis = staffedBusiness();
+    crisis.autoStrategicDecisions = true;
+    crisis.nextStrategicDecisionWeek = 999;
+    crisis.nextCrisisCheckWeek = 1;
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+
+    const crisisResult = processBusinessWeek(crisis, 1, 2, 1);
+    expect(crisisResult.updatedBusiness.pendingDecision?.kind).toBe('crisis');
+  });
+
+  test('automatic choice follows strategic focus while respecting cash safety', () => {
+    const business = staffedBusiness();
+    business.strategicFocus = 'automation';
+    business.balance = 100_000;
+    const decision = {
+      id: 'auto-test',
+      kind: 'strategy' as const,
+      title: 'Workforce Strategy',
+      description: 'Choose a direction.',
+      icon: '👥',
+      createdGlobalWeek: 1,
+      deadlineGlobalWeek: 6,
+      defaultChoiceId: 'no_change',
+      choices: [
+        { id: 'raise_wages', text: 'Invest in the Team', description: 'People first.', businessCashCost: 3_000, expenseMultiplier: 1.04, moraleDelta: 7, durationWeeks: 20 },
+        { id: 'automate', text: 'Accelerate Automation', description: 'Digitize processes.', businessCashCost: 7_000, expenseMultiplier: 0.91, durationWeeks: 24 },
+        { id: 'no_change', text: 'No Major Change', description: 'Stay steady.', durationWeeks: 1 },
+      ],
+    };
+
+    expect(getAutomaticStrategicDecisionChoice(business, decision, 1)?.id).toBe('automate');
+
+    business.balance = 10_000;
+    expect(getAutomaticStrategicDecisionChoice(business, decision, 1)?.id).not.toBe('automate');
   });
 
   test('margin strategy lowers comparable weekly operating expenses', () => {
@@ -238,7 +293,7 @@ describe('business strategy, crises and ownership', () => {
 
     expect(pending).toHaveLength(1);
     expect(result.updatedBusinesses.some((business) =>
-      !business.pendingDecision && (business.nextStrategicDecisionWeek ?? 0) > 2
+      !business.pendingDecision && (business.nextStrategicDecisionWeek ?? 0) >= 6
     )).toBe(true);
   });
 });
