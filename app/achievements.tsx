@@ -48,6 +48,8 @@ export default function AchievementsScreen() {
   const gameState = useGameStore((s) => s);
   const unlockedAchievements = gameState?.unlockedAchievements ?? [];
   const profile = gameState.profile;
+  const pinnedAchievementGoals = gameState.pinnedAchievementGoals ?? [];
+  const togglePinnedAchievementGoal = gameState.togglePinnedAchievementGoal;
   const [category, setCategory] = useState<AchievementScreenCategory>('All');
   const [filter, setFilter] = useState<AchievementFilter>('progress');
 
@@ -137,6 +139,7 @@ export default function AchievementsScreen() {
           <View style={styles.heroMetaRow}>
             <Text style={styles.heroMetaText}>Account rewards claimed {accountRewardedAchievementIds.size}/{allAchievements.length}</Text>
             <Text style={styles.heroMetaText}>{totalAvailableGems} total Gems</Text>
+            <Text style={styles.heroMetaText}>Goals {pinnedAchievementGoals.length}/3</Text>
           </View>
         </GameCard>
 
@@ -190,6 +193,8 @@ export default function AchievementsScreen() {
           const accountRewardClaimed = accountRewardedAchievementIds.has(a?.id);
           const achievementProgress = progressById.get(a.id);
           const ratio = progressRatio(achievementProgress);
+          const pinnedGoal = pinnedAchievementGoals.includes(a.id);
+          const goalSlotsFull = pinnedAchievementGoals.length >= 3 && !pinnedGoal;
           return (
           <GameCard key={a?.id}>
             <View style={[styles.achRow, !unlockedItem && styles.lockedRow]}>
@@ -219,6 +224,22 @@ export default function AchievementsScreen() {
                 <Text style={unlockedItem ? styles.achXp : styles.achXpLocked}>+{a?.xpReward} XP / PP</Text>
                 <Text style={unlockedItem ? styles.achGem : styles.achGemLocked}>+{a?.gemReward ?? 0} Gems</Text>
                 {accountRewardClaimed && <Text style={styles.rewardClaimed}>Account claimed</Text>}
+                {!unlockedItem && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={pinnedGoal ? 'Unpin goal' : 'Pin as goal'}
+                    disabled={goalSlotsFull}
+                    hitSlop={7}
+                    style={[styles.goalPin, pinnedGoal && styles.goalPinActive, goalSlotsFull && styles.goalPinDisabled]}
+                    onPress={() => togglePinnedAchievementGoal(a.id)}
+                  >
+                    <Ionicons
+                      name={pinnedGoal ? 'flag' : 'flag-outline'}
+                      size={14}
+                      color={pinnedGoal ? Colors.warning : Colors.textMuted}
+                    />
+                  </Pressable>
+                )}
               </View>
             </View>
           </GameCard>
@@ -280,6 +301,9 @@ const styles = StyleSheet.create({
   achGem: { color: Colors.premium, fontSize: 11, fontWeight: '800', marginTop: 2 },
   achGemLocked: { color: Colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 },
   rewardClaimed: { color: Colors.primary, fontSize: 8, fontWeight: '800', marginTop: 2 },
+  goalPin: { width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
+  goalPinActive: { borderColor: `${Colors.warning}66`, backgroundColor: `${Colors.warning}12` },
+  goalPinDisabled: { opacity: 0.35 },
   achGems: { color: '#A78BFA', fontSize: 11, fontWeight: '700', marginTop: 2 },
   achXpLocked: { color: Colors.textMuted, fontSize: 13 },
   achGemsLocked: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
