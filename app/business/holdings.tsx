@@ -409,9 +409,15 @@ export default function HoldingCompaniesScreen() {
                   <View style={styles.capitalHeader}>
                     <View>
                       <Text style={styles.capitalTitle}>Holding Reserve</Text>
-                      <Text style={styles.capitalMeta}>Fund from personal cash, then deploy into subsidiaries or acquisitions.</Text>
+                      <Text style={styles.capitalMeta}>Fund the reserve, receive subsidiary cash flows, then redeploy or distribute capital.</Text>
                     </View>
                   </View>
+                  <Text style={styles.capitalMeta}>
+                    Lifetime inflows: {formatCurrency(holding.totalDividendsReceived ?? 0)} dividends • {formatCurrency(holding.totalManagementFeesCollected ?? 0)} fees
+                  </Text>
+                  <Text style={styles.capitalMeta}>
+                    Owner distributions: {formatCurrency(holding.totalOwnerDistributions ?? 0)}
+                  </Text>
                   <View style={styles.buttonRow}>
                     {CAPITAL_AMOUNTS.map((amount) => (
                       <Pressable
@@ -421,6 +427,37 @@ export default function HoldingCompaniesScreen() {
                         style={[styles.smallAction, cash < amount && styles.disabledAction]}
                       >
                         <Text style={styles.smallActionText}>+{formatCurrency(amount)}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Text style={styles.synergyTitle}>Management fee</Text>
+                  <Text style={styles.capitalMeta}>0–3% of subsidiary revenue. A four-week operating buffer is protected automatically.</Text>
+                  <View style={styles.buttonRow}>
+                    {MANAGEMENT_FEE_RATES.map((rate) => {
+                      const active = Math.abs((holding.managementFeeRate ?? 0.01) - rate) < 0.0001;
+                      return (
+                        <Pressable
+                          key={rate}
+                          onPress={() => setHoldingManagementFeeRate(holding.id, rate)}
+                          style={[styles.smallAction, active && styles.protectedAction]}
+                        >
+                          <Text style={styles.smallActionText}>{Math.round(rate * 100)}%</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={styles.synergyTitle}>Owner distribution</Text>
+                  <View style={styles.buttonRow}>
+                    {PAYOUT_AMOUNTS.map((amount) => (
+                      <Pressable
+                        key={amount}
+                        disabled={cashReserve < amount}
+                        onPress={() => distributeHoldingCash(holding.id, amount)}
+                        style={[styles.smallAction, cashReserve < amount && styles.disabledAction]}
+                      >
+                        <Text style={styles.smallActionText}>{formatCurrency(amount)}</Text>
                       </Pressable>
                     ))}
                   </View>
