@@ -39,7 +39,9 @@ export default function GameButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       disabled={disabled}
+      hitSlop={compact ? 5 : undefined}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
