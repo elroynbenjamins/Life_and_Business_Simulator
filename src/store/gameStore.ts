@@ -48,7 +48,7 @@ import {
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
 import { claimBusinessCapacityReward, getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity } from '../engine/businessCapacityEngine';
-import { HOLDING_COMPANY_SETUP_COST, createHoldingCompany as buildHoldingCompany, getHoldingSharedServiceUpgradeCost, normalizeHoldingManagementFeeRate, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
+import { HOLDING_COMPANY_SETUP_COST, createHoldingCompany as buildHoldingCompany, getHoldingAvailableDistributionCash, getHoldingSharedServiceUpgradeCost, normalizeHoldingManagementFeeRate, normalizeHoldingReserveTargetWeeks, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
 import {
   canStartCorporateCapex,
   getCorporateCapexCost,
@@ -257,6 +257,7 @@ interface GameStore extends GameState {
   createHoldingCompany: (name: string) => void;
   fundHoldingCompany: (holdingCompanyId: string, amount: number) => void;
   distributeHoldingCash: (holdingCompanyId: string, amount: number) => void;
+  setHoldingReserveTargetWeeks: (holdingCompanyId: string, weeks: number) => void;
   setHoldingManagementFeeRate: (holdingCompanyId: string, rate: number) => void;
   upgradeHoldingSharedService: (holdingCompanyId: string, serviceId: HoldingSharedServiceId) => void;
   allocateHoldingCapital: (holdingCompanyId: string, businessId: string, amount: number, purpose: HoldingCapitalPurpose) => void;
@@ -532,6 +533,7 @@ const useGameStore = create<GameStore>((set, get) => ({
           designatedSuccessorChildName: holding.designatedSuccessorChildName ?? null,
           sharedServices: normalizeHoldingSharedServices(holding.sharedServices),
           managementFeeRate: normalizeHoldingManagementFeeRate(holding.managementFeeRate),
+          reserveTargetWeeks: normalizeHoldingReserveTargetWeeks(holding.reserveTargetWeeks),
           totalManagementFeesCollected: holding.totalManagementFeesCollected ?? 0,
           totalDividendsReceived: holding.totalDividendsReceived ?? 0,
           totalOwnerDistributions: holding.totalOwnerDistributions ?? 0,
@@ -3488,7 +3490,8 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (state.lifecycle?.isDead || !Number.isFinite(amount) || amount <= 0) return;
     const holding = (state.holdingCompanies ?? []).find((item) => item.id === holdingCompanyId);
     if (!holding) return;
-    const payout = Math.min(Math.round(amount), Math.max(0, holding.cashReserve ?? 0));
+    const availableCash = getHoldingAvailableDistributionCash(holding, state.businesses ?? []);
+    const payout = Math.min(Math.round(amount), availableCash);
     if (payout <= 0) return;
     const holdingCompanies = (state.holdingCompanies ?? []).map((item) =>
       item.id === holdingCompanyId
@@ -3503,6 +3506,26 @@ const useGameStore = create<GameStore>((set, get) => ({
       cash: (state.cash ?? 0) + payout,
       holdingCompanies,
       currentHeadline: holding.name + ' distributed ' + formatCurrencySafe(payout) + ' to the owner.',
+    };
+    set(updates);
+    saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
+  },
+
+  setHoldingReserveTargetWeeks: (holdingCompanyId, weeks) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const normalizedWeeks = normalizeHoldingReserveTargetWeeks(weeks);
+    if (!(state.holdingCompanies ?? []).some((holding) => holding.id === holdingCompanyId)) return;
+    const holdingCompanies = (state.holdingCompanies ?? []).map((holding) =>
+      holding.id === holdingCompanyId
+        ? { ...holding, reserveTargetWeeks: normalizedWeeks }
+        : holding
+    );
+    const updates = {
+      holdingCompanies,
+      currentHeadline: normalizedWeeks > 0
+        ? 'Holding reserve target set to ' + normalizedWeeks + ' weeks of subsidiary operating expenses.'
+        : 'Holding reserve target disabled.',
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
