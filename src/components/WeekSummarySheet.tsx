@@ -14,6 +14,11 @@ export default function WeekSummarySheet() {
   const [showFinancialDetails, setShowFinancialDetails] = useState(false);
   const [showActivityDetails, setShowActivityDetails] = useState(false);
 
+  useEffect(() => {
+    setShowFinancialDetails(false);
+    setShowActivityDetails(false);
+  }, [summary?.newWeek]);
+
   if (!showSummary || !summary) return null;
 
   const topGainer = [...(summary?.stockChanges ?? [])].sort((a, b) => (b?.change ?? 0) - (a?.change ?? 0))?.[0];
@@ -25,11 +30,6 @@ export default function WeekSummarySheet() {
     ((summary?.lifeEvent?.type === 'choice' || summary?.lifeEvent?.type === 'opportunity') ? 1 : 0) +
     (summary?.relationshipEventTitle ? 1 : 0) +
     (summary?.diedThisWeek ? 1 : 0);
-
-  useEffect(() => {
-    setShowFinancialDetails(false);
-    setShowActivityDetails(false);
-  }, [summary?.newWeek]);
 
   return (
     <Modal visible transparent animationType="slide">
