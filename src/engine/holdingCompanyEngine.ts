@@ -131,6 +131,39 @@ export function getHoldingSharedServiceEffects(holding: HoldingCompany | null | 
 
 export const HOLDING_MANAGEMENT_FEE_DEFAULT = 0.01;
 export const HOLDING_MANAGEMENT_FEE_MAX = 0.03;
+export const HOLDING_RESERVE_TARGET_DEFAULT_WEEKS = 8;
+export const HOLDING_RESERVE_TARGET_MAX_WEEKS = 20;
+
+export function normalizeHoldingReserveTargetWeeks(weeks: number | null | undefined): number {
+  const value = Number.isFinite(weeks as number)
+    ? Math.round(Number(weeks))
+    : HOLDING_RESERVE_TARGET_DEFAULT_WEEKS;
+  return Math.max(0, Math.min(HOLDING_RESERVE_TARGET_MAX_WEEKS, value));
+}
+
+export function getHoldingReserveTarget(
+  holding: HoldingCompany,
+  businesses: OwnedBusiness[],
+): number {
+  const reserveWeeks = normalizeHoldingReserveTargetWeeks(holding.reserveTargetWeeks);
+  if (reserveWeeks <= 0) return 0;
+  const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
+  const weeklyOperatingExpenses = subsidiaries.reduce(
+    (sum, business) => sum + Math.max(0, business.lastWeekExpenses ?? 0),
+    0,
+  );
+  return Math.round(weeklyOperatingExpenses * reserveWeeks);
+}
+
+export function getHoldingAvailableDistributionCash(
+  holding: HoldingCompany,
+  businesses: OwnedBusiness[],
+): number {
+  return Math.max(
+    0,
+    Math.round((holding.cashReserve ?? 0) - getHoldingReserveTarget(holding, businesses)),
+  );
+}
 
 export function normalizeHoldingManagementFeeRate(rate: number | null | undefined): number {
   const value = Number.isFinite(rate as number) ? Number(rate) : HOLDING_MANAGEMENT_FEE_DEFAULT;
@@ -183,6 +216,7 @@ export function createHoldingCompany(
     designatedSuccessorChildName: null,
     sharedServices: { ...EMPTY_HOLDING_SHARED_SERVICES },
     managementFeeRate: HOLDING_MANAGEMENT_FEE_DEFAULT,
+    reserveTargetWeeks: HOLDING_RESERVE_TARGET_DEFAULT_WEEKS,
     totalManagementFeesCollected: 0,
     totalDividendsReceived: 0,
     totalOwnerDistributions: 0,
@@ -212,6 +246,9 @@ export function getHoldingCompanySummary(holding: HoldingCompany, businesses: Ow
   const protectedAssets = subsidiaries.filter(
     (business) => business.portfolioIntent === 'long_term_family',
   ).length;
+  const reserveTargetWeeks = normalizeHoldingReserveTargetWeeks(holding.reserveTargetWeeks);
+  const reserveTarget = getHoldingReserveTarget(holding, businesses);
+  const availableDistributionCash = getHoldingAvailableDistributionCash(holding, businesses);
 
   return {
     subsidiaryCount: subsidiaries.length,
@@ -222,6 +259,9 @@ export function getHoldingCompanySummary(holding: HoldingCompany, businesses: Ow
     cashReserve: holding.cashReserve ?? 0,
     totalCapitalDeployed: holding.totalCapitalDeployed ?? 0,
     managementFeeRate: normalizeHoldingManagementFeeRate(holding.managementFeeRate),
+    reserveTargetWeeks,
+    reserveTarget,
+    availableDistributionCash,
     totalManagementFeesCollected: holding.totalManagementFeesCollected ?? 0,
     totalDividendsReceived: holding.totalDividendsReceived ?? 0,
     totalOwnerDistributions: holding.totalOwnerDistributions ?? 0,
