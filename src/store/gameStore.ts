@@ -48,7 +48,7 @@ import {
   getLocalDayKey,
 } from '../services/adRewardEntitlements';
 import { showGameDialog } from '../components/GameDialog';
-import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
+import { buildSoldBusinessRecord, getBusinessInvestmentBasis } from '../engine/businessPortfolioEngine';
 import { getBusinessOwnershipEquityValue, getBusinessOwnershipStakeValue, getBusinessOwnershipTable, getInvestmentForPostMoneyIssuePct, issueNewBusinessEquity } from '../engine/businessOwnershipEngine';
 import { claimBusinessCapacityReward, getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity } from '../engine/businessCapacityEngine';
 import { HOLDING_COMPANY_SETUP_COST, createHoldingCompany as buildHoldingCompany, getHoldingAvailableDistributionCash, getHoldingSharedServiceUpgradeCost, normalizeHoldingManagementFeeRate, normalizeHoldingReserveTargetWeeks, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
@@ -3613,13 +3613,10 @@ const useGameStore = create<GameStore>((set, get) => ({
       };
     }
 
-    const trackedBasis = typeof business.capitalInvested === 'number'
-      ? business.capitalInvested + used
-      : business.acquisition
-        ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
-          + (business.acquisition.additionalCapitalInvested ?? 0)
-          + used
-        : null;
+    const existingInvestmentBasis = getBusinessInvestmentBasis(business);
+    const trackedBasis = existingInvestmentBasis == null
+      ? null
+      : existingInvestmentBasis + used;
     updatedBusiness = {
       ...updatedBusiness,
       capitalInvested: trackedBasis,
@@ -5261,13 +5258,10 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (amount <= 0 || (state?.cash ?? 0) < amount) return;
     const businesses = (state?.businesses ?? []).map((business) => {
       if (business?.id !== businessId) return business;
-      const trackedBasis = typeof business.capitalInvested === 'number'
-        ? business.capitalInvested + amount
-        : business.acquisition
-          ? (business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
-            + (business.acquisition.additionalCapitalInvested ?? 0)
-            + amount
-          : null;
+      const existingInvestmentBasis = getBusinessInvestmentBasis(business);
+      const trackedBasis = existingInvestmentBasis == null
+        ? null
+        : existingInvestmentBasis + amount;
       const updated = {
         ...business,
         balance: (business.balance ?? 0) + amount,
