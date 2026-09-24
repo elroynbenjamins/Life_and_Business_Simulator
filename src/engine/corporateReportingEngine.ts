@@ -9,7 +9,7 @@ import {
   getCorporateWorkforceWeeklyPayroll,
 } from './businessWorkforceEngine';
 import { getCorporateWeeklyDebtService } from './corporateFinanceEngine';
-import { getBusinessDebtPrincipal } from './businessDebtEngine';
+import { getBusinessDebtPrincipal, getBusinessWeeklyInterestExpense } from './businessDebtEngine';
 import {
   BUSINESS_REINVESTMENT_AREAS,
   getBusinessReinvestmentCost,
@@ -254,6 +254,15 @@ export function buildCorporateKpiSnapshot(
   ) / 3;
   const reinvestmentEffects = getBusinessReinvestmentEffects(business);
   const acquisitionModifiers = getAcquisitionReportingModifiers(business);
+  const reportedInterestExpense = Math.max(
+    0,
+    business.lastExpenseBreakdown?.loanInterest
+      ?? getBusinessWeeklyInterestExpense(business),
+  );
+  const cashAvailableForDebtService = Math.max(
+    0,
+    Math.round((business.lastWeekProfit ?? 0) + reportedInterestExpense),
+  );
 
   return {
     globalWeek: Math.max(1, Math.round(globalWeek)),
@@ -272,6 +281,7 @@ export function buildCorporateKpiSnapshot(
         ?? getCorporateWeeklyDebtService(business),
       ),
     ),
+    cashAvailableForDebtService,
     debtBalance: getBusinessDebtPrincipal(business),
     averageMaintenanceCondition: Math.round(averageMaintenanceCondition * 10) / 10,
     averageDepartmentSkill: Math.round(averageDepartmentSkill * 10) / 10,
@@ -331,6 +341,7 @@ function aggregatePeriod(points: CorporateKpiHistoryPoint[]) {
       payroll: 0,
       turnover: 0,
       debtService: 0,
+      cashAvailableForDebtService: 0,
       averageHeadcount: 0,
       revenuePerEmployee: 0,
       annualizedTurnoverRate: 0,
@@ -360,6 +371,14 @@ function aggregatePeriod(points: CorporateKpiHistoryPoint[]) {
   const payroll = points.reduce((sum, point) => sum + Math.max(0, point.payroll), 0);
   const turnover = points.reduce((sum, point) => sum + Math.max(0, point.turnover), 0);
   const debtService = points.reduce((sum, point) => sum + Math.max(0, point.debtService), 0);
+  const cashAvailableForDebtService = points.reduce(
+    (sum, point) => sum + Math.max(
+      0,
+      point.cashAvailableForDebtService
+        ?? point.profit,
+    ),
+    0,
+  );
   const averageHeadcount = average(points.map((point) => Math.max(0, point.headcount)));
   const employeeWeeks = points.reduce((sum, point) => sum + Math.max(0, point.headcount), 0);
   const revenuePerEmployee = employeeWeeks > 0 ? revenue / employeeWeeks : 0;
@@ -401,6 +420,7 @@ function aggregatePeriod(points: CorporateKpiHistoryPoint[]) {
     payroll,
     turnover,
     debtService,
+    cashAvailableForDebtService,
     averageHeadcount,
     revenuePerEmployee,
     annualizedTurnoverRate,
@@ -760,7 +780,7 @@ export function getCorporateManagementReport(
       : 'partial';
 
   const debtCoverage = current.debtService > 0
-    ? (current.profit + current.debtService) / current.debtService
+    ? current.cashAvailableForDebtService / current.debtService
     : null;
 
   const maintenance = getMaintenanceBacklog(business, inflationMultiplier);
