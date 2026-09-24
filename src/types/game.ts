@@ -719,6 +719,16 @@ export interface LoanTemplate {
   durationWeeks: number;
 }
 
+export type AchievementCategory =
+  | 'Career'
+  | 'Education'
+  | 'Investing'
+  | 'Business'
+  | 'Real Estate'
+  | 'Family'
+  | 'Wealth'
+  | 'Lifestyle';
+
 export interface AchievementData {
   id: string;
   name: string;
@@ -726,6 +736,7 @@ export interface AchievementData {
   xpReward: number;
   gemReward?: number;
   icon: string;
+  category: AchievementCategory;
 }
 
 export interface NewsEvent {
