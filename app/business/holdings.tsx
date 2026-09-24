@@ -18,6 +18,7 @@ import {
   HOLDING_COMPANY_SETUP_COST,
   HOLDING_SHARED_SERVICE_DEFINITIONS,
   HOLDING_SHARED_SERVICE_MAX_LEVEL,
+  canChargeHoldingManagementFee,
   getHoldingCompanySummary,
   getHoldingSharedServiceEffects,
   getHoldingSharedServiceUpgradeCost,
@@ -83,6 +84,7 @@ export default function HoldingCompaniesScreen() {
       ? Math.max(...synergyProfiles.map((profile) => profile.crisisReduction))
       : 0;
     const sharedServiceEffects = getHoldingSharedServiceEffects(holding);
+    const managementFeeEligibleCount = subsidiaries.filter(canChargeHoldingManagementFee).length;
     const quarterlyManagementReport = getCorporateGroupManagementReport(
       subsidiaries,
       globalGameWeek,
@@ -103,6 +105,7 @@ export default function HoldingCompaniesScreen() {
       avgExpenseSynergy,
       diversification,
       sharedServiceEffects,
+      managementFeeEligibleCount,
       quarterlyManagementReport,
       annualManagementReport,
     };
@@ -259,7 +262,7 @@ export default function HoldingCompaniesScreen() {
               holding, subsidiaries, subsidiaryCount, totalValue, totalDebt, netGroupEquity, ownerNetEquity, weeklyProfit,
               cashReserve, reserveTargetWeeks, reserveTarget, availableDistributionCash,
               familyControlledPct, protectedAssets, avgRevenueSynergy, avgExpenseSynergy, diversification,
-              sharedServiceEffects, quarterlyManagementReport, annualManagementReport,
+              sharedServiceEffects, managementFeeEligibleCount, quarterlyManagementReport, annualManagementReport,
             }) => (
               <GameCard key={holding.id}>
                 <View style={styles.holdingHeader}>
@@ -455,7 +458,7 @@ export default function HoldingCompaniesScreen() {
                   </View>
 
                   <Text style={styles.synergyTitle}>Management fee</Text>
-                  <Text style={styles.capitalMeta}>0–3% of revenue for wholly owned subsidiaries only. Fees require a profitable week, are capped at 35% of pre-fee profit, and cannot touch protected reserves. Co-owned companies upstream cash only through pro-rata dividends.</Text>
+                  <Text style={styles.capitalMeta}>0–3% of revenue for wholly owned subsidiaries only • eligible now: {managementFeeEligibleCount}/{subsidiaryCount}. Fees require a profitable week, are capped at 35% of pre-fee profit, and cannot touch protected reserves. Co-owned companies upstream cash only through pro-rata dividends.</Text>
                   <View style={styles.buttonRow}>
                     {MANAGEMENT_FEE_RATES.map((rate) => {
                       const active = Math.abs((holding.managementFeeRate ?? 0.01) - rate) < 0.0001;
