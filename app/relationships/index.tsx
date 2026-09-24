@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import ScreenHeader from '../../src/components/ScreenHeader';
+import ScreenTabs from '../../src/components/ScreenTabs';
 import GameCard from '../../src/components/GameCard';
 import GameButton from '../../src/components/GameButton';
 import StatusPill from '../../src/components/StatusPill';
@@ -76,6 +77,7 @@ export default function RelationshipsScreen() {
   const [minAge, setMinAge] = useState(defaultMinAge);
   const [maxAge, setMaxAge] = useState(defaultMaxAge);
   const [marriageAgreement, setMarriageAgreement] = useState<MarriageAgreement>('separate');
+  const [activeTab, setActiveTab] = useState<'relationship' | 'family' | 'dating' | 'history'>(relationship?.partnerId ? 'relationship' : 'dating');
 
   const gw = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
   const actionUsed = (relationship?.personalActionWeek ?? 0) === gw;
@@ -243,6 +245,20 @@ export default function RelationshipsScreen() {
           </Pressable>
         )}
 
+        <ScreenTabs
+          items={[
+            { key: 'relationship', label: 'Partner', icon: 'heart-outline' },
+            { key: 'family', label: 'Family', icon: 'people-outline' },
+            { key: 'dating', label: 'Dating', icon: 'sparkles-outline' },
+            { key: 'history', label: 'History', icon: 'time-outline' },
+          ]}
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          accentColor={Colors.family}
+        />
+
+        {activeTab === 'relationship' && (
+          <>
         {partner && (
           <>
             <Text style={styles.sectionTitle}>Relationship</Text>
@@ -678,6 +694,11 @@ export default function RelationshipsScreen() {
           </>
         )}
 
+          </>
+        )}
+
+        {activeTab === 'family' && (
+          <>
         {(partner?.stage === 'married' || (relationship.children ?? []).length > 0) && estatePlan && (
           <>
             <Text style={styles.sectionTitle}>Estate Planning</Text>
@@ -921,6 +942,11 @@ export default function RelationshipsScreen() {
           </>
         )}
 
+          </>
+        )}
+
+        {activeTab === 'dating' && (
+          <>
         {dating.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Dating</Text>
@@ -967,6 +993,11 @@ export default function RelationshipsScreen() {
           </>
         )}
 
+          </>
+        )}
+
+        {activeTab === 'history' && (
+          <>
         {(relationship.financialObligations ?? []).length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Financial Obligations</Text>
@@ -1017,6 +1048,8 @@ export default function RelationshipsScreen() {
             ))
           )}
         </GameCard>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
