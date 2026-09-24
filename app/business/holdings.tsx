@@ -628,7 +628,8 @@ export default function HoldingCompaniesScreen() {
                 {holdingView === 'services' && (
                   <>
                 <View style={styles.servicesBox}>
-                  <View style={styles.servicesHeader}>
+                  <TutorialAnchor id={chapterAnchor('holding.services')}>
+                    <View style={styles.servicesHeader}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.synergyTitle}>Shared Services</Text>
                       <Text style={styles.servicesMeta}>
@@ -636,7 +637,8 @@ export default function HoldingCompaniesScreen() {
                       </Text>
                     </View>
                     <Ionicons name="git-network-outline" size={18} color={Colors.info} />
-                  </View>
+                    </View>
+                  </TutorialAnchor>
                   {(Object.keys(HOLDING_SHARED_SERVICE_DEFINITIONS) as HoldingSharedServiceId[]).map((serviceId) => {
                     const definition = HOLDING_SHARED_SERVICE_DEFINITIONS[serviceId];
                     const levels = normalizeHoldingSharedServices(holding.sharedServices);
@@ -700,12 +702,14 @@ export default function HoldingCompaniesScreen() {
                 {holdingView === 'overview' && (
                   <>
                 <View style={styles.capitalBox}>
-                  <View style={styles.capitalHeader}>
+                  <TutorialAnchor id={chapterAnchor('holding.reserve')}>
+                    <View style={styles.capitalHeader}>
                     <View>
                       <Text style={styles.capitalTitle}>Holding Reserve</Text>
                       <Text style={styles.capitalMeta}>Fund the reserve, receive subsidiary cash flows, then redeploy or distribute capital.</Text>
                     </View>
-                  </View>
+                    </View>
+                  </TutorialAnchor>
                   <View style={styles.capitalLedgerGrid}>
                     <View style={styles.capitalLedgerItem}>
                       <Text style={styles.capitalLedgerLabel}>Owner Group Value</Text>
@@ -821,10 +825,12 @@ export default function HoldingCompaniesScreen() {
                     })}
                   </View>
 
-                  <Text style={styles.synergyTitle}>Management fee</Text>
-                  <Text style={styles.capitalMeta}>
-                    0–3% of revenue for wholly owned subsidiaries only. Fees require a profitable week, are capped at 35% of pre-fee profit, and cannot touch protected company cash. Estimates below use the latest reported week and current balances.
-                  </Text>
+                  <TutorialAnchor id={chapterAnchor('holding.cashflows')}>
+                    <Text style={styles.synergyTitle}>Management fee</Text>
+                    <Text style={styles.capitalMeta}>
+                      0–3% of revenue for wholly owned subsidiaries only. Fees require a profitable week, are capped at 35% of pre-fee profit, and cannot touch protected company cash. Estimates below use the latest reported week and current balances.
+                    </Text>
+                  </TutorialAnchor>
                   {(() => {
                     const currentFeePreview = getHoldingManagementFeePolicyPreview(
                       holding,
@@ -994,11 +1000,11 @@ export default function HoldingCompaniesScreen() {
                 {holdingView === 'subsidiaries' && (
                   <>
                 {subsidiaries.length === 0 && (
-                  <View style={styles.emptySubsidiaries}>
+                  <TutorialAnchor id={chapterAnchor('holding.capital')} style={styles.emptySubsidiaries}>
                     <Ionicons name="business-outline" size={24} color={Colors.textMuted} />
                     <Text style={styles.emptySubsidiariesTitle}>No companies assigned yet</Text>
                     <Text style={styles.emptySubsidiariesText}>Assign an existing company below or acquire a new target for this holding.</Text>
-                  </View>
+                  </TutorialAnchor>
                 )}
                 {subsidiaries.length > 0 && (
                   <View style={styles.companyAttentionSummary}>
@@ -1383,14 +1389,16 @@ export default function HoldingCompaniesScreen() {
                       {expanded && (
                         <>
                       <View style={styles.capitalAllocationBox}>
-                        <View style={styles.capitalAllocationHeader}>
+                        <TutorialAnchor id={chapterAnchor('holding.capital')}>
+                          <View style={styles.capitalAllocationHeader}>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.capitalAllocationTitle}>Capital Allocation</Text>
                             <Text style={styles.capitalAllocationMeta}>
                               Holding reserve {formatCurrency(cashReserve)} • choose a maximum allocation.
                             </Text>
                           </View>
-                        </View>
+                          </View>
+                        </TutorialAnchor>
                         <View style={styles.allocationAmountRow}>
                           {SUBSIDIARY_ALLOCATION_AMOUNTS.map((amount) => {
                             const active = allocationAmount === amount;
