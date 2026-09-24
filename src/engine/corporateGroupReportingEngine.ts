@@ -1,6 +1,7 @@
 import { CorporateDepartmentId, OwnedBusiness } from '../types/game';
 import { CORPORATE_DEPARTMENT_DEFINITIONS } from './businessWorkforceEngine';
 import { getBusinessManagementTargetProgress } from './businessManagementTargetsEngine';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 import {
   CorporateKpiStatus,
   CorporateKpiWarning,
@@ -155,10 +156,7 @@ function overallStatus(warnings: CorporateKpiWarning[]): CorporateKpiStatus {
 }
 
 function debtForBusiness(business: OwnedBusiness): number {
-  return (business.businessLoans ?? []).reduce(
-    (sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0),
-    0,
-  );
+  return getBusinessDebtPrincipal(business);
 }
 
 function groupVarianceTitle(
