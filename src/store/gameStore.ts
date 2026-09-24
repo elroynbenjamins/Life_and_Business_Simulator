@@ -4586,29 +4586,80 @@ const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (state.lifecycle?.isDead || !Number.isFinite(amount) || amount <= 0) return;
     const available = state.relationshipState?.familyTrustCash ?? 0;
-    const investAmount = Math.min(Math.round(amount), available);
-    if (investAmount <= 0) return;
+    const requestedInvestment = Math.min(Math.round(amount), available);
+    if (requestedInvestment <= 0) return;
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business?.familyBusiness?.isFamilyBusiness) return;
+    if (state.relationshipState?.estatePlan?.structure !== 'family_trust') return;
 
-    const businesses = (state.businesses ?? []).map((item) =>
-      item.id === businessId
-        ? {
-            ...item,
-            balance: (item.balance ?? 0) + investAmount,
-            timeline: [
-              ...(item.timeline ?? []),
-              {
-                week: state.week,
-                year: state.year,
-                title: `🏛️ Family Trust invested ${formatCurrencySafe(investAmount)}`,
-                icon: '🏛️',
-                kind: 'event' as const,
-              },
-            ].slice(-50),
-          }
-        : item
+    const ownership = business.ownership?.length
+      ? business.ownership.map((stake) => ({ ...stake }))
+      : [{ ownerType: 'player' as const, ownerId: 'player', ownerName: state.playerName, percent: 100, votingPercent: 100 }];
+    const playerStake = ownership.find((stake) => stake.ownerType === 'player');
+    if (!playerStake) return;
+
+    // Trust capital is new equity, not a free transfer to existing shareholders.
+    // Cap issuance so the playable owner retains the existing 51% control floor.
+    const valuationBefore = Math.max(1, business.valuation ?? calculateValuation(business));
+    const requestedIssuePct = requestedInvestment / (valuationBefore + requestedInvestment) * 100;
+    const maxIssuePct = Math.max(0, (1 - 51 / Math.max(0.0001, playerStake.votingPercent)) * 100);
+    const issuePct = Math.min(requestedIssuePct, maxIssuePct);
+    if (issuePct <= 0) return;
+
+    const investAmount = Math.min(
+      requestedInvestment,
+      Math.round(valuationBefore * issuePct / Math.max(0.0001, 100 - issuePct)),
     );
+    if (investAmount <= 0) return;
+
+    const dilution = 1 - issuePct / 100;
+    const diluted = ownership.map((stake) => ({
+      ...stake,
+      percent: stake.percent * dilution,
+      votingPercent: stake.votingPercent * dilution,
+    }));
+    const trustIndex = diluted.findIndex((stake) => stake.ownerType === 'family_trust' && stake.ownerId === 'family_trust');
+    if (trustIndex >= 0) {
+      diluted[trustIndex] = {
+        ...diluted[trustIndex],
+        ownerName: 'Family Trust',
+        percent: diluted[trustIndex].percent + issuePct,
+        votingPercent: diluted[trustIndex].votingPercent + issuePct,
+      };
+    } else {
+      diluted.push({
+        ownerType: 'family_trust' as const,
+        ownerId: 'family_trust',
+        ownerName: 'Family Trust',
+        percent: issuePct,
+        votingPercent: issuePct,
+      });
+    }
+
+    const familyOwnershipPct = diluted
+      .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
+      .reduce((sum, stake) => sum + stake.percent, 0);
+    const updated = {
+      ...business,
+      balance: (business.balance ?? 0) + investAmount,
+      ownership: diluted,
+      familyBusiness: {
+        ...business.familyBusiness,
+        familyOwnershipPct,
+      },
+      timeline: [
+        ...(business.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: `🏛️ Family Trust invested ${formatCurrencySafe(investAmount)} for ${issuePct.toFixed(1)}% new equity`,
+          icon: '🏛️',
+          kind: 'event' as const,
+        },
+      ].slice(-50),
+    };
+    updated.valuation = calculateValuation(updated);
+    const businesses = (state.businesses ?? []).map((item) => item.id === businessId ? updated : item);
     const relationshipState = {
       ...state.relationshipState,
       familyTrustCash: Math.max(0, available - investAmount),
