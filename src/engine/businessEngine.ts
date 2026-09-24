@@ -315,7 +315,11 @@ function scheduleNextStrategicDecisionWeek(globalWeek: number): number {
   return globalWeek + STRATEGIC_DECISION_MIN_GAP_WEEKS + Math.floor(Math.random() * spread);
 }
 
-function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): BusinessPendingDecision {
+function makeStrategicDecision(
+  biz: OwnedBusiness,
+  globalWeek: number,
+  macroCyclePhase: EconomicCyclePhase = 'expansion',
+): BusinessPendingDecision {
   const options: BusinessPendingDecision[] = [
     {
       id: `strategy_product_${biz.id}_${globalWeek}`,
@@ -438,6 +442,91 @@ function makeStrategicDecision(biz: OwnedBusiness, globalWeek: number): Business
       ],
     },
   ];
+
+  if (macroCyclePhase === 'recession' || macroCyclePhase === 'slowdown') {
+    options.push({
+      id: `strategy_cycle_${biz.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: macroCyclePhase === 'recession' ? 'Downturn Strategy' : 'Slowdown Strategy',
+      description: macroCyclePhase === 'recession'
+        ? `${biz.name} can defend liquidity, invest counter-cyclically, or push for share while competitors retreat.`
+        : `${biz.name} needs to prepare for softer demand without giving up its long-term position.`,
+      icon: '🌧️',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'cycle_discipline',
+      choices: [
+        {
+          id: 'cycle_counter',
+          text: 'Push for Market Share',
+          description: 'Spend selectively while weaker competitors pull back.',
+          businessCashCost: 6000,
+          revenueMultiplier: 1.03,
+          expenseMultiplier: 1.015,
+          marketShareDelta: 3,
+          reputationDelta: 1,
+          durationWeeks: 20,
+        },
+        {
+          id: 'cycle_efficiency',
+          text: 'Tighten Operations',
+          description: 'Protect margins and preserve cash through a controlled efficiency program.',
+          businessCashCost: 2500,
+          expenseMultiplier: 0.95,
+          moraleDelta: -2,
+          durationWeeks: 18,
+        },
+        {
+          id: 'cycle_discipline',
+          text: 'Protect Liquidity',
+          description: 'Avoid a major program and keep cash available for opportunities.',
+          durationWeeks: 1,
+        },
+      ],
+    });
+  } else if (macroCyclePhase === 'boom' || macroCyclePhase === 'recovery') {
+    options.push({
+      id: `strategy_cycle_${biz.id}_${globalWeek}`,
+      kind: 'strategy',
+      title: macroCyclePhase === 'boom' ? 'Boom Capacity Review' : 'Recovery Growth Review',
+      description: macroCyclePhase === 'boom'
+        ? `${biz.name} must decide how aggressively to use unusually strong demand.`
+        : `${biz.name} can move early as customer demand and confidence return.`,
+      icon: '🚀',
+      createdGlobalWeek: globalWeek,
+      deadlineGlobalWeek: globalWeek + 5,
+      defaultChoiceId: 'cycle_balanced',
+      choices: [
+        {
+          id: 'cycle_expand',
+          text: 'Accelerate Growth',
+          description: 'Invest into demand, distribution and customer acquisition.',
+          businessCashCost: 9000,
+          revenueMultiplier: 1.045,
+          expenseMultiplier: 1.025,
+          marketShareDelta: 3,
+          durationWeeks: 22,
+        },
+        {
+          id: 'cycle_innovate',
+          text: 'Invest Ahead',
+          description: 'Use strong conditions to fund product and operating improvements.',
+          businessCashCost: 7500,
+          revenueMultiplier: 1.025,
+          expenseMultiplier: 1.015,
+          reputationDelta: 4,
+          durationWeeks: 22,
+        },
+        {
+          id: 'cycle_balanced',
+          text: 'Stay Disciplined',
+          description: 'Capture normal growth without materially increasing risk.',
+          durationWeeks: 1,
+        },
+      ],
+    });
+  }
+
   return options[Math.floor(Math.random() * options.length)];
 }
 
@@ -445,6 +534,7 @@ export function getAutomaticStrategicDecisionChoice(
   biz: OwnedBusiness,
   decision: BusinessPendingDecision,
   inflationMultiplier = 1,
+  macroCyclePhase: EconomicCyclePhase = 'expansion',
 ): BusinessPendingDecisionChoice | null {
   if (decision.kind === 'crisis' || !(decision.choices?.length)) return null;
 
@@ -477,29 +567,56 @@ export function getAutomaticStrategicDecisionChoice(
     const cost = getBusinessDecisionChoiceCost(choice, inflationMultiplier);
     const costPressure = balance > 0 ? (cost / balance) * 12 : (cost > 0 ? 20 : 0);
     const defaultBonus = choice.id === decision.defaultChoiceId ? 3 : 0;
+    const estimatedWeeklyCosts = Math.max(1, biz.lastWeekExpenses ?? 0);
+    const reserveWeeks = balance / estimatedWeeklyCosts;
+    const strongLiquidity = reserveWeeks >= 12 || balance >= 100_000;
+    let cycleAdjustment = 0;
+
+    if (macroCyclePhase === 'recession') {
+      if (strongLiquidity) {
+        cycleAdjustment += revenue * 0.45 + share * 1.15
+          + keywordBonus(choice, ['market share', 'sales', 'counter', 'expand', 'conversion']) * 0.65
+          - costPressure * 0.20;
+      } else {
+        cycleAdjustment += efficiency * 1.1 + defaultBonus * 1.4
+          + keywordBonus(choice, ['cash', 'liquid', 'cost', 'lean', 'efficien', 'waste']) * 0.8
+          - costPressure * 0.85;
+      }
+    } else if (macroCyclePhase === 'slowdown') {
+      cycleAdjustment += efficiency * 0.65 + defaultBonus * 0.45
+        + keywordBonus(choice, ['cash', 'cost', 'lean', 'efficien']) * 0.35
+        - costPressure * 0.30;
+    } else if (macroCyclePhase === 'boom') {
+      cycleAdjustment += revenue * 0.55 + share * 0.8
+        + keywordBonus(choice, ['growth', 'sales', 'expand', 'market', 'channel', 'innovation']) * 0.45
+        + costPressure * 0.12;
+    } else if (macroCyclePhase === 'recovery') {
+      cycleAdjustment += revenue * 0.45 + share * 0.65 + reputation * 0.2
+        + keywordBonus(choice, ['growth', 'sales', 'expand', 'develop', 'innovation']) * 0.4;
+    }
 
     if (focus === 'growth') {
       return revenue * 1.45 + share * 2.2 + reputation * 0.45 + morale * 0.15 + relations * 0.2
-        + keywordBonus(choice, ['growth', 'sales', 'market', 'channel', 'conversion', 'expand']) - costPressure;
+        + keywordBonus(choice, ['growth', 'sales', 'market', 'channel', 'conversion', 'expand']) - costPressure + cycleAdjustment;
     }
     if (focus === 'margin') {
       return efficiency * 1.8 + revenue * 0.25 + reputation * 0.2 + morale * 0.1 + relations * 0.1
-        + keywordBonus(choice, ['cost', 'lean', 'efficien', 'consolidate', 'waste', 'hold_pay']) - costPressure * 1.2;
+        + keywordBonus(choice, ['cost', 'lean', 'efficien', 'consolidate', 'waste', 'hold_pay']) - costPressure * 1.2 + cycleAdjustment;
     }
     if (focus === 'premium') {
       return reputation * 2 + revenue * 0.45 + morale * 0.35 + relations * 0.3 + efficiency * 0.2
-        + keywordBonus(choice, ['premium', 'quality', 'service', 'brand', 'competitive pay']) - costPressure;
+        + keywordBonus(choice, ['premium', 'quality', 'service', 'brand', 'competitive pay']) - costPressure + cycleAdjustment;
     }
     if (focus === 'automation') {
       return efficiency * 1.35 + revenue * 0.45 + reputation * 0.2 + relations * 0.1
-        + keywordBonus(choice, ['automat', 'digit', 'standardize', 'technology', 'process']) - costPressure;
+        + keywordBonus(choice, ['automat', 'digit', 'standardize', 'technology', 'process']) - costPressure + cycleAdjustment;
     }
     if (focus === 'rd') {
       return revenue * 0.8 + reputation * 1.2 + morale * 0.25 + relations * 0.35 + efficiency * 0.2
-        + keywordBonus(choice, ['r&d', 'innovation', 'develop', 'academy', 'technology', 'quality']) - costPressure;
+        + keywordBonus(choice, ['r&d', 'innovation', 'develop', 'academy', 'technology', 'quality']) - costPressure + cycleAdjustment;
     }
     return revenue * 0.45 + efficiency * 0.65 + reputation * 0.65 + share * 0.55 + morale * 0.35 + relations * 0.35
-      + defaultBonus - costPressure;
+      + defaultBonus - costPressure + cycleAdjustment;
   };
 
   return [...candidates].sort((a, b) => score(b) - score(a))[0] ?? defaultChoice;
