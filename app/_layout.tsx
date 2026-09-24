@@ -17,7 +17,7 @@ import MainMenu from '../src/components/MainMenu';
 import GameDialog from '../src/components/GameDialog';
 import BusinessBalanceWarning from '../src/components/BusinessBalanceWarning';
 import TutorialModal from '../src/components/TutorialModal';
-import EducationOnboardingModal from '../src/components/EducationOnboardingModal';
+import TutorialDock from '../src/components/TutorialDock';
 import ContentUpdateModal from '../src/components/ContentUpdateModal';
 import { initializeAdConsent } from '../src/services/adPrivacyManager';
 import EducationCareerReminderModal from '../src/components/EducationCareerReminderModal';
@@ -41,53 +41,39 @@ function RootContent() {
     loadSavedGame?.();
     void initializeAdConsent();
   }, []);
-
-  useEffect(() => {
-    if (!isLoading) {
-      SplashScreen.hideAsync();
-    }
-  }, [isLoading]);
+  useEffect(() => { if (!isLoading) SplashScreen.hideAsync(); }, [isLoading]);
 
   if (isLoading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
+    return <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primary} /></View>;
   }
-
   return (
     <SafeAreaProvider key={resolvedScheme}>
       <StatusBar style={resolvedScheme === 'dark' ? 'light' : 'dark'} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: Colors.background },
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="tabs" />
-        <Stack.Screen name="stock/[ticker]" />
-        <Stack.Screen name="portfolio" />
-        <Stack.Screen name="housing" />
-        <Stack.Screen name="profile" />
-        <Stack.Screen name="achievements" />
-        <Stack.Screen name="loans" />
-        <Stack.Screen name="support" />
-        <Stack.Screen name="business" />
-        <Stack.Screen name="prestige" />
-        <Stack.Screen name="properties" />
-        <Stack.Screen name="info" />
-        <Stack.Screen name="privacy" />
-        <Stack.Screen name="relationships" />
-        <Stack.Screen name="family-tree" />
-        <Stack.Screen name="succession" />
-      </Stack>
+      <View style={styles.game}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background }, animation: 'slide_from_right' }}>
+          <Stack.Screen name="tabs" />
+          <Stack.Screen name="stock/[ticker]" />
+          <Stack.Screen name="portfolio" />
+          <Stack.Screen name="housing" />
+          <Stack.Screen name="profile" />
+          <Stack.Screen name="achievements" />
+          <Stack.Screen name="loans" />
+          <Stack.Screen name="support" />
+          <Stack.Screen name="business" />
+          <Stack.Screen name="prestige" />
+          <Stack.Screen name="properties" />
+          <Stack.Screen name="info" />
+          <Stack.Screen name="privacy" />
+          <Stack.Screen name="relationships" />
+          <Stack.Screen name="family-tree" />
+          <Stack.Screen name="succession" />
+        </Stack>
+        <TutorialDock />
+      </View>
       <MainMenu />
       <SaveSlotPicker />
       <NameEntryModal />
       <TutorialModal />
-      <EducationOnboardingModal />
       <ContentUpdateModal />
       <WeekSummarySheet />
       <NegativeCashModal />
@@ -103,12 +89,7 @@ function RootContent() {
     </SafeAreaProvider>
   );
 }
-
 const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  game: { flex: 1 },
+  loading: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
 });
