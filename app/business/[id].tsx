@@ -605,6 +605,14 @@ export default function BusinessDetailScreen() {
         biz.acquisition.integrationSuccessChance ?? 1,
       )
     : null;
+  const resolvedIntegrationEffect = biz.acquisition
+    && biz.acquisition.integrationStrategy !== 'pending'
+    && biz.acquisition.integrationOutcome !== 'pending'
+    ? getAcquisitionIntegrationOutcomeEffect(
+        biz.acquisition.integrationStrategy,
+        biz.acquisition.integrationOutcome,
+      )
+    : null;
   // Market share pie chart data. Keep these as plain calculations rather than
   // hooks because selling the current business removes it from the store
   // synchronously and this screen then takes the early "not found" return.
@@ -1107,7 +1115,13 @@ export default function BusinessDetailScreen() {
                   Integration {biz.acquisition.integrationOutcome.toUpperCase()}
                 </Text>
                 <Text style={styles.integrationResultText}>
-                  Permanent revenue effect {(biz.acquisition.postIntegrationRevenueBonus ?? 0) >= 0 ? '+' : ''}{((biz.acquisition.postIntegrationRevenueBonus ?? 0) * 100).toFixed(1)}% • expense reduction {((biz.acquisition.postIntegrationExpenseReduction ?? 0) * 100).toFixed(1)}%
+                  Permanent operating effect: {resolvedIntegrationEffect
+                    ? formatIntegrationOutcomeEffect(
+                        resolvedIntegrationEffect.revenueBonus,
+                        resolvedIntegrationEffect.expenseReduction,
+                        resolvedIntegrationEffect.reputationDelta,
+                      )
+                    : 'No permanent change'}
                 </Text>
               </View>
             )}
