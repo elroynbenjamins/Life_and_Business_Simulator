@@ -5,7 +5,7 @@ import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
 import { inflated } from '../engine/economyEngine';
 import { BUSINESS_PROJECT_SLOT_2_GEM_COST, BUSINESS_UPGRADE_SLOT_2_GEM_COST, getBusinessUpgradeSlotLimit, getBusinessUpgradeWeeks } from '../engine/businessEngine';
-import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts, getBusinessDecisionChoiceCost } from '../engine/businessEngine';
+import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts, getBusinessDecisionChoiceCost, getAutomaticStrategicDecisionChoice } from '../engine/businessEngine';
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
 import { ensureAuctions, getInspectionCost, inspectAuction, leaveAuction, placeAuctionBid } from '../engine/auctionEngine';
 import { unlockPrestige, getPrestigeEffects } from '../engine/prestigeEngine';
@@ -264,6 +264,7 @@ interface GameStore extends GameState {
   sellBusiness: (businessId: string) => void;
   designateFamilyBusiness: (businessId: string) => void;
   setBusinessStrategicFocus: (businessId: string, focus: BusinessStrategicFocus) => void;
+  setBusinessDecisionAutomation: (businessId: string, enabled: boolean) => void;
   setBusinessBudgetProfile: (businessId: string, profile: BusinessBudgetProfile) => void;
   setBusinessManagementTargetProfile: (businessId: string, profile: BusinessManagementTargetProfile) => void;
   openExecutiveSearch: (businessId: string, role: BusinessExecutiveRole) => void;
@@ -384,9 +385,10 @@ const useGameStore = create<GameStore>((set, get) => ({
           identityTraits: business.identityTraits ?? [],
           identityProgress: business.identityProgress ?? {},
           strategicFocus: business.strategicFocus ?? 'balanced',
+          autoStrategicDecisions: business.autoStrategicDecisions ?? false,
           strategyModifiers: business.strategyModifiers ?? [],
           pendingDecision: business.pendingDecision ?? null,
-          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 6 + (businessIndex % 7)),
+          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 12 + ((businessIndex * 3) % 13)),
           nextCrisisCheckWeek: business.nextCrisisCheckWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 10 + ((businessIndex * 3) % 9)),
           ownership: business.ownership?.length ? business.ownership : [{
             ownerType: 'player',
@@ -585,10 +587,17 @@ const useGameStore = create<GameStore>((set, get) => ({
         (profile as any).unlockedPrestige = (profile as any).unlockedPrestige ?? [];
       }
       const grandfatheredCapacity = Math.min(MAX_BUSINESS_CAPACITY, Math.max(getBusinessCapacity(profile), merged.businesses.length));
-      const migratedProfile = grandfatheredCapacity !== getBusinessCapacity(profile)
-        ? { ...profile, businessCapacity: grandfatheredCapacity }
+      const rewardedAchievementGemIds = [...new Set([
+        ...(profile.rewardedAchievementGemIds ?? []),
+        ...(saved.unlockedAchievements ?? []),
+      ])];
+      const profileNeedsMigration =
+        grandfatheredCapacity !== getBusinessCapacity(profile)
+        || rewardedAchievementGemIds.length !== (profile.rewardedAchievementGemIds ?? []).length;
+      const migratedProfile = profileNeedsMigration
+        ? { ...profile, businessCapacity: grandfatheredCapacity, rewardedAchievementGemIds }
         : profile;
-      if (migratedProfile !== profile) await saveProfile(migratedProfile);
+      if (profileNeedsMigration) await saveProfile(migratedProfile);
       set({ ...merged, isLoading: false, showNameModal: false, showMainMenu: true, showRelationshipEventModal: false, showContentUpdateModal: false, relationshipFeedback: null, profile: migratedProfile, slotMeta, activeSlot });
     } else {
       set({ isLoading: false, showMainMenu: true, showSlotPicker: false, profile, slotMeta, activeSlot });
@@ -627,9 +636,10 @@ const useGameStore = create<GameStore>((set, get) => ({
           identityTraits: business.identityTraits ?? [],
           identityProgress: business.identityProgress ?? {},
           strategicFocus: business.strategicFocus ?? 'balanced',
+          autoStrategicDecisions: business.autoStrategicDecisions ?? false,
           strategyModifiers: business.strategyModifiers ?? [],
           pendingDecision: business.pendingDecision ?? null,
-          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 6 + (businessIndex % 7)),
+          nextStrategicDecisionWeek: business.nextStrategicDecisionWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 12 + ((businessIndex * 3) % 13)),
           nextCrisisCheckWeek: business.nextCrisisCheckWeek ?? ((((saved.year ?? 1) - 1) * 20) + (saved.week ?? 1) + 10 + ((businessIndex * 3) % 9)),
           ownership: business.ownership?.length ? business.ownership : [{
             ownerType: 'player',
@@ -825,10 +835,17 @@ const useGameStore = create<GameStore>((set, get) => ({
       const slotMeta = await loadAllSlotMeta();
       const currentProfile = get().profile;
       const grandfatheredCapacity = Math.min(MAX_BUSINESS_CAPACITY, Math.max(getBusinessCapacity(currentProfile), merged.businesses.length));
-      const migratedProfile = grandfatheredCapacity !== getBusinessCapacity(currentProfile)
-        ? { ...currentProfile, businessCapacity: grandfatheredCapacity }
+      const rewardedAchievementGemIds = [...new Set([
+        ...(currentProfile.rewardedAchievementGemIds ?? []),
+        ...(saved.unlockedAchievements ?? []),
+      ])];
+      const profileNeedsMigration =
+        grandfatheredCapacity !== getBusinessCapacity(currentProfile)
+        || rewardedAchievementGemIds.length !== (currentProfile.rewardedAchievementGemIds ?? []).length;
+      const migratedProfile = profileNeedsMigration
+        ? { ...currentProfile, businessCapacity: grandfatheredCapacity, rewardedAchievementGemIds }
         : currentProfile;
-      if (migratedProfile !== currentProfile) await saveProfile(migratedProfile);
+      if (profileNeedsMigration) await saveProfile(migratedProfile);
       set({ ...merged, isLoading: false, showNameModal: false, showSlotPicker: false, showMainMenu: false, showRelationshipEventModal: false, showContentUpdateModal: (saved.contentUpdateSeenId ?? '') !== CURRENT_CONTENT_UPDATE_ID, relationshipFeedback: null, profile: migratedProfile, activeSlot: slot, slotMeta, lastSummary: null, showSummary: false });
     } else {
       // Empty slot — start new game here
@@ -888,20 +905,36 @@ const useGameStore = create<GameStore>((set, get) => ({
 
     const { newState, summary } = weeklyTick(gameState, getPrestigeEffects(state.profile));
 
-    // Achievements award XP + Prestige Points only. Premium currency is
-    // intentionally excluded so the Gem economy stays controlled.
+    // Achievement XP/Prestige follows save progress. Gem rewards are account-wide
+    // and settle only once per achievement ID, preventing reward farming across save slots.
     let profileUpdated = false;
     let newProfile = { ...state.profile };
     if ((summary.newAchievements?.length ?? 0) > 0) {
       let xpGained = 0;
+      let gemsGained = 0;
+      const rewardedGemIds = new Set(newProfile.rewardedAchievementGemIds ?? []);
+      const achievementGemRewards: Record<string, number> = {};
+
       for (const id of summary.newAchievements) {
         const ach = (achievementsData ?? []).find((a) => a?.id === id);
         xpGained += ach?.xpReward ?? 0;
+        if (ach && !rewardedGemIds.has(id)) {
+          const gemReward = Math.max(0, ach.gemReward ?? 0);
+          if (gemReward > 0) {
+            gemsGained += gemReward;
+            achievementGemRewards[id] = gemReward;
+          }
+          rewardedGemIds.add(id);
+        }
       }
+
+      summary.achievementGemRewards = achievementGemRewards;
       newProfile = {
         ...newProfile,
         totalXp: (newProfile.totalXp ?? 0) + xpGained,
         prestigePoints: (newProfile.prestigePoints ?? 0) + xpGained,
+        gems: (newProfile.gems ?? 0) + gemsGained,
+        rewardedAchievementGemIds: [...rewardedGemIds],
       };
       profileUpdated = true;
     }
@@ -3664,6 +3697,45 @@ const useGameStore = create<GameStore>((set, get) => ({
     );
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+  },
+
+  setBusinessDecisionAutomation: (businessId, enabled) => {
+    const state = get();
+    if (state.lifecycle?.isDead) return;
+    const business = (state.businesses ?? []).find((item) => item.id === businessId);
+    if (!business) return;
+
+    const businesses = (state.businesses ?? []).map((item) =>
+      item.id === businessId
+        ? {
+            ...item,
+            autoStrategicDecisions: enabled,
+            timeline: [
+              ...(item.timeline ?? []),
+              {
+                week: state.week,
+                year: state.year,
+                title: `Auto Strategy ${enabled ? 'enabled' : 'disabled'}`,
+                icon: '⚙️',
+                kind: 'event' as const,
+              },
+            ].slice(-50),
+          }
+        : item
+    );
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+
+    // If a routine strategy choice is already waiting, enabling automation can
+    // clear it immediately. Crises are intentionally never automated.
+    if (enabled && business.pendingDecision?.kind === 'strategy') {
+      const choice = getAutomaticStrategicDecisionChoice(
+        { ...business, autoStrategicDecisions: true },
+        business.pendingDecision,
+        state.inflationMultiplier ?? 1,
+      );
+      if (choice) get().resolveBusinessDecision(businessId, choice.id);
+    }
   },
 
   setBusinessBudgetProfile: (businessId, profile) => {
