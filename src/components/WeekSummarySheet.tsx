@@ -452,10 +452,14 @@ export default function WeekSummarySheet() {
                 <Text style={styles.sectionLabel}>New Achievements!</Text>
                 {(summary?.newAchievements ?? []).map((id) => {
                   const ach = (achievementsData ?? []).find((a) => a?.id === id);
+                  const gemReward = summary.achievementGemRewards?.[id] ?? 0;
                   return (
                     <View key={id} style={styles.achievementRow}>
                       <Text style={styles.achievementName}>{ach?.name ?? id}</Text>
-                      <Text style={styles.achievementXp}>+{ach?.xpReward ?? 0} PP</Text>
+                      <View style={styles.achievementRewards}>
+                        <Text style={styles.achievementXp}>+{ach?.xpReward ?? 0} XP / PP</Text>
+                        {gemReward > 0 && <Text style={styles.achievementGems}>+{gemReward} Gems</Text>}
+                      </View>
                     </View>
                   );
                 })}
@@ -519,7 +523,9 @@ const styles = StyleSheet.create({
   taxBox: { backgroundColor: Colors.elevated, borderRadius: 8, padding: 8, marginTop: 4 },
   achievementRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, backgroundColor: `${Colors.warning}22`, borderRadius: 6, paddingHorizontal: 8, marginTop: 4 },
   achievementName: { color: Colors.warning, fontSize: 14, fontWeight: '600' },
-  achievementXp: { color: Colors.warning, fontSize: 13 },
+  achievementRewards: { alignItems: 'flex-end' },
+  achievementXp: { color: Colors.warning, fontSize: 11, fontWeight: '700' },
+  achievementGems: { color: Colors.premium, fontSize: 10, fontWeight: '800', marginTop: 1 },
   salaryWarning: { backgroundColor: '#F59E0B22', borderRadius: 6, padding: 8, marginTop: 4 },
   salaryWarningText: { color: Colors.warning, fontSize: 12, fontWeight: '500' },
   eventBox: { backgroundColor: `${Colors.info}15`, borderRadius: 10, padding: 12, marginTop: 10, borderWidth: 1, borderColor: `${Colors.info}33` },
