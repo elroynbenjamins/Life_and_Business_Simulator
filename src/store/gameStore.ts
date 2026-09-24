@@ -95,6 +95,7 @@ import {
   setCorporateHrPolicy,
 } from '../engine/businessWorkforceEngine';
 import { canUseCareerAsset } from '../engine/careerRequirements';
+import { appendAnnualReport, pruneCompletedAchievementGoals, togglePinnedAchievementGoal as buildPinnedAchievementGoals } from '../engine/annualReportEngine';
 
 export const CURRENT_CONTENT_UPDATE_ID = 'relationships-family-safety-2026-09-20';
 
@@ -1013,8 +1014,9 @@ const useGameStore = create<GameStore>((set, get) => ({
     const baseFinalNewState = shouldShowReviewPrompt ? { ...newState, reviewPromptedWeeks } : newState;
     const finalNewState = {
       ...baseFinalNewState,
-      pinnedAchievementGoals: (state.pinnedAchievementGoals ?? []).filter(
-        (achievementId) => !(baseFinalNewState.unlockedAchievements ?? []).includes(achievementId),
+      pinnedAchievementGoals: pruneCompletedAchievementGoals(
+        state.pinnedAchievementGoals ?? [],
+        baseFinalNewState.unlockedAchievements ?? [],
       ),
     };
 
@@ -1044,7 +1046,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         totalDividends: newState.statistics?.totalDividendsReceived ?? 0,
       };
       periodReportUpdate = {
-        annualReports: [report, ...(state.annualReports ?? [])].slice(0, 10),
+        annualReports: appendAnnualReport(state.annualReports ?? [], report),
         annualReportUnread: true,
         periodReport: null,
         // Reset accumulators
@@ -1109,16 +1111,10 @@ const useGameStore = create<GameStore>((set, get) => ({
   },
   togglePinnedAchievementGoal: (achievementId) => {
     const state = get();
-    const current = state.pinnedAchievementGoals ?? [];
-    const alreadyPinned = current.includes(achievementId);
-    const next = alreadyPinned
-      ? current.filter((id) => id !== achievementId)
-      : current.length < 3
-        ? [...current, achievementId]
-        : current;
-    if (!alreadyPinned && next === current) return false;
-    set({ pinnedAchievementGoals: next });
-    saveGame(extractGameState({ ...state, pinnedAchievementGoals: next }), state.activeSlot);
+    const result = buildPinnedAchievementGoals(state.pinnedAchievementGoals ?? [], achievementId);
+    if (!result.changed) return false;
+    set({ pinnedAchievementGoals: result.goals });
+    saveGame(extractGameState({ ...state, pinnedAchievementGoals: result.goals }), state.activeSlot);
     return true;
   },
   dismissScheduledAd: () => {
