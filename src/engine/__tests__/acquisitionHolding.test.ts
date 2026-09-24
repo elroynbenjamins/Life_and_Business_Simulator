@@ -12,6 +12,7 @@ import {
   getAcquisitionReturn,
   getAcquisitionTransactionCost,
   migrateAcquiredBusinessAssets,
+  sortAcquisitionTargets,
 } from '../acquisitionEngine';
 import { getAllBusinessLocationTemplates, getBusinessType, getHoldingSynergyProfile, processBusinessWeek } from '../businessEngine';
 import { getNetWorth } from '../financeEngine';
@@ -253,6 +254,21 @@ describe('business acquisitions and holding companies', () => {
     expect(highDisruption.underwritingIntegrationPenalty).toBeCloseTo(0.096);
     expect(highDisruption.underwrittenWeeklyProfit).toBe(0);
     expect(highDisruption.allowed).toBe(false);
+  });
+
+  test('acquisition market sorting stays factual and deterministic', () => {
+    const base = generateAcquisitionTargets(500, 1, 3)[0];
+    const targets = [
+      { ...base, id: 'a', askingPrice: 12_000_000, estimatedValue: 10_000_000, weeklyProfit: 100_000, diligenceScore: 70, risk: 'medium' as const },
+      { ...base, id: 'b', askingPrice: 11_000_000, estimatedValue: 10_000_000, weeklyProfit: 80_000, diligenceScore: 90, risk: 'low' as const },
+      { ...base, id: 'c', askingPrice: 13_000_000, estimatedValue: 12_500_000, weeklyProfit: 150_000, diligenceScore: 60, risk: 'high' as const },
+    ];
+
+    expect(sortAcquisitionTargets(targets, 'price').map((target) => target.id)).toEqual(['b', 'a', 'c']);
+    expect(sortAcquisitionTargets(targets, 'premium').map((target) => target.id)).toEqual(['c', 'b', 'a']);
+    expect(sortAcquisitionTargets(targets, 'profit').map((target) => target.id)).toEqual(['c', 'a', 'b']);
+    expect(sortAcquisitionTargets(targets, 'diligence').map((target) => target.id)).toEqual(['b', 'a', 'c']);
+    expect(sortAcquisitionTargets(targets, 'risk').map((target) => target.id)).toEqual(['b', 'a', 'c']);
   });
 
   test('funding safety matrix exposes executable structures for each target', () => {
