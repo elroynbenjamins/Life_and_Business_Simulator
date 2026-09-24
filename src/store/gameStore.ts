@@ -3,6 +3,7 @@ import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INI
 import { getLegacyMarketCompanyPool, initializeMarketCompanyPool, initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
+import { applyBusinessDebtPrincipalPrepayment, applyBusinessLoanPrincipalPayment, getBusinessLoanOutstandingPrincipal } from '../engine/businessDebtEngine';
 import { getEconomicCycleEffects, getPropertyCyclePurchaseMultiplier, inflated } from '../engine/economyEngine';
 import { BUSINESS_PROJECT_SLOT_2_GEM_COST, BUSINESS_UPGRADE_SLOT_2_GEM_COST, getBusinessUpgradeSlotLimit, getBusinessUpgradeWeeks } from '../engine/businessEngine';
 import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts, getBusinessDecisionChoiceCost, getAutomaticStrategicDecisionChoice } from '../engine/businessEngine';
@@ -3592,20 +3593,13 @@ const useGameStore = create<GameStore>((set, get) => ({
     let used = requested;
     let updatedBusiness = { ...business };
     if (purpose === 'debt') {
-      let remainingCapital = requested;
-      const businessLoans = (business.businessLoans ?? []).map((loan) => {
-        if (remainingCapital <= 0 || (loan.remainingAmount ?? 0) <= 0) return loan;
-        const repayment = Math.min(remainingCapital, loan.remainingAmount ?? 0);
-        remainingCapital -= repayment;
-        const remainingAmount = Math.max(0, (loan.remainingAmount ?? 0) - repayment);
-        const weeksRemaining = remainingAmount > 0
-          ? Math.max(1, Math.ceil(remainingAmount / Math.max(1, loan.weeklyPayment ?? 1)))
-          : 0;
-        return { ...loan, remainingAmount, weeksRemaining };
-      }).filter((loan) => (loan.remainingAmount ?? 0) > 0);
-      used = requested - remainingCapital;
+      const debtPayment = applyBusinessDebtPrincipalPrepayment(
+        business.businessLoans ?? [],
+        requested,
+      );
+      used = debtPayment.cashUsed;
       if (used <= 0) return;
-      updatedBusiness = { ...business, businessLoans };
+      updatedBusiness = { ...business, businessLoans: debtPayment.loans };
     } else {
       updatedBusiness = {
         ...business,
@@ -4987,35 +4981,27 @@ const useGameStore = create<GameStore>((set, get) => ({
     const business = businesses[index];
     const loan = (business.businessLoans ?? []).find((item) => item.id === loanId);
     if (!loan) return;
-    const repayment = Math.min(
+
+    const requestedCash = Math.min(
       Math.round(amount),
       Math.max(0, business.balance ?? 0),
-      Math.max(0, loan.remainingAmount ?? 0),
     );
-    if (repayment <= 0) return;
-    const remainingAmount = Math.max(0, (loan.remainingAmount ?? 0) - repayment);
+    const principalPayment = applyBusinessLoanPrincipalPayment(loan, requestedCash);
+    if (principalPayment.cashUsed <= 0) return;
+
     const businessLoans = (business.businessLoans ?? [])
-      .map((item) => {
-        if (item.id !== loanId) return item;
-        if (remainingAmount <= 0) return null;
-        const weeksRemaining = Math.max(1, item.weeksRemaining ?? 1);
-        return {
-          ...item,
-          remainingAmount,
-          weeklyPayment: Math.ceil(remainingAmount / weeksRemaining),
-        };
-      })
+      .map((item) => item.id === loanId ? principalPayment.loan : item)
       .filter((item): item is BusinessLoan => !!item);
     const updated = {
       ...business,
-      balance: Math.max(0, (business.balance ?? 0) - repayment),
+      balance: Math.max(0, (business.balance ?? 0) - principalPayment.cashUsed),
       businessLoans,
       timeline: [
         ...(business.timeline ?? []),
         {
           week: state.week,
           year: state.year,
-          title: '💳 Repaid ' + formatCurrencySafe(repayment) + ' of business debt',
+          title: '💳 Repaid ' + formatCurrencySafe(principalPayment.principalRepaid) + ' of business loan principal',
           icon: '💳',
           kind: 'event' as const,
         },
