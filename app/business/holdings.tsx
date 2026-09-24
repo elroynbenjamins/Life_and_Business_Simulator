@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
 import ScreenTabs from '../../src/components/ScreenTabs';
+import FeatureTourModal, { FeatureTourStep } from '../../src/components/FeatureTourModal';
 import { showGameDialog } from '../../src/components/GameDialog';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
@@ -36,6 +37,24 @@ const SUBSIDIARY_ALLOCATION_AMOUNTS = [1_000_000, 5_000_000, 10_000_000] as cons
 const MANAGEMENT_FEE_RATES = [0, 0.01, 0.02, 0.03];
 const RESERVE_TARGET_WEEKS = [0, 4, 8, 12];
 
+const HOLDINGS_TOUR_STEPS: FeatureTourStep[] = [
+  {
+    title: 'The group has three separate cash pools',
+    body: 'Personal cash belongs to you, the Holding reserve belongs to the parent company, and each subsidiary keeps its own company balance. Funding moves personal cash into the Holding; capital allocation moves Holding cash into a subsidiary.',
+    icon: 'layers-outline',
+  },
+  {
+    title: 'Reserve targets protect owner payouts',
+    body: 'The Holding reserve target blocks owner distributions below the selected number of subsidiary expense weeks. It does not stop strategic capital allocation. Management fees also cannot pull cash out of protected subsidiary reserves.',
+    icon: 'shield-checkmark-outline',
+  },
+  {
+    title: 'Use previews before moving group capital',
+    body: 'In Subsidiaries, expand a company to see the Growth and Debt previews. They show post-transaction cash, reserve gaps, debt and interest effects, and any value transferred to minority shareholders before you confirm.',
+    icon: 'analytics-outline',
+  },
+];
+
 export default function HoldingCompaniesScreen() {
   const router = useRouter();
   const businesses = useGameStore((s) => s.businesses ?? []);
@@ -62,6 +81,7 @@ export default function HoldingCompaniesScreen() {
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
   const [selectedHoldingId, setSelectedHoldingId] = useState<string | null>(null);
   const [holdingView, setHoldingView] = useState<'overview' | 'services' | 'subsidiaries'>('overview');
+  const [showHoldingsTour, setShowHoldingsTour] = useState(false);
   const [showCreateHolding, setShowCreateHolding] = useState(holdings.length === 0);
   const [expandedSubsidiaryId, setExpandedSubsidiaryId] = useState<string | null>(null);
   const [subsidiaryAllocationAmounts, setSubsidiaryAllocationAmounts] = useState<Record<string, number>>({});
@@ -138,7 +158,14 @@ export default function HoldingCompaniesScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Holding Companies</Text>
-        <View style={{ width: 24 }} />
+        <Pressable
+          onPress={() => setShowHoldingsTour(true)}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Open holdings tour"
+        >
+          <Ionicons name="help-circle-outline" size={23} color={Colors.info} />
+        </Pressable>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
@@ -825,6 +852,13 @@ export default function HoldingCompaniesScreen() {
           </>
         )}
       </ScrollView>
+
+      <FeatureTourModal
+        visible={showHoldingsTour}
+        title="Holdings cash basics"
+        steps={HOLDINGS_TOUR_STEPS}
+        onClose={() => setShowHoldingsTour(false)}
+      />
     </SafeAreaView>
   );
 }
