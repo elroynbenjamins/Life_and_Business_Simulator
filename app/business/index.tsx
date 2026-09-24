@@ -38,11 +38,15 @@ const SORT_OPTIONS: Array<{ key: SortMode; label: string; icon: IconName }> = [
   { key: 'roi', label: 'ROI', icon: 'trending-up-outline' },
 ];
 
+type InboxTarget = 'overview' | 'ownership' | 'leadership' | 'finance' | 'people' | 'risk' | 'growth' | 'capital';
+
 type BusinessAttentionItem = {
   label: string;
   detail: string;
   color: string;
   icon: IconName;
+  target: InboxTarget;
+  priority: 1 | 2 | 3;
 };
 
 function getBusinessAttentionItems(
@@ -61,6 +65,8 @@ function getBusinessAttentionItems(
       detail: business.pendingDecision.title,
       color: crisis ? Colors.negative : Colors.warning,
       icon: crisis ? 'warning-outline' : 'alert-circle-outline',
+      target: 'overview',
+      priority: crisis ? 3 : 2,
     });
   }
   if (business.pendingRetention) {
@@ -69,6 +75,8 @@ function getBusinessAttentionItems(
       detail: 'An employee retention decision needs your attention.',
       color: Colors.warning,
       icon: 'people-outline',
+      target: 'people',
+      priority: 2,
     });
   }
   if (business.acquisition?.integrationStrategy === 'pending') {
@@ -77,6 +85,8 @@ function getBusinessAttentionItems(
       detail: 'Choose how this acquisition should be integrated.',
       color: Colors.warning,
       icon: 'git-merge-outline',
+      target: 'overview',
+      priority: 2,
     });
   }
 
@@ -87,6 +97,8 @@ function getBusinessAttentionItems(
       detail: `${reinvestment === 'technology' ? 'Technology' : reinvestment === 'premises' ? 'Premises' : 'Equipment'} is aging and needs reinvestment.`,
       color: Colors.warning,
       icon: 'construct-outline',
+      target: 'risk',
+      priority: 2,
     });
   }
 
@@ -97,6 +109,8 @@ function getBusinessAttentionItems(
       detail: `Insurance gap: ${coverageGaps.map((area) => BUSINESS_INSURANCE_AREAS[area].name).join(', ')}.`,
       color: Colors.warning,
       icon: 'shield-outline',
+      target: 'risk',
+      priority: 2,
     });
   }
 
@@ -106,6 +120,8 @@ function getBusinessAttentionItems(
       detail: `Annual cash-plan review is due for Year ${currentYear}.`,
       color: Colors.info,
       icon: 'wallet-outline',
+      target: 'finance',
+      priority: 1,
     });
   }
 
@@ -116,6 +132,8 @@ function getBusinessAttentionItems(
       detail: governance,
       color: Colors.info,
       icon: 'people-circle-outline',
+      target: 'leadership',
+      priority: 1,
     });
   }
 
@@ -126,6 +144,8 @@ function getBusinessAttentionItems(
       detail: workforce,
       color: Colors.info,
       icon: 'briefcase-outline',
+      target: 'leadership',
+      priority: 1,
     });
   }
 
@@ -136,6 +156,8 @@ function getBusinessAttentionItems(
       detail: management,
       color: Colors.info,
       icon: 'analytics-outline',
+      target: 'leadership',
+      priority: 1,
     });
   }
 
@@ -208,6 +230,7 @@ export default function BusinessPortfolioScreen() {
   const [sortMode, setSortMode] = useState<SortMode>('attention');
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
   const [showEmpireReport, setShowEmpireReport] = useState(false);
+  const [showAllInbox, setShowAllInbox] = useState(false);
 
   const netWorth = getNetWorthValue();
   const businessCapacity = getBusinessCapacity(profile);
@@ -227,6 +250,14 @@ export default function BusinessPortfolioScreen() {
     ),
     [businesses, currentYear, currentWeek, inflationMultiplier],
   );
+
+  const managementInbox = useMemo(() => businesses
+    .flatMap((business) => getBusinessAttentionItems(business, currentYear, currentWeek, inflationMultiplier)
+      .map((item) => ({ ...item, businessId: business.id, businessName: business.name })))
+    .sort((a, b) => b.priority - a.priority || a.businessName.localeCompare(b.businessName)),
+    [businesses, currentYear, currentWeek, inflationMultiplier],
+  );
+  const visibleInbox = showAllInbox ? managementInbox : managementInbox.slice(0, 5);
 
   const sortedBusinesses = useMemo(() => {
     return [...businesses].sort((a, b) => {
@@ -378,6 +409,52 @@ export default function BusinessPortfolioScreen() {
             </View>
             <Ionicons name={allAutoStrategy ? 'toggle' : 'toggle-outline'} size={26} color={allAutoStrategy ? Colors.primary : Colors.textMuted} />
           </Pressable>
+        )}
+
+        {managementInbox.length > 0 && (
+          <GameCard
+            variant="subtle"
+            eyebrow="ATTENTION"
+            title="Management Inbox"
+            accentColor={managementInbox.some((item) => item.priority === 3) ? Colors.negative : Colors.warning}
+            titleAccessory={(
+              <StatusPill
+                compact
+                label={`${managementInbox.length} open`}
+                color={managementInbox.some((item) => item.priority === 3) ? Colors.negative : Colors.warning}
+              />
+            )}
+          >
+            <Text style={styles.inboxIntro}>Handle the most important company actions without searching through each business.</Text>
+            <View style={styles.inboxList}>
+              {visibleInbox.map((item, index) => (
+                <Pressable
+                  key={`${item.businessId}_${item.label}_${index}`}
+                  accessibilityRole="button"
+                  style={styles.inboxRow}
+                  onPress={() => router.push(`/business/${item.businessId}?section=${item.target}`)}
+                >
+                  <View style={[styles.inboxIcon, { backgroundColor: `${item.color}14` }]}>
+                    <Ionicons name={item.icon} size={17} color={item.color} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={styles.inboxTitleRow}>
+                      <Text style={styles.inboxBusiness} numberOfLines={1}>{item.businessName}</Text>
+                      <Text style={[styles.inboxType, { color: item.color }]}>{item.label}</Text>
+                    </View>
+                    <Text style={styles.inboxDetail} numberOfLines={2}>{item.detail}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+                </Pressable>
+              ))}
+            </View>
+            {managementInbox.length > 5 && (
+              <Pressable accessibilityRole="button" style={styles.inboxDisclosure} onPress={() => setShowAllInbox((value) => !value)}>
+                <Text style={styles.inboxDisclosureText}>{showAllInbox ? 'Show top priorities' : `Show all ${managementInbox.length} items`}</Text>
+                <Ionicons name={showAllInbox ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.info} />
+              </Pressable>
+            )}
+          </GameCard>
         )}
 
         <View style={styles.sectionHeader}>
@@ -653,6 +730,16 @@ const styles = StyleSheet.create({
   portfolioAutoTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   portfolioAutoTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
   portfolioAutoText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 3 },
+  inboxIntro: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginBottom: 7 },
+  inboxList: { gap: 2 },
+  inboxRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder },
+  inboxIcon: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  inboxTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  inboxBusiness: { flex: 1, color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
+  inboxType: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase' },
+  inboxDetail: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 2 },
+  inboxDisclosure: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 5 },
+  inboxDisclosureText: { color: Colors.info, fontSize: 10, fontWeight: '800' },
   emptyState: { alignItems: 'center', paddingVertical: 28 },
   emptyTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', marginTop: 12 },
   emptySubtitle: { color: Colors.textSecondary, fontSize: 13, marginTop: 4, textAlign: 'center' },
