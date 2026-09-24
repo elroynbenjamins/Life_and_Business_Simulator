@@ -197,7 +197,7 @@ export default function BusinessAcquisitionsScreen() {
             <GameCard>
               <Text style={styles.sectionTitle}>Financing</Text>
               <Text style={styles.sectionSub}>
-                Acquisition debt stays on the acquired company. Underwriting limits debt service to 60% / 50% / 40% of quoted profit for low / medium / high-risk targets.
+                Acquisition debt stays on the acquired company. Underwriting first stresses post-close profit for integration disruption, then caps debt service at 60% / 50% / 40% for low / medium / high-risk targets.
               </Text>
               <View style={styles.fundingGrid}>
                 {FUNDING_OPTIONS.map((option) => (
@@ -328,7 +328,7 @@ export default function BusinessAcquisitionsScreen() {
 
                   {quote.weeklyPayment > 0 && (
                     <Text style={[styles.underwritingText, { color: debtServiceSafe ? Colors.textSecondary : Colors.negative }]}>
-                      Underwriting: stressed profit {formatCurrency(debtServiceSafety.underwrittenWeeklyProfit)}/wk ({Math.round(debtServiceSafety.profitHaircutPct * 100)}% below seller quote) • debt service uses {Number.isFinite(debtServiceSafety.debtServiceShare) ? Math.round(debtServiceSafety.debtServiceShare * 100) : '∞'}% • max {Math.round(debtServiceSafety.maxDebtServiceShare * 100)}% for {target.risk} risk • {debtServiceSafety.coverageRatio?.toFixed(1)}× cover
+                      Underwriting: {Math.round(debtServiceSafety.underwritingIntegrationPenalty * 100)}% integration stress → {formatCurrency(debtServiceSafety.underwrittenWeeklyProfit)}/wk profit ({Math.round(debtServiceSafety.profitHaircutPct * 100)}% below seller quote) • debt service uses {Number.isFinite(debtServiceSafety.debtServiceShare) ? Math.round(debtServiceSafety.debtServiceShare * 100) : '∞'}% • max {Math.round(debtServiceSafety.maxDebtServiceShare * 100)}% for {target.risk} risk • {debtServiceSafety.coverageRatio?.toFixed(1)}× cover
                     </Text>
                   )}
 
