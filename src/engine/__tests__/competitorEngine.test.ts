@@ -21,6 +21,37 @@ describe('persistent rival CEOs', () => {
     expect(processed[0].lastDecision).not.toBe('Entered the local market');
   });
 
+  test('rivals expand faster in a boom than in a recession', () => {
+    const business = createBusiness('coffee_shop', 'Cycle Coffee', 1, 1, 1)!;
+    const initial = createInitialCompetitors(business, 1);
+
+    const boom = processCompetitors([business], { [business.id]: initial }, 2, 'boom')
+      .updatedCompetitors[business.id];
+    const recession = processCompetitors([business], { [business.id]: initial }, 2, 'recession')
+      .updatedCompetitors[business.id];
+
+    const boomStrength = boom.reduce((sum, rival) => sum + rival.strength, 0);
+    const recessionStrength = recession.reduce((sum, rival) => sum + rival.strength, 0);
+    expect(boomStrength).toBeGreaterThan(recessionStrength);
+  });
+
+  test('recession changes due rival decisions into defensive or counter-cyclical actions', () => {
+    const business = createBusiness('coffee_shop', 'Cycle Coffee', 1, 1, 1)!;
+    const initial = createInitialCompetitors(business, 1).map((rival, index) => ({
+      ...rival,
+      lastDecisionWeek: 1,
+      strategy: index === 0 ? 'cost_leadership' as const : rival.strategy,
+    }));
+
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const processed = processCompetitors([business], { [business.id]: initial }, 5, 'recession')
+      .updatedCompetitors[business.id];
+
+    expect(processed[0].lastDecision).toContain('recession');
+    expect(processed[0].cash ?? 0).toBeGreaterThan(initial[0].cash ?? 0);
+    jest.restoreAllMocks();
+  });
+
   test('keeps the same rival IDs between weekly updates', () => {
     const business = createBusiness('coffee_shop', 'Test Coffee', 1, 1, 1)!;
     const initial = createInitialCompetitors(business, 1);
