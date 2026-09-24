@@ -197,6 +197,39 @@ describe('holding shared services and delegated management', () => {
     expect(economics.paybackWeeks).toBe(4_000);
   });
 
+  test('shared-service payback excludes payroll, financing costs and taxes from savings', () => {
+    const business = {
+      ...makeManagedBusiness(),
+      delegationPolicy: 'manual' as const,
+      lastWeekRevenue: 100_000,
+      lastWeekExpenses: 100_000,
+      lastExpenseBreakdown: {
+        rent: 0,
+        salaries: 20_000,
+        cogs: 50_000,
+        utilities: 0,
+        marketing: 0,
+        insurance: 0,
+        maintenance: 0,
+        taxes: 20_000,
+        loanInterest: 10_000,
+        misc: 0,
+      },
+    };
+    const holding = makeHolding();
+
+    const economics = getHoldingSharedServiceUpgradeEconomics(
+      holding,
+      [business],
+      'procurement',
+      1,
+    );
+
+    expect(economics.expenseReductionDelta).toBeCloseTo(0.006);
+    expect(economics.weeklyFinancialBenefit).toBe(300);
+    expect(economics.paybackWeeks).toBe(Math.ceil(2_500_000 / 300));
+  });
+
   test('shared services benefit even a single subsidiary without inventing organic synergies', () => {
     const business = {
       ...makeManagedBusiness(),
