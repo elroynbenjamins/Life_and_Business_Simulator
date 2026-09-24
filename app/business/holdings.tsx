@@ -25,6 +25,7 @@ import {
   getHoldingSubsidiaryAttentionAction,
   getHoldingSubsidiaryAttentionSummary,
   getHoldingCompanySummary,
+  getHoldingDebtOverview,
   getHoldingSubsidiaryHealthSnapshot,
   HoldingSubsidiaryFilter,
   HoldingSubsidiarySort,
@@ -396,6 +397,10 @@ export default function HoldingCompaniesScreen() {
                 subsidiaries,
                 inflationMultiplier,
               );
+              const debtOverview = getHoldingDebtOverview(
+                subsidiaries,
+                inflationMultiplier,
+              );
               const attentionCount = attentionSummary.attention;
               const attentionShortcuts: Array<{
                 key: HoldingSubsidiaryFilter;
@@ -476,6 +481,99 @@ export default function HoldingCompaniesScreen() {
                   <Text style={styles.familyControlText}>
                     {Math.round(familyControlledPct)}% family-controlled • {protectedAssets} protected long-term asset{protectedAssets === 1 ? '' : 's'}
                   </Text>
+                </View>
+
+                <View style={styles.debtOverviewBox}>
+                  <View style={styles.debtOverviewHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.synergyTitle}>Portfolio Debt</Text>
+                      <Text style={styles.debtOverviewMeta}>
+                        {debtOverview.indebtedCount}/{debtOverview.subsidiaryCount} companies use debt
+                        {debtOverview.groupDebtServiceCoverage != null
+                          ? ` • group coverage ${debtOverview.groupDebtServiceCoverage.toFixed(2)}×`
+                          : ''}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={debtOverview.materialDebtCount > 0 ? 'alert-circle-outline' : 'card-outline'}
+                      size={18}
+                      color={debtOverview.materialDebtCount > 0 ? Colors.warning : Colors.info}
+                    />
+                  </View>
+
+                  <View style={styles.debtOverviewGrid}>
+                    <View style={styles.debtOverviewMetric}>
+                      <Text style={styles.debtOverviewMetricLabel}>Total debt</Text>
+                      <Text style={styles.debtOverviewMetricValue}>{formatCurrency(debtOverview.totalDebt)}</Text>
+                    </View>
+                    <View style={styles.debtOverviewMetric}>
+                      <Text style={styles.debtOverviewMetricLabel}>Debt service / wk</Text>
+                      <Text style={styles.debtOverviewMetricValue}>{formatCurrency(debtOverview.weeklyDebtService)}</Text>
+                    </View>
+                    <View style={styles.debtOverviewMetric}>
+                      <Text style={styles.debtOverviewMetricLabel}>Debt / value</Text>
+                      <Text style={[
+                        styles.debtOverviewMetricValue,
+                        { color: debtOverview.groupDebtToValue > 0.30 ? Colors.warning : Colors.textPrimary },
+                      ]}>
+                        {(debtOverview.groupDebtToValue * 100).toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View style={styles.debtOverviewMetric}>
+                      <Text style={styles.debtOverviewMetricLabel}>Material debt</Text>
+                      <Text style={[
+                        styles.debtOverviewMetricValue,
+                        { color: debtOverview.materialDebtCount > 0 ? Colors.warning : Colors.primary },
+                      ]}>
+                        {debtOverview.materialDebtCount}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {debtOverview.topRisks.length > 0 ? (
+                    <View style={styles.debtRiskList}>
+                      <Text style={styles.debtRiskListTitle}>Top debt risks</Text>
+                      {debtOverview.topRisks.map((risk) => {
+                        const riskColor = risk.severity === 'critical' ? Colors.negative : Colors.warning;
+                        return (
+                          <Pressable
+                            key={risk.businessId}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Review debt for ${risk.businessName}`}
+                            onPress={() => {
+                              setHoldingView('subsidiaries');
+                              setCompanyFilter('material-debt');
+                              setCompanySort('attention');
+                              setCompanyControlOpen(null);
+                              setExpandedSubsidiaryId(risk.businessId);
+                              setFocusedAllocation({ businessId: risk.businessId, mode: 'debt' });
+                            }}
+                            style={styles.debtRiskRow}
+                          >
+                            <View style={[styles.debtRiskDot, { backgroundColor: riskColor }]} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.debtRiskName} numberOfLines={1}>{risk.businessName}</Text>
+                              <Text style={styles.debtRiskMeta}>
+                                {formatCurrency(risk.debtPrincipal)} debt
+                                {' • '}{(risk.debtToValue * 100).toFixed(0)}% of value
+                                {risk.debtServiceCoverage != null ? ` • ${risk.debtServiceCoverage.toFixed(2)}× coverage` : ''}
+                              </Text>
+                            </View>
+                            <Text style={[styles.debtRiskSeverity, { color: riskColor }]}>
+                              {risk.severity === 'critical' ? 'CRITICAL' : 'WATCH'}
+                            </Text>
+                            <Ionicons name="chevron-forward" size={13} color={Colors.textMuted} />
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <Text style={styles.debtOverviewHealthy}>
+                      {debtOverview.totalDebt > 0
+                        ? 'Current debt remains below the material-risk thresholds.'
+                        : 'No subsidiary debt outstanding.'}
+                    </Text>
+                  )}
                 </View>
 
                 <View style={styles.synergyBox}>
@@ -1645,6 +1743,21 @@ const styles = StyleSheet.create({
   statValue: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', marginTop: 3 },
   familyControl: { flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 11, backgroundColor: '#33270F', paddingHorizontal: 9, paddingVertical: 7, borderRadius: 8 },
   familyControlText: { color: Colors.warning, fontSize: 10, fontWeight: '700', flex: 1 },
+  debtOverviewBox: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 10 },
+  debtOverviewHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  debtOverviewMeta: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  debtOverviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  debtOverviewMetric: { width: '48.5%', backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7 },
+  debtOverviewMetricLabel: { color: Colors.textMuted, fontSize: 7, fontWeight: '700' },
+  debtOverviewMetricValue: { color: Colors.textPrimary, fontSize: 10, fontWeight: '900', marginTop: 2 },
+  debtRiskList: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder, marginTop: 9, paddingTop: 7 },
+  debtRiskListTitle: { color: Colors.textSecondary, fontSize: 8, fontWeight: '900', marginBottom: 2 },
+  debtRiskRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  debtRiskDot: { width: 6, height: 6, borderRadius: 3 },
+  debtRiskName: { color: Colors.textPrimary, fontSize: 8, fontWeight: '900' },
+  debtRiskMeta: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 1 },
+  debtRiskSeverity: { fontSize: 6, fontWeight: '900', letterSpacing: 0.35 },
+  debtOverviewHealthy: { color: Colors.primary, fontSize: 8, lineHeight: 11, marginTop: 8 },
   synergyBox: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 10, marginTop: 10 },
   synergyTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '800' },
   synergyText: { color: Colors.primary, fontSize: 10, fontWeight: '700', marginTop: 5 },
