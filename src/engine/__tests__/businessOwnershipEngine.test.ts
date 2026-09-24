@@ -1,6 +1,8 @@
 import {
   getBusinessOwnershipTable,
   getInvestmentForPostMoneyIssuePct,
+  getPlayerEquityOwnershipPct,
+  getRemainingPlayerCapitalBasisAfterShareTransfer,
   getMaxNewEquityIssuePct,
   issueNewBusinessEquity,
 } from '../businessOwnershipEngine';
@@ -16,6 +18,22 @@ describe('business ownership reconciliation', () => {
     expect(ownership[0].ownerType).toBe('player');
     expect(ownership[0].percent).toBe(100);
     expect(ownership[0].votingPercent).toBe(100);
+  });
+
+  test('player equity ownership ignores outside and trust stakes', () => {
+    const business = createBusiness('coffee_shop', 'Ownership Coffee', 1, 1, 1)!;
+    business.ownership = [
+      { ownerType: 'player', ownerId: 'player', ownerName: 'Player', percent: 70, votingPercent: 70 },
+      { ownerType: 'investor', ownerId: 'outside', ownerName: 'Outside', percent: 20, votingPercent: 20 },
+      { ownerType: 'family_trust', ownerId: 'trust', ownerName: 'Family Trust', percent: 10, votingPercent: 10 },
+    ];
+
+    expect(getPlayerEquityOwnershipPct(business)).toBe(70);
+  });
+
+  test('gifting existing shares carries proportional player basis with them', () => {
+    expect(getRemainingPlayerCapitalBasisAfterShareTransfer(100_000, 100, 20)).toBe(80_000);
+    expect(getRemainingPlayerCapitalBasisAfterShareTransfer(100_000, 80, 20)).toBe(75_000);
   });
 
   test('new equity issuance preserves the 51% player voting floor', () => {
