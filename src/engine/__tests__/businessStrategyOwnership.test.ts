@@ -1,6 +1,6 @@
 import { createBusiness, getAutomaticStrategicDecisionChoice, getPlayerOwnershipPct, processAllBusinesses, processBusinessWeek, STRATEGIC_DECISION_MAX_GAP_WEEKS, STRATEGIC_DECISION_MIN_GAP_WEEKS } from '../businessEngine';
 import { getNetWorth } from '../financeEngine';
-import { calculateEstateSettlement } from '../lifecycleEngine';
+import { calculateEstateSettlement, getSuccessionPreview } from '../lifecycleEngine';
 import { createCorporateWorkforce } from '../businessWorkforceEngine';
 import { INITIAL_GAME_STATE, INITIAL_RELATIONSHIP_STATE, OwnedBusiness } from '../../types/game';
 
@@ -336,6 +336,57 @@ describe('business strategy, crises and ownership', () => {
     expect(estate.businessSettlementDebt).toBe(24_000);
     expect(estate.businessValue).toBe(estate.netEstate);
     expect(estate.successorName).toBe('Mila');
+  });
+
+  test('succession preview never gives a child a negative existing business stake', () => {
+    const business = staffedBusiness();
+    business.valuation = 50_000;
+    business.businessLoans = [{
+      id: 'underwater-debt',
+      amount: 100_000,
+      remainingAmount: 110_000,
+      interestRate: 0.10,
+      weeklyPayment: 5_500,
+      weeksRemaining: 20,
+    }] as any;
+    business.ownership = [
+      { ownerType: 'player', ownerId: 'player', ownerName: 'Player', percent: 60, votingPercent: 60 },
+      { ownerType: 'child', ownerId: 'adult-child', ownerName: 'Mila', percent: 40, votingPercent: 40 },
+    ];
+
+    const child = {
+      id: 'adult-child',
+      name: 'Mila',
+      gender: 'girl' as const,
+      birthGlobalWeek: 1,
+      age: 30,
+      educationFund: 0,
+      status: 'independent' as const,
+      parentRelationship: 80,
+    };
+    const baseState = {
+      ...INITIAL_GAME_STATE,
+      year: 31,
+      week: 1,
+      businesses: [business],
+      relationshipModeEnabled: true,
+      relationshipState: {
+        ...INITIAL_RELATIONSHIP_STATE,
+        children: [child],
+      },
+    };
+    const estateSettlement = calculateEstateSettlement(baseState);
+    const state = {
+      ...baseState,
+      relationshipState: {
+        ...baseState.relationshipState,
+        estateSettlement,
+      },
+    };
+
+    const preview = getSuccessionPreview(state, child.id);
+
+    expect(preview?.existingBusinessStakeValue).toBe(0);
   });
 
   test('ignored crises auto-resolve into their fallback consequence after the deadline', () => {
