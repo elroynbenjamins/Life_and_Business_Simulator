@@ -669,13 +669,18 @@ export default function HoldingCompaniesScreen() {
                             ? `repay ${formatCurrency(capitalPreview.debt.principalRepaid)} principal • avoid ${formatCurrency(capitalPreview.debt.futureInterestAvoided)} future interest • debt service -${formatCurrency(capitalPreview.debt.weeklyDebtServiceReduction)}/wk`
                             : 'no principal outstanding'}
                         </Text>
+                        {capitalPreview.ownership.minorityOwnershipPct > 0.001 && (
+                          <Text style={styles.capitalAllocationWarning}>
+                            Outside owners hold {capitalPreview.ownership.minorityOwnershipPct.toFixed(1)}%. Growth funding transfers about {formatCurrency(capitalPreview.growth.minorityValueTransfer)} of value to them; this debt payment transfers about {formatCurrency(capitalPreview.debt.minorityValueTransfer)}.
+                          </Text>
+                        )}
                       </View>
                       <View style={styles.buttonRow}>
                         <Pressable
                           disabled={!canAllocateGrowth}
                           onPress={() => showGameDialog({
                             title: `Allocate ${formatCurrency(allocationAmount)} growth capital to ${business.name}?`,
-                            message: `Move ${formatCurrency(allocationAmount)} from ${holding.name}'s reserve into the subsidiary. ${capitalPreview.growth.additionalRunwayWeeks == null ? 'This adds liquidity.' : `This adds about ${capitalPreview.growth.additionalRunwayWeeks.toFixed(1)} weeks of current operating expenses.`} Balance rises to ${formatCurrency(capitalPreview.growth.postBalance)}. ${capitalPreview.growth.reserveGapAfter > 0 ? `The protected-cash gap would still be ${formatCurrency(capitalPreview.growth.reserveGapAfter)}.` : `Cash above the current protected level would be ${formatCurrency(capitalPreview.growth.cashAboveProtected)}.`} Growth capital increases tracked owner investment basis but does not directly increase revenue by itself.`,
+                            message: `Move ${formatCurrency(allocationAmount)} from ${holding.name}'s reserve into the subsidiary. ${capitalPreview.growth.additionalRunwayWeeks == null ? 'This adds liquidity.' : `This adds about ${capitalPreview.growth.additionalRunwayWeeks.toFixed(1)} weeks of current operating expenses.`} Balance rises to ${formatCurrency(capitalPreview.growth.postBalance)}. ${capitalPreview.growth.reserveGapAfter > 0 ? `The protected-cash gap would still be ${formatCurrency(capitalPreview.growth.reserveGapAfter)}.` : `Cash above the current protected level would be ${formatCurrency(capitalPreview.growth.cashAboveProtected)}.`} Growth capital increases tracked owner investment basis but does not directly increase revenue by itself.${capitalPreview.growth.minorityValueTransfer > 0 ? ` Outside shareholders own ${capitalPreview.ownership.minorityOwnershipPct.toFixed(1)}%, so roughly ${formatCurrency(capitalPreview.growth.minorityValueTransfer)} of the added equity value accrues to them.` : ''}`,
                             confirmText: 'Allocate',
                             onConfirm: () => allocateHoldingCapital(holding.id, business.id, allocationAmount, 'capital'),
                           })}
@@ -687,7 +692,7 @@ export default function HoldingCompaniesScreen() {
                           disabled={!canAllocateDebt || debt <= 0}
                           onPress={() => showGameDialog({
                             title: `Repay debt for ${business.name}?`,
-                            message: `Use ${formatCurrency(capitalPreview.debt.cashUsed)} from ${holding.name}'s reserve to repay ${formatCurrency(capitalPreview.debt.principalRepaid)} of subsidiary principal. This cancels about ${formatCurrency(capitalPreview.debt.futureInterestAvoided)} of future scheduled interest and reduces weekly debt service from ${formatCurrency(capitalPreview.debt.weeklyDebtServiceBefore)} to ${formatCurrency(capitalPreview.debt.weeklyDebtServiceAfter)}. Only the actual payoff amount is removed from the holding reserve.`,
+                            message: `Use ${formatCurrency(capitalPreview.debt.cashUsed)} from ${holding.name}'s reserve to repay ${formatCurrency(capitalPreview.debt.principalRepaid)} of subsidiary principal. This cancels about ${formatCurrency(capitalPreview.debt.futureInterestAvoided)} of future scheduled interest and reduces weekly debt service from ${formatCurrency(capitalPreview.debt.weeklyDebtServiceBefore)} to ${formatCurrency(capitalPreview.debt.weeklyDebtServiceAfter)}. Only the actual payoff amount is removed from the holding reserve.${capitalPreview.debt.minorityValueTransfer > 0 ? ` Outside shareholders own ${capitalPreview.ownership.minorityOwnershipPct.toFixed(1)}%, so roughly ${formatCurrency(capitalPreview.debt.minorityValueTransfer)} of the equity benefit accrues to them.` : ''}`,
                             confirmText: 'Repay',
                             onConfirm: () => allocateHoldingCapital(holding.id, business.id, allocationAmount, 'debt'),
                           })}
@@ -922,6 +927,7 @@ const styles = StyleSheet.create({
   allocationAmountText: { color: Colors.textMuted, fontSize: 8, fontWeight: '800' },
   allocationAmountTextActive: { color: Colors.info },
   capitalAllocationText: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, marginTop: 4 },
+  capitalAllocationWarning: { color: Colors.warning, fontSize: 8, lineHeight: 12, marginTop: 5 },
   returnText: { fontSize: 9, fontWeight: '700', marginTop: 3 },
   integrationWarning: { color: Colors.warning, fontSize: 9, fontWeight: '800', marginTop: 3 },
   longTermText: { color: Colors.warning, fontSize: 9, marginTop: 3 },
