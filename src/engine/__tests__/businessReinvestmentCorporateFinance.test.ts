@@ -162,9 +162,9 @@ describe('business reinvestment and corporate financing', () => {
     const highDebt = makeBusiness({
       businessLoans: [{
         id: 'debt',
-        amount: 20_000_000,
-        remainingAmount: 22_000_000,
-        weeklyPayment: 110_000,
+        amount: 22_000_000,
+        remainingAmount: 24_200_000,
+        weeklyPayment: 121_000,
         weeksRemaining: 200,
         interestRate: 0.10,
         purpose: 'corporate_bond',
