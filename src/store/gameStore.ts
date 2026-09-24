@@ -4432,7 +4432,11 @@ const useGameStore = create<GameStore>((set, get) => ({
       if (!issuance) return;
       executedPct = issuance.issuePct;
       ownership.splice(0, ownership.length, ...issuance.ownership);
-      capitalRaised = Math.round((business.valuation ?? 0) * (executedPct / 100) * 0.90);
+      // executedPct is a post-money ownership percentage. Price the new
+      // shares from post-money math, then apply the intended 10% placement discount.
+      capitalRaised = Math.round(
+        getInvestmentForPostMoneyIssuePct(Math.max(0, business.valuation ?? 0), executedPct) * 0.90,
+      );
     } else {
       // Family gifts/trust funding transfer existing player shares and therefore
       // do not create cash inside the company.
