@@ -204,6 +204,7 @@ export default function BusinessPortfolioScreen() {
   const currentWeek = useGameStore((state) => state.week ?? 1);
   const inflationMultiplier = useGameStore((state) => state.inflationMultiplier ?? 1);
   const getNetWorthValue = useGameStore((state) => state.getNetWorthValue);
+  const setAllBusinessDecisionAutomation = useGameStore((state) => state.setAllBusinessDecisionAutomation);
   const [sortMode, setSortMode] = useState<SortMode>('attention');
   const [managementReportPeriod, setManagementReportPeriod] = useState<CorporateReportPeriod>('quarter');
   const [showEmpireReport, setShowEmpireReport] = useState(false);
@@ -212,6 +213,8 @@ export default function BusinessPortfolioScreen() {
   const businessCapacity = getBusinessCapacity(profile);
   const capacityFull = businesses.length >= businessCapacity;
   const acquisitionsUnlocked = netWorth >= ACQUISITION_UNLOCK_NET_WORTH;
+  const autoStrategyCount = businesses.filter((business) => !!business.autoStrategicDecisions).length;
+  const allAutoStrategy = businesses.length > 0 && autoStrategyCount === businesses.length;
   const summary = useMemo(
     () => getBusinessEmpireSummary(businesses, holdingCompanies, currentYear, currentWeek, inflationMultiplier),
     [businesses, holdingCompanies, currentYear, currentWeek, inflationMultiplier],
@@ -349,6 +352,33 @@ export default function BusinessPortfolioScreen() {
             <Text style={styles.empireActionSub}>{holdingCompanies.length} active</Text>
           </Pressable>
         </View>
+
+        {businesses.length > 0 && (
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: allAutoStrategy }}
+            style={[styles.portfolioAutoRow, allAutoStrategy && styles.portfolioAutoRowActive]}
+            onPress={() => setAllBusinessDecisionAutomation(!allAutoStrategy)}
+          >
+            <View style={[styles.portfolioAutoIcon, allAutoStrategy && styles.portfolioAutoIconActive]}>
+              <Ionicons name="flash-outline" size={17} color={allAutoStrategy ? Colors.primary : Colors.textMuted} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={styles.portfolioAutoTitleRow}>
+                <Text style={styles.portfolioAutoTitle}>Portfolio Auto Strategy</Text>
+                <StatusPill
+                  compact
+                  label={allAutoStrategy ? 'ON' : `${autoStrategyCount}/${businesses.length}`}
+                  color={allAutoStrategy ? Colors.primary : autoStrategyCount > 0 ? Colors.info : Colors.textSecondary}
+                />
+              </View>
+              <Text style={styles.portfolioAutoText}>
+                Routine strategy and corporate HR choices follow each company’s Strategic Focus. Crises remain manual.
+              </Text>
+            </View>
+            <Ionicons name={allAutoStrategy ? 'toggle' : 'toggle-outline'} size={26} color={allAutoStrategy ? Colors.primary : Colors.textMuted} />
+          </Pressable>
+        )}
 
         <View style={styles.sectionHeader}>
           <View>
@@ -616,6 +646,13 @@ const styles = StyleSheet.create({
   empireActionIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
   empireActionTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
   empireActionSub: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 1 },
+  portfolioAutoRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, borderRadius: 11, paddingHorizontal: 10, paddingVertical: 9 },
+  portfolioAutoRowActive: { borderColor: `${Colors.primary}55`, backgroundColor: `${Colors.primary}0A` },
+  portfolioAutoIcon: { width: 34, height: 34, borderRadius: 9, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' },
+  portfolioAutoIconActive: { backgroundColor: `${Colors.primary}14` },
+  portfolioAutoTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  portfolioAutoTitle: { color: Colors.textPrimary, fontSize: 11, fontWeight: '900' },
+  portfolioAutoText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13, marginTop: 3 },
   emptyState: { alignItems: 'center', paddingVertical: 28 },
   emptyTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', marginTop: 12 },
   emptySubtitle: { color: Colors.textSecondary, fontSize: 13, marginTop: 4, textAlign: 'center' },
