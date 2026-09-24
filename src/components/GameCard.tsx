@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { Colors } from '../theme/colors';
+import { tutorialCardTarget, TutorialTargetId } from '../engine/tutorialEngine';
+import { useTutorialHighlight } from '../store/tutorialStore';
 
 export type GameCardVariant = 'standard' | 'hero' | 'subtle' | 'attention' | 'danger';
 
@@ -14,33 +16,24 @@ interface Props {
   variant?: GameCardVariant;
   accentColor?: string;
   compact?: boolean;
+  tutorialId?: TutorialTargetId;
 }
 
 export default function GameCard({
-  title,
-  eyebrow,
-  titleAccessory,
-  onPress,
-  children,
-  style,
-  variant = 'standard',
-  accentColor,
-  compact = false,
+  title, eyebrow, titleAccessory, onPress, children, style,
+  variant = 'standard', accentColor, compact = false, tutorialId,
 }: Props) {
+  const highlighted = useTutorialHighlight(tutorialId ?? tutorialCardTarget(title, eyebrow));
   const accent = accentColor
     ?? (variant === 'danger' ? Colors.negative : variant === 'attention' ? Colors.warning : Colors.primary);
-
   const content = (
     <View
       style={[
-        styles.card,
-        compact && styles.compact,
-        variant === 'hero' && styles.hero,
-        variant === 'subtle' && styles.subtle,
-        variant === 'attention' && styles.attention,
-        variant === 'danger' && styles.danger,
+        styles.card, compact && styles.compact,
+        variant === 'hero' && styles.hero, variant === 'subtle' && styles.subtle,
+        variant === 'attention' && styles.attention, variant === 'danger' && styles.danger,
         (variant === 'hero' || variant === 'attention' || variant === 'danger') && { borderColor: accent },
-        style,
+        style, highlighted && styles.tutorialHighlight,
       ]}
     >
       {(eyebrow || title || titleAccessory) ? (
@@ -55,79 +48,24 @@ export default function GameCard({
       {children}
     </View>
   );
-
   if (onPress) {
-    return (
-      <Pressable
-        accessibilityRole="button"
-        onPress={onPress}
-        style={({ pressed }) => [pressed && styles.pressed]}
-      >
-        {content}
-      </Pressable>
-    );
+    return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [pressed && styles.pressed]}>{content}</Pressable>;
   }
   return content;
 }
-
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-    padding: 16,
-    marginBottom: 12,
-  },
-  compact: {
-    padding: 12,
-    marginBottom: 10,
-  },
-  hero: {
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-    borderRadius: 16,
-  },
-  subtle: {
-    backgroundColor: Colors.elevated,
-    borderColor: Colors.cardBorder,
-  },
-  attention: {
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-  },
-  danger: {
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-  },
-  headingRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 9,
-  },
+  card: { backgroundColor: Colors.card, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, padding: 16, marginBottom: 12 },
+  compact: { padding: 12, marginBottom: 10 },
+  hero: { backgroundColor: Colors.card, borderWidth: 1, borderRadius: 16 },
+  subtle: { backgroundColor: Colors.elevated, borderColor: Colors.cardBorder },
+  attention: { backgroundColor: Colors.card, borderWidth: 1 },
+  danger: { backgroundColor: Colors.card, borderWidth: 1 },
+  headingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 9 },
   headingCopy: { flex: 1, minWidth: 0 },
-  eyebrow: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.05,
-    marginBottom: 2,
-  },
-  title: {
-    color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  heroTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  titleAccessory: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  pressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.992 }],
-  },
+  eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.05, marginBottom: 2 },
+  title: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
+  heroTitle: { fontSize: 18, fontWeight: '800' },
+  titleAccessory: { alignItems: 'flex-end', justifyContent: 'center' },
+  pressed: { opacity: 0.88, transform: [{ scale: 0.992 }] },
+  tutorialHighlight: { borderColor: Colors.warning, shadowColor: Colors.warning, shadowOpacity: 0.4, shadowRadius: 7, shadowOffset: { width: 0, height: 0 }, elevation: 3 },
 });
