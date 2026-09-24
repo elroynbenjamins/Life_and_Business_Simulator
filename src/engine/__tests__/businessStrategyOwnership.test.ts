@@ -1,6 +1,7 @@
 import { createBusiness, getAutomaticStrategicDecisionChoice, getPlayerOwnershipPct, processAllBusinesses, processBusinessWeek, STRATEGIC_DECISION_MAX_GAP_WEEKS, STRATEGIC_DECISION_MIN_GAP_WEEKS } from '../businessEngine';
 import { getNetWorth } from '../financeEngine';
 import { calculateEstateSettlement } from '../lifecycleEngine';
+import { createCorporateWorkforce } from '../businessWorkforceEngine';
 import { INITIAL_GAME_STATE, INITIAL_RELATIONSHIP_STATE, OwnedBusiness } from '../../types/game';
 
 function staffedBusiness(): OwnedBusiness {
@@ -55,6 +56,26 @@ describe('business strategy, crises and ownership', () => {
     expect(result.updatedBusiness.pendingDecision?.kind).toBe('crisis');
     expect(result.updatedBusiness.pendingDecision?.choices.length).toBe(3);
     expect((result.updatedBusiness.pendingDecision?.deadlineGlobalWeek ?? 0) - (result.updatedBusiness.pendingDecision?.createdGlobalWeek ?? 0)).toBe(3);
+  });
+
+  test('spaces corporate HR and strategic reviews by at least 6 weeks', () => {
+    const business = staffedBusiness();
+    business.valuation = 30_000_000;
+    const workforce = createCorporateWorkforce(business, 1, 1);
+    expect(workforce).not.toBeNull();
+    business.corporateWorkforce = {
+      ...workforce!,
+      laborMarketPressure: 75,
+      nextHrEventWeek: 1,
+    };
+    business.nextStrategicDecisionWeek = 1;
+    business.nextCrisisCheckWeek = 999;
+
+    jest.spyOn(Math, 'random').mockReturnValue(0.4);
+    const result = processBusinessWeek(business, 1, 2, 1);
+
+    expect(result.updatedBusiness.pendingDecision?.id.startsWith('hr_')).toBe(true);
+    expect((result.updatedBusiness.nextStrategicDecisionWeek ?? 0) - 2).toBeGreaterThanOrEqual(6);
   });
 
   test('does not open a new strategic review while a prior strategic program is still active', () => {
