@@ -113,6 +113,7 @@ export default function HoldingCompaniesScreen() {
   const [showHoldingsTour, setShowHoldingsTour] = useState(false);
   const [showCreateHolding, setShowCreateHolding] = useState(holdings.length === 0);
   const [expandedSubsidiaryId, setExpandedSubsidiaryId] = useState<string | null>(null);
+  const [focusedAllocation, setFocusedAllocation] = useState<{ businessId: string; mode: 'growth' | 'debt' } | null>(null);
   const [subsidiaryAllocationAmounts, setSubsidiaryAllocationAmounts] = useState<Record<string, number>>({});
   const [companyFilter, setCompanyFilter] = useState<HoldingSubsidiaryFilter>('all');
   const [companySort, setCompanySort] = useState<HoldingSubsidiarySort>('attention');
@@ -1108,6 +1109,8 @@ export default function HoldingCompaniesScreen() {
                     ?? managers[0]?.id
                     ?? '';
                   const expanded = expandedSubsidiaryId === business.id;
+                  const growthFocused = focusedAllocation?.businessId === business.id && focusedAllocation.mode === 'growth';
+                  const debtFocused = focusedAllocation?.businessId === business.id && focusedAllocation.mode === 'debt';
                   return (
                     <View key={business.id} style={styles.subsidiaryBlock}>
                       <View style={styles.subsidiaryRow}>
@@ -1187,7 +1190,10 @@ export default function HoldingCompaniesScreen() {
                         <Pressable
                           accessibilityRole="button"
                           accessibilityState={{ expanded }}
-                          onPress={() => setExpandedSubsidiaryId(expanded ? null : business.id)}
+                          onPress={() => {
+                            setFocusedAllocation(null);
+                            setExpandedSubsidiaryId(expanded ? null : business.id);
+                          }}
                           hitSlop={8}
                           style={styles.subsidiaryManageButton}
                         >
@@ -1205,6 +1211,7 @@ export default function HoldingCompaniesScreen() {
                           onPress={() => {
                             setCompanyControlOpen(null);
                             if (attentionAction.kind === 'holding_capital') {
+                              setFocusedAllocation({ businessId: business.id, mode: attentionAction.focus });
                               setExpandedSubsidiaryId(business.id);
                               return;
                             }
@@ -1223,17 +1230,17 @@ export default function HoldingCompaniesScreen() {
                         >
                           <Ionicons
                             name={attentionAction.kind === 'holding_capital'
-                              ? 'add-circle-outline'
+                              ? attentionAction.focus === 'debt' ? 'card-outline' : 'add-circle-outline'
                               : attentionAction.kind === 'business_finance'
                                 ? 'cash-outline'
                                 : 'open-outline'}
                             size={14}
-                            color={attentionAction.kind === 'holding_capital' ? Colors.primary : Colors.info}
+                            color={attentionAction.kind === 'holding_capital' && attentionAction.focus === 'growth' ? Colors.primary : Colors.info}
                           />
                           <View style={{ flex: 1 }}>
                             <Text style={[
                               styles.subsidiaryAttentionActionTitle,
-                              { color: attentionAction.kind === 'holding_capital' ? Colors.primary : Colors.info },
+                              { color: attentionAction.kind === 'holding_capital' && attentionAction.focus === 'growth' ? Colors.primary : Colors.info },
                             ]}>
                               {attentionAction.label}
                             </Text>
@@ -1277,13 +1284,20 @@ export default function HoldingCompaniesScreen() {
                         </View>
 
                         <View style={styles.allocationComparisonRow}>
-                          <View style={[styles.allocationChoiceCard, styles.growthChoiceCard]}>
+                          <View style={[
+                            styles.allocationChoiceCard,
+                            styles.growthChoiceCard,
+                            growthFocused && styles.growthChoiceCardFocused,
+                          ]}>
                             <View style={styles.allocationChoiceHeader}>
                               <View style={styles.allocationChoiceIcon}>
                                 <Ionicons name="trending-up-outline" size={16} color={Colors.primary} />
                               </View>
                               <View style={{ flex: 1 }}>
-                                <Text style={styles.allocationChoiceTitle}>Growth Capital</Text>
+                                <View style={styles.allocationChoiceTitleRow}>
+                                  <Text style={styles.allocationChoiceTitle}>Growth Capital</Text>
+                                  {growthFocused && <Text style={[styles.allocationFocusLabel, { color: Colors.primary }]}>FOCUS</Text>}
+                                </View>
                                 <Text style={styles.allocationChoiceSubtitle}>Liquidity & runway</Text>
                               </View>
                             </View>
@@ -1347,13 +1361,20 @@ export default function HoldingCompaniesScreen() {
                             </Pressable>
                           </View>
 
-                          <View style={[styles.allocationChoiceCard, styles.debtChoiceCard]}>
+                          <View style={[
+                            styles.allocationChoiceCard,
+                            styles.debtChoiceCard,
+                            debtFocused && styles.debtChoiceCardFocused,
+                          ]}>
                             <View style={styles.allocationChoiceHeader}>
                               <View style={[styles.allocationChoiceIcon, styles.debtChoiceIcon]}>
                                 <Ionicons name="card-outline" size={16} color={Colors.info} />
                               </View>
                               <View style={{ flex: 1 }}>
-                                <Text style={styles.allocationChoiceTitle}>Debt Paydown</Text>
+                                <View style={styles.allocationChoiceTitleRow}>
+                                  <Text style={styles.allocationChoiceTitle}>Debt Paydown</Text>
+                                  {debtFocused && <Text style={[styles.allocationFocusLabel, { color: Colors.info }]}>FOCUS</Text>}
+                                </View>
                                 <Text style={styles.allocationChoiceSubtitle}>Lower financing burden</Text>
                               </View>
                             </View>
@@ -1740,11 +1761,15 @@ const styles = StyleSheet.create({
   allocationComparisonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
   allocationChoiceCard: { flexGrow: 1, flexBasis: 145, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, padding: 9, backgroundColor: Colors.card },
   growthChoiceCard: { borderColor: `${Colors.primary}44` },
+  growthChoiceCardFocused: { borderWidth: 2, borderColor: Colors.primary, backgroundColor: `${Colors.primary}08` },
   debtChoiceCard: { borderColor: `${Colors.info}44` },
+  debtChoiceCardFocused: { borderWidth: 2, borderColor: Colors.info, backgroundColor: '#17263A' },
   allocationChoiceHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 7 },
+  allocationChoiceTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 },
   allocationChoiceIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: `${Colors.primary}18`, alignItems: 'center', justifyContent: 'center' },
   debtChoiceIcon: { backgroundColor: '#17263A' },
   allocationChoiceTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
+  allocationFocusLabel: { fontSize: 6, fontWeight: '900', letterSpacing: 0.4 },
   allocationChoiceSubtitle: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
   allocationMetric: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, paddingVertical: 3, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
   allocationMetricLabel: { color: Colors.textMuted, fontSize: 7, flexShrink: 1 },
