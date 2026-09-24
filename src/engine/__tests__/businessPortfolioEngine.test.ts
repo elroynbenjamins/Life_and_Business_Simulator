@@ -292,6 +292,32 @@ describe('business portfolio engine', () => {
     expect(summary.playerNetBusinessEquity).toBe(150_000);
   });
 
+  test('player empire equity floors an underwater ownership stake at zero', () => {
+    const business = {
+      ...makeBusiness(),
+      valuation: 50_000,
+      businessLoans: [{
+        id: 'underwater',
+        amount: 100_000,
+        remainingAmount: 110_000,
+        weeklyPayment: 5_500,
+        weeksRemaining: 20,
+        interestRate: 0.10,
+        purpose: 'operating' as const,
+      }],
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 60, votingPercent: 60 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside', percent: 40, votingPercent: 40 },
+      ],
+    };
+
+    const summary = getBusinessEmpireSummary([business]);
+
+    expect(summary.playerBusinessValue).toBe(30_000);
+    expect(summary.playerBusinessDebt).toBe(60_000);
+    expect(summary.playerNetBusinessEquity).toBe(0);
+  });
+
   test('summarizes empire debt, cash and attention without double counting', () => {
     const business = {
       ...makeBusiness(),
