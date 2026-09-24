@@ -149,6 +149,56 @@ describe('business strategy, crises and ownership', () => {
     expect(getAutomaticStrategicDecisionChoice(business, decision, 1)?.id).not.toBe('automate');
   });
 
+  test('Auto Strategy becomes defensive with weak liquidity in a recession', () => {
+    const business = staffedBusiness();
+    business.strategicFocus = 'balanced';
+    business.balance = 20_000;
+    business.lastWeekExpenses = 10_000;
+    const decision = {
+      id: 'cycle-auto-test',
+      kind: 'strategy' as const,
+      title: 'Downturn Strategy',
+      description: 'Choose a recession posture.',
+      icon: '🌧️',
+      createdGlobalWeek: 1,
+      deadlineGlobalWeek: 6,
+      defaultChoiceId: 'cycle_discipline',
+      choices: [
+        { id: 'cycle_counter', text: 'Push for Market Share', description: 'Expand while competitors retreat.', businessCashCost: 6_000, revenueMultiplier: 1.05, marketShareDelta: 3, durationWeeks: 20 },
+        { id: 'cycle_efficiency', text: 'Tighten Operations', description: 'Cut costs and improve efficiency.', businessCashCost: 2_500, expenseMultiplier: 0.94, durationWeeks: 18 },
+        { id: 'cycle_discipline', text: 'Protect Liquidity', description: 'Keep cash available.', durationWeeks: 1 },
+      ],
+    };
+
+    const selected = getAutomaticStrategicDecisionChoice(business, decision, 1, 'recession');
+    expect(selected?.id).not.toBe('cycle_counter');
+    expect(['cycle_efficiency', 'cycle_discipline']).toContain(selected?.id);
+  });
+
+  test('cash-rich growth Auto Strategy can invest counter-cyclically in a recession', () => {
+    const business = staffedBusiness();
+    business.strategicFocus = 'growth';
+    business.balance = 500_000;
+    business.lastWeekExpenses = 10_000;
+    const decision = {
+      id: 'cycle-growth-test',
+      kind: 'strategy' as const,
+      title: 'Downturn Strategy',
+      description: 'Choose a recession posture.',
+      icon: '🌧️',
+      createdGlobalWeek: 1,
+      deadlineGlobalWeek: 6,
+      defaultChoiceId: 'cycle_discipline',
+      choices: [
+        { id: 'cycle_counter', text: 'Push for Market Share', description: 'Expand sales and market share while competitors retreat.', businessCashCost: 6_000, revenueMultiplier: 1.05, marketShareDelta: 3, durationWeeks: 20 },
+        { id: 'cycle_efficiency', text: 'Tighten Operations', description: 'Cut costs and improve efficiency.', businessCashCost: 2_500, expenseMultiplier: 0.94, durationWeeks: 18 },
+        { id: 'cycle_discipline', text: 'Protect Liquidity', description: 'Keep cash available.', durationWeeks: 1 },
+      ],
+    };
+
+    expect(getAutomaticStrategicDecisionChoice(business, decision, 1, 'recession')?.id).toBe('cycle_counter');
+  });
+
   test('margin strategy lowers comparable weekly operating expenses', () => {
     const balanced = staffedBusiness();
     balanced.strategicFocus = 'balanced';
