@@ -235,19 +235,21 @@ describe('business acquisitions and holding companies', () => {
       risk: 'low' as const,
     };
 
-    expect(getAcquisitionUnderwrittenProfit(target)).toBe(60_000);
+    expect(getAcquisitionUnderwrittenProfit(target)).toBe(76_000);
 
     const safety = getAcquisitionDebtServiceSafety(target, { weeklyPayment: 35_000 });
     expect(safety.quotedWeeklyProfit).toBe(100_000);
-    expect(safety.underwrittenWeeklyProfit).toBe(60_000);
-    expect(safety.profitHaircutPct).toBeCloseTo(0.40);
-    expect(safety.debtServiceShare).toBeCloseTo(35_000 / 60_000);
+    expect(safety.underwritingIntegrationPenalty).toBeCloseTo(0.03);
+    expect(safety.underwrittenWeeklyProfit).toBe(76_000);
+    expect(safety.profitHaircutPct).toBeCloseTo(0.24);
+    expect(safety.debtServiceShare).toBeCloseTo(35_000 / 76_000);
     expect(safety.allowed).toBe(true);
 
     const highDisruption = getAcquisitionDebtServiceSafety(
-      { ...target, integrationPenalty: 0.16, risk: 'high' },
+      { ...target, weeklyProfit: 70_000, integrationPenalty: 0.16, risk: 'high' },
       { weeklyPayment: 1_000 },
     );
+    expect(highDisruption.underwritingIntegrationPenalty).toBeCloseTo(0.096);
     expect(highDisruption.underwrittenWeeklyProfit).toBe(0);
     expect(highDisruption.allowed).toBe(false);
   });
