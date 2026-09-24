@@ -36,6 +36,7 @@ import housingData from '../data/housing.json';
 import carsData from '../data/cars.json';
 import loansData from '../data/loans.json';
 import achievementsData from '../data/achievements.json';
+import { getAchievementGemRewardSettlement } from '../engine/achievementEngine';
 import relationshipNamesData from '../data/relationship_names.json';
 import careerPathsData from '../data/career_paths.json';
 import companiesData from '../data/companies.json';
@@ -922,30 +923,22 @@ const useGameStore = create<GameStore>((set, get) => ({
     let newProfile = { ...state.profile };
     if ((summary.newAchievements?.length ?? 0) > 0) {
       let xpGained = 0;
-      let gemsGained = 0;
-      const rewardedGemIds = new Set(newProfile.rewardedAchievementGemIds ?? []);
-      const achievementGemRewards: Record<string, number> = {};
-
       for (const id of summary.newAchievements) {
         const ach = (achievementsData ?? []).find((a) => a?.id === id);
         xpGained += ach?.xpReward ?? 0;
-        if (ach && !rewardedGemIds.has(id)) {
-          const gemReward = Math.max(0, ach.gemReward ?? 0);
-          if (gemReward > 0) {
-            gemsGained += gemReward;
-            achievementGemRewards[id] = gemReward;
-          }
-          rewardedGemIds.add(id);
-        }
       }
 
-      summary.achievementGemRewards = achievementGemRewards;
+      const gemSettlement = getAchievementGemRewardSettlement(
+        summary.newAchievements,
+        newProfile.rewardedAchievementGemIds ?? [],
+      );
+      summary.achievementGemRewards = gemSettlement.rewards;
       newProfile = {
         ...newProfile,
         totalXp: (newProfile.totalXp ?? 0) + xpGained,
         prestigePoints: (newProfile.prestigePoints ?? 0) + xpGained,
-        gems: (newProfile.gems ?? 0) + gemsGained,
-        rewardedAchievementGemIds: [...rewardedGemIds],
+        gems: (newProfile.gems ?? 0) + gemSettlement.gemsGained,
+        rewardedAchievementGemIds: gemSettlement.rewardedAchievementGemIds,
       };
       profileUpdated = true;
     }
