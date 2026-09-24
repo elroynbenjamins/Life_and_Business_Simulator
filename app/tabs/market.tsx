@@ -51,7 +51,13 @@ export default function MarketScreen() {
         contentContainerStyle={styles.filterRow}
       >
         {(['all', 'stock', 'etf', 'commodity', 'crypto'] as FilterType[]).map((f) => (
-          <Pressable key={f} style={[styles.filterTab, filter === f && styles.filterActive]} onPress={() => setFilter(f)}>
+          <Pressable
+            key={f}
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8 }}
+            style={[styles.filterTab, filter === f && styles.filterActive]}
+            onPress={() => setFilter(f)}
+          >
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
               {f === 'all' ? 'All' : f === 'stock' ? 'Stocks' : f === 'etf' ? 'ETFs' : f === 'crypto' ? 'Crypto' : 'Commodities'}
             </Text>
