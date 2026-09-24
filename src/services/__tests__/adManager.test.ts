@@ -81,13 +81,15 @@ describe('rewarded ad responsiveness', () => {
     jest.doMock('../adPrivacyManager', () => ({
       canRequestAds: jest.fn(async () => true),
     }));
-    jest.doMock('react-native-google-mobile-ads', () => mockAdsModule);
+    jest.doMock('../nativeAdsModule', () => ({
+      loadGoogleMobileAdsModule: jest.fn(async () => mockAdsModule),
+    }));
   });
 
   afterEach(() => {
     jest.useRealTimers();
     jest.dontMock('../adPrivacyManager');
-    jest.dontMock('react-native-google-mobile-ads');
+    jest.dontMock('../nativeAdsModule');
   });
 
   test('rejects a second load while another rewarded placement is loading', async () => {
