@@ -388,6 +388,63 @@ export function getHoldingManagementFeePolicyPreview(
 }
 
 
+export type HoldingSubsidiaryAttentionLevel = 'critical' | 'watch' | 'stable';
+
+export function getHoldingSubsidiaryHealthSnapshot(
+  business: OwnedBusiness,
+  inflationMultiplier = 1,
+) {
+  const cash = Math.round(business.balance ?? 0);
+  const weeklyProfit = Math.round(business.lastWeekProfit ?? 0);
+  const weeklyExpenses = Math.max(0, business.lastWeekExpenses ?? 0);
+  const protectedCash = getBusinessProtectedCash(
+    business,
+    inflationMultiplier,
+    weeklyExpenses,
+  );
+  const protectedCashGap = Math.max(0, protectedCash - cash);
+  const protectedCashCoverage = protectedCash > 0
+    ? Math.max(0, Math.min(1, cash / protectedCash))
+    : 1;
+  const debtPrincipal = getBusinessDebtPrincipal(business);
+  const weeklyDebtService = getBusinessWeeklyDebtService(business);
+  const integrationPending = business.acquisition?.integrationStrategy === 'pending';
+  const decisionPending = Boolean(business.pendingDecision);
+
+  const criticalReasons: string[] = [];
+  const watchReasons: string[] = [];
+
+  if (integrationPending) criticalReasons.push('Integration decision');
+  if (cash < 0) criticalReasons.push('Negative cash');
+  if (decisionPending) watchReasons.push('Decision pending');
+  if (weeklyProfit < 0) watchReasons.push('Weekly loss');
+  if (protectedCashGap > 0) {
+    const label = `Reserve gap ${Math.round(protectedCashCoverage * 100)}% funded`;
+    if (protectedCashCoverage < 0.5) criticalReasons.push(label);
+    else watchReasons.push(label);
+  }
+
+  const attention: HoldingSubsidiaryAttentionLevel = criticalReasons.length > 0
+    ? 'critical'
+    : watchReasons.length > 0
+      ? 'watch'
+      : 'stable';
+
+  return {
+    attention,
+    attentionReasons: [...criticalReasons, ...watchReasons],
+    cash,
+    weeklyProfit,
+    protectedCash,
+    protectedCashGap,
+    protectedCashCoverage,
+    debtPrincipal,
+    weeklyDebtService,
+    integrationPending,
+    decisionPending,
+  };
+}
+
 export function getHoldingCapitalAllocationPreview(
   business: OwnedBusiness,
   requestedAmount: number,
