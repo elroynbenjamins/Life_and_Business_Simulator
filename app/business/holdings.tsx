@@ -1,3 +1,6 @@
+import TutorialScrollView from '../../src/components/TutorialScrollView';
+import TutorialChapterLauncher, { TutorialAnchor, useTutorialChapterScreen, useTutorialScreenBlocker, cancelTutorialReveal } from '../../src/components/TutorialChapterLauncher';
+import { useTutorialStore } from '../../src/store/tutorialStore';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -170,6 +173,17 @@ export default function HoldingCompaniesScreen() {
   }), [holdings, businesses, globalGameWeek, inflationMultiplier]);
   const selectedSummary = summaries.find((summary) => summary.holding.id === selectedHoldingId) ?? summaries[0] ?? null;
   const visibleSummaries = selectedSummary ? [selectedSummary] : [];
+  const chapterAnchor = useTutorialChapterScreen('holding', selectedSummary?.holding.id, holdingView, (step, holdingId) => {
+    if (!holdings.some((item) => item.id === holdingId)) return;
+    setSelectedHoldingId(holdingId);
+    if (step.section === 'overview' || step.section === 'services' || step.section === 'subsidiaries') {
+      setHoldingView(step.section);
+    }
+    if (step.id === 'holding_capital') {
+      setExpandedSubsidiaryId(businesses.find((item) => item.holdingCompanyId === holdingId)?.id ?? null);
+    }
+  });
+  useTutorialScreenBlocker(showHoldingsTour);
 
   const createHolding = () => {
     const cleanName = name.trim();
@@ -260,7 +274,8 @@ export default function HoldingCompaniesScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <TutorialScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        {unlocked && <TutorialChapterLauncher chapter="holding" subjectId={selectedSummary?.holding.id} />}
         <GameCard>
           <View style={styles.introHeader}>
             <View style={styles.iconWrap}>
@@ -333,7 +348,11 @@ export default function HoldingCompaniesScreen() {
                       key={summary.holding.id}
                       accessibilityRole="tab"
                       accessibilityState={{ selected: active }}
-                      onPress={() => { setSelectedHoldingId(summary.holding.id); setHoldingView('overview'); }}
+                      onPress={() => {
+                        useTutorialStore.getState().pause();
+                        setSelectedHoldingId(summary.holding.id);
+                        setHoldingView('overview');
+                      }}
                       style={[styles.holdingSelectorChip, active && styles.holdingSelectorChipActive]}
                     >
                       <Ionicons name="business-outline" size={14} color={active ? Colors.info : Colors.textMuted} />
@@ -439,7 +458,7 @@ export default function HoldingCompaniesScreen() {
                     { key: 'subsidiaries', label: 'Companies', icon: 'business-outline' },
                   ]}
                   activeKey={holdingView}
-                  onChange={setHoldingView}
+                  onChange={(next) => { cancelTutorialReveal(); setHoldingView(next); }}
                   accentColor={Colors.info}
                 />
 
@@ -1683,7 +1702,7 @@ export default function HoldingCompaniesScreen() {
             </Pressable>
           </>
         )}
-      </ScrollView>
+      </TutorialScrollView>
 
       <FeatureTourModal
         visible={showHoldingsTour}
