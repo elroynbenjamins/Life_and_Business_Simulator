@@ -3,7 +3,7 @@ import { GameState, INITIAL_GAME_STATE, INITIAL_STATISTICS, INITIAL_PROFILE, INI
 import { getLegacyMarketCompanyPool, initializeMarketCompanyPool, initializeStocks, mergeStocks } from '../engine/stockEngine';
 import { weeklyTick } from '../engine/weeklyTick';
 import { getNetWorth, getPortfolioValue, getUnrealizedProfitLoss } from '../engine/financeEngine';
-import { getEconomicCycleEffects, inflated } from '../engine/economyEngine';
+import { getEconomicCycleEffects, getPropertyCyclePurchaseMultiplier, inflated } from '../engine/economyEngine';
 import { BUSINESS_PROJECT_SLOT_2_GEM_COST, BUSINESS_UPGRADE_SLOT_2_GEM_COST, getBusinessUpgradeSlotLimit, getBusinessUpgradeWeeks } from '../engine/businessEngine';
 import { createBusiness, generateCandidates, candidateToEmployee, getBusinessType, getUpgrade, calculateValuation, getTotalBusinessValue, getPlayerOwnershipPct, applyMoraleAction, startTraining, startProject, resolveRetention, MIN_EMPLOYEES_REQUIRED, canStartBusinessExpansion, getBusinessLocationTemplate, getScaledLocationCosts, getBusinessDecisionChoiceCost, getAutomaticStrategicDecisionChoice } from '../engine/businessEngine';
 import { createProperty, renovateProperty, getTotalPropertyValue } from '../engine/propertyEngine';
@@ -3156,7 +3156,13 @@ const useGameStore = create<GameStore>((set, get) => ({
   // ---- Property Actions ----
   buyProperty: (typeId: string) => {
     const state = get();
-    const prop = createProperty(typeId, state.week, state.year, state.inflationMultiplier ?? 1);
+    const prop = createProperty(
+      typeId,
+      state.week,
+      state.year,
+      state.inflationMultiplier ?? 1,
+      getPropertyCyclePurchaseMultiplier(state.economicCycle?.phase ?? 'expansion'),
+    );
     if (!prop) return;
     if ((state.cash ?? 0) < prop.purchasePrice) return;
     const updates = {
