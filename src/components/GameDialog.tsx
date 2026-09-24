@@ -31,6 +31,10 @@ export function showGameDialog(options: DialogOptions) {
   useDialogStore.getState().open(options);
 }
 
+export function useGameDialogVisible() {
+  return useDialogStore((state) => state.visible);
+}
+
 export default function GameDialog() {
   const dialog = useDialogStore();
   const confirm = () => {
