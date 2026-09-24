@@ -192,6 +192,7 @@ export default function BusinessDetailScreen() {
   const businesses = useGameStore((s) => s?.businesses ?? []);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const inflationMultiplier = useGameStore((s) => s?.inflationMultiplier ?? 1);
+  const economicCycle = useGameStore((s) => s?.economicCycle);
   const competitors = useGameStore((s) => s?.competitors ?? {});
   const profile = useGameStore((s) => s.profile);
   const relationshipState = useGameStore((s) => s.relationshipState);
@@ -199,6 +200,17 @@ export default function BusinessDetailScreen() {
   const gameWeek = useGameStore((s) => s.week ?? 1);
   const gameYear = useGameStore((s) => s.year ?? 1);
   const loanRateReduction = getPrestigeEffects(profile).loan_rate_reduction ?? 0;
+  const rivalCyclePhase = economicCycle?.phase ?? 'expansion';
+  const rivalCycleLabel = rivalCyclePhase.charAt(0).toUpperCase() + rivalCyclePhase.slice(1);
+  const rivalCycleHint = rivalCyclePhase === 'recession'
+    ? 'Cash-rich rivals may attack market share, while overextended rivals can weaken or preserve liquidity.'
+    : rivalCyclePhase === 'boom'
+      ? 'Rivals are more likely to expand, invest and compete aggressively while demand is strong.'
+      : rivalCyclePhase === 'slowdown'
+        ? 'Rivals are reducing risk and delaying expansion as demand cools.'
+        : rivalCyclePhase === 'recovery'
+          ? 'Rivals are beginning to invest again and compete for returning demand.'
+          : 'Rivals are growing steadily and balancing expansion with cash generation.';
   const {
     designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessDecisionAutomation, setBusinessBudgetProfile, setBusinessManagementTargetProfile,
     openExecutiveSearch, hireExecutiveCandidate, cancelExecutiveSearch, dismissBusinessExecutive, setBusinessBoardMandate,
@@ -2000,7 +2012,8 @@ export default function BusinessDetailScreen() {
 
         {bizCompetitors.length > 0 && (
           <GameCard title="Rival CEOs">
-            <Text style={styles.sectionHint}>These CEOs persist in this save, grow their companies, and make a strategic decision every four weeks.</Text>
+            <Text style={styles.sectionHint}>These CEOs persist in this save and make a strategic decision every four weeks.</Text>
+            <Text style={styles.rivalAction}>{rivalCycleLabel}: {rivalCycleHint}</Text>
             {bizCompetitors.map((rival) => (
               <View key={rival.id} style={styles.rivalRow}>
                 <View style={styles.rivalHeader}>
