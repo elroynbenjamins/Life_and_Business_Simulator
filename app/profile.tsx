@@ -216,6 +216,15 @@ export default function ProfileScreen() {
 
         {activeTab === 'history' && (
           <>
+        {careerHistory.length === 0 && completedCourses.length === 0 && (
+          <GameCard variant="subtle">
+            <View style={styles.emptyHistory}>
+              <Ionicons name="time-outline" size={26} color={Colors.textMuted} />
+              <Text style={styles.emptyHistoryTitle}>No history yet</Text>
+              <Text style={styles.emptyHistoryText}>Career moves and completed education will appear here as this life develops.</Text>
+            </View>
+          </GameCard>
+        )}
         {/* Career History */}
         {careerHistory.length > 0 && (
           <GameCard title="Career History">
@@ -330,6 +339,9 @@ const styles = StyleSheet.create({
   achText: { color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
   xpText: { color: Colors.warning, fontSize: 14, fontWeight: '600', marginTop: 4 },
   treeLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  emptyHistory: { alignItems: 'center', paddingVertical: 18, paddingHorizontal: 12 },
+  emptyHistoryTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800', marginTop: 7 },
+  emptyHistoryText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 4 },
   historyRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.cardBorder },
   historyTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600' },
   historyMeta: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
