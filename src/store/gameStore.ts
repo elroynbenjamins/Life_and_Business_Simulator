@@ -48,6 +48,7 @@ import {
 } from '../services/adRewardEntitlements';
 import { showGameDialog } from '../components/GameDialog';
 import { buildSoldBusinessRecord } from '../engine/businessPortfolioEngine';
+import { getBusinessOwnershipTable, getInvestmentForPostMoneyIssuePct, issueNewBusinessEquity } from '../engine/businessOwnershipEngine';
 import { claimBusinessCapacityReward, getBusinessCapacity, MAX_BUSINESS_CAPACITY, purchaseBusinessCapacity } from '../engine/businessCapacityEngine';
 import { HOLDING_COMPANY_SETUP_COST, createHoldingCompany as buildHoldingCompany, getHoldingAvailableDistributionCash, getHoldingSharedServiceUpgradeCost, normalizeHoldingManagementFeeRate, normalizeHoldingReserveTargetWeeks, normalizeHoldingSharedServices } from '../engine/holdingCompanyEngine';
 import {
@@ -4404,9 +4405,7 @@ const useGameStore = create<GameStore>((set, get) => ({
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business || (business.level ?? 0) < 3) return;
 
-    const ownership = business.ownership?.length
-      ? [...business.ownership]
-      : [{ ownerType: 'player' as const, ownerId: 'player', ownerName: state.playerName, percent: 100, votingPercent: 100 }];
+    const ownership = getBusinessOwnershipTable(business, state.playerName);
     const playerIndex = ownership.findIndex((stake) => stake.ownerType === 'player');
     const playerStake = playerIndex >= 0 ? ownership[playerIndex] : null;
     if (!playerStake) return;
@@ -4422,31 +4421,18 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (targetType === 'investor') {
       // New-equity issuance: all existing holders dilute proportionally and the
       // company receives the capital. The player must remain above 51% voting.
-      const maxIssuePct = Math.max(0, (1 - 51 / Math.max(0.0001, playerStake.votingPercent)) * 100);
-      const issuePct = Math.min(requestedPct, maxIssuePct);
-      if (issuePct <= 0) return;
-      executedPct = issuePct;
-      const dilution = 1 - issuePct / 100;
-      for (let index = 0; index < ownership.length; index += 1) {
-        ownership[index] = {
-          ...ownership[index],
-          percent: ownership[index].percent * dilution,
-          votingPercent: ownership[index].votingPercent * dilution,
-        };
-      }
       ownerId = 'outside_investors';
       ownerName = 'Outside Investors';
-      const existingInvestor = ownership.findIndex((stake) => stake.ownerType === 'investor' && stake.ownerId === ownerId);
-      if (existingInvestor >= 0) {
-        ownership[existingInvestor] = {
-          ...ownership[existingInvestor],
-          percent: ownership[existingInvestor].percent + issuePct,
-          votingPercent: ownership[existingInvestor].votingPercent + issuePct,
-        };
-      } else {
-        ownership.push({ ownerType, ownerId, ownerName, percent: issuePct, votingPercent: issuePct });
-      }
-      capitalRaised = Math.round((business.valuation ?? 0) * (issuePct / 100) * 0.90);
+      const issuance = issueNewBusinessEquity(
+        ownership,
+        requestedPct,
+        { ownerType, ownerId, ownerName },
+        51,
+      );
+      if (!issuance) return;
+      executedPct = issuance.issuePct;
+      ownership.splice(0, ownership.length, ...issuance.ownership);
+      capitalRaised = Math.round((business.valuation ?? 0) * (executedPct / 100) * 0.90);
     } else {
       // Family gifts/trust funding transfer existing player shares and therefore
       // do not create cash inside the company.
@@ -4592,49 +4578,26 @@ const useGameStore = create<GameStore>((set, get) => ({
     if (!business?.familyBusiness?.isFamilyBusiness) return;
     if (state.relationshipState?.estatePlan?.structure !== 'family_trust') return;
 
-    const ownership = business.ownership?.length
-      ? business.ownership.map((stake) => ({ ...stake }))
-      : [{ ownerType: 'player' as const, ownerId: 'player', ownerName: state.playerName, percent: 100, votingPercent: 100 }];
-    const playerStake = ownership.find((stake) => stake.ownerType === 'player');
-    if (!playerStake) return;
+    const ownership = getBusinessOwnershipTable(business, state.playerName);
 
     // Trust capital is new equity, not a free transfer to existing shareholders.
-    // Cap issuance so the playable owner retains the existing 51% control floor.
+    // Use the same dilution/control helper as outside-investor issuance.
     const valuationBefore = Math.max(1, business.valuation ?? calculateValuation(business));
     const requestedIssuePct = requestedInvestment / (valuationBefore + requestedInvestment) * 100;
-    const maxIssuePct = Math.max(0, (1 - 51 / Math.max(0.0001, playerStake.votingPercent)) * 100);
-    const issuePct = Math.min(requestedIssuePct, maxIssuePct);
-    if (issuePct <= 0) return;
-
+    const issuance = issueNewBusinessEquity(
+      ownership,
+      requestedIssuePct,
+      { ownerType: 'family_trust', ownerId: 'family_trust', ownerName: 'Family Trust' },
+      51,
+    );
+    if (!issuance) return;
+    const issuePct = issuance.issuePct;
     const investAmount = Math.min(
       requestedInvestment,
-      Math.round(valuationBefore * issuePct / Math.max(0.0001, 100 - issuePct)),
+      getInvestmentForPostMoneyIssuePct(valuationBefore, issuePct),
     );
     if (investAmount <= 0) return;
-
-    const dilution = 1 - issuePct / 100;
-    const diluted = ownership.map((stake) => ({
-      ...stake,
-      percent: stake.percent * dilution,
-      votingPercent: stake.votingPercent * dilution,
-    }));
-    const trustIndex = diluted.findIndex((stake) => stake.ownerType === 'family_trust' && stake.ownerId === 'family_trust');
-    if (trustIndex >= 0) {
-      diluted[trustIndex] = {
-        ...diluted[trustIndex],
-        ownerName: 'Family Trust',
-        percent: diluted[trustIndex].percent + issuePct,
-        votingPercent: diluted[trustIndex].votingPercent + issuePct,
-      };
-    } else {
-      diluted.push({
-        ownerType: 'family_trust' as const,
-        ownerId: 'family_trust',
-        ownerName: 'Family Trust',
-        percent: issuePct,
-        votingPercent: issuePct,
-      });
-    }
+    const diluted = issuance.ownership;
 
     const familyOwnershipPct = diluted
       .filter((stake) => ['player', 'child', 'family_trust'].includes(stake.ownerType))
