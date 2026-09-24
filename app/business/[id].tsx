@@ -26,7 +26,7 @@ import { inflated } from '../../src/engine/economyEngine';
 import employeeRolesData from '../../src/data/employee_roles.json';
 import { businessTypeImages, employeeRoleImages } from '../../src/assets/progressionImages';
 import { getPrestigeEffects } from '../../src/engine/prestigeEngine';
-import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutiveRole, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus, BusinessManagementTargetProfile, CorporateCompensationPolicy, CorporateDepartmentId, CorporateTrainingPolicy } from '../../src/types/game';
+import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutiveRole, BusinessGovernanceRole, BusinessInsuranceArea, BusinessInsuranceTier, BusinessReinvestmentArea, BusinessStrategicFocus, CorporateCompensationPolicy, CorporateDepartmentId, CorporateTrainingPolicy } from '../../src/types/game';
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
@@ -212,7 +212,7 @@ export default function BusinessDetailScreen() {
           ? 'Rivals are beginning to invest again and compete for returning demand.'
           : 'Rivals are growing steadily and balancing expansion with cash generation.';
   const {
-    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessDecisionAutomation, setBusinessBudgetProfile, setBusinessManagementTargetProfile,
+    designateFamilyBusiness, toggleLongTermFamilyAsset, setBusinessStrategicFocus, setBusinessDecisionAutomation, setBusinessBudgetProfile,
     openExecutiveSearch, hireExecutiveCandidate, cancelExecutiveSearch, dismissBusinessExecutive, setBusinessBoardMandate,
     setCorporateDepartmentTarget, setCorporateCompensationPolicy, setCorporateTrainingPolicy, resolveBusinessDecision,
     setAcquisitionIntegrationStrategy,
@@ -232,7 +232,6 @@ export default function BusinessDetailScreen() {
     setBusinessStrategicFocus: s.setBusinessStrategicFocus,
     setBusinessDecisionAutomation: s.setBusinessDecisionAutomation,
     setBusinessBudgetProfile: s.setBusinessBudgetProfile,
-    setBusinessManagementTargetProfile: s.setBusinessManagementTargetProfile,
     openExecutiveSearch: s.openExecutiveSearch,
     hireExecutiveCandidate: s.hireExecutiveCandidate,
     cancelExecutiveSearch: s.cancelExecutiveSearch,
@@ -1837,7 +1836,6 @@ export default function BusinessDetailScreen() {
               annualActions={annualManagementActions}
               targetProgress={managementTargetProgress}
               reviewYears={managementReviewYears}
-              onTargetProfileChange={(profile) => setBusinessManagementTargetProfile(biz.id, profile)}
               onActionPress={scrollToManagementSection}
             />
           </GameCard>
@@ -1927,9 +1925,12 @@ export default function BusinessDetailScreen() {
             </View>
           </View>
 
-          <Text style={styles.subHeading}>Budget Policy</Text>
+          <Text style={styles.subHeading}>Cash Allocation Policy</Text>
+          <Text style={styles.sectionHint}>This controls where profits go. Strategic Focus controls how the company competes; quarterly targets align automatically with both.</Text>
           <View style={styles.budgetProfileGrid}>
-            {(Object.keys(BUSINESS_BUDGET_PRESETS) as Array<keyof typeof BUSINESS_BUDGET_PRESETS>).map((profile) => {
+            {(Object.keys(BUSINESS_BUDGET_PRESETS) as Array<keyof typeof BUSINESS_BUDGET_PRESETS>)
+              .filter((profile) => profile !== 'standard')
+              .map((profile) => {
               const preset = BUSINESS_BUDGET_PRESETS[profile];
               const active = budgetPlan.profile === profile;
               return (
@@ -3310,7 +3311,6 @@ function CorporateManagementReportPanel({
   reviewYears,
   period,
   onPeriodChange,
-  onTargetProfileChange,
   onActionPress,
 }: {
   quarterlyReport: CorporateManagementReport;
@@ -3321,7 +3321,6 @@ function CorporateManagementReportPanel({
   reviewYears: BusinessManagementYearReview[];
   period: CorporateReportPeriod;
   onPeriodChange: (period: CorporateReportPeriod) => void;
-  onTargetProfileChange: (profile: BusinessManagementTargetProfile) => void;
   onActionPress: (target: CorporateManagementActionTarget) => void;
 }) {
   const report = period === 'quarter' ? quarterlyReport : annualReport;
@@ -3493,25 +3492,11 @@ function CorporateManagementReportPanel({
             {BUSINESS_MANAGEMENT_TARGET_PROFILES[targetProgress.plan.profile].description}
           </Text>
 
-          <View style={styles.managementTargetProfileGrid}>
-            {(Object.keys(BUSINESS_MANAGEMENT_TARGET_PROFILES) as BusinessManagementTargetProfile[]).map((profile) => {
-              const definition = BUSINESS_MANAGEMENT_TARGET_PROFILES[profile];
-              const active = targetProgress.plan.profile === profile;
-              return (
-                <Pressable
-                  key={profile}
-                  style={[styles.managementTargetProfileChip, active && styles.managementTargetProfileChipActive]}
-                  onPress={() => !active && onTargetProfileChange(profile)}
-                >
-                  <Text style={[
-                    styles.managementTargetProfileText,
-                    active && { color: Colors.primary },
-                  ]}>
-                    {definition.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={styles.managementTargetAlignment}>
+            <Ionicons name="git-compare-outline" size={14} color={Colors.info} />
+            <Text style={styles.managementTargetAlignmentText}>
+              Targets are aligned automatically with Strategic Focus and the Annual Cash Plan.
+            </Text>
           </View>
 
           <View style={styles.managementTargetRows}>
@@ -3974,6 +3959,9 @@ const styles = StyleSheet.create({
   managementTargetScore: { minWidth: 35, borderRadius: 8, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 5, alignItems: 'center' },
   managementTargetScoreText: { fontSize: 10, fontWeight: '900' },
   managementTargetDescription: { color: Colors.textSecondary, fontSize: 7, lineHeight: 10, marginTop: 5 },
+  managementTargetAlignment: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: `${Colors.info}10`, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 7, marginTop: 8 },
+  managementTargetAlignmentText: { flex: 1, color: Colors.textSecondary, fontSize: 10, lineHeight: 14 },
+
   managementTargetProfileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
   managementTargetProfileChip: { minWidth: '31%', flexGrow: 1, borderRadius: 7, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center' },
   managementTargetProfileChipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}0D` },
