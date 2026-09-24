@@ -51,3 +51,14 @@ export function unlockBusinessCapacity(profile: PlayerProfile): PlayerProfile | 
     businessCapacity: current + 1,
   };
 }
+
+export function canClaimBusinessCapacityReward(profile: PlayerProfile, localDay: string): boolean {
+  return getBusinessCapacity(profile) < MAX_BUSINESS_CAPACITY
+    && profile.businessCapacityRewardClaimDate !== localDay;
+}
+
+export function claimBusinessCapacityReward(profile: PlayerProfile, localDay: string): PlayerProfile | null {
+  if (!canClaimBusinessCapacityReward(profile, localDay)) return null;
+  const unlocked = unlockBusinessCapacity(profile);
+  return unlocked ? { ...unlocked, businessCapacityRewardClaimDate: localDay } : null;
+}
