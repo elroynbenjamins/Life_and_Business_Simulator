@@ -30,6 +30,7 @@ import { AcquisitionIntegrationStrategy, BusinessBoardMandate, BusinessExecutive
 import { calculateChildInheritanceTax } from '../../src/engine/lifecycleEngine';
 import { getIntegrationStrategyProfile } from '../../src/engine/acquisitionEngine';
 import { getBusinessEquityReturn } from '../../src/engine/businessPortfolioEngine';
+import { getBusinessLoanOutstandingPrincipal } from '../../src/engine/businessDebtEngine';
 import { BUSINESS_IDENTITY_DEFINITIONS } from '../../src/engine/businessIdentityEngine';
 import {
   CORPORATE_CAPEX_PROJECTS,
@@ -65,6 +66,7 @@ import {
 } from '../../src/engine/businessInsuranceEngine';
 import {
   BUSINESS_BUDGET_PRESETS,
+  getBusinessAvailableOwnerDistributionCash,
   getBusinessBudgetReserveTargets,
   isBusinessBudgetReviewDue,
   normalizeBusinessBudgetPlan,
@@ -406,8 +408,16 @@ export default function BusinessDetailScreen() {
       }
       injectCashIntoBusiness(biz.id, amount);
     } else {
-      if (amount > (biz.balance ?? 0)) {
-        setTransferError(`This business only has ${formatCurrency(biz.balance ?? 0)} available.`);
+      if (!manualDistributionAllowed) {
+        setTransferError(
+          biz.holdingCompanyId
+            ? 'Holding subsidiaries distribute cash through the Holding treasury.'
+            : 'Co-owned companies distribute cash pro-rata through the dividend policy.',
+        );
+        return;
+      }
+      if (amount > manualDistributionAvailable) {
+        setTransferError(`Only ${formatCurrency(manualDistributionAvailable)} is available above protected company reserves.`);
         return;
       }
       withdrawFromBusiness(biz.id, amount);
@@ -453,6 +463,10 @@ export default function BusinessDetailScreen() {
     votingPercent: 100,
   }];
   const playerOwnershipPct = getPlayerOwnershipPct(biz);
+  const manualDistributionAllowed = !biz.holdingCompanyId && playerOwnershipPct >= 99.999;
+  const manualDistributionAvailable = manualDistributionAllowed
+    ? getBusinessAvailableOwnerDistributionCash(biz, inflationMultiplier)
+    : 0;
   const investorOwnershipPct = ownership
     .filter((stake) => stake.ownerType === 'investor')
     .reduce((sum, stake) => sum + (stake.percent ?? 0), 0);
@@ -2038,11 +2052,22 @@ export default function BusinessDetailScreen() {
               <Ionicons name="arrow-down-circle" size={18} color={Colors.primary} />
               <Text style={styles.cashBtnText}>Inject Cash</Text>
             </Pressable>
-            <Pressable style={styles.cashBtn} onPress={() => { setShowTransferModal('withdraw'); setTransferAmount(''); setTransferError(''); }}>
+            <Pressable
+              disabled={!manualDistributionAllowed || manualDistributionAvailable <= 0}
+              style={[styles.cashBtn, (!manualDistributionAllowed || manualDistributionAvailable <= 0) && styles.disabledAction]}
+              onPress={() => { setShowTransferModal('withdraw'); setTransferAmount(''); setTransferError(''); }}
+            >
               <Ionicons name="arrow-up-circle" size={18} color={Colors.warning} />
-              <Text style={styles.cashBtnText}>Withdraw</Text>
+              <Text style={styles.cashBtnText}>Owner Distribution</Text>
             </Pressable>
           </View>
+          <Text style={styles.sectionHint}>
+            {biz.holdingCompanyId
+              ? 'This subsidiary upstreams cash through Holding dividends and management fees.'
+              : playerOwnershipPct < 99.999
+                ? 'Co-owned companies use pro-rata dividend distributions; direct owner draws are disabled.'
+                : `Direct owner distributions are limited to cash above protected operating and budget reserves: ${formatCurrency(manualDistributionAvailable)} available.`}
+          </Text>
         </GameCard>
 
         {/* Pricing Strategy */}
@@ -2884,14 +2909,16 @@ export default function BusinessDetailScreen() {
                   : loan.purpose === 'corporate_bond'
                     ? 'Corporate bond'
                     : 'Business loan';
-            const quarterRepayment = Math.min(loan.remainingAmount ?? 0, Math.max(0, Math.round((loan.remainingAmount ?? 0) * 0.25)));
+            const outstandingPrincipal = getBusinessLoanOutstandingPrincipal(loan);
+            const payoffBalance = Math.max(0, loan.remainingAmount ?? 0);
+            const quarterRepayment = Math.min(payoffBalance, Math.max(0, Math.round(payoffBalance * 0.25)));
             return (
               <View key={loan.id} style={styles.loanRow}>
                 <View style={styles.loanHeaderRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.loanAmount}>{formatCurrency(loan.remainingAmount)} remaining</Text>
+                    <Text style={styles.loanAmount}>{formatCurrency(outstandingPrincipal)} principal outstanding</Text>
                     <Text style={styles.loanPayment}>
-                      {debtLabel} • {(Math.max(0, loan.interestRate ?? 0) * 100).toFixed(1)}% • {formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk
+                      {debtLabel} • payoff {formatCurrency(payoffBalance)} • {(Math.max(0, loan.interestRate ?? 0) * 100).toFixed(1)}% • {formatCurrency(loan.weeklyPayment)}/wk • {loan.weeksRemaining}wk
                     </Text>
                   </View>
                   {(loan.purpose === 'corporate_revolver' || loan.purpose === 'project_finance' || loan.purpose === 'corporate_bond') && (
@@ -3107,12 +3134,12 @@ export default function BusinessDetailScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setShowTransferModal(null)}>
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>
-              {showTransferModal === 'inject' ? 'Inject Cash into Business' : 'Withdraw from Business'}
+              {showTransferModal === 'inject' ? 'Inject Cash into Business' : 'Owner Distribution'}
             </Text>
             <Text style={styles.transferInfo}>
               {showTransferModal === 'inject'
                 ? `Your cash: ${formatCurrency(cash)}`
-                : `Business balance: ${formatCurrency(biz.balance)}`}
+                : `Available above protected reserves: ${formatCurrency(manualDistributionAvailable)}`}
             </Text>
             <TextInput
               style={styles.transferInput}
