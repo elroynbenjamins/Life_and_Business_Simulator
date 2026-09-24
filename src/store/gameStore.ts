@@ -78,7 +78,7 @@ import {
   normalizeBusinessBudgetPlan,
   normalizeBusinessBudgetReserves,
 } from '../engine/businessBudgetEngine';
-import { setBusinessManagementTargetProfile as buildBusinessManagementTargetProfile } from '../engine/businessManagementTargetsEngine';
+import { deriveBusinessManagementTargetProfile, setBusinessManagementTargetProfile as buildBusinessManagementTargetProfile } from '../engine/businessManagementTargetsEngine';
 import {
   BOARD_GOVERNANCE_UNLOCK_VALUATION,
   createDefaultBoardGovernance,
@@ -3819,18 +3819,26 @@ const useGameStore = create<GameStore>((set, get) => ({
   setBusinessStrategicFocus: (businessId, focus) => {
     const state = get();
     if (state.lifecycle?.isDead) return;
-    const businesses = (state.businesses ?? []).map((business) =>
-      business.id === businessId
-        ? {
-            ...business,
-            strategicFocus: focus,
-            timeline: [
-              ...(business.timeline ?? []),
-              { week: state.week, year: state.year, title: `Strategic focus: ${focus.replace(/_/g, ' ')}`, icon: '🧭', kind: 'event' as const },
-            ].slice(-50),
-          }
-        : business
-    );
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const businesses = (state.businesses ?? []).map((business) => {
+      if (business.id !== businessId) return business;
+      let updated = {
+        ...business,
+        strategicFocus: focus,
+        timeline: [
+          ...(business.timeline ?? []),
+          { week: state.week, year: state.year, title: `Strategic focus: ${focus.replace(/_/g, ' ')}`, icon: '🧭', kind: 'event' as const },
+        ].slice(-50),
+      };
+      if (updated.corporateWorkforce) {
+        updated = buildBusinessManagementTargetProfile(
+          updated,
+          deriveBusinessManagementTargetProfile(updated),
+          globalWeek,
+        );
+      }
+      return updated;
+    });
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
@@ -3869,6 +3877,7 @@ const useGameStore = create<GameStore>((set, get) => ({
         { ...business, autoStrategicDecisions: true },
         business.pendingDecision,
         state.inflationMultiplier ?? 1,
+        state.economicCycle?.phase ?? 'expansion',
       );
       if (choice) get().resolveBusinessDecision(businessId, choice.id);
     }
@@ -3902,6 +3911,7 @@ const useGameStore = create<GameStore>((set, get) => ({
           business,
           business.pendingDecision,
           state.inflationMultiplier ?? 1,
+          state.economicCycle?.phase ?? 'expansion',
         );
         if (choice) get().resolveBusinessDecision(business.id, choice.id);
       }
@@ -3914,24 +3924,32 @@ const useGameStore = create<GameStore>((set, get) => ({
     const business = (state.businesses ?? []).find((item) => item.id === businessId);
     if (!business) return;
     const plan = createBusinessBudgetPlan(profile, state.year);
-    const businesses = (state.businesses ?? []).map((item) =>
-      item.id === businessId
-        ? {
-            ...item,
-            budgetPlan: plan,
-            timeline: [
-              ...(item.timeline ?? []),
-              {
-                week: state.week,
-                year: state.year,
-                title: '📊 Annual budget set: ' + profile.replace(/_/g, ' '),
-                icon: '📊',
-                kind: 'event' as const,
-              },
-            ].slice(-50),
-          }
-        : item
-    );
+    const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
+    const businesses = (state.businesses ?? []).map((item) => {
+      if (item.id !== businessId) return item;
+      let updated = {
+        ...item,
+        budgetPlan: plan,
+        timeline: [
+          ...(item.timeline ?? []),
+          {
+            week: state.week,
+            year: state.year,
+            title: '📊 Annual cash plan set: ' + plan.profile.replace(/_/g, ' '),
+            icon: '📊',
+            kind: 'event' as const,
+          },
+        ].slice(-50),
+      };
+      if (updated.corporateWorkforce) {
+        updated = buildBusinessManagementTargetProfile(
+          updated,
+          deriveBusinessManagementTargetProfile(updated),
+          globalWeek,
+        );
+      }
+      return updated;
+    });
     set({ businesses });
     saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
   },
