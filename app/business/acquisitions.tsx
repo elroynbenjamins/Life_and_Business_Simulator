@@ -262,6 +262,9 @@ export default function BusinessAcquisitionsScreen() {
                       <Text style={styles.targetMeta}>
                         {target.industry} • {target.tier.toUpperCase()} • {target.companyAgeYears ?? 8}y operating history
                       </Text>
+                      {target.marketCondition === 'distressed' && (
+                        <Text style={styles.distressedText}>DISTRESSED • lower seller premium, weaker earnings, higher diligence risk</Text>
+                      )}
                     </View>
                     <View style={styles.targetHeaderRight}>
                       <View style={[styles.riskBadge, { borderColor: risk.color }]}>
@@ -483,6 +486,7 @@ const styles = StyleSheet.create({
   targetNameWrap: { flex: 1 },
   targetName: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
   targetMeta: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
+  distressedText: { color: Colors.warning, fontSize: 9, fontWeight: '800', marginTop: 3, letterSpacing: 0.25 },
   riskBadge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 4 },
   riskText: { fontSize: 9, fontWeight: '900' },
   metrics: { flexDirection: 'row', gap: 8, marginTop: 12 },
