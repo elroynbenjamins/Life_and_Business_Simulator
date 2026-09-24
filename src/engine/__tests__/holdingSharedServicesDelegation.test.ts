@@ -10,6 +10,7 @@ import {
   getHoldingManagementFeeForWeek,
   getHoldingReserveTarget,
   getHoldingSharedServiceEffects,
+  normalizeHoldingReserveTargetWeeks,
   getHoldingSharedServiceUpgradeCost,
 } from '../holdingCompanyEngine';
 import { HoldingCompany, OwnedBusiness } from '../../types/game';
@@ -112,6 +113,11 @@ describe('holding shared services and delegated management', () => {
     expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 95_000, 0)).toBe(1_750);
     expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 100_000, 0)).toBe(0);
     expect(getHoldingManagementFeeForWeek(holding, 100_000, 1_000_000, 110_000, 0)).toBe(0);
+  });
+
+  test('holding reserve defaults to a four-week group contingency buffer', () => {
+    expect(normalizeHoldingReserveTargetWeeks(undefined)).toBe(4);
+    expect(normalizeHoldingReserveTargetWeeks(null)).toBe(4);
   });
 
   test('holding reserve target protects owner distributions without locking strategic capital', () => {
