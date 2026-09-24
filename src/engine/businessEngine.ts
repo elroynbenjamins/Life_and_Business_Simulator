@@ -1,5 +1,6 @@
-import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany } from '../types/game';
+import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany, EconomicCyclePhase } from '../types/game';
 import { getHoldingManagementFeeForWeek, getHoldingSharedServiceEffects } from './holdingCompanyEngine';
+import { getIndustryEconomicCycleMultiplier } from './economyEngine';
 import {
   createDefaultBusinessReinvestmentState,
   getBusinessReinvestmentEffects,
@@ -1161,6 +1162,8 @@ export interface BusinessSimulationModifiers {
   holdingRevenueBonus?: number;
   /** Broad macro-cycle demand multiplier, kept intentionally modest. */
   macroRevenueMultiplier?: number;
+  /** Current macro phase; when provided, industry sensitivity is applied. */
+  macroCyclePhase?: EconomicCyclePhase;
   holdingExpenseReduction?: number;
   holdingCrisisReduction?: number;
 }
@@ -1322,7 +1325,10 @@ export function processBusinessWeek(
   eventRevenueMultiplier *= 1 - reinvestmentEffects.revenuePenalty;
   eventExpenseMultiplier *= 1 + reinvestmentEffects.expenseIncrease;
   eventRevenueMultiplier *= 1 + Math.max(0, Math.min(0.05, modifiers.holdingRevenueBonus ?? 0));
-  eventRevenueMultiplier *= Math.max(0.85, Math.min(1.15, modifiers.macroRevenueMultiplier ?? 1));
+  const macroMultiplier = modifiers.macroCyclePhase
+    ? getIndustryEconomicCycleMultiplier(modifiers.macroCyclePhase, type.industry ?? '')
+    : Math.max(0.85, Math.min(1.15, modifiers.macroRevenueMultiplier ?? 1));
+  eventRevenueMultiplier *= macroMultiplier;
   for (const ae of biz.activeEvents ?? []) {
     eventRevenueMultiplier *= ae.revenueMultiplier ?? 1;
     eventExpenseMultiplier *= ae.expenseMultiplier ?? 1;
