@@ -2809,7 +2809,10 @@ export default function BusinessDetailScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.creditTitle}>Corporate Credit Profile</Text>
                   <Text style={styles.creditMeta}>
-                    Debt / value {(corporateCredit.debtToValue * 100).toFixed(1)}% • Coverage {corporateCredit.interestCoverage >= 9.9 ? '10+' : corporateCredit.interestCoverage.toFixed(1)}×
+                    Debt / value {(corporateCredit.debtToValue * 100).toFixed(1)}% • Debt cover {corporateCredit.debtServiceCoverage >= 9.9 ? '10+' : corporateCredit.debtServiceCoverage.toFixed(1)}×
+                  </Text>
+                  <Text style={styles.creditMeta}>
+                    Interest cover {corporateCredit.interestCoverage >= 9.9 ? '10+' : corporateCredit.interestCoverage.toFixed(1)}×
                   </Text>
                   <Text style={styles.creditMeta}>
                     Remaining debt capacity {formatCurrency(corporateCredit.remainingDebtCapacity)}
@@ -2817,11 +2820,11 @@ export default function BusinessDetailScreen() {
                 </View>
               </View>
 
-              {(corporateCredit.debtToValue > 0.35 || corporateCredit.interestCoverage < 1.5) && (
+              {(corporateCredit.debtToValue > 0.35 || corporateCredit.debtServiceCoverage < 1.25 || corporateCredit.interestCoverage < 2) && (
                 <View style={styles.creditWarning}>
                   <Ionicons name="warning-outline" size={14} color={Colors.warning} />
                   <Text style={styles.creditWarningText}>
-                    Leverage is becoming restrictive. New financing may be limited if earnings weaken further.
+                    Leverage or repayment coverage is becoming restrictive. New financing may be limited if earnings weaken further.
                   </Text>
                 </View>
               )}
