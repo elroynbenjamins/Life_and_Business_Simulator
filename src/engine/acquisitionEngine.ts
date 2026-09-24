@@ -15,6 +15,11 @@ import { aggregateEmployeeBuffs, candidateToEmployee, createBusiness, generateCa
 import { createCorporateWorkforce } from './businessWorkforceEngine';
 import { getAcquisitionCycleValueMultiplier } from './economyEngine';
 import { getBusinessEquityReturn } from './businessPortfolioEngine';
+import {
+  ActiveAcquisitionIntegrationStrategy,
+  getAcquisitionIntegrationOutcomeEffect,
+  getAcquisitionIntegrationOutcomeProbabilities,
+} from './acquisitionIntegrationEngine';
 
 export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
@@ -471,6 +476,87 @@ export function getIntegrationStrategyProfile(
     successChance: clamp(0.48 + diligence * 0.0022, 0.58, 0.72),
     label: 'Aggressive Turnaround',
     description: 'Highest disruption and risk, with the strongest upside if execution succeeds.',
+  };
+}
+
+export function estimateAcquisitionIntegrationWeeklyProfit(
+  quotedWeeklyRevenue: number,
+  quotedWeeklyProfit: number,
+  integrationPenalty: number,
+): number {
+  const revenue = Math.max(0, quotedWeeklyRevenue);
+  const quotedProfit = Number.isFinite(quotedWeeklyProfit) ? quotedWeeklyProfit : 0;
+  const penalty = clamp(integrationPenalty, 0, 0.25);
+
+  // Acquisition quotes store seller profit after corporate tax and before
+  // buyer-specific financing. Reconstruct the pre-tax operating base, apply the
+  // same temporary integration revenue/expense disruption used in simulation,
+  // then reapply the normal 20% corporate tax on positive profit.
+  const quotedPreTaxProfit = quotedProfit > 0 ? quotedProfit / 0.80 : quotedProfit;
+  const operatingExpenses = Math.max(0, revenue - quotedPreTaxProfit);
+  const stressedRevenue = revenue * (1 - penalty);
+  const stressedOperatingExpenses = operatingExpenses * (1 + penalty * 0.75);
+  const stressedPreTaxProfit = stressedRevenue - stressedOperatingExpenses;
+  const stressedTax = stressedPreTaxProfit > 0 ? stressedPreTaxProfit * 0.20 : 0;
+  return Math.round(stressedPreTaxProfit - stressedTax);
+}
+
+export function getAcquisitionIntegrationDecisionPreview(
+  baseWeeks: number,
+  basePenalty: number,
+  diligenceScore: number,
+  strategy: ActiveAcquisitionIntegrationStrategy,
+  quotedWeeklyRevenue: number,
+  quotedWeeklyProfit: number,
+) {
+  const profile = getIntegrationStrategyProfile(
+    baseWeeks,
+    basePenalty,
+    diligenceScore,
+    strategy,
+  );
+  const probabilities = getAcquisitionIntegrationOutcomeProbabilities(
+    strategy,
+    profile.successChance,
+  );
+  const successEffect = getAcquisitionIntegrationOutcomeEffect(strategy, 'success');
+  const mixedEffect = getAcquisitionIntegrationOutcomeEffect(strategy, 'mixed');
+  const failedEffect = getAcquisitionIntegrationOutcomeEffect(strategy, 'failed');
+
+  const expectedRevenueBonus =
+    probabilities.success * successEffect.revenueBonus
+    + probabilities.mixed * mixedEffect.revenueBonus
+    + probabilities.failed * failedEffect.revenueBonus;
+  const expectedExpenseReduction =
+    probabilities.success * successEffect.expenseReduction
+    + probabilities.mixed * mixedEffect.expenseReduction
+    + probabilities.failed * failedEffect.expenseReduction;
+  const expectedReputationDelta =
+    probabilities.success * successEffect.reputationDelta
+    + probabilities.mixed * mixedEffect.reputationDelta
+    + probabilities.failed * failedEffect.reputationDelta;
+
+  const estimatedWeeklyProfitDuringIntegration = estimateAcquisitionIntegrationWeeklyProfit(
+    quotedWeeklyRevenue,
+    quotedWeeklyProfit,
+    profile.penalty,
+  );
+  const quotedProfit = Number.isFinite(quotedWeeklyProfit) ? quotedWeeklyProfit : 0;
+  const integrationProfitChangePct = quotedProfit > 0
+    ? estimatedWeeklyProfitDuringIntegration / quotedProfit - 1
+    : null;
+
+  return {
+    profile,
+    probabilities,
+    successEffect,
+    mixedEffect,
+    failedEffect,
+    expectedRevenueBonus,
+    expectedExpenseReduction,
+    expectedReputationDelta,
+    estimatedWeeklyProfitDuringIntegration,
+    integrationProfitChangePct,
   };
 }
 
