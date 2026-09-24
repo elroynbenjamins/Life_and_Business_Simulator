@@ -90,6 +90,17 @@ export function getAcquisitionCycleValueMultiplier(phase: EconomicCyclePhase): n
   }
 }
 
+export function getPropertyCyclePurchaseMultiplier(phase: EconomicCyclePhase): number {
+  switch (phase) {
+    case 'boom': return 1.08;
+    case 'slowdown': return 0.98;
+    case 'recession': return 0.90;
+    case 'recovery': return 0.96;
+    case 'expansion':
+    default: return 1.03;
+  }
+}
+
 function rollCycleDuration(phase: EconomicCyclePhase): number {
   const [min, max] = CYCLE_RANGES[phase];
   return min + Math.floor(Math.random() * (max - min + 1));
