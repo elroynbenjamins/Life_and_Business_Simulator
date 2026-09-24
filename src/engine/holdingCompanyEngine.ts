@@ -1,5 +1,6 @@
 import { GameState, HoldingCompany, HoldingSharedServiceId, HoldingSharedServices, OwnedBusiness } from '../types/game';
 import { getBusinessDebtPrincipal } from './businessDebtEngine';
+import { getPlayerEquityOwnershipPct } from './businessOwnershipEngine';
 
 export const EMPTY_HOLDING_SHARED_SERVICES: HoldingSharedServices = {
   finance: 0,
@@ -239,6 +240,10 @@ export function getHoldingCompanySummary(holding: HoldingCompany, businesses: Ow
     0,
   );
   const weeklyProfit = subsidiaries.reduce((sum, business) => sum + (business.lastWeekProfit ?? 0), 0);
+  const ownerNetEquity = subsidiaries.reduce((sum, business) => {
+    const equity = Math.max(0, Math.max(0, business.valuation ?? 0) - getBusinessDebtPrincipal(business));
+    return sum + equity * getPlayerEquityOwnershipPct(business) / 100;
+  }, 0);
   const familyControlledValue = subsidiaries.reduce((sum, business) => {
     const familyPct = business.ownership?.length
       ? business.ownership
@@ -260,6 +265,7 @@ export function getHoldingCompanySummary(holding: HoldingCompany, businesses: Ow
     totalValue,
     totalDebt,
     netGroupEquity: Math.max(0, totalValue - totalDebt),
+    ownerNetEquity: Math.round(ownerNetEquity),
     weeklyProfit,
     cashReserve: holding.cashReserve ?? 0,
     totalCapitalDeployed: holding.totalCapitalDeployed ?? 0,
