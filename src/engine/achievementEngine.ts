@@ -45,11 +45,13 @@ export function checkAchievements(state: GameState, netWorth: number, weeklySala
   });
   check('expert_course', hasExpert);
 
-  const allCourseIds = (coursesData ?? []).map((c) => c?.id);
-  const allCoursesDone = allCourseIds.length > 0 && allCourseIds.every((cid) =>
-    (state?.completedCourses ?? []).some((cc) => cc?.courseId === cid)
+  const advancedCourseIds = (coursesData ?? []).filter((course) => (course?.level ?? 1) <= 2).map((course) => course?.id);
+  const allAdvancedDone = advancedCourseIds.length > 0 && advancedCourseIds.every((courseId) =>
+    (state?.completedCourses ?? []).some((completed) => completed?.courseId === courseId)
   );
-  check('all_courses', allCoursesDone);
+  check('all_courses', allAdvancedDone);
+
+  const allCourseIds = (coursesData ?? []).map((course) => course?.id);
 
   // Career
   check('earn_10k_week', weeklySalary >= 10000);
