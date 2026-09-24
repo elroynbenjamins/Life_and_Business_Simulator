@@ -12,6 +12,7 @@ export interface EconomyResult {
   stockDrift: number;
   propertyIncomeMultiplier: number;
   interestRateModifier: number;
+  propertyValueWeeklyAdjustment: number;
 }
 
 const CYCLE_ORDER: EconomicCyclePhase[] = ['expansion', 'boom', 'slowdown', 'recession', 'recovery'];
@@ -29,13 +30,65 @@ const CYCLE_EFFECTS: Record<EconomicCyclePhase, {
   stockDrift: number;
   propertyIncomeMultiplier: number;
   interestRateModifier: number;
+  propertyValueWeeklyAdjustment: number;
 }> = {
-  expansion: { businessRevenueMultiplier: 1.04, stockDrift: 0.004, propertyIncomeMultiplier: 1.02, interestRateModifier: 0.005 },
-  boom: { businessRevenueMultiplier: 1.08, stockDrift: 0.008, propertyIncomeMultiplier: 1.05, interestRateModifier: 0.0125 },
-  slowdown: { businessRevenueMultiplier: 0.98, stockDrift: -0.002, propertyIncomeMultiplier: 0.99, interestRateModifier: 0.005 },
-  recession: { businessRevenueMultiplier: 0.90, stockDrift: -0.010, propertyIncomeMultiplier: 0.94, interestRateModifier: -0.005 },
-  recovery: { businessRevenueMultiplier: 1.02, stockDrift: 0.003, propertyIncomeMultiplier: 1.01, interestRateModifier: -0.0025 },
+  expansion: { businessRevenueMultiplier: 1.04, stockDrift: 0.004, propertyIncomeMultiplier: 1.02, interestRateModifier: 0.005, propertyValueWeeklyAdjustment: 0.0005 },
+  boom: { businessRevenueMultiplier: 1.08, stockDrift: 0.008, propertyIncomeMultiplier: 1.05, interestRateModifier: 0.0125, propertyValueWeeklyAdjustment: 0.0015 },
+  slowdown: { businessRevenueMultiplier: 0.98, stockDrift: -0.002, propertyIncomeMultiplier: 0.99, interestRateModifier: 0.005, propertyValueWeeklyAdjustment: -0.0005 },
+  recession: { businessRevenueMultiplier: 0.90, stockDrift: -0.010, propertyIncomeMultiplier: 0.94, interestRateModifier: -0.005, propertyValueWeeklyAdjustment: -0.0040 },
+  recovery: { businessRevenueMultiplier: 1.02, stockDrift: 0.003, propertyIncomeMultiplier: 1.01, interestRateModifier: -0.0025, propertyValueWeeklyAdjustment: 0.0008 },
 };
+
+const INDUSTRY_CYCLE_SENSITIVITY: Record<string, number> = {
+  Healthcare: 0.25,
+  'Food & Beverage': 0.60,
+  Automotive: 0.85,
+  Technology: 1.10,
+  Retail: 1.15,
+  Hospitality: 1.20,
+  Entertainment: 1.20,
+  Construction: 1.40,
+  'Real Estate': 1.50,
+  Real_Estate: 1.50,
+  Manufacturing: 1.15,
+  Services: 0.90,
+};
+
+export function getIndustryEconomicCycleMultiplier(
+  phase: EconomicCyclePhase,
+  industry: string,
+): number {
+  const broad = CYCLE_EFFECTS[phase]?.businessRevenueMultiplier ?? 1;
+  const sensitivity = INDUSTRY_CYCLE_SENSITIVITY[industry] ?? 1;
+  return Math.max(0.72, Math.min(1.18, 1 + (broad - 1) * sensitivity));
+}
+
+export function getEconomicCycleDescription(phase: EconomicCyclePhase): string {
+  switch (phase) {
+    case 'boom':
+      return 'Demand and asset prices are strong, but financing is more expensive.';
+    case 'slowdown':
+      return 'Growth is cooling. Rate-sensitive and discretionary industries feel pressure first.';
+    case 'recession':
+      return 'Demand and asset values are under pressure, creating cheaper acquisition opportunities.';
+    case 'recovery':
+      return 'Demand is returning while financing remains relatively supportive.';
+    case 'expansion':
+    default:
+      return 'Broad demand is growing, valuations are firm, and financing costs are gradually rising.';
+  }
+}
+
+export function getAcquisitionCycleValueMultiplier(phase: EconomicCyclePhase): number {
+  switch (phase) {
+    case 'boom': return 1.10;
+    case 'slowdown': return 0.96;
+    case 'recession': return 0.86;
+    case 'recovery': return 0.95;
+    case 'expansion':
+    default: return 1.04;
+  }
+}
 
 function rollCycleDuration(phase: EconomicCyclePhase): number {
   const [min, max] = CYCLE_RANGES[phase];
@@ -73,9 +126,9 @@ function advanceEconomicCycle(
  * 20 weeks = one game year. Inflation remains annual, while the macro cycle moves
  * on a slower multi-week cadence and feeds the rest of the simulation.
  */
-export function processEconomy(state: GameState, newWeek: number): EconomyResult {
+export function processEconomy(state: GameState, newWeek: number, newYear = state?.year ?? 1): EconomyResult {
   const currentMultiplier = state?.inflationMultiplier ?? 1.0;
-  const globalWeek = ((state?.year ?? 1) - 1) * 20 + newWeek;
+  const globalWeek = ((newYear ?? 1) - 1) * 20 + newWeek;
   const economicCycle = advanceEconomicCycle(state?.economicCycle, globalWeek);
   const cycleEffects = CYCLE_EFFECTS[economicCycle.phase];
 
