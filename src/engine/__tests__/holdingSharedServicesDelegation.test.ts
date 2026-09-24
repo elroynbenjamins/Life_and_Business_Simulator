@@ -1,6 +1,7 @@
 import {
   applyDelegatedBusinessRoutine,
   createBusiness,
+  getDelegationManagerEffectiveness,
   getEffectiveDelegationPolicyConfig,
   getHoldingSharedServiceUpgradeEconomics,
   getHoldingSynergyProfile,
@@ -397,6 +398,54 @@ describe('holding shared services and delegated management', () => {
     expect(growthConfig.targetStaffRatio).toBeGreaterThan(marginConfig.targetStaffRatio);
     expect(marginConfig.pricing).toBe('premium');
     expect(marginConfig.reserveWeeks).toBeGreaterThan(growthConfig.reserveWeeks);
+  });
+
+  test('delegation manager effectiveness uses skill, morale and experience with bounded behavior', () => {
+    const business = makeManagedBusiness();
+    const strongManager = business.employees.find((employee) => employee.id === 'manager_1')!;
+    const strong = getDelegationManagerEffectiveness(strongManager);
+
+    expect(strong.label).toBe('Strong');
+    expect(strong.reviewWeeks).toBe(4);
+    expect(strong.maxAdvertising).toBe('aggressive');
+
+    const elite = getDelegationManagerEffectiveness({
+      ...strongManager,
+      skill: 100,
+      morale: 95,
+      experience: 100,
+    });
+    expect(elite.label).toBe('Elite');
+    expect(elite.reviewWeeks).toBe(3);
+    expect(elite.staffingAdjustment).toBeGreaterThan(0);
+
+    const developing = getDelegationManagerEffectiveness({
+      ...strongManager,
+      skill: 35,
+      morale: 45,
+      experience: 20,
+    });
+    expect(developing.label).toBe('Developing');
+    expect(developing.reviewWeeks).toBe(5);
+    expect(developing.maxAdvertising).toBe('basic');
+    expect(developing.staffingAdjustment).toBeLessThan(0);
+  });
+
+  test('developing delegated manager caps aggressive policy execution', () => {
+    const business = makeManagedBusiness();
+    business.delegationPolicy = 'growth';
+    business.balance = 500_000;
+    business.employees = business.employees.map((employee) =>
+      employee.id === 'manager_1'
+        ? { ...employee, skill: 35, morale: 45, experience: 20 }
+        : employee
+    );
+
+    const reviewed = applyDelegatedBusinessRoutine(business, 1, 5, 2, 'boom');
+
+    expect(reviewed.advertisingLevel).toBe('basic');
+    expect(reviewed.lastDelegationSummary).toContain('developing management');
+    expect(reviewed.lastDelegationSummary).toContain('execution capacity');
   });
 
   test('growth delegation reviews every four weeks and can hire toward its staffing target', () => {
