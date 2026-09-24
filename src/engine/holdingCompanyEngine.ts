@@ -1,4 +1,5 @@
 import { GameState, HoldingCompany, HoldingSharedServiceId, HoldingSharedServices, OwnedBusiness } from '../types/game';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 
 export const EMPTY_HOLDING_SHARED_SERVICES: HoldingSharedServices = {
   finance: 0,
@@ -227,10 +228,7 @@ export function getHoldingCompanySummary(holding: HoldingCompany, businesses: Ow
   const subsidiaries = (businesses ?? []).filter((business) => business.holdingCompanyId === holding.id);
   const totalValue = subsidiaries.reduce((sum, business) => sum + Math.max(0, business.valuation ?? 0), 0);
   const totalDebt = subsidiaries.reduce(
-    (sum, business) => sum + (business.businessLoans ?? []).reduce(
-      (loanSum, loan) => loanSum + Math.max(0, loan.remainingAmount ?? 0),
-      0,
-    ),
+    (sum, business) => sum + getBusinessDebtPrincipal(business),
     0,
   );
   const weeklyProfit = subsidiaries.reduce((sum, business) => sum + (business.lastWeekProfit ?? 0), 0);
