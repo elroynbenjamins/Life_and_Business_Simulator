@@ -1,7 +1,8 @@
 import useGameStore from '../../store/gameStore';
 import { INITIAL_GAME_STATE, INITIAL_PROFILE, INITIAL_RELATIONSHIP_STATE } from '../../types/game';
 import { calculateEstateSettlement, getSuccessionPreview, getEstateSuccessorId } from '../lifecycleEngine';
-import { createAcquiredBusiness, createHoldingCompany, generateAcquisitionTargets } from '../acquisitionEngine';
+import { createAcquiredBusiness, generateAcquisitionTargets } from '../acquisitionEngine';
+import { createHoldingCompany } from '../holdingCompanyEngine';
 import { getNetWorth } from '../financeEngine';
 import { initializeStocks, processStocks } from '../stockEngine';
 import { processEconomy } from '../economyEngine';
