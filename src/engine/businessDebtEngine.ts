@@ -121,3 +121,96 @@ export function getBusinessWeeklyDebtService(business: OwnedBusiness): number {
     0,
   ));
 }
+
+
+export interface BusinessLoanPrincipalPaymentResult {
+  loan: BusinessLoan | null;
+  cashUsed: number;
+  principalRepaid: number;
+  scheduledBalanceReduced: number;
+}
+
+export function applyBusinessLoanPrincipalPayment(
+  loan: BusinessLoan,
+  requestedCash: number,
+): BusinessLoanPrincipalPaymentResult {
+  const outstandingPrincipal = getBusinessLoanOutstandingPrincipal(loan);
+  const cashUsed = Math.max(
+    0,
+    Math.min(Math.round(requestedCash ?? 0), Math.round(outstandingPrincipal)),
+  );
+  if (cashUsed <= 0) {
+    return { loan, cashUsed: 0, principalRepaid: 0, scheduledBalanceReduced: 0 };
+  }
+
+  const rate = Math.max(0, loan.interestRate ?? 0);
+  const scheduledBalanceReduced = Math.min(
+    Math.max(0, loan.remainingAmount ?? 0),
+    Math.round(cashUsed * (1 + rate)),
+  );
+  const remainingAmount = Math.max(
+    0,
+    Math.round((loan.remainingAmount ?? 0) - scheduledBalanceReduced),
+  );
+
+  if (remainingAmount <= 0) {
+    return {
+      loan: null,
+      cashUsed,
+      principalRepaid: cashUsed,
+      scheduledBalanceReduced,
+    };
+  }
+
+  const weeksRemaining = Math.max(1, loan.weeksRemaining ?? 1);
+  return {
+    loan: {
+      ...loan,
+      remainingAmount,
+      weeklyPayment: Math.max(1, Math.ceil(remainingAmount / weeksRemaining)),
+    },
+    cashUsed,
+    principalRepaid: cashUsed,
+    scheduledBalanceReduced,
+  };
+}
+
+export function applyBusinessDebtPrincipalPrepayment(
+  loans: BusinessLoan[],
+  requestedCash: number,
+): {
+  loans: BusinessLoan[];
+  cashUsed: number;
+  principalRepaid: number;
+  scheduledBalanceReduced: number;
+} {
+  let remainingCash = Math.max(0, Math.round(requestedCash ?? 0));
+  let cashUsed = 0;
+  let principalRepaid = 0;
+  let scheduledBalanceReduced = 0;
+
+  const ordered = [...(loans ?? [])].sort(
+    (a, b) => (b.interestRate ?? 0) - (a.interestRate ?? 0),
+  );
+  const results = new Map<string, BusinessLoan | null>();
+
+  for (const loan of ordered) {
+    if (remainingCash <= 0) break;
+    const payment = applyBusinessLoanPrincipalPayment(loan, remainingCash);
+    if (payment.cashUsed <= 0) continue;
+    remainingCash -= payment.cashUsed;
+    cashUsed += payment.cashUsed;
+    principalRepaid += payment.principalRepaid;
+    scheduledBalanceReduced += payment.scheduledBalanceReduced;
+    results.set(loan.id, payment.loan);
+  }
+
+  return {
+    loans: (loans ?? [])
+      .map((loan) => results.has(loan.id) ? results.get(loan.id)! : loan)
+      .filter((loan): loan is BusinessLoan => !!loan),
+    cashUsed: Math.round(cashUsed),
+    principalRepaid: Math.round(principalRepaid),
+    scheduledBalanceReduced: Math.round(scheduledBalanceReduced),
+  };
+}
