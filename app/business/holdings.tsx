@@ -455,7 +455,7 @@ export default function HoldingCompaniesScreen() {
                   </View>
 
                   <Text style={styles.synergyTitle}>Management fee</Text>
-                  <Text style={styles.capitalMeta}>0–3% of subsidiary revenue. A four-week operating buffer is protected automatically.</Text>
+                  <Text style={styles.capitalMeta}>0–3% of subsidiary revenue. Full subsidiary budget reserves are protected automatically, with a four-week minimum buffer.</Text>
                   <View style={styles.buttonRow}>
                     {MANAGEMENT_FEE_RATES.map((rate) => {
                       const active = Math.abs((holding.managementFeeRate ?? 0.01) - rate) < 0.0001;
