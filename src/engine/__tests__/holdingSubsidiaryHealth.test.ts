@@ -1,4 +1,4 @@
-import { getHoldingSubsidiaryHealthSnapshot } from '../holdingCompanyEngine';
+import { getHoldingSubsidiaryAttentionAction, getHoldingSubsidiaryHealthSnapshot } from '../holdingCompanyEngine';
 
 describe('holding subsidiary health snapshot', () => {
   test('marks a profitable well-funded subsidiary as stable', () => {
@@ -66,5 +66,55 @@ describe('holding subsidiary health snapshot', () => {
 
     expect(snapshot.debtPrincipal).toBe(500_000);
     expect(snapshot.weeklyDebtService).toBe(55_000);
+  });
+
+  test('routes pending integration and decisions to business overview', () => {
+    expect(getHoldingSubsidiaryAttentionAction({
+      id: 'integration',
+      balance: 2_000_000,
+      lastWeekProfit: 100_000,
+      lastWeekExpenses: 100_000,
+      acquisition: { integrationStrategy: 'pending' },
+    } as any, 1)).toMatchObject({ kind: 'business_overview', label: 'Choose integration' });
+
+    expect(getHoldingSubsidiaryAttentionAction({
+      id: 'decision',
+      balance: 2_000_000,
+      lastWeekProfit: 100_000,
+      lastWeekExpenses: 100_000,
+      pendingDecision: { id: 'decision-1' },
+    } as any, 1)).toMatchObject({ kind: 'business_overview', label: 'Resolve decision' });
+  });
+
+  test('routes financial problems to Finance and severe reserve gaps to Holding capital', () => {
+    expect(getHoldingSubsidiaryAttentionAction({
+      id: 'negative',
+      balance: -10_000,
+      lastWeekProfit: -20_000,
+      lastWeekExpenses: 100_000,
+    } as any, 1)).toMatchObject({ kind: 'business_finance', label: 'Repair cash' });
+
+    expect(getHoldingSubsidiaryAttentionAction({
+      id: 'reserve',
+      balance: 100_000,
+      lastWeekProfit: 10_000,
+      lastWeekExpenses: 100_000,
+    } as any, 1)).toMatchObject({ kind: 'holding_capital', label: 'Fund reserve' });
+
+    expect(getHoldingSubsidiaryAttentionAction({
+      id: 'loss',
+      balance: 700_000,
+      lastWeekProfit: -20_000,
+      lastWeekExpenses: 100_000,
+    } as any, 1)).toMatchObject({ kind: 'business_finance', label: 'Review loss' });
+  });
+
+  test('returns no action for a stable subsidiary', () => {
+    expect(getHoldingSubsidiaryAttentionAction({
+      id: 'stable-action',
+      balance: 2_000_000,
+      lastWeekProfit: 100_000,
+      lastWeekExpenses: 100_000,
+    } as any, 1)).toBeNull();
   });
 });
