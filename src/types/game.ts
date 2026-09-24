@@ -1812,23 +1812,23 @@ export interface GameState {
   contentUpdateSeenId: string;
   reviewPromptedWeeks: number[];
   /** Passive annual reports retained for later review; newest first. */
-  annualReports: PeriodReport[];
-  annualReportUnread: boolean;
+  annualReports?: PeriodReport[];
+  annualReportUnread?: boolean;
   /** Optional achievement milestones pinned by the player as personal goals. */
-  pinnedAchievementGoals: string[];
+  pinnedAchievementGoals?: string[];
   /** Persisted annual-report accumulators so mid-year app restarts do not lose progress. */
-  periodIncome: number;
-  periodExpenses: number;
-  periodTax: number;
-  periodWeeksEmployed: number;
-  periodWeeksUnemployed: number;
-  periodJobChanges: number;
-  periodCoursesCompleted: number;
-  periodStocksPurchased: number;
-  periodLoansTaken: number;
-  periodLoansRepaid: number;
-  periodAchievements: number;
-  periodStartWeek: number;
+  periodIncome?: number;
+  periodExpenses?: number;
+  periodTax?: number;
+  periodWeeksEmployed?: number;
+  periodWeeksUnemployed?: number;
+  periodJobChanges?: number;
+  periodCoursesCompleted?: number;
+  periodStocksPurchased?: number;
+  periodLoansTaken?: number;
+  periodLoansRepaid?: number;
+  periodAchievements?: number;
+  periodStartWeek?: number;
 }
 
 export const INITIAL_GAME_STATE: GameState = {
