@@ -483,7 +483,14 @@ describe('business acquisitions and holding companies', () => {
   test('holding cash remains in net worth and summaries include group debt', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const state = { ...INITIAL_GAME_STATE, playerName: 'Elroy', year: 9, week: 3, generation: 3, cash: 2_000_000 };
-    const holding = { ...createHoldingCompany('Benjamins Group', state), cashReserve: 5_000_000 };
+    const holding = {
+      ...createHoldingCompany('Benjamins Group', state),
+      cashReserve: 5_000_000,
+      totalCapitalDeployed: 3_000_000,
+      totalDividendsReceived: 2_000_000,
+      totalManagementFeesCollected: 1_000_000,
+      totalOwnerDistributions: 500_000,
+    };
     const target = generateAcquisitionTargets(163, 1, 1)[0];
     const business = createAcquiredBusiness(target, state, holding.id, target.askingPrice, 'balanced', 0)!;
 
@@ -496,6 +503,10 @@ describe('business acquisitions and holding companies', () => {
     expect(summary.ownerNetEquity).toBeGreaterThan(0);
     expect(summary.ownerNetEquity).toBeLessThanOrEqual(summary.netGroupEquity);
     expect(summary.cashReserve).toBe(5_000_000);
+    expect(summary.ownerGroupValue).toBe(summary.ownerNetEquity + 5_000_000);
+    expect(summary.totalCapitalDeployed).toBe(3_000_000);
+    expect(summary.totalHoldingInflows).toBe(3_000_000);
+    expect(summary.totalOwnerDistributions).toBe(500_000);
     expect(returnInfo?.investedCapital).toBeGreaterThan(0);
     expect(netWorth).toBeGreaterThan(state.cash);
   });
