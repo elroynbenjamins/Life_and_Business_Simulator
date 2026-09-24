@@ -11,14 +11,14 @@ import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
 import {
   ACQUISITION_UNLOCK_NET_WORTH,
-  HOLDING_COMPANY_SETUP_COST,
   getAcquisitionReturn,
-  getHoldingCompanySummary,
 } from '../../src/engine/acquisitionEngine';
 import { BUSINESS_DELEGATION_POLICIES, getDelegationManagers, getHoldingSynergyProfile } from '../../src/engine/businessEngine';
 import {
+  HOLDING_COMPANY_SETUP_COST,
   HOLDING_SHARED_SERVICE_DEFINITIONS,
   HOLDING_SHARED_SERVICE_MAX_LEVEL,
+  getHoldingCompanySummary,
   getHoldingSharedServiceEffects,
   getHoldingSharedServiceUpgradeCost,
   normalizeHoldingSharedServices,
