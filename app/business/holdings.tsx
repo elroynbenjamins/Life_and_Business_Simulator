@@ -22,6 +22,7 @@ import {
   canChargeHoldingManagementFee,
   getHoldingCapitalAllocationPreview,
   getHoldingCompanySummary,
+  getHoldingManagementFeePolicyPreview,
   getHoldingReservePolicyPreview,
   getHoldingSharedServiceEffects,
   getHoldingTreasuryTransactionPreview,
@@ -645,17 +646,103 @@ export default function HoldingCompaniesScreen() {
                   </View>
 
                   <Text style={styles.synergyTitle}>Management fee</Text>
-                  <Text style={styles.capitalMeta}>0–3% of revenue for wholly owned subsidiaries only • eligible now: {managementFeeEligibleCount}/{subsidiaryCount}. Fees require a profitable week, are capped at 35% of pre-fee profit, and cannot touch protected reserves. Co-owned companies upstream cash only through pro-rata dividends.</Text>
-                  <View style={styles.buttonRow}>
+                  <Text style={styles.capitalMeta}>
+                    0–3% of revenue for wholly owned subsidiaries only. Fees require a profitable week, are capped at 35% of pre-fee profit, and cannot touch protected company cash. Estimates below use the latest reported week and current balances.
+                  </Text>
+                  {(() => {
+                    const currentFeePreview = getHoldingManagementFeePolicyPreview(
+                      holding,
+                      businesses,
+                      inflationMultiplier,
+                      holding.managementFeeRate ?? 0.01,
+                    ).current;
+                    return (
+                      <View style={styles.managementFeeSummary}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.reservePolicySummaryLabel}>Current policy</Text>
+                          <Text style={styles.reservePolicySummaryValue}>{Math.round(currentFeePreview.rate * 100)}%</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.reservePolicySummaryLabel}>Est. fee / week</Text>
+                          <Text style={styles.reservePolicySummaryValue}>~{formatCurrency(currentFeePreview.estimatedFee)}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.reservePolicySummaryLabel}>Eligible</Text>
+                          <Text style={styles.reservePolicySummaryValue}>{managementFeeEligibleCount}/{subsidiaryCount}</Text>
+                        </View>
+                      </View>
+                    );
+                  })()}
+                  <View style={styles.reservePolicyGrid}>
                     {MANAGEMENT_FEE_RATES.map((rate) => {
-                      const active = Math.abs((holding.managementFeeRate ?? 0.01) - rate) < 0.0001;
+                      const feePreview = getHoldingManagementFeePolicyPreview(
+                        holding,
+                        businesses,
+                        inflationMultiplier,
+                        rate,
+                      );
+                      const active = Math.abs(feePreview.currentRate - rate) < 0.0001;
+                      const next = feePreview.next;
+                      const delta = feePreview.estimatedFeeDelta;
                       return (
                         <Pressable
                           key={rate}
-                          onPress={() => setHoldingManagementFeeRate(holding.id, rate)}
-                          style={[styles.smallAction, active && styles.protectedAction]}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active, disabled: active }}
+                          accessibilityLabel={`${Math.round(rate * 100)} percent management fee, estimated ${formatCurrency(next.estimatedFee)} per week`}
+                          disabled={active}
+                          onPress={() => showGameDialog({
+                            title: `Set management fee to ${Math.round(rate * 100)}%?`,
+                            message:
+                              `Eligible wholly owned subsidiaries: ${next.eligibleCount}/${feePreview.subsidiaryCount}`
+                              + (next.excludedMinorityCount > 0 ? ` • ${next.excludedMinorityCount} co-owned excluded` : '')
+                              + `\nLatest eligible revenue: ${formatCurrency(next.eligibleRevenue)}\n`
+                              + `Estimated fee: ${formatCurrency(feePreview.current.estimatedFee)} → ${formatCurrency(next.estimatedFee)}/wk\n\n`
+                              + `At ${Math.round(rate * 100)}% before caps: ${formatCurrency(next.grossRevenueFee)}\n`
+                              + `After 35% profit cap: ${formatCurrency(next.afterProfitCapFee)}`
+                              + (next.profitCapReduction > 0 ? ` (-${formatCurrency(next.profitCapReduction)})` : '')
+                              + `\nAfter protected cash limits: ${formatCurrency(next.estimatedFee)}`
+                              + (next.reserveProtectionReduction > 0 ? ` (-${formatCurrency(next.reserveProtectionReduction)})` : '')
+                              + `\n\n`
+                              + (delta > 0
+                                ? `About ${formatCurrency(delta)} more would be upstreamed on the latest reported numbers. `
+                                : delta < 0
+                                  ? `About ${formatCurrency(Math.abs(delta))} less would be upstreamed on the latest reported numbers. `
+                                  : 'Estimated weekly fee income is unchanged. ')
+                              + (next.profitLimitedCount > 0
+                                ? `${next.profitLimitedCount} subsidiar${next.profitLimitedCount === 1 ? 'y is' : 'ies are'} limited by the profit cap. `
+                                : '')
+                              + (next.reserveLimitedCount > 0
+                                ? `${next.reserveLimitedCount} subsidiar${next.reserveLimitedCount === 1 ? 'y is' : 'ies are'} limited by protected cash. `
+                                : '')
+                              + 'Actual next-week fees may differ as revenue, expenses and cash balances change.',
+                            confirmText: rate === 0 ? 'Turn Off' : `Set ${Math.round(rate * 100)}%`,
+                            cancelText: 'Back',
+                            onConfirm: () => setHoldingManagementFeeRate(holding.id, rate),
+                          })}
+                          style={[
+                            styles.reservePolicyOption,
+                            active && styles.managementFeeOptionActive,
+                          ]}
                         >
-                          <Text style={styles.smallActionText}>{Math.round(rate * 100)}%</Text>
+                          <View style={styles.reservePolicyOptionHeader}>
+                            <Text style={[styles.reservePolicyWeeks, active && styles.managementFeeRateActive]}>
+                              {Math.round(rate * 100)}%
+                            </Text>
+                            {active && <Text style={styles.managementFeeCurrent}>CURRENT</Text>}
+                          </View>
+                          <Text style={styles.managementFeeEstimate}>
+                            ~{formatCurrency(next.estimatedFee)}/wk
+                          </Text>
+                          <Text style={styles.managementFeeDetail}>
+                            {rate === 0
+                              ? 'No management fee'
+                              : next.reserveProtectionReduction > 0
+                                ? `${formatCurrency(next.reserveProtectionReduction)} blocked by reserves`
+                                : next.profitCapReduction > 0
+                                  ? `${formatCurrency(next.profitCapReduction)} blocked by profit cap`
+                                  : 'No current cap reduction'}
+                          </Text>
                         </Pressable>
                       );
                     })}
@@ -1077,6 +1164,12 @@ const styles = StyleSheet.create({
   reservePolicyCurrent: { color: Colors.warning, fontSize: 6, fontWeight: '900', letterSpacing: 0.4 },
   reservePolicyAmount: { color: Colors.textPrimary, fontSize: 8, fontWeight: '800', marginTop: 6 },
   reservePolicyHeadroom: { color: Colors.info, fontSize: 7, lineHeight: 10, marginTop: 3 },
+  managementFeeSummary: { flexDirection: 'row', gap: 7, marginTop: 8, padding: 9, borderRadius: 8, backgroundColor: Colors.elevated },
+  managementFeeOptionActive: { borderColor: Colors.info, backgroundColor: '#17263A' },
+  managementFeeRateActive: { color: Colors.info },
+  managementFeeCurrent: { color: Colors.info, fontSize: 6, fontWeight: '900', letterSpacing: 0.4 },
+  managementFeeEstimate: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900', marginTop: 6 },
+  managementFeeDetail: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 3 },
   capitalLedgerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9, marginBottom: 3 },
   capitalLedgerItem: { width: '48.5%', backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7 },
   capitalLedgerLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '700' },
