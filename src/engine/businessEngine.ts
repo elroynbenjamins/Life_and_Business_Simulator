@@ -39,6 +39,10 @@ import {
   tickCorporateWorkforce,
 } from './businessWorkforceEngine';
 import { appendCorporateKpiSnapshot } from './corporateReportingEngine';
+import {
+  getAcquisitionIntegrationOutcomeEffect,
+  resolveAcquisitionIntegrationOutcome,
+} from './acquisitionIntegrationEngine';
 import { BUSINESS_IDENTITY_DEFINITIONS, getBusinessIdentityEffects, updateBusinessIdentity } from './businessIdentityEngine';
 import {
   closeCompletedBusinessManagementQuarter,
@@ -1698,27 +1702,17 @@ export function processBusinessWeek(
   if (updatedAcquisition && updatedAcquisition.integrationStrategy !== 'pending') {
     const remaining = Math.max(0, updatedAcquisition.integrationWeeksRemaining ?? 0);
     if (remaining === 1) {
-      const strategy = updatedAcquisition.integrationStrategy;
-      const roll = Math.random();
+      const strategy = updatedAcquisition.integrationStrategy as 'independent' | 'integrate' | 'turnaround';
       const successChance = Math.max(0, Math.min(1, updatedAcquisition.integrationSuccessChance ?? 0.8));
-      const outcome = roll < successChance ? 'success' : roll < Math.min(1, successChance + 0.18) ? 'mixed' : 'failed';
-      let revenueBonus = 0;
-      let expenseReduction = 0;
-      if (strategy === 'integrate') {
-        if (outcome === 'success') { revenueBonus = 0.015; expenseReduction = 0.02; integrationRepDelta = 2; }
-        else if (outcome === 'mixed') { revenueBonus = 0.005; expenseReduction = 0.01; }
-        else { expenseReduction = -0.005; integrationRepDelta = -2; }
-      } else if (strategy === 'turnaround') {
-        if (outcome === 'success') { revenueBonus = 0.04; expenseReduction = 0.04; integrationRepDelta = 4; }
-        else if (outcome === 'mixed') { revenueBonus = 0.015; expenseReduction = 0.015; integrationRepDelta = -1; }
-        else { revenueBonus = -0.02; expenseReduction = -0.02; integrationRepDelta = -5; }
-      }
+      const outcome = resolveAcquisitionIntegrationOutcome(strategy, successChance, Math.random());
+      const outcomeEffect = getAcquisitionIntegrationOutcomeEffect(strategy, outcome);
+      integrationRepDelta = outcomeEffect.reputationDelta;
       updatedAcquisition = {
         ...updatedAcquisition,
         integrationOutcome: outcome,
         integrationWeeksRemaining: 0,
-        postIntegrationRevenueBonus: revenueBonus,
-        postIntegrationExpenseReduction: expenseReduction,
+        postIntegrationRevenueBonus: outcomeEffect.revenueBonus,
+        postIntegrationExpenseReduction: outcomeEffect.expenseReduction,
       };
       timelineAdds.push({
         week: currentWeek,
