@@ -1,5 +1,10 @@
 import { GameState, HoldingCompany, HoldingSharedServiceId, HoldingSharedServices, OwnedBusiness } from '../types/game';
-import { getBusinessDebtPrincipal } from './businessDebtEngine';
+import {
+  applyBusinessDebtPrincipalPrepayment,
+  getBusinessDebtPrincipal,
+  getBusinessWeeklyDebtService,
+} from './businessDebtEngine';
+import { getBusinessProtectedCash } from './businessBudgetEngine';
 import { getPlayerEquityOwnershipPct } from './businessOwnershipEngine';
 
 export const EMPTY_HOLDING_SHARED_SERVICES: HoldingSharedServices = {
@@ -215,6 +220,66 @@ export function getHoldingManagementFeeForWeek(
   );
 }
 
+
+export function getHoldingCapitalAllocationPreview(
+  business: OwnedBusiness,
+  requestedAmount: number,
+  inflationMultiplier = 1,
+) {
+  const amount = Math.max(0, Math.round(requestedAmount ?? 0));
+  const currentBalance = Math.max(0, business.balance ?? 0);
+  const weeklyExpenses = Math.max(0, business.lastWeekExpenses ?? 0);
+  const protectedCash = getBusinessProtectedCash(
+    business,
+    inflationMultiplier,
+    weeklyExpenses,
+  );
+  const reserveGapBefore = Math.max(0, protectedCash - currentBalance);
+  const growthPostBalance = currentBalance + amount;
+  const reserveGapAfter = Math.max(0, protectedCash - growthPostBalance);
+  const growthCashAboveProtected = Math.max(0, growthPostBalance - protectedCash);
+  const additionalRunwayWeeks = weeklyExpenses > 0 ? amount / weeklyExpenses : null;
+
+  const debtPrincipalBefore = getBusinessDebtPrincipal(business);
+  const debtServiceBefore = getBusinessWeeklyDebtService(business);
+  const debtPayment = applyBusinessDebtPrincipalPrepayment(
+    business.businessLoans ?? [],
+    amount,
+  );
+  const debtBusinessAfter: OwnedBusiness = {
+    ...business,
+    businessLoans: debtPayment.loans,
+  };
+  const debtPrincipalAfter = getBusinessDebtPrincipal(debtBusinessAfter);
+  const debtServiceAfter = getBusinessWeeklyDebtService(debtBusinessAfter);
+  const futureInterestAvoided = Math.max(
+    0,
+    debtPayment.scheduledBalanceReduced - debtPayment.principalRepaid,
+  );
+
+  return {
+    requestedAmount: amount,
+    growth: {
+      cashAdded: amount,
+      postBalance: Math.round(growthPostBalance),
+      protectedCash,
+      reserveGapBefore: Math.round(reserveGapBefore),
+      reserveGapAfter: Math.round(reserveGapAfter),
+      cashAboveProtected: Math.round(growthCashAboveProtected),
+      additionalRunwayWeeks,
+    },
+    debt: {
+      cashUsed: debtPayment.cashUsed,
+      principalRepaid: debtPayment.principalRepaid,
+      principalBefore: debtPrincipalBefore,
+      principalAfter: debtPrincipalAfter,
+      futureInterestAvoided: Math.round(futureInterestAvoided),
+      weeklyDebtServiceBefore: debtServiceBefore,
+      weeklyDebtServiceAfter: debtServiceAfter,
+      weeklyDebtServiceReduction: Math.max(0, debtServiceBefore - debtServiceAfter),
+    },
+  };
+}
 
 export const HOLDING_COMPANY_SETUP_COST = 500_000;
 
