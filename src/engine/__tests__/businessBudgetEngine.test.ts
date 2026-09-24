@@ -8,6 +8,7 @@ import {
   normalizeBusinessBudgetPlan,
 } from '../businessBudgetEngine';
 import { createBusiness, processBusinessWeek } from '../businessEngine';
+import { getBusinessLoanOutstandingPrincipal } from '../businessDebtEngine';
 import { OwnedBusiness } from '../../types/game';
 
 function employee(id: string) {
@@ -106,8 +107,8 @@ describe('business budget engine', () => {
         {
           id: 'cheap',
           amount: 100_000,
-          remainingAmount: 100_000,
-          weeklyPayment: 5_000,
+          remainingAmount: 105_000,
+          weeklyPayment: 5_250,
           weeksRemaining: 20,
           interestRate: 0.05,
           purpose: 'operating',
@@ -115,8 +116,8 @@ describe('business budget engine', () => {
         {
           id: 'expensive',
           amount: 100_000,
-          remainingAmount: 100_000,
-          weeklyPayment: 5_000,
+          remainingAmount: 112_000,
+          weeklyPayment: 5_600,
           weeksRemaining: 20,
           interestRate: 0.12,
           purpose: 'operating',
@@ -135,8 +136,8 @@ describe('business budget engine', () => {
     });
 
     expect(result.snapshot.extraDebtPaid).toBe(55_000);
-    expect(result.loans.find((loan) => loan.id === 'expensive')?.remainingAmount).toBe(45_000);
-    expect(result.loans.find((loan) => loan.id === 'cheap')?.remainingAmount).toBe(100_000);
+    expect(getBusinessLoanOutstandingPrincipal(result.loans.find((loan) => loan.id === 'expensive')!)).toBe(45_000);
+    expect(getBusinessLoanOutstandingPrincipal(result.loans.find((loan) => loan.id === 'cheap')!)).toBe(100_000);
     expect(result.dividendPaid).toBe(10_000);
   });
 
