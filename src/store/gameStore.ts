@@ -265,6 +265,7 @@ interface GameStore extends GameState {
   designateFamilyBusiness: (businessId: string) => void;
   setBusinessStrategicFocus: (businessId: string, focus: BusinessStrategicFocus) => void;
   setBusinessDecisionAutomation: (businessId: string, enabled: boolean) => void;
+  setAllBusinessDecisionAutomation: (enabled: boolean) => void;
   setBusinessBudgetProfile: (businessId: string, profile: BusinessBudgetProfile) => void;
   setBusinessManagementTargetProfile: (businessId: string, profile: BusinessManagementTargetProfile) => void;
   openExecutiveSearch: (businessId: string, role: BusinessExecutiveRole) => void;
@@ -3207,8 +3208,11 @@ const useGameStore = create<GameStore>((set, get) => ({
     if ((state?.cash ?? 0) < cost) return;
     const created = createBusiness(typeId, customName, state.week, state.year, state?.inflationMultiplier ?? 1);
     if (!created) return;
+    const portfolioAutoStrategy = (state.businesses ?? []).length > 0
+      && (state.businesses ?? []).every((business) => !!business.autoStrategicDecisions);
     const biz = {
       ...created,
+      autoStrategicDecisions: portfolioAutoStrategy,
       ownership: [{
         ownerType: 'player' as const,
         ownerId: state.familyTree?.currentPlayerId ?? 'player',
@@ -3305,6 +3309,13 @@ const useGameStore = create<GameStore>((set, get) => ({
     );
     if (!acquired) return;
 
+    const portfolioAutoStrategy = (state.businesses ?? []).length > 0
+      && (state.businesses ?? []).every((business) => !!business.autoStrategicDecisions);
+    const acquiredBusiness = {
+      ...acquired,
+      autoStrategicDecisions: portfolioAutoStrategy,
+    };
+
     const globalWeek = ((state.year ?? 1) - 1) * 20 + (state.week ?? 1);
     const holdingCompanies = holding
       ? (state.holdingCompanies ?? []).map((item) =>
@@ -3320,15 +3331,15 @@ const useGameStore = create<GameStore>((set, get) => ({
     const updates = {
       cash: holding ? (state.cash ?? 0) : (state.cash ?? 0) - closingCashNeeded,
       holdingCompanies,
-      businesses: [...(state.businesses ?? []), acquired],
+      businesses: [...(state.businesses ?? []), acquiredBusiness],
       acquisitionTargets: (state.acquisitionTargets ?? []).filter((item) => item.id !== targetId),
       competitors: {
         ...(state.competitors ?? {}),
-        [acquired.id]: createInitialCompetitors(acquired, globalWeek),
+        [acquiredBusiness.id]: createInitialCompetitors(acquiredBusiness, globalWeek),
       },
       currentHeadline: financing.debtPrincipal > 0
-        ? `Acquired ${acquired.name}: ${formatCurrencySafe(financing.cashContribution)} equity + ${formatCurrencySafe(financing.debtPrincipal)} financing + ${formatCurrencySafe(acquisitionTransactionCost)} closing costs.`
-        : `Acquired ${acquired.name} for ${formatCurrencySafe(purchasePrice)} + ${formatCurrencySafe(acquisitionTransactionCost)} closing costs.`,
+        ? `Acquired ${acquiredBusiness.name}: ${formatCurrencySafe(financing.cashContribution)} equity + ${formatCurrencySafe(financing.debtPrincipal)} financing + ${formatCurrencySafe(acquisitionTransactionCost)} closing costs.`
+        : `Acquired ${acquiredBusiness.name} for ${formatCurrencySafe(purchasePrice)} + ${formatCurrencySafe(acquisitionTransactionCost)} closing costs.`,
     };
     set(updates);
     saveGame(extractGameState({ ...state, ...updates }), state.activeSlot);
@@ -3735,6 +3746,40 @@ const useGameStore = create<GameStore>((set, get) => ({
         state.inflationMultiplier ?? 1,
       );
       if (choice) get().resolveBusinessDecision(businessId, choice.id);
+    }
+  },
+
+  setAllBusinessDecisionAutomation: (enabled) => {
+    const state = get();
+    if (state.lifecycle?.isDead || (state.businesses ?? []).length === 0) return;
+
+    const businesses = (state.businesses ?? []).map((business) => ({
+      ...business,
+      autoStrategicDecisions: enabled,
+      timeline: [
+        ...(business.timeline ?? []),
+        {
+          week: state.week,
+          year: state.year,
+          title: `Portfolio Auto Strategy ${enabled ? 'enabled' : 'disabled'}`,
+          icon: '⚙️',
+          kind: 'event' as const,
+        },
+      ].slice(-50),
+    }));
+    set({ businesses });
+    saveGame(extractGameState({ ...state, businesses }), state.activeSlot);
+
+    if (enabled) {
+      for (const business of businesses) {
+        if (business.pendingDecision?.kind !== 'strategy') continue;
+        const choice = getAutomaticStrategicDecisionChoice(
+          business,
+          business.pendingDecision,
+          state.inflationMultiplier ?? 1,
+        );
+        if (choice) get().resolveBusinessDecision(business.id, choice.id);
+      }
     }
   },
 
