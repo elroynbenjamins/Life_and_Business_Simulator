@@ -287,16 +287,31 @@ export const ACQUISITION_MAX_DEBT_SERVICE_SHARE: Record<AcquisitionRisk, number>
   high: 0.40,
 };
 
+export const ACQUISITION_UNDERWRITING_INTEGRATION_STRESS_FACTOR = 0.60;
+
+export function getAcquisitionUnderwritingIntegrationPenalty(
+  target: Pick<BusinessAcquisitionTarget, 'integrationPenalty'>,
+): number {
+  // Lenders assume meaningful integration disruption, but not the full penalty
+  // of the player's riskiest integration choice. This sits between the safe
+  // independent route (45% of base disruption) and full operational integration.
+  return clamp(
+    (target.integrationPenalty ?? 0) * ACQUISITION_UNDERWRITING_INTEGRATION_STRESS_FACTOR,
+    0,
+    0.15,
+  );
+}
+
 export function getAcquisitionUnderwrittenProfit(
   target: Pick<BusinessAcquisitionTarget, 'weeklyRevenue' | 'weeklyProfit' | 'integrationPenalty'>,
 ): number {
   const revenue = Math.max(0, target.weeklyRevenue ?? 0);
   const quotedProfit = Math.max(0, target.weeklyProfit ?? 0);
   const quotedExpenses = Math.max(0, revenue - quotedProfit);
-  const integrationPenalty = clamp(target.integrationPenalty ?? 0, 0, 0.25);
+  const integrationPenalty = getAcquisitionUnderwritingIntegrationPenalty(target);
 
-  // Match the standard integration disruption used after closing:
-  // revenue falls by the penalty while operating expenses rise by 75% of it.
+  // Stress a meaningful portion of the known integration disruption:
+  // revenue falls by the stress penalty while operating expenses rise by 75% of it.
   const stressedRevenue = revenue * (1 - integrationPenalty);
   const stressedExpenses = quotedExpenses * (1 + integrationPenalty * 0.75);
   return Math.max(0, Math.round(stressedRevenue - stressedExpenses));
@@ -309,12 +324,14 @@ export function getAcquisitionDebtServiceSafety(
   quotedWeeklyProfit: number;
   underwrittenWeeklyProfit: number;
   profitHaircutPct: number;
+  underwritingIntegrationPenalty: number;
   debtServiceShare: number;
   maxDebtServiceShare: number;
   coverageRatio: number | null;
   allowed: boolean;
 } {
   const quotedWeeklyProfit = Math.max(0, target.weeklyProfit ?? 0);
+  const underwritingIntegrationPenalty = getAcquisitionUnderwritingIntegrationPenalty(target);
   const underwrittenWeeklyProfit = getAcquisitionUnderwrittenProfit(target);
   const profitHaircutPct = quotedWeeklyProfit > 0
     ? Math.max(0, Math.min(1, 1 - underwrittenWeeklyProfit / quotedWeeklyProfit))
@@ -326,6 +343,7 @@ export function getAcquisitionDebtServiceSafety(
       quotedWeeklyProfit,
       underwrittenWeeklyProfit,
       profitHaircutPct,
+      underwritingIntegrationPenalty,
       debtServiceShare: 0,
       maxDebtServiceShare,
       coverageRatio: null,
@@ -337,6 +355,7 @@ export function getAcquisitionDebtServiceSafety(
       quotedWeeklyProfit,
       underwrittenWeeklyProfit,
       profitHaircutPct,
+      underwritingIntegrationPenalty,
       debtServiceShare: Number.POSITIVE_INFINITY,
       maxDebtServiceShare,
       coverageRatio: 0,
@@ -348,6 +367,7 @@ export function getAcquisitionDebtServiceSafety(
     quotedWeeklyProfit,
     underwrittenWeeklyProfit,
     profitHaircutPct,
+    underwritingIntegrationPenalty,
     debtServiceShare,
     maxDebtServiceShare,
     coverageRatio: underwrittenWeeklyProfit / weeklyPayment,
