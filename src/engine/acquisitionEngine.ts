@@ -332,7 +332,10 @@ export function getAcquisitionFinancingQuote(
 ): AcquisitionFinancingQuote {
   const price = Math.max(0, Math.round(purchasePrice));
   const cashRatio = mode === 'cash' ? 1 : mode === 'balanced' ? 0.60 : 0.30;
-  const baseRate = mode === 'cash' ? 0 : mode === 'balanced' ? 0.08 : 0.105;
+  // Acquisition financing uses flat total interest like the rest of the game.
+  // Balanced debt is modestly cheaper than a local operating loan because it is
+  // backed by an established target; 70% leverage carries a meaningful premium.
+  const baseRate = mode === 'cash' ? 0 : mode === 'balanced' ? 0.10 : 0.15;
   const durationWeeks = mode === 'cash' ? 0 : mode === 'balanced' ? 160 : 200;
   const interestRate = Math.max(
     0.025,
