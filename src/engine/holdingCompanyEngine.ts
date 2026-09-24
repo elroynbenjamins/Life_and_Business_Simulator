@@ -434,7 +434,10 @@ export function getHoldingCapitalAllocationPreview(
       protectedCash,
       reserveGapBefore: Math.round(reserveGapBefore),
       reserveGapAfter: Math.round(reserveGapAfter),
+      reserveGapReduction: Math.round(Math.max(0, reserveGapBefore - reserveGapAfter)),
       cashAboveProtected: Math.round(growthCashAboveProtected),
+      protectedCoverageBefore: protectedCash > 0 ? Math.min(1, currentBalance / protectedCash) : 1,
+      protectedCoverageAfter: protectedCash > 0 ? Math.min(1, growthPostBalance / protectedCash) : 1,
       additionalRunwayWeeks,
       minorityValueTransfer: Math.round(amount * minorityOwnershipPct),
     },
@@ -447,6 +450,9 @@ export function getHoldingCapitalAllocationPreview(
       weeklyDebtServiceBefore: debtServiceBefore,
       weeklyDebtServiceAfter: debtServiceAfter,
       weeklyDebtServiceReduction: Math.max(0, debtServiceBefore - debtServiceAfter),
+      principalReductionPct: debtPrincipalBefore > 0
+        ? Math.min(1, debtPayment.principalRepaid / debtPrincipalBefore)
+        : 0,
       minorityValueTransfer: Math.round(debtPayment.cashUsed * minorityOwnershipPct),
     },
     ownership: {
