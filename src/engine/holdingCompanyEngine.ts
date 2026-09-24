@@ -133,7 +133,7 @@ export function getHoldingSharedServiceEffects(holding: HoldingCompany | null | 
 
 export const HOLDING_MANAGEMENT_FEE_DEFAULT = 0.01;
 export const HOLDING_MANAGEMENT_FEE_MAX = 0.03;
-export const HOLDING_RESERVE_TARGET_DEFAULT_WEEKS = 8;
+export const HOLDING_RESERVE_TARGET_DEFAULT_WEEKS = 4;
 export const HOLDING_RESERVE_TARGET_MAX_WEEKS = 20;
 
 export function normalizeHoldingReserveTargetWeeks(weeks: number | null | undefined): number {
