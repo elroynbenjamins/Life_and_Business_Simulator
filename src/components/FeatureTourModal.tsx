@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme/colors';
 
@@ -17,7 +17,9 @@ type FeatureTourModalProps = {
 };
 
 export default function FeatureTourModal({ visible, title, steps, onClose }: FeatureTourModalProps) {
+  const { width, height } = useWindowDimensions();
   const [index, setIndex] = useState(0);
+  const compact = width < 360 || height < 650;
 
   useEffect(() => {
     if (visible) setIndex(0);
@@ -43,7 +45,7 @@ export default function FeatureTourModal({ visible, title, steps, onClose }: Fea
         accessibilityLabel="Close tour"
       >
         <Pressable
-          style={styles.card}
+          style={[styles.card, compact && styles.cardCompact]}
           onPress={(event) => event.stopPropagation()}
           accessibilityViewIsModal
           testID="feature-tour"
@@ -64,48 +66,55 @@ export default function FeatureTourModal({ visible, title, steps, onClose }: Fea
             </Pressable>
           </View>
 
-          <View style={styles.lesson}>
-            <View style={styles.iconWrap}>
-              <Ionicons name={step.icon ?? 'information-circle-outline'} size={25} color={Colors.primary} />
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <View style={[styles.lesson, compact && styles.lessonCompact]}>
+              <View style={[styles.iconWrap, compact && styles.iconWrapCompact]}>
+                <Ionicons name={step.icon ?? 'information-circle-outline'} size={compact ? 22 : 25} color={Colors.primary} />
+              </View>
+              <Text style={[styles.stepTitle, compact && styles.stepTitleCompact]}>{step.title}</Text>
+              <Text style={[styles.body, compact && styles.bodyCompact]}>{step.body}</Text>
             </View>
-            <Text style={styles.stepTitle}>{step.title}</Text>
-            <Text style={styles.body}>{step.body}</Text>
-          </View>
 
-          <View style={styles.progressRow} accessibilityLabel={`Step ${index + 1} of ${steps.length}`}>
-            {steps.map((_, stepIndex) => (
-              <View
-                key={stepIndex}
-                style={[styles.dot, stepIndex === index && styles.dotActive]}
-              />
-            ))}
-          </View>
+            <View style={styles.progressRow} accessibilityLabel={`Step ${index + 1} of ${steps.length}`}>
+              {steps.map((_, stepIndex) => (
+                <View
+                  key={stepIndex}
+                  style={[styles.dot, stepIndex === index && styles.dotActive]}
+                />
+              ))}
+            </View>
 
-          <View style={styles.actions}>
-            {index > 0 ? (
+            <View style={styles.actions}>
+              {index > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous tour step"
+                  onPress={() => setIndex((value) => Math.max(0, value - 1))}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryText}>Back</Text>
+                </Pressable>
+              ) : (
+                <View style={styles.actionSpacer} />
+              )}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Previous tour step"
-                onPress={() => setIndex((value) => Math.max(0, value - 1))}
-                style={styles.secondaryButton}
+                accessibilityLabel={last ? 'Finish tour' : 'Next tour step'}
+                onPress={() => {
+                  if (last) onClose();
+                  else setIndex((value) => Math.min(steps.length - 1, value + 1));
+                }}
+                style={styles.primaryButton}
               >
-                <Text style={styles.secondaryText}>Back</Text>
+                <Text style={styles.primaryText}>{last ? 'Done' : 'Next'}</Text>
               </Pressable>
-            ) : (
-              <View style={styles.actionSpacer} />
-            )}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={last ? 'Finish tour' : 'Next tour step'}
-              onPress={() => {
-                if (last) onClose();
-                else setIndex((value) => Math.min(steps.length - 1, value + 1));
-              }}
-              style={styles.primaryButton}
-            >
-              <Text style={styles.primaryText}>{last ? 'Done' : 'Next'}</Text>
-            </Pressable>
-          </View>
+            </View>
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -123,12 +132,14 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 440,
+    maxHeight: '88%',
     borderRadius: 18,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     backgroundColor: Colors.card,
     padding: 18,
   },
+  cardCompact: { padding: 14, maxHeight: '94%' },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   eyebrow: { color: Colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
   title: { color: Colors.textPrimary, fontSize: 19, fontWeight: '900', marginTop: 3 },
@@ -140,6 +151,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Colors.elevated,
   },
+  scroll: { flexShrink: 1 },
+  scrollContent: { paddingBottom: 1 },
   lesson: {
     marginTop: 18,
     borderRadius: 14,
@@ -148,6 +161,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     padding: 16,
   },
+  lessonCompact: { marginTop: 12, padding: 13 },
   iconWrap: {
     width: 42,
     height: 42,
@@ -157,8 +171,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
+  iconWrapCompact: { width: 36, height: 36, borderRadius: 10, marginBottom: 9 },
   stepTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '900' },
+  stepTitleCompact: { fontSize: 15 },
   body: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 7 },
+  bodyCompact: { fontSize: 12, lineHeight: 17, marginTop: 5 },
   progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 16 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.cardBorder },
   dotActive: { width: 20, backgroundColor: Colors.primary },
