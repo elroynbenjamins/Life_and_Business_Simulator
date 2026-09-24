@@ -30,21 +30,6 @@ export function getPlayerEquityOwnershipPct(
   );
 }
 
-export function getRemainingPlayerCapitalBasisAfterShareTransfer(
-  currentBasis: number | null | undefined,
-  playerOwnershipPctBefore: number,
-  transferredPct: number,
-): number | null {
-  if (typeof currentBasis !== 'number' || !Number.isFinite(currentBasis) || currentBasis < 0) return null;
-  const before = Math.max(0, Math.min(100, playerOwnershipPctBefore));
-  const transferred = Math.max(0, Math.min(before, transferredPct));
-  if (before <= 0 || transferred <= 0) return Math.round(currentBasis);
-  return Math.max(
-    0,
-    Math.round(currentBasis * ((before - transferred) / before)),
-  );
-}
-
 export function getMaxNewEquityIssuePct(
   ownership: BusinessOwnershipStake[],
   minimumPlayerVotingPct = 51,
