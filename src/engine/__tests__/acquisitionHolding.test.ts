@@ -355,6 +355,33 @@ describe('business acquisitions and holding companies', () => {
     expect(synergy.crisisReduction).toBeLessThanOrEqual(0.18);
   });
 
+  test('holding summary separates group equity from the player-owned subsidiary stake', () => {
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
+    const state = { ...INITIAL_GAME_STATE, playerName: 'Elroy', year: 9, week: 3, generation: 3 };
+    const holding = createHoldingCompany('Benjamins Group', state);
+    const target = generateAcquisitionTargets(163, 1, 1)[0];
+    const business = createAcquiredBusiness(target, state, holding.id, target.askingPrice, 'cash', 0)!;
+    business.valuation = 1_000_000;
+    business.businessLoans = [{
+      id: 'debt',
+      amount: 400_000,
+      remainingAmount: 440_000,
+      weeklyPayment: 11_000,
+      weeksRemaining: 40,
+      interestRate: 0.10,
+      purpose: 'operating',
+    }];
+    business.ownership = [
+      { ownerType: 'player', ownerId: 'player', ownerName: 'Player', percent: 60, votingPercent: 60 },
+      { ownerType: 'investor', ownerId: 'outside', ownerName: 'Outside', percent: 40, votingPercent: 40 },
+    ];
+
+    const summary = getHoldingCompanySummary(holding, [business]);
+
+    expect(summary.netGroupEquity).toBe(600_000);
+    expect(summary.ownerNetEquity).toBe(360_000);
+  });
+
   test('holding cash remains in net worth and summaries include group debt', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.5);
     const state = { ...INITIAL_GAME_STATE, playerName: 'Elroy', year: 9, week: 3, generation: 3, cash: 2_000_000 };
@@ -368,6 +395,8 @@ describe('business acquisitions and holding companies', () => {
 
     expect(summary.subsidiaryCount).toBe(1);
     expect(summary.totalDebt).toBeGreaterThan(0);
+    expect(summary.ownerNetEquity).toBeGreaterThan(0);
+    expect(summary.ownerNetEquity).toBeLessThanOrEqual(summary.netGroupEquity);
     expect(summary.cashReserve).toBe(5_000_000);
     expect(returnInfo?.investedCapital).toBeGreaterThan(0);
     expect(netWorth).toBeGreaterThan(state.cash);
