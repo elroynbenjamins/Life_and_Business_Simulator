@@ -5245,7 +5245,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             + (business.acquisition.additionalCapitalInvested ?? 0)
             + amount
           : null;
-      return {
+      const updated = {
         ...business,
         balance: (business.balance ?? 0) + amount,
         capitalInvested: trackedBasis,
@@ -5256,6 +5256,7 @@ const useGameStore = create<GameStore>((set, get) => ({
             }
           : business.acquisition,
       };
+      return { ...updated, valuation: calculateValuation(updated) };
     });
     const updates = { cash: (state?.cash ?? 0) - amount, businesses };
     set(updates);
