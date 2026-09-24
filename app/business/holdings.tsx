@@ -256,7 +256,7 @@ export default function HoldingCompaniesScreen() {
                 </Text>
               </GameCard>
             ) : visibleSummaries.map(({
-              holding, subsidiaries, subsidiaryCount, totalValue, totalDebt, netGroupEquity, weeklyProfit,
+              holding, subsidiaries, subsidiaryCount, totalValue, totalDebt, netGroupEquity, ownerNetEquity, weeklyProfit,
               cashReserve, reserveTargetWeeks, reserveTarget, availableDistributionCash,
               familyControlledPct, protectedAssets, avgRevenueSynergy, avgExpenseSynergy, diversification,
               sharedServiceEffects, quarterlyManagementReport, annualManagementReport,
@@ -295,8 +295,8 @@ export default function HoldingCompaniesScreen() {
                     <Text style={[styles.statValue, { color: totalDebt > 0 ? Colors.warning : Colors.textPrimary }]}>{formatCurrency(totalDebt)}</Text>
                   </View>
                   <View style={styles.stat}>
-                    <Text style={styles.statLabel}>Net Equity</Text>
-                    <Text style={styles.statValue}>{formatCurrency(netGroupEquity)}</Text>
+                    <Text style={styles.statLabel}>Owner Equity</Text>
+                    <Text style={styles.statValue}>{formatCurrency(ownerNetEquity)}</Text>
                   </View>
                 </View>
                 <View style={styles.statsRow}>
