@@ -1,4 +1,6 @@
 import {
+  getBusinessOwnershipEquityValue,
+  getBusinessOwnershipStakeValue,
   getBusinessOwnershipTable,
   getInvestmentForPostMoneyIssuePct,
   getPlayerEquityOwnershipPct,
@@ -69,6 +71,24 @@ describe('business ownership reconciliation', () => {
     expect(issuance?.ownership.filter((stake) => stake.ownerType === 'family_trust')).toHaveLength(1);
     expect(issuance?.ownership.find((stake) => stake.ownerType === 'family_trust')?.percent).toBeCloseTo(28, 6);
     expect(issuance?.playerVotingPct).toBeCloseTo(72, 6);
+  });
+
+  test('ownership transactions value shares from equity after business debt', () => {
+    const business = createBusiness('coffee_shop', 'Leveraged Coffee', 1, 1, 1)!;
+    business.valuation = 1_000_000;
+    business.businessLoans = [{
+      id: 'debt',
+      amount: 400_000,
+      remainingAmount: 440_000,
+      weeklyPayment: 11_000,
+      weeksRemaining: 40,
+      interestRate: 0.10,
+      purpose: 'operating',
+    }];
+
+    expect(getBusinessOwnershipEquityValue(business)).toBe(600_000);
+    expect(getBusinessOwnershipStakeValue(business, 5)).toBe(30_000);
+    expect(getInvestmentForPostMoneyIssuePct(getBusinessOwnershipEquityValue(business), 20)).toBe(150_000);
   });
 
   test('post-money investment math matches issued equity percentage', () => {
