@@ -1353,8 +1353,6 @@ export function processBusinessWeek(
 
   const pricingMod = PRICING_MULTIPLIERS[biz.pricingStrategy ?? 'standard'] ?? PRICING_MULTIPLIERS.standard;
   const adMod = ADVERTISING_COSTS[biz.advertisingLevel ?? 'none'] ?? ADVERTISING_COSTS.none;
-  const reputationFactor = 0.6 + (biz.reputation / 100) * 0.8; // 0.6 at 0 rep, 1.4 at 100 rep
-  const competitionPenalty = 1 - (type.competitionLevel ?? 0.5) * 0.15;
   const acquisitionOperatingScale = Math.max(1, Math.min(1000, biz.operatingScaleMultiplier ?? 1));
 
   // ---- Seasons: every 5 weeks = new season; industry-specific multipliers ----
@@ -1379,28 +1377,9 @@ export function processBusinessWeek(
   // Young companies face wider demand swings while they establish repeat
   // customers. Mature firms still benefit from the same market variance.
   const revenueFluctuation = 0.80 + Math.random() * 0.40;
-  const demand = pricingMod.demand * (1 + adMod.demandBoost) * reputationFactor * competitionPenalty * seasonMult * revenueFluctuation;
 
-  // Employee productivity — increased impact of skill
-  const totalProductivity = (biz.employees ?? []).reduce((t, emp) => {
-    const role = getEmployeeRole(emp.roleId);
-    const skillFactor = 0.4 + (emp.skill ?? 50) / 100 * 0.8; // 0.4-1.2
-    const moraleFactor = 0.5 + (emp.morale ?? 50) / 100 * 0.7; // 0.5-1.2
-    return t + (role?.productivityMultiplier ?? 1.0) * skillFactor * moraleFactor;
-  }, 0);
-  // Aggregate buffs across all employees (D&D tier bonuses)
+  // Aggregate buffs are also used by expense/acquisition normalization below.
   const buffAgg = aggregateEmployeeBuffs(biz.employees ?? []);
-  const employeeScaleDampening = (biz.employees?.length ?? 0) > 12 ? 0.92 : 1;
-  const productivityMultiplier = Math.max(0.4, 0.4 + totalProductivity * 0.14) * employeeScaleDampening * buffAgg.productivityMult;
-
-  const rawUpgradeRevenueBoost = [...new Set(biz.purchasedUpgrades ?? [])].reduce((t, uid) => {
-    const u = getUpgrade(uid);
-    return t + (u?.revenueBoost ?? 0);
-  }, 0);
-  // Preserve every listed upgrade benefit while preventing five additive boosts
-  // from turning into a risk-free exponential late-game advantage.
-  const upgradeRevenueBoost = 1 - Math.exp(-rawUpgradeRevenueBoost);
-  const locationRevenueBoost = (biz.locations ?? []).reduce((total, location) => total + (location.revenueBoost ?? 0), 0);
 
   // Active event, strategic and project multipliers
   const strategyTotals = getStrategyModifierTotals(biz);
@@ -1457,17 +1436,15 @@ export function processBusinessWeek(
     }
   }
 
-  // Base revenue reduced by 3% from the previous balance pass.
-  // Very small businesses cannot add more than three employees, so they receive
-  // a compact-operation boost that substitutes for unavailable staff scaling.
+  // Keep one canonical deterministic revenue-capacity formula. Seasonality,
+  // weekly variance and temporary effects are layered on top here.
   const compactBusinessRevenueBoost = (type.maxEmployees ?? 4) <= 3 ? 1.18 : (type.maxEmployees ?? 6) <= 5 ? 1.45 : 1;
   const baseRev = (type.baseWeeklyRevenue ?? 0) * inflationMultiplier * 1.121 * compactBusinessRevenueBoost * acquisitionOperatingScale;
   const businessAge = globalWeek - (((biz.foundedYear ?? currentYear) - 1) * 20 + (biz.foundedWeek ?? currentWeek));
   const startupSupport = !acquisition && businessAge > 0 && businessAge <= 75;
-  const levelBonus = 1 + biz.level * 0.1;
+  const deterministicRevenueCapacity = getBusinessRevenueCapacity(biz) * inflationMultiplier;
   let revenue = Math.round(
-    baseRev * demand * pricingMod.revenue * productivityMultiplier *
-    (1 + upgradeRevenueBoost + locationRevenueBoost) * levelBonus * eventRevenueMultiplier * buffAgg.revenueMult
+    deterministicRevenueCapacity * seasonMult * revenueFluctuation * eventRevenueMultiplier
   );
   if (acquisition) {
     // Persist the purchase baseline: improvements change output, but the large
