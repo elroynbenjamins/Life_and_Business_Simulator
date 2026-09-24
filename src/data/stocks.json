@@ -414,7 +414,7 @@
     "type": "crypto",
     "cryptoStyle": "utility",
     "annualTrend": 0.04,
-    "baseVolatility": 0.16,
+    "baseVolatility": 0.12,
     "momentumFactor": 0.08,
     "techSensitivity": 0.45,
     "stakingYield": 0.04,
