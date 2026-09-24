@@ -8,6 +8,7 @@ import {
 } from '../types/game';
 import { BUSINESS_REINVESTMENT_AREAS, getBusinessReinvestmentCost } from './businessReinvestmentEngine';
 import { getBusinessGovernanceEffects } from './businessGovernanceEngine';
+import { applyBusinessDebtPrincipalPrepayment } from './businessDebtEngine';
 
 export const BUSINESS_BUDGET_PRESETS: Record<BusinessBudgetProfile, {
   profile: BusinessBudgetProfile;
@@ -178,39 +179,8 @@ function applyExtraDebtPayment(
   loans: BusinessLoan[],
   amount: number,
 ): { loans: BusinessLoan[]; paid: number } {
-  let remainingPayment = Math.max(0, Math.round(amount));
-  if (remainingPayment <= 0) return { loans, paid: 0 };
-
-  const ordered = [...loans].sort((a, b) => (b.interestRate ?? 0) - (a.interestRate ?? 0));
-  const updates = new Map<string, BusinessLoan | null>();
-  let paid = 0;
-
-  for (const loan of ordered) {
-    if (remainingPayment <= 0) break;
-    const currentRemaining = Math.max(0, loan.remainingAmount ?? 0);
-    if (currentRemaining <= 0) continue;
-    const payment = Math.min(remainingPayment, currentRemaining);
-    remainingPayment -= payment;
-    paid += payment;
-    const newRemaining = Math.max(0, currentRemaining - payment);
-    if (newRemaining <= 0) {
-      updates.set(loan.id, null);
-      continue;
-    }
-    const weeksRemaining = Math.max(1, loan.weeksRemaining ?? 1);
-    updates.set(loan.id, {
-      ...loan,
-      remainingAmount: newRemaining,
-      weeklyPayment: Math.ceil(newRemaining / weeksRemaining),
-    });
-  }
-
-  return {
-    loans: loans
-      .map((loan) => updates.has(loan.id) ? updates.get(loan.id)! : loan)
-      .filter((loan): loan is BusinessLoan => !!loan),
-    paid,
-  };
+  const result = applyBusinessDebtPrincipalPrepayment(loans, amount);
+  return { loans: result.loans, paid: result.cashUsed };
 }
 
 export function applyBusinessBudgetWeek(args: {
