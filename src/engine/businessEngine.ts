@@ -2572,8 +2572,8 @@ export const BUSINESS_DELEGATION_POLICIES: Record<BusinessDelegationPolicy, {
     reserveWeeks: 0,
   },
   balanced: {
-    label: 'Balanced',
-    description: 'Maintain sensible staffing, standard pricing and moderate marketing.',
+    label: 'Follow Strategy',
+    description: 'Let routine pricing, marketing, staffing and reserves follow the company Strategic Focus.',
     pricing: 'standard',
     advertising: 'moderate',
     targetStaffRatio: 0.75,
@@ -2604,6 +2604,30 @@ export const BUSINESS_DELEGATION_POLICIES: Record<BusinessDelegationPolicy, {
     reserveWeeks: 12,
   },
 };
+
+export function getEffectiveDelegationPolicyConfig(
+  biz: Pick<OwnedBusiness, 'strategicFocus'>,
+  policy: BusinessDelegationPolicy,
+): typeof BUSINESS_DELEGATION_POLICIES[BusinessDelegationPolicy] {
+  const base = BUSINESS_DELEGATION_POLICIES[policy];
+  if (policy !== 'balanced') return base;
+
+  switch (biz.strategicFocus ?? 'balanced') {
+    case 'growth':
+      return { ...base, pricing: 'standard', advertising: 'aggressive', targetStaffRatio: 0.90, reserveWeeks: 8 };
+    case 'margin':
+      return { ...base, pricing: 'premium', advertising: 'basic', targetStaffRatio: 0.68, reserveWeeks: 11 };
+    case 'premium':
+      return { ...base, pricing: 'premium', advertising: 'moderate', targetStaffRatio: 0.78, reserveWeeks: 10 };
+    case 'automation':
+      return { ...base, pricing: 'standard', advertising: 'basic', targetStaffRatio: 0.65, reserveWeeks: 10 };
+    case 'rd':
+      return { ...base, pricing: 'standard', advertising: 'moderate', targetStaffRatio: 0.82, reserveWeeks: 10 };
+    case 'balanced':
+    default:
+      return base;
+  }
+}
 
 export function getDelegationManagers(biz: OwnedBusiness): BusinessEmployee[] {
   return (biz.employees ?? []).filter((employee) =>
@@ -2651,7 +2675,7 @@ export function applyDelegatedBusinessRoutine(
 
   const type = getBusinessType(biz.typeId);
   if (!type) return biz;
-  const config = BUSINESS_DELEGATION_POLICIES[policy];
+  const config = getEffectiveDelegationPolicyConfig(biz, policy);
   const estimatedWeeklyCosts = Math.max(1, biz.lastWeekExpenses ?? type.baseWeeklyExpenses ?? 1);
   const reserveWeekAdjustment = macroCyclePhase === 'recession'
     ? 4
