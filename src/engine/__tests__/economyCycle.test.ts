@@ -80,7 +80,7 @@ describe('economic cycles', () => {
     expect(getPropertyCyclePurchaseMultiplier('recession')).toBeLessThan(1);
     expect(getPropertyCyclePurchaseMultiplier('boom')).toBeGreaterThan(1);
 
-    const property = createProperty('investment_studio', 1, 2, 1, getPropertyCyclePurchaseMultiplier('recession'));
+    const property = createProperty('studio_invest', 1, 2, 1, getPropertyCyclePurchaseMultiplier('recession'));
     expect(property).not.toBeNull();
     if (!property) return;
 
