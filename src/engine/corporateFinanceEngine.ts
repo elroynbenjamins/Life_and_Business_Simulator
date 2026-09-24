@@ -162,6 +162,7 @@ function buildDebtQuote(
   ratePremium: number,
   arrangementFeeRate: number,
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): CorporateFinancingQuote {
   const profile = getCorporateCreditProfile(business);
   const requested = Math.max(0, Math.round(amount));
@@ -170,6 +171,7 @@ function buildDebtQuote(
     0.03,
     getCorporateBaseRate(profile.rating)
       + ratePremium
+      + clamp(macroInterestRateModifier, -0.025, 0.035)
       - clamp(loanRateReduction, 0, 0.05)
       - governance.financingRateReduction,
   );
@@ -222,9 +224,19 @@ export function getRevolverDrawQuote(
   business: OwnedBusiness,
   amount: number,
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): CorporateFinancingQuote {
   const profile = getCorporateCreditProfile(business);
-  const quote = buildDebtQuote(business, 'revolver', amount, 60, 0.025, 0.005, loanRateReduction);
+  const quote = buildDebtQuote(
+    business,
+    'revolver',
+    amount,
+    60,
+    0.025,
+    0.005,
+    loanRateReduction,
+    macroInterestRateModifier,
+  );
   if (quote.allowed && quote.amount > profile.revolverAvailable) {
     return { ...quote, allowed: false, reason: 'Requested draw exceeds the available revolving credit line.' };
   }
@@ -238,9 +250,19 @@ export function getBondQuote(
   business: OwnedBusiness,
   amount: number,
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): CorporateFinancingQuote {
   const profile = getCorporateCreditProfile(business);
-  const quote = buildDebtQuote(business, 'bond', amount, 200, 0.005, 0.0075, loanRateReduction);
+  const quote = buildDebtQuote(
+    business,
+    'bond',
+    amount,
+    200,
+    0.005,
+    0.0075,
+    loanRateReduction,
+    macroInterestRateModifier,
+  );
   const tier = getCorporateScaleTier(business);
   if (quote.allowed && tier !== 'major' && tier !== 'global') {
     return { ...quote, allowed: false, reason: 'Corporate bonds unlock at €75M company value.' };
@@ -259,6 +281,7 @@ export function getProjectFinanceQuote(
   business: OwnedBusiness,
   projectCost: number,
   loanRateReduction = 0,
+  macroInterestRateModifier = 0,
 ): CorporateFinancingQuote {
   const profile = getCorporateCreditProfile(business);
   const debtPrincipal = Math.round(Math.max(0, projectCost) * 0.60);
@@ -268,6 +291,7 @@ export function getProjectFinanceQuote(
     0.03,
     getCorporateBaseRate(profile.rating)
       + 0.015
+      + clamp(macroInterestRateModifier, -0.025, 0.035)
       - clamp(loanRateReduction, 0, 0.05)
       - governance.financingRateReduction,
   );
