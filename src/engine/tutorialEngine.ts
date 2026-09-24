@@ -1,3 +1,4 @@
+import type { TutorialChapterTargetId } from './tutorialChapterEngine';
 // Guidance is UI-only: never call game commands or grant tutorial rewards here.
 export const TUTORIAL_VERSION = 1;
 export const TUTORIAL_STEPS = [
@@ -10,7 +11,7 @@ export const TUTORIAL_STEPS = [
 ] as const;
 
 export type TutorialStepId = typeof TUTORIAL_STEPS[number]['id'];
-export type TutorialTargetId = Exclude<typeof TUTORIAL_STEPS[number]['target'], null>;
+export type TutorialTargetId = Exclude<typeof TUTORIAL_STEPS[number]['target'], null> | TutorialChapterTargetId;
 export type TutorialSnapshot = {
   scope: string;
   globalWeek: number;
