@@ -41,7 +41,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
   const partTimeActive = !!studentWorkTier && !state?.currentJobId && !state?.career?.companyId;
 
   // ---------- Step 2: Economy (Inflation) ----------
-  const economy = processEconomy(state, newWeek);
+  const economy = processEconomy(state, newWeek, newYear);
   const stateWithInflation: GameState = {
     ...(state ?? ({} as GameState)),
     inflationMultiplier: economy.inflationMultiplier,
@@ -198,7 +198,12 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     - taxes.taxAmount;
 
   // ---------- Step 12.3: Property Income ----------
-  const propResult = processProperties(state?.properties ?? [], economy.inflationMultiplier, prestigeEffects.property_income ?? 0);
+  const propResult = processProperties(
+    state?.properties ?? [],
+    economy.inflationMultiplier,
+    prestigeEffects.property_income ?? 0,
+    economy.propertyValueWeeklyAdjustment,
+  );
   const propertyNetIncome = Math.round(
     propResult.totalIncome * economy.propertyIncomeMultiplier - propResult.totalMaintenance
   );
@@ -273,6 +278,7 @@ export function weeklyTick(state: GameState, prestigeEffects: Record<string, num
     competitorRevenueMultipliers: compResult.competitorRevenueMultipliers,
     businessCrisisReduction: prestigeEffects.business_crisis_reduction ?? 0,
     macroRevenueMultiplier: economy.businessRevenueMultiplier,
+    macroCyclePhase: economy.economicCycle.phase,
   }, state?.holdingCompanies ?? []);
   const adjustedBizProfit = bizResult.totalProfit;
   const adjustedBusinesses = bizResult.updatedBusinesses;
