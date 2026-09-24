@@ -7,6 +7,7 @@ import { PieChart } from 'react-native-chart-kit';
 import { Colors, resolveThemeColor } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
 import StatusPill from '../../src/components/StatusPill';
+import FeatureTourModal, { FeatureTourStep } from '../../src/components/FeatureTourModal';
 import useGameStore from '../../src/store/gameStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatCurrency } from '../../src/utils/format';
@@ -122,6 +123,24 @@ const PRICING_OPTIONS: { key: 'budget' | 'standard' | 'premium' | 'luxury'; labe
   { key: 'standard', label: 'Standard', desc: 'Balanced pricing' },
   { key: 'premium', label: 'Premium', desc: 'Higher prices, lower demand' },
   { key: 'luxury', label: 'Luxury', desc: 'Maximum prices, niche market' },
+];
+
+const BUSINESS_CASH_TOUR_STEPS: FeatureTourStep[] = [
+  {
+    title: 'Personal cash and company cash are separate',
+    body: 'Personal cash pays your own living costs and purchases. Company cash belongs to this business and pays staff, projects, upgrades, debt and other operating costs. Inject Cash moves money from you into the company.',
+    icon: 'wallet-outline',
+  },
+  {
+    title: 'Protected reserves stay in the business',
+    body: 'Owner Distribution only uses cash above the company’s protected operating and budget reserves. Holding subsidiaries and co-owned companies use their own treasury or dividend rules instead of direct owner draws.',
+    icon: 'shield-checkmark-outline',
+  },
+  {
+    title: 'Read the transaction preview first',
+    body: 'Enter an amount in Cash Management to see personal cash and company cash before and after the move. Owner distributions also show the protected floor. Nothing moves until you press Confirm.',
+    icon: 'swap-horizontal-outline',
+  },
 ];
 
 const AD_OPTIONS: { key: 'none' | 'basic' | 'moderate' | 'aggressive'; label: string; cost: string }[] = [
@@ -301,6 +320,7 @@ export default function BusinessDetailScreen() {
 
   const [showHireModal, setShowHireModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState<'inject' | 'withdraw' | null>(null);
+  const [showBusinessTour, setShowBusinessTour] = useState(false);
   const [transferAmount, setTransferAmount] = useState('');
   const [dialog, setDialog] = useState<{ title: string; message: string; action: () => void } | null>(null);
 
@@ -493,6 +513,27 @@ export default function BusinessDetailScreen() {
   const manualDistributionAvailable = manualDistributionAllowed
     ? getBusinessAvailableOwnerDistributionCash(biz, inflationMultiplier)
     : 0;
+  const transferValue = Math.floor(Number(transferAmount));
+  const transferAmountValid = Number.isFinite(transferValue) && transferValue > 0;
+  const transferPreviewAmount = transferAmountValid ? transferValue : 0;
+  const protectedBusinessCash = Math.max(0, (biz.balance ?? 0) - manualDistributionAvailable);
+  const transferWithinLimit = transferAmountValid && (
+    showTransferModal === 'inject'
+      ? transferValue <= cash
+      : showTransferModal === 'withdraw'
+        ? transferValue <= manualDistributionAvailable
+        : false
+  );
+  const previewPersonalCash = showTransferModal === 'inject'
+    ? cash - transferPreviewAmount
+    : showTransferModal === 'withdraw'
+      ? cash + transferPreviewAmount
+      : cash;
+  const previewBusinessCash = showTransferModal === 'inject'
+    ? (biz.balance ?? 0) + transferPreviewAmount
+    : showTransferModal === 'withdraw'
+      ? (biz.balance ?? 0) - transferPreviewAmount
+      : (biz.balance ?? 0);
   const investorOwnershipPct = ownership
     .filter((stake) => stake.ownerType === 'investor')
     .reduce((sum, stake) => sum + (stake.percent ?? 0), 0);
@@ -757,9 +798,19 @@ export default function BusinessDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>{biz.name}</Text>
-        <Pressable disabled={playerOwnershipPct < 99.9} onPress={handleSell} hitSlop={12}>
-          <Ionicons name="trash-outline" size={22} color={playerOwnershipPct >= 99.9 ? Colors.negative : Colors.textMuted} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={() => setShowBusinessTour(true)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Open business cash tour"
+          >
+            <Ionicons name="help-circle-outline" size={22} color={Colors.info} />
+          </Pressable>
+          <Pressable disabled={playerOwnershipPct < 99.9} onPress={handleSell} hitSlop={12}>
+            <Ionicons name="trash-outline" size={22} color={playerOwnershipPct >= 99.9 ? Colors.negative : Colors.textMuted} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.sectionTabShell}>
@@ -3246,6 +3297,13 @@ export default function BusinessDetailScreen() {
         </View>
       </Modal>
 
+      <FeatureTourModal
+        visible={showBusinessTour}
+        title="Business cash basics"
+        steps={BUSINESS_CASH_TOUR_STEPS}
+        onClose={() => setShowBusinessTour(false)}
+      />
+
       {/* Transfer Modal */}
       <Modal visible={showTransferModal !== null} transparent animationType="fade">
         <Pressable style={styles.modalBackdrop} onPress={() => setShowTransferModal(null)}>
@@ -3266,8 +3324,42 @@ export default function BusinessDetailScreen() {
               onChangeText={(value) => { setTransferAmount(value); setTransferError(''); }}
               keyboardType="numeric"
             />
+            {transferAmountValid && (
+              <View style={[styles.transferPreview, !transferWithinLimit && styles.transferPreviewInvalid]}>
+                <Text style={styles.transferPreviewTitle}>Transaction preview</Text>
+                <View style={styles.transferPreviewRow}>
+                  <Text style={styles.transferPreviewLabel}>Personal cash</Text>
+                  <Text style={styles.transferPreviewValue}>
+                    {formatCurrency(cash)} → {formatCurrency(previewPersonalCash)}
+                  </Text>
+                </View>
+                <View style={styles.transferPreviewRow}>
+                  <Text style={styles.transferPreviewLabel}>Company cash</Text>
+                  <Text style={styles.transferPreviewValue}>
+                    {formatCurrency(biz.balance ?? 0)} → {formatCurrency(previewBusinessCash)}
+                  </Text>
+                </View>
+                {showTransferModal === 'withdraw' && (
+                  <View style={styles.transferPreviewRow}>
+                    <Text style={styles.transferPreviewLabel}>Protected floor</Text>
+                    <Text style={styles.transferPreviewValue}>{formatCurrency(protectedBusinessCash)}</Text>
+                  </View>
+                )}
+                <Text style={[styles.transferPreviewHint, !transferWithinLimit && { color: Colors.negative }]}>
+                  {transferWithinLimit
+                    ? 'Ready to confirm. No cash moves until you confirm.'
+                    : showTransferModal === 'inject'
+                      ? 'This amount is above your available personal cash.'
+                      : 'This amount would use protected company reserves.'}
+                </Text>
+              </View>
+            )}
             {!!transferError && <Text style={styles.transferError}>{transferError}</Text>}
-            <Pressable style={styles.transferBtn} onPress={handleTransfer}>
+            <Pressable
+              disabled={!transferWithinLimit}
+              style={[styles.transferBtn, !transferWithinLimit && styles.disabledAction]}
+              onPress={handleTransfer}
+            >
               <Text style={styles.transferBtnText}>Confirm</Text>
             </Pressable>
             <Pressable style={styles.modalClose} onPress={() => setShowTransferModal(null)}>
@@ -4021,6 +4113,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
   headerTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 8 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 13 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   warningBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${Colors.warning}20`, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: `${Colors.warning}40` },
@@ -4599,6 +4692,13 @@ const styles = StyleSheet.create({
   modalCloseText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '600' },
   transferInfo: { color: Colors.textSecondary, fontSize: 14, marginBottom: 12 },
   transferInput: { backgroundColor: Colors.elevated, borderRadius: 10, padding: 14, color: Colors.textPrimary, fontSize: 16, borderWidth: 1, borderColor: Colors.cardBorder, marginBottom: 12 },
+  transferPreview: { backgroundColor: Colors.elevated, borderRadius: 11, borderWidth: 1, borderColor: Colors.cardBorder, padding: 11, marginBottom: 12, gap: 7 },
+  transferPreviewInvalid: { borderColor: `${Colors.negative}66` },
+  transferPreviewTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '900', marginBottom: 1 },
+  transferPreviewRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+  transferPreviewLabel: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
+  transferPreviewValue: { color: Colors.textSecondary, fontSize: 11, fontWeight: '800', textAlign: 'right', flexShrink: 1 },
+  transferPreviewHint: { color: Colors.primary, fontSize: 10, lineHeight: 15, marginTop: 2 },
   transferError: { color: Colors.negative, fontSize: 12, fontWeight: '700', marginBottom: 10 },
   transferBtn: { backgroundColor: Colors.primary, borderRadius: 10, padding: 14, alignItems: 'center' },
   transferBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
