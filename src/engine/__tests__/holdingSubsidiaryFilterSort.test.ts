@@ -78,9 +78,59 @@ describe('holding subsidiary filtering and sorting', () => {
       loss: 1,
       reserve: 2,
       debt: 1,
+      materialDebt: 1,
       manual: 1,
       delegated: 2,
     });
+  });
+
+  test('distinguishes material debt from all debt', () => {
+    const debtBusinesses = [
+      {
+        id: 'small-loan',
+        name: 'Small Loan Co',
+        valuation: 5_000_000,
+        balance: 2_000_000,
+        lastWeekProfit: 150_000,
+        lastWeekExpenses: 100_000,
+        lastExpenseBreakdown: { loanInterest: 2_000 },
+        businessLoans: [{
+          id: 'small',
+          amount: 250_000,
+          remainingAmount: 275_000,
+          weeklyPayment: 13_750,
+          weeksRemaining: 20,
+          interestRate: 0.10,
+          purpose: 'operating',
+        }],
+      },
+      {
+        id: 'material-loan',
+        name: 'Material Loan Co',
+        valuation: 1_000_000,
+        balance: 2_000_000,
+        lastWeekProfit: 200_000,
+        lastWeekExpenses: 100_000,
+        businessLoans: [{
+          id: 'large',
+          amount: 400_000,
+          remainingAmount: 440_000,
+          weeklyPayment: 22_000,
+          weeksRemaining: 20,
+          interestRate: 0.10,
+          purpose: 'operating',
+        }],
+      },
+    ] as any[];
+
+    expect(filterAndSortHoldingSubsidiaries(debtBusinesses, 1, 'material-debt').map((b) => b.id))
+      .toEqual(['material-loan']);
+    expect(filterAndSortHoldingSubsidiaries(debtBusinesses, 1, 'debt').map((b) => b.id))
+      .toEqual(['material-loan', 'small-loan']);
+
+    const summary = getHoldingSubsidiaryAttentionSummary(debtBusinesses, 1);
+    expect(summary.debt).toBe(2);
+    expect(summary.materialDebt).toBe(1);
   });
 
   test('supports loss, reserve, debt, manual and delegated filters', () => {
