@@ -8,6 +8,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Colors, resolveThemeColor } from '../src/theme/colors';
 import GameCard from '../src/components/GameCard';
 import ScreenHeader from '../src/components/ScreenHeader';
+import ScreenTabs from '../src/components/ScreenTabs';
 import StatusPill from '../src/components/StatusPill';
 import { formatCurrency } from '../src/utils/format';
 import { getWeeklySalary, processExpenses } from '../src/engine/financeEngine';
@@ -72,6 +73,7 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
   const weeklyFlow = weeklyIncome - weeklyExpenses;
   const netWorthChange = nw - firstNW;
   const [showCashFlowDetails, setShowCashFlowDetails] = useState(false);
+  const [activeView, setActiveView] = useState<'overview' | 'lifetime'>('overview');
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -120,6 +122,18 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
           </View>
         </GameCard>
 
+        <ScreenTabs
+          items={[
+            { key: 'overview', label: 'Overview', icon: 'pulse-outline' },
+            { key: 'lifetime', label: 'Lifetime', icon: 'trophy-outline' },
+          ]}
+          activeKey={activeView}
+          onChange={setActiveView}
+          accentColor={Colors.primary}
+        />
+
+        {activeView === 'overview' && (
+          <>
         {hasChart && (
           <GameCard variant="subtle" eyebrow="TREND" title={`Net Worth History • ${history.length} weeks`} accentColor={lineColor}>
             <View style={styles.chartPriceRow}>
@@ -207,6 +221,11 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
           )}
         </GameCard>
 
+          </>
+        )}
+
+        {activeView === 'lifetime' && (
+          <>
         <View style={styles.sectionHeading}>
           <Text style={styles.sectionHeadingTitle}>Lifetime Progress</Text>
           <Text style={styles.sectionHeadingSub}>{s?.weeksPlayed ?? 0} weeks played</Text>
@@ -241,6 +260,8 @@ export default function StatisticsScreen({ showBack = true }: { showBack?: boole
           <Row label="Loans Taken" value={`${s?.loansTaken ?? 0}`} />
           <Row label="Loans Repaid" value={`${s?.loansRepaid ?? 0}`} />
         </GameCard>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
