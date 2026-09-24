@@ -19,7 +19,8 @@ export function getPropertyWeeklyRent(property: OwnedProperty, inflationMultipli
 export function processProperties(
   properties: OwnedProperty[],
   inflationMultiplier: number,
-  rentBonus = 0
+  rentBonus = 0,
+  valueGrowthAdjustment = 0,
 ): PropertyTickResult {
   let totalIncome = 0;
   let totalMaintenance = 0;
@@ -29,8 +30,12 @@ export function processProperties(
     const updated = { ...prop };
 
     // Appreciate value
-    const rate = typeData?.appreciationRate ?? 0.001;
-    updated.currentValue = Math.round((prop.currentValue ?? prop.purchasePrice) * (1 + rate));
+    const baseRate = typeData?.appreciationRate ?? 0.001;
+    const rate = Math.max(-0.02, Math.min(0.03, baseRate + valueGrowthAdjustment));
+    updated.currentValue = Math.max(
+      1,
+      Math.round((prop.currentValue ?? prop.purchasePrice) * (1 + rate)),
+    );
 
     // Collect rent if rented out
     if (prop.isRentedOut) {
