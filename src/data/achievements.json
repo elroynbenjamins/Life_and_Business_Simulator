@@ -898,5 +898,59 @@
     "gemReward": 3,
     "icon": "refresh-circle-outline",
     "category": "Business"
+  },
+  {
+    "id": "auto_strategy_first",
+    "name": "Delegated Direction",
+    "description": "Enable Auto Strategy on your first business",
+    "xpReward": 40,
+    "gemReward": 2,
+    "icon": "flash-outline",
+    "category": "Business"
+  },
+  {
+    "id": "corporate_workforce_first",
+    "name": "Corporate Structure",
+    "description": "Establish corporate departments in your first company",
+    "xpReward": 100,
+    "gemReward": 3,
+    "icon": "people-outline",
+    "category": "Business"
+  },
+  {
+    "id": "holding_services_max",
+    "name": "Integrated Group",
+    "description": "Max all shared services in one holding company",
+    "xpReward": 300,
+    "gemReward": 3,
+    "icon": "hardware-chip-outline",
+    "category": "Business"
+  },
+  {
+    "id": "first_business_exit",
+    "name": "Entrepreneurial Exit",
+    "description": "Sell your first business",
+    "xpReward": 60,
+    "gemReward": 2,
+    "icon": "exit-outline",
+    "category": "Business"
+  },
+  {
+    "id": "net_worth_25m",
+    "name": "Empire Builder",
+    "description": "Reach €25,000,000 net worth",
+    "xpReward": 500,
+    "gemReward": 3,
+    "icon": "diamond-outline",
+    "category": "Wealth"
+  },
+  {
+    "id": "bank_deposit_100k",
+    "name": "Patient Capital",
+    "description": "Hold €100,000 in fixed-term bank deposits",
+    "xpReward": 80,
+    "gemReward": 2,
+    "icon": "lock-closed-outline",
+    "category": "Wealth"
   }
 ]
