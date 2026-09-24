@@ -19,13 +19,6 @@ export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
 export const ACQUISITION_TARGET_COUNT = 6;
 
-// Compatibility exports. Holding-company ownership now lives in holdingCompanyEngine.
-export {
-  HOLDING_COMPANY_SETUP_COST,
-  createHoldingCompany,
-  getHoldingCompanySummary,
-} from './holdingCompanyEngine';
-
 export interface AcquisitionFinancingQuote {
   mode: AcquisitionFundingMode;
   purchasePrice: number;
