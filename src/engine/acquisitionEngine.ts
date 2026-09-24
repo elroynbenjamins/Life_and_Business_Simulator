@@ -14,7 +14,7 @@ import businessTypesData from '../data/business_types.json';
 import { aggregateEmployeeBuffs, candidateToEmployee, createBusiness, generateCandidates, getAllBusinessLocationTemplates, getBusinessType, getBusinessRevenueCapacity, getScaledLocationCosts } from './businessEngine';
 import { createCorporateWorkforce } from './businessWorkforceEngine';
 import { getAcquisitionCycleValueMultiplier } from './economyEngine';
-import { getBusinessDebtPrincipal } from './businessDebtEngine';
+import { getBusinessEquityReturn } from './businessPortfolioEngine';
 
 export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
@@ -704,21 +704,14 @@ export function migrateAcquiredBusinessAssets(
 
 export function getAcquisitionReturn(business: OwnedBusiness) {
   if (!business.acquisition) return null;
-  const investedCapital = Math.max(
-    1,
-    business.capitalInvested
-      ?? ((business.acquisition.cashContribution ?? business.acquisition.purchasePrice ?? 0)
-        + (business.acquisition.acquisitionTransactionCost ?? 0)
-        + (business.acquisition.additionalCapitalInvested ?? 0)),
-  );
-  const debt = getBusinessDebtPrincipal(business);
-  const equityValue = Math.max(0, (business.valuation ?? 0) - debt);
-  const gain = equityValue + Math.max(0, business.totalPlayerDistributions ?? 0) - investedCapital;
+  const canonical = getBusinessEquityReturn(business);
+  const investedCapital = Math.max(1, canonical.investmentBasis ?? 0);
+  const gain = canonical.gain ?? (canonical.equityValue + canonical.totalPlayerDistributions - investedCapital);
   return {
     investedCapital,
-    debt,
-    equityValue,
+    debt: canonical.debt,
+    equityValue: canonical.equityValue,
     gain,
-    returnPct: investedCapital > 0 ? gain / investedCapital * 100 : 0,
+    returnPct: canonical.returnPct ?? (gain / investedCapital * 100),
   };
 }
