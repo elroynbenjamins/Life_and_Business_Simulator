@@ -6,6 +6,7 @@ import {
 } from '../businessEngine';
 import {
   EMPTY_HOLDING_SHARED_SERVICES,
+  canChargeHoldingManagementFee,
   getHoldingAvailableDistributionCash,
   getHoldingManagementFeeForWeek,
   getHoldingReserveTarget,
@@ -103,6 +104,20 @@ function makeManagedBusiness(): OwnedBusiness {
 describe('holding shared services and delegated management', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('management fees cannot bypass minority shareholder distributions', () => {
+    const whollyOwned = makeManagedBusiness();
+    expect(canChargeHoldingManagementFee(whollyOwned)).toBe(true);
+
+    const coOwned = {
+      ...makeManagedBusiness(),
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside Investors', percent: 20, votingPercent: 20 },
+      ],
+    };
+    expect(canChargeHoldingManagementFee(coOwned)).toBe(false);
   });
 
   test('management fee requires profit and respects protected cash plus profit cap', () => {
