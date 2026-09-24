@@ -403,6 +403,10 @@ export default function BusinessDetailScreen() {
       return;
     }
     if (showTransferModal === 'inject') {
+      if (biz.holdingCompanyId) {
+        setTransferError('Holding subsidiaries are funded through the Holding treasury.');
+        return;
+      }
       if (amount > cash) {
         setTransferError(`You only have ${formatCurrency(cash)} personal cash available.`);
         return;
@@ -2049,7 +2053,11 @@ export default function BusinessDetailScreen() {
         {/* Cash Management */}
         <GameCard title="Cash Management">
           <View style={styles.cashBtnRow}>
-            <Pressable style={styles.cashBtn} onPress={() => { setShowTransferModal('inject'); setTransferAmount(''); setTransferError(''); }}>
+            <Pressable
+              disabled={!!biz.holdingCompanyId}
+              style={[styles.cashBtn, !!biz.holdingCompanyId && styles.disabledAction]}
+              onPress={() => { setShowTransferModal('inject'); setTransferAmount(''); setTransferError(''); }}
+            >
               <Ionicons name="arrow-down-circle" size={18} color={Colors.primary} />
               <Text style={styles.cashBtnText}>Inject Cash</Text>
             </Pressable>
@@ -2064,7 +2072,7 @@ export default function BusinessDetailScreen() {
           </View>
           <Text style={styles.sectionHint}>
             {biz.holdingCompanyId
-              ? 'This subsidiary upstreams cash through Holding dividends and management fees.'
+              ? 'This subsidiary uses the Holding treasury for both funding and upstream cash. Direct personal transfers are disabled.'
               : playerOwnershipPct < 99.999
                 ? 'Co-owned companies use pro-rata dividend distributions; direct owner draws are disabled.'
                 : `Direct owner distributions are limited to cash above protected operating and budget reserves: ${formatCurrency(manualDistributionAvailable)} available.`}
