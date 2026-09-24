@@ -84,6 +84,51 @@ describe('business portfolio engine', () => {
     expect(result.returnPct).toBeCloseTo(120);
   });
 
+  test('fair outside equity issuance does not create player return from investor cash', () => {
+    const before = {
+      ...makeBusiness(),
+      valuation: 300_000,
+      businessLoans: [],
+      totalPlayerDistributions: 0,
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 100, votingPercent: 100 },
+      ],
+    };
+    const after = {
+      ...before,
+      valuation: 375_000,
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'investor' as const, ownerId: 'outside', ownerName: 'Outside Investors', percent: 20, votingPercent: 20 },
+      ],
+    };
+
+    expect(getBusinessEquityReturn(before).equityValue).toBe(300_000);
+    expect(getBusinessEquityReturn(after).equityValue).toBe(300_000);
+    expect(getBusinessEquityReturn(after).returnPct).toBeCloseTo(getBusinessEquityReturn(before).returnPct!);
+  });
+
+  test('gifting shares reduces lifetime player return because no sale proceeds are received', () => {
+    const before = {
+      ...makeBusiness(),
+      valuation: 300_000,
+      businessLoans: [],
+      totalPlayerDistributions: 0,
+    };
+    const afterGift = {
+      ...before,
+      ownership: [
+        { ownerType: 'player' as const, ownerId: 'player', ownerName: 'Player', percent: 80, votingPercent: 80 },
+        { ownerType: 'child' as const, ownerId: 'child_1', ownerName: 'Child', percent: 20, votingPercent: 20 },
+      ],
+    };
+
+    expect(getBusinessEquityReturn(before).returnPct).toBeCloseTo(200);
+    expect(getBusinessEquityReturn(afterGift).investmentBasis).toBe(100_000);
+    expect(getBusinessEquityReturn(afterGift).equityValue).toBe(240_000);
+    expect(getBusinessEquityReturn(afterGift).returnPct).toBeCloseTo(140);
+  });
+
   test('legacy acquisition basis falls back to shareholder cash contribution plus later capital', () => {
     const business = {
       ...makeBusiness(),
