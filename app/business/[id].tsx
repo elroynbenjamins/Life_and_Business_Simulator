@@ -201,7 +201,7 @@ function businessIdentityColor(color: string): string {
   return Colors.primary;
 }
 type BusinessDetailSection = 'overview' | 'ownership' | 'leadership' | 'finance' | 'people' | 'risk' | 'growth' | 'capital';
-type BusinessDetailFocus = 'integration' | 'decision';
+type BusinessDetailFocus = 'integration' | 'decision' | 'cash-management' | 'budget';
 
 const BUSINESS_SECTION_CHIPS: Array<{ key: BusinessDetailSection; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { key: 'overview', label: 'Overview', icon: 'speedometer-outline' },
@@ -222,6 +222,13 @@ const MANAGEMENT_TARGET_SECTION: Record<CorporateManagementActionTarget, Busines
   investments: 'growth',
 };
 
+const BUSINESS_FOCUS_SECTION: Record<BusinessDetailFocus, BusinessDetailSection> = {
+  integration: 'overview',
+  decision: 'overview',
+  'cash-management': 'finance',
+  budget: 'finance',
+};
+
 function normalizeBusinessDetailSection(value: string | string[] | undefined): BusinessDetailSection | null {
   const raw = Array.isArray(value) ? value[0] : value;
   return BUSINESS_SECTION_CHIPS.some((section) => section.key === raw) ? raw as BusinessDetailSection : null;
@@ -229,7 +236,9 @@ function normalizeBusinessDetailSection(value: string | string[] | undefined): B
 
 function normalizeBusinessDetailFocus(value: string | string[] | undefined): BusinessDetailFocus | null {
   const raw = Array.isArray(value) ? value[0] : value;
-  return raw === 'integration' || raw === 'decision' ? raw : null;
+  return raw === 'integration' || raw === 'decision' || raw === 'cash-management' || raw === 'budget'
+    ? raw
+    : null;
 }
 
 export default function BusinessDetailScreen() {
@@ -374,7 +383,7 @@ export default function BusinessDetailScreen() {
   const recordBusinessFocus = (target: BusinessDetailFocus, event: LayoutChangeEvent) => {
     const y = event.nativeEvent.layout.y;
     businessFocusOffsets.current[target] = y;
-    if (requestedFocus !== target || activeSection !== 'overview') return;
+    if (requestedFocus !== target || activeSection !== BUSINESS_FOCUS_SECTION[target]) return;
     const focusKey = `${id}:${target}`;
     if (handledBusinessFocus.current === focusKey) return;
     handledBusinessFocus.current = focusKey;
@@ -398,12 +407,13 @@ export default function BusinessDetailScreen() {
   useEffect(() => {
     if (!requestedFocus) return;
     const focusKey = `${id}:${requestedFocus}`;
+    const targetSection = BUSINESS_FOCUS_SECTION[requestedFocus];
     handledBusinessFocus.current = null;
-    setActiveSection('overview');
-    const overviewIndex = BUSINESS_SECTION_CHIPS.findIndex((item) => item.key === 'overview');
+    setActiveSection(targetSection);
+    const tabIndex = BUSINESS_SECTION_CHIPS.findIndex((item) => item.key === targetSection);
     requestAnimationFrame(() => {
-      if (overviewIndex >= 0) {
-        sectionTabScrollRef.current?.scrollTo({ x: 0, animated: true });
+      if (tabIndex >= 0) {
+        sectionTabScrollRef.current?.scrollTo({ x: Math.max(0, tabIndex * 86 - 18), animated: true });
       }
       requestAnimationFrame(() => {
         const y = businessFocusOffsets.current[requestedFocus];
@@ -2079,7 +2089,13 @@ export default function BusinessDetailScreen() {
           <StatRow label="Profit" value={biz.lastWeekProfit} positive={(biz.lastWeekProfit ?? 0) >= 0} bold />
         </GameCard>
 
-        <View collapsable={false} onLayout={(event) => recordManagementSection('budget', event)} />
+        <View
+          collapsable={false}
+          onLayout={(event) => {
+            recordManagementSection('budget', event);
+            recordBusinessFocus('budget', event);
+          }}
+        />
         <GameCard title="Annual Cash Plan">
           <View style={styles.budgetHeader}>
             <View style={{ flex: 1 }}>
@@ -2255,6 +2271,7 @@ export default function BusinessDetailScreen() {
         )}
 
         {/* Cash Management */}
+        <View collapsable={false} onLayout={(event) => recordBusinessFocus('cash-management', event)} />
         <GameCard title="Cash Management">
           <View style={styles.cashBtnRow}>
             <Pressable
