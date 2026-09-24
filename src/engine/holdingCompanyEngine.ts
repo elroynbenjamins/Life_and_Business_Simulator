@@ -389,7 +389,7 @@ export function getHoldingManagementFeePolicyPreview(
 
 
 export type HoldingSubsidiaryAttentionLevel = 'critical' | 'watch' | 'stable';
-export type HoldingSubsidiaryFilter = 'all' | 'attention' | 'loss' | 'reserve' | 'debt' | 'manual' | 'delegated';
+export type HoldingSubsidiaryFilter = 'all' | 'attention' | 'critical' | 'watch' | 'loss' | 'reserve' | 'debt' | 'manual' | 'delegated';
 export type HoldingSubsidiarySort = 'attention' | 'profit' | 'cash' | 'debt' | 'name';
 
 
@@ -448,6 +448,39 @@ export function getHoldingSubsidiaryHealthSnapshot(
   };
 }
 
+export function getHoldingSubsidiaryAttentionSummary(
+  businesses: OwnedBusiness[],
+  inflationMultiplier = 1,
+) {
+  const summary = {
+    total: 0,
+    critical: 0,
+    watch: 0,
+    stable: 0,
+    loss: 0,
+    reserve: 0,
+    debt: 0,
+    manual: 0,
+    delegated: 0,
+  };
+
+  for (const business of businesses ?? []) {
+    const health = getHoldingSubsidiaryHealthSnapshot(business, inflationMultiplier);
+    summary.total += 1;
+    summary[health.attention] += 1;
+    if (health.weeklyProfit < 0) summary.loss += 1;
+    if (health.protectedCashGap > 0) summary.reserve += 1;
+    if (health.debtPrincipal > 0) summary.debt += 1;
+    if (!business.delegationPolicy || business.delegationPolicy === 'manual') summary.manual += 1;
+    else summary.delegated += 1;
+  }
+
+  return {
+    ...summary,
+    attention: summary.critical + summary.watch,
+  };
+}
+
 export function filterAndSortHoldingSubsidiaries(
   businesses: OwnedBusiness[],
   inflationMultiplier = 1,
@@ -461,6 +494,8 @@ export function filterAndSortHoldingSubsidiaries(
 
   const filtered = rows.filter(({ business, health }) => {
     if (filter === 'attention') return health.attention !== 'stable';
+    if (filter === 'critical') return health.attention === 'critical';
+    if (filter === 'watch') return health.attention === 'watch';
     if (filter === 'loss') return health.weeklyProfit < 0;
     if (filter === 'reserve') return health.protectedCashGap > 0;
     if (filter === 'debt') return health.debtPrincipal > 0;
