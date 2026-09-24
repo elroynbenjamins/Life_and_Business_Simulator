@@ -47,12 +47,14 @@ describe('holding subsidiary health snapshot', () => {
     expect(snapshot.protectedCashCoverage).toBeLessThan(0.5);
   });
 
-  test('includes debt principal and weekly debt service in the compact snapshot', () => {
+  test('includes debt principal, coverage and leverage in the compact snapshot', () => {
     const snapshot = getHoldingSubsidiaryHealthSnapshot({
       id: 'debt',
+      valuation: 2_000_000,
       balance: 2_000_000,
       lastWeekProfit: 100_000,
       lastWeekExpenses: 100_000,
+      lastExpenseBreakdown: { loanInterest: 5_000 },
       businessLoans: [{
         id: 'loan',
         amount: 500_000,
@@ -66,6 +68,50 @@ describe('holding subsidiary health snapshot', () => {
 
     expect(snapshot.debtPrincipal).toBe(500_000);
     expect(snapshot.weeklyDebtService).toBe(55_000);
+    expect(snapshot.debtServiceCoverage).toBeCloseTo(105_000 / 55_000);
+    expect(snapshot.debtToValue).toBeCloseTo(0.25);
+    expect(snapshot.materialDebt).toBe(false);
+  });
+
+  test('marks low debt coverage or high leverage as material debt', () => {
+    const lowCoverage = getHoldingSubsidiaryHealthSnapshot({
+      id: 'coverage',
+      valuation: 5_000_000,
+      balance: 2_000_000,
+      lastWeekProfit: 20_000,
+      lastWeekExpenses: 100_000,
+      lastExpenseBreakdown: { loanInterest: 5_000 },
+      businessLoans: [{
+        id: 'loan',
+        amount: 500_000,
+        remainingAmount: 550_000,
+        weeklyPayment: 55_000,
+        weeksRemaining: 10,
+        interestRate: 0.10,
+        purpose: 'operating',
+      }],
+    } as any, 1);
+    const highLeverage = getHoldingSubsidiaryHealthSnapshot({
+      id: 'leverage',
+      valuation: 1_000_000,
+      balance: 2_000_000,
+      lastWeekProfit: 200_000,
+      lastWeekExpenses: 100_000,
+      businessLoans: [{
+        id: 'loan',
+        amount: 400_000,
+        remainingAmount: 440_000,
+        weeklyPayment: 22_000,
+        weeksRemaining: 20,
+        interestRate: 0.10,
+        purpose: 'operating',
+      }],
+    } as any, 1);
+
+    expect(lowCoverage.materialDebt).toBe(true);
+    expect(lowCoverage.attention).toBe('critical');
+    expect(highLeverage.materialDebt).toBe(true);
+    expect(highLeverage.attention).toBe('watch');
   });
 
   test('routes pending integration and decisions to business overview', () => {
@@ -109,6 +155,29 @@ describe('holding subsidiary health snapshot', () => {
     } as any, 1)).toMatchObject({ kind: 'business_finance', focus: 'budget', label: 'Review loss' });
   });
 
+
+  test('routes material debt to the Holding debt-paydown comparison', () => {
+    expect(getHoldingSubsidiaryAttentionAction({
+      id: 'material-debt-action',
+      valuation: 1_000_000,
+      balance: 2_000_000,
+      lastWeekProfit: 200_000,
+      lastWeekExpenses: 100_000,
+      businessLoans: [{
+        id: 'loan',
+        amount: 400_000,
+        remainingAmount: 440_000,
+        weeklyPayment: 22_000,
+        weeksRemaining: 20,
+        interestRate: 0.10,
+        purpose: 'operating',
+      }],
+    } as any, 1)).toMatchObject({
+      kind: 'holding_capital',
+      focus: 'debt',
+      label: 'Review debt',
+    });
+  });
   test('returns no action for a stable subsidiary', () => {
     expect(getHoldingSubsidiaryAttentionAction({
       id: 'stable-action',
