@@ -13,7 +13,7 @@ import {
   ACQUISITION_UNLOCK_NET_WORTH,
   getAcquisitionReturn,
 } from '../../src/engine/acquisitionEngine';
-import { BUSINESS_DELEGATION_POLICIES, getDelegationManagers, getHoldingSynergyProfile } from '../../src/engine/businessEngine';
+import { BUSINESS_DELEGATION_POLICIES, getDelegationManagers, getHoldingSharedServiceUpgradeEconomics, getHoldingSynergyProfile } from '../../src/engine/businessEngine';
 import {
   HOLDING_COMPANY_SETUP_COST,
   HOLDING_SHARED_SERVICE_DEFINITIONS,
@@ -377,7 +377,18 @@ export default function HoldingCompaniesScreen() {
                     const level = levels[serviceId];
                     const maxed = level >= HOLDING_SHARED_SERVICE_MAX_LEVEL;
                     const cost = getHoldingSharedServiceUpgradeCost(holding, serviceId, inflationMultiplier);
+                    const economics = getHoldingSharedServiceUpgradeEconomics(
+                      holding,
+                      businesses,
+                      serviceId,
+                      inflationMultiplier,
+                    );
                     const affordable = !maxed && cashReserve >= cost;
+                    const paybackLabel = economics.paybackWeeks == null
+                      ? 'No direct financial payback'
+                      : economics.paybackWeeks > 999
+                        ? '999+w payback'
+                        : `~${economics.paybackWeeks}w payback`;
                     return (
                       <View key={serviceId} style={styles.serviceRow}>
                         <View style={styles.serviceIcon}>
@@ -389,6 +400,16 @@ export default function HoldingCompaniesScreen() {
                             <Text style={styles.serviceLevel}>Lv {level}/{HOLDING_SHARED_SERVICE_MAX_LEVEL}</Text>
                           </View>
                           <Text style={styles.serviceDesc}>{definition.description}</Text>
+                          {!maxed && (
+                            <Text style={styles.serviceEconomics}>
+                              {economics.weeklyFinancialBenefit > 0
+                                ? `~${formatCurrency(economics.weeklyFinancialBenefit)}/wk direct benefit • ${paybackLabel}`
+                                : paybackLabel}
+                              {economics.crisisReductionDelta > 0
+                                ? ` • +${(economics.crisisReductionDelta * 100).toFixed(1)}% avg. crisis protection`
+                                : ''}
+                            </Text>
+                          )}
                         </View>
                         <Pressable
                           disabled={!affordable}
@@ -803,6 +824,7 @@ const styles = StyleSheet.create({
   serviceName: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
   serviceLevel: { color: Colors.info, fontSize: 8, fontWeight: '800' },
   serviceDesc: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  serviceEconomics: { color: Colors.info, fontSize: 8, lineHeight: 11, marginTop: 3 },
   serviceUpgrade: { minWidth: 72, borderRadius: 7, borderWidth: 1, borderColor: Colors.primary, backgroundColor: '#10382D', paddingHorizontal: 7, paddingVertical: 7, alignItems: 'center' },
   serviceMaxed: { borderColor: Colors.primary, opacity: 0.8 },
   serviceUpgradeText: { color: Colors.primary, fontSize: 8, fontWeight: '900' },
