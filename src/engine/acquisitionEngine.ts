@@ -14,6 +14,7 @@ import businessTypesData from '../data/business_types.json';
 import { aggregateEmployeeBuffs, candidateToEmployee, createBusiness, generateCandidates, getAllBusinessLocationTemplates, getBusinessType, getBusinessRevenueCapacity, getScaledLocationCosts } from './businessEngine';
 import { createCorporateWorkforce } from './businessWorkforceEngine';
 import { getAcquisitionCycleValueMultiplier } from './economyEngine';
+import { getBusinessDebtPrincipal } from './businessDebtEngine';
 
 export const ACQUISITION_UNLOCK_NET_WORTH = 10_000_000;
 export const ACQUISITION_MARKET_REFRESH_WEEKS = 6;
@@ -710,7 +711,7 @@ export function getAcquisitionReturn(business: OwnedBusiness) {
         + (business.acquisition.acquisitionTransactionCost ?? 0)
         + (business.acquisition.additionalCapitalInvested ?? 0)),
   );
-  const debt = (business.businessLoans ?? []).reduce((sum, loan) => sum + Math.max(0, loan.remainingAmount ?? 0), 0);
+  const debt = getBusinessDebtPrincipal(business);
   const equityValue = Math.max(0, (business.valuation ?? 0) - debt);
   const gain = equityValue + Math.max(0, business.totalPlayerDistributions ?? 0) - investedCapital;
   return {
