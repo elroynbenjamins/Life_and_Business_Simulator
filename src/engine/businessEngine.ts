@@ -1,5 +1,5 @@
 import { OwnedBusiness, BusinessEmployee, ActiveBusinessEvent, BusinessLoan, EmployeeCandidate, ActiveBusinessProject, BusinessExpenseBreakdown, EmployeeTier, EmployeeBuff, BusinessTimelineEntry, BusinessPendingDecision, BusinessPendingDecisionChoice, BusinessStrategicFocus, BusinessDelegationPolicy, HoldingCompany, EconomicCyclePhase } from '../types/game';
-import { getHoldingManagementFeeForWeek, getHoldingSharedServiceEffects } from './holdingCompanyEngine';
+import { canChargeHoldingManagementFee, getHoldingManagementFeeForWeek, getHoldingSharedServiceEffects } from './holdingCompanyEngine';
 import { getIndustryEconomicCycleMultiplier } from './economyEngine';
 import { getBusinessDebtPrincipal, processScheduledBusinessLoanPayments } from './businessDebtEngine';
 import {
@@ -2813,7 +2813,7 @@ export function processAllBusinesses(
       ? holdingCompanies.find((holding) => holding.id === managedBiz.holdingCompanyId)
       : null;
     let managementFee = 0;
-    if (parentHolding) {
+    if (parentHolding && canChargeHoldingManagementFee(updatedBusiness)) {
       const protectedCash = getBusinessProtectedCash(
         updatedBusiness,
         inflationMultiplier,
