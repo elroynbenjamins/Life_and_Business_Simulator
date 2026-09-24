@@ -11,6 +11,7 @@ import {
 import {
   applyBusinessBudgetWeek,
   createBusinessBudgetPlan,
+  getBusinessProtectedCash,
 } from './businessBudgetEngine';
 import {
   getBusinessInsuranceTier,
@@ -2811,11 +2812,17 @@ export function processAllBusinesses(
       : null;
     let managementFee = 0;
     if (parentHolding) {
+      const protectedCash = getBusinessProtectedCash(
+        updatedBusiness,
+        inflationMultiplier,
+        updatedBusiness.lastWeekExpenses ?? result.weeklyExpenses,
+      );
       managementFee = getHoldingManagementFeeForWeek(
         parentHolding,
         updatedBusiness.lastWeekRevenue ?? result.weeklyRevenue,
         updatedBusiness.balance ?? 0,
         updatedBusiness.lastWeekExpenses ?? result.weeklyExpenses,
+        protectedCash,
       );
       if (managementFee > 0) {
         updatedBusiness = {
