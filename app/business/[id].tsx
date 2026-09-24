@@ -641,6 +641,24 @@ export default function BusinessDetailScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.sectionTabShell}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionJumpRow}>
+          {BUSINESS_SECTION_CHIPS.map((section) => (
+            <Pressable
+              key={section.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeSection === section.key }}
+              style={[styles.sectionJumpChip, activeSection === section.key && styles.sectionJumpChipActive]}
+              onPress={() => activateSection(section.key)}
+            >
+              <Ionicons name={section.icon as any} size={13} color={activeSection === section.key ? Colors.business : Colors.textSecondary} />
+              <Text style={[styles.sectionJumpText, activeSection === section.key && styles.sectionJumpTextActive]}>{section.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+      </View>
+
       <ScrollView ref={detailScrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Understaffed Warning */}
         {isUnderStaffed && (
@@ -651,8 +669,6 @@ export default function BusinessDetailScreen() {
             </Text>
           </View>
         )}
-
-        <View collapsable={false} onLayout={(event) => recordSection('overview', event)} />
 
         {/* Top Info */}
         <GameCard>
@@ -753,21 +769,6 @@ export default function BusinessDetailScreen() {
           </View>
           <Ionicons name="chevron-forward" size={18} color={nextAction.tone} />
         </Pressable>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionJumpRow}>
-          {BUSINESS_SECTION_CHIPS.map((section) => (
-            <Pressable
-              key={section.key}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activeSection === section.key }}
-              style={[styles.sectionJumpChip, activeSection === section.key && styles.sectionJumpChipActive]}
-              onPress={() => activateSection(section.key)}
-            >
-              <Ionicons name={section.icon as any} size={13} color={activeSection === section.key ? Colors.business : Colors.textSecondary} />
-              <Text style={[styles.sectionJumpText, activeSection === section.key && styles.sectionJumpTextActive]}>{section.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
 
         {activeSection === 'overview' && (
           <>
@@ -3773,6 +3774,7 @@ const styles = StyleSheet.create({
   nextActionEyebrow: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.7 },
   nextActionTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '900', marginTop: 2 },
   nextActionDetail: { color: Colors.textSecondary, fontSize: 10, lineHeight: 14, marginTop: 2 },
+  sectionTabShell: { flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder, backgroundColor: Colors.background, paddingHorizontal: 16, paddingBottom: 8 },
   sectionJumpRow: { gap: 7, paddingRight: 10 },
   sectionJumpChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
   sectionJumpChipActive: { borderColor: `${Colors.business}66`, backgroundColor: `${Colors.business}14` },
