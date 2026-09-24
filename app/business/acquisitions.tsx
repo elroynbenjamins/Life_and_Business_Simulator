@@ -13,6 +13,7 @@ import {
   ACQUISITION_UNLOCK_NET_WORTH,
   getAcquisitionDebtServiceSafety,
   getAcquisitionFinancingQuote,
+  getAcquisitionFundingSafetyMatrix,
   getAcquisitionPrice,
   getAcquisitionTransactionCost,
 } from '../../src/engine/acquisitionEngine';
@@ -241,6 +242,12 @@ export default function BusinessAcquisitionsScreen() {
               const price = getAcquisitionPrice(target, negotiationBonus);
               const quote = getAcquisitionFinancingQuote(price, fundingMode, loanRateReduction, macroRateModifier);
               const debtServiceSafety = getAcquisitionDebtServiceSafety(target, quote);
+              const fundingSafetyMatrix = getAcquisitionFundingSafetyMatrix(
+                target,
+                price,
+                loanRateReduction,
+                macroRateModifier,
+              );
               const transactionCost = getAcquisitionTransactionCost(target, price);
               const totalCashNeeded = quote.cashContribution + transactionCost;
               const premiumPct = target.estimatedValue > 0
@@ -293,6 +300,39 @@ export default function BusinessAcquisitionsScreen() {
                         {premiumPct > 0 ? '+' : ''}{premiumPct}%
                       </Text>
                     </View>
+                  </View>
+
+                  <View style={styles.fundingSafetyRow}>
+                    <Text style={styles.fundingSafetyLabel}>Underwriting</Text>
+                    {fundingSafetyMatrix.map(({ mode, safety }) => {
+                      const option = FUNDING_OPTIONS.find((item) => item.key === mode)!;
+                      const selected = fundingMode === mode;
+                      return (
+                        <Pressable
+                          key={mode}
+                          disabled={!safety.allowed}
+                          onPress={() => setFundingMode(mode)}
+                          style={[
+                            styles.fundingSafetyChip,
+                            safety.allowed ? styles.fundingSafetyChipSafe : styles.fundingSafetyChipBlocked,
+                            selected && safety.allowed && styles.fundingSafetyChipSelected,
+                          ]}
+                        >
+                          <Ionicons
+                            name={safety.allowed ? 'checkmark-circle' : 'close-circle'}
+                            size={11}
+                            color={safety.allowed ? (selected ? Colors.white : Colors.primary) : Colors.negative}
+                          />
+                          <Text style={[
+                            styles.fundingSafetyText,
+                            safety.allowed && { color: selected ? Colors.white : Colors.primary },
+                            !safety.allowed && { color: Colors.negative },
+                          ]}>
+                            {option.label === 'All Cash' ? 'Cash' : option.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
 
                   {!expanded && (
@@ -483,6 +523,13 @@ const styles = StyleSheet.create({
   fundingLabel: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   fundingDesc: { color: Colors.textMuted, fontSize: 10, marginTop: 3 },
   underwritingText: { color: Colors.textSecondary, fontSize: 9, lineHeight: 13, marginTop: 7 },
+  fundingSafetyRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginTop: 8 },
+  fundingSafetyLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800', marginRight: 1 },
+  fundingSafetyChip: { minHeight: 24, borderRadius: 12, borderWidth: 1, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', gap: 3 },
+  fundingSafetyChipSafe: { borderColor: `${Colors.primary}55`, backgroundColor: `${Colors.primary}0D` },
+  fundingSafetyChipBlocked: { borderColor: `${Colors.negative}44`, backgroundColor: `${Colors.negative}0A`, opacity: 0.72 },
+  fundingSafetyChipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  fundingSafetyText: { fontSize: 8, fontWeight: '900' },
   marketHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 4 },
   marketTitle: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
   marketSub: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
