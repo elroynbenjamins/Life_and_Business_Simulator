@@ -294,11 +294,11 @@ describe('achievement and Prestige expansion', () => {
 
   test('achievements award 2 Gems normally and 3 Gems for 100+ XP milestones', () => {
     const achievements = achievementsData as any[];
-    expect(achievements).toHaveLength(100);
+    expect(achievements).toHaveLength(106);
     expect(achievements.every((achievement) => [2, 3].includes(achievement.gemReward))).toBe(true);
     expect(achievements.filter((achievement) => (achievement.xpReward ?? 0) >= 100).every((achievement) => achievement.gemReward === 3)).toBe(true);
     expect(achievements.filter((achievement) => (achievement.xpReward ?? 0) < 100).every((achievement) => achievement.gemReward === 2)).toBe(true);
-    expect(achievements.reduce((total, achievement) => total + achievement.gemReward, 0)).toBe(251);
+    expect(achievements.reduce((total, achievement) => total + achievement.gemReward, 0)).toBe(266);
     expect(new Set(achievements.map((achievement) => achievement.category))).toEqual(new Set([
       'Career', 'Education', 'Investing', 'Business', 'Real Estate', 'Family', 'Wealth', 'Lifestyle',
     ]));
@@ -355,7 +355,7 @@ describe('achievement and Prestige expansion', () => {
 
   test('achievement data covers the major modern gameplay systems', () => {
     const ids = new Set((achievementsData as any[]).map((achievement) => achievement.id));
-    expect(ids.size).toBe(100);
+    expect(ids.size).toBe(106);
     for (const id of [
       'generation_3',
       'family_business_gen3',
@@ -375,6 +375,12 @@ describe('achievement and Prestige expansion', () => {
       'dividends_100k',
       'fully_insured',
       'reinvestment_cycle',
+      'auto_strategy_first',
+      'corporate_workforce_first',
+      'holding_services_max',
+      'first_business_exit',
+      'net_worth_25m',
+      'bank_deposit_100k',
     ]) {
       expect(ids.has(id)).toBe(true);
     }
@@ -387,6 +393,7 @@ describe('achievement and Prestige expansion', () => {
       level: 5,
       valuation: 180_000_000,
       autoStrategicDecisions: true,
+      corporateWorkforce: { departments: {} },
       executives: [
         { id: 'cfo', role: 'cfo' },
         { id: 'coo', role: 'coo' },
@@ -426,7 +433,7 @@ describe('achievement and Prestige expansion', () => {
       businesses: [business, second, third],
       holdingCompanies: [{
         id: 'holding-1',
-        sharedServices: { finance: 1, hr: 1, procurement: 1, marketing: 1, it: 1 },
+        sharedServices: { finance: 3, hr: 3, procurement: 3, marketing: 3, it: 3 },
       }] as any,
       properties: [
         { id: 'p1', currentValue: 600_000, acquisitionType: 'auction', isRenovated: true, isRentedOut: true },
@@ -434,9 +441,10 @@ describe('achievement and Prestige expansion', () => {
         { id: 'p3', currentValue: 250_000, isRentedOut: true },
       ] as any,
       soldBusinesses: [{ id: 'sold', lifetimeCashResult: 50_000 }] as any,
+      bankDeposits: [{ id: 'deposit', amount: 100_000, durationWeeks: 20, weeksRemaining: 20, interestRate: 0.05 }] as any,
     };
 
-    const unlocked = checkAchievements(state as any, 0, 0);
+    const unlocked = checkAchievements(state as any, 25_000_000, 0);
     expect(unlocked).toEqual(expect.arrayContaining([
       'first_business',
       'multi_business_3',
@@ -447,14 +455,18 @@ describe('achievement and Prestige expansion', () => {
       'first_holding',
       'holding_3_companies',
       'holding_services_5',
+      'holding_services_max',
       'first_executive',
       'executive_team_3',
       'board_established',
       'first_corporate_capex',
       'corporate_capex_3',
+      'auto_strategy_first',
       'auto_strategy_3',
+      'corporate_workforce_first',
       'identity_trait_first',
       'identity_traits_3',
+      'first_business_exit',
       'profitable_exit',
       'fully_insured',
       'reinvestment_cycle',
@@ -463,6 +475,8 @@ describe('achievement and Prestige expansion', () => {
       'renovator',
       'rental_portfolio_3',
       'property_value_1m',
+      'net_worth_25m',
+      'bank_deposit_100k',
     ]));
   });
 
@@ -478,6 +492,9 @@ describe('achievement and Prestige expansion', () => {
         { id: 'p2', currentValue: 200_000, isRentedOut: true },
       ] as any,
       statistics: { ...INITIAL_GAME_STATE.statistics, weeksPlayed: 150 },
+      bankDeposits: [{ id: 'deposit', amount: 40_000, durationWeeks: 20, weeksRemaining: 20, interestRate: 0.05 }] as any,
+      holdingCompanies: [{ id: 'holding', sharedServices: { finance: 1, hr: 1, procurement: 1, marketing: 0, it: 0 } }] as any,
+      soldBusinesses: [] as any,
     };
 
     expect(getAchievementProgress(state as any, 'own_5_businesses')).toMatchObject({ current: 2, target: 5 });
@@ -485,5 +502,8 @@ describe('achievement and Prestige expansion', () => {
     expect(getAchievementProgress(state as any, 'rental_portfolio_3')).toMatchObject({ current: 2, target: 3 });
     expect(getAchievementProgress(state as any, 'property_value_1m')).toMatchObject({ current: 600_000, target: 1_000_000 });
     expect(getAchievementProgress(state as any, 'ten_years')).toMatchObject({ current: 150, target: 200, format: 'weeks' });
+    expect(getAchievementProgress(state as any, 'bank_deposit_100k')).toMatchObject({ current: 40_000, target: 100_000, format: 'currency' });
+    expect(getAchievementProgress(state as any, 'holding_services_max')).toMatchObject({ current: 3, target: 15 });
+    expect(getAchievementProgress(state as any, 'first_business_exit')).toMatchObject({ current: 0, target: 1 });
   });
 });
