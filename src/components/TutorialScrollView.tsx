@@ -11,9 +11,9 @@ interface TutorialScrollContextValue {
 const TutorialScrollContext = createContext<TutorialScrollContextValue | null>(null);
 
 /** Vertical screen ScrollView with a measurable viewport. Manual drag always wins. */
-export default function TutorialScrollView({
+const TutorialScrollView = React.forwardRef<ScrollView, ScrollViewProps>(function TutorialScrollView({
   onScroll, onScrollBeginDrag, onContentSizeChange, children, style, ...props
-}: ScrollViewProps) {
+}: ScrollViewProps, forwardedRef) {
   const scroll = useRef<ScrollView>(null);
   const viewport = useRef<View>(null);
   const offset = useRef(0);
@@ -53,7 +53,11 @@ export default function TutorialScrollView({
       <View ref={viewport} collapsable={false} style={[{ flex: 1 }, style]}>
         <ScrollView
           {...props}
-          ref={scroll}
+          ref={node => {
+            scroll.current = node;
+            if (typeof forwardedRef === 'function') forwardedRef(node);
+            else if (forwardedRef) forwardedRef.current = node;
+          }}
           style={{ flex: 1 }}
           removeClippedSubviews={false}
           scrollEventThrottle={16}
@@ -74,7 +78,8 @@ export default function TutorialScrollView({
       </View>
     </TutorialScrollContext.Provider>
   );
-}
+});
+export default TutorialScrollView;
 
 /** Attach directly to the existing native control: no overlay or extra layout wrapper. */
 export function useTutorialAnchor(id: TutorialTargetId | undefined, disabled = false) {
