@@ -836,6 +836,10 @@ export default function HoldingCompaniesScreen() {
                   const canAllocateGrowth = cashReserve >= allocationAmount;
                   const canAllocateDebt = capitalPreview.debt.cashUsed > 0
                     && cashReserve >= capitalPreview.debt.cashUsed;
+                  const growthHoldingCashAfter = Math.max(0, cashReserve - allocationAmount);
+                  const debtHoldingCashAfter = Math.max(0, cashReserve - capitalPreview.debt.cashUsed);
+                  const growthFundingGap = Math.max(0, allocationAmount - cashReserve);
+                  const debtFundingGap = Math.max(0, capitalPreview.debt.cashUsed - cashReserve);
                   const managers = getDelegationManagers(business);
                   const selectedManagerId = managerSelections[business.id]
                     ?? business.delegatedManagerEmployeeId
@@ -879,13 +883,22 @@ export default function HoldingCompaniesScreen() {
                       {expanded && (
                         <>
                       <View style={styles.capitalAllocationBox}>
-                        <Text style={styles.capitalAllocationTitle}>Capital Allocation</Text>
+                        <View style={styles.capitalAllocationHeader}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.capitalAllocationTitle}>Capital Allocation</Text>
+                            <Text style={styles.capitalAllocationMeta}>
+                              Holding reserve {formatCurrency(cashReserve)} • choose a maximum allocation.
+                            </Text>
+                          </View>
+                        </View>
                         <View style={styles.allocationAmountRow}>
                           {SUBSIDIARY_ALLOCATION_AMOUNTS.map((amount) => {
                             const active = allocationAmount === amount;
                             return (
                               <Pressable
                                 key={amount}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: active }}
                                 onPress={() => setSubsidiaryAllocationAmounts((current) => ({
                                   ...current,
                                   [business.id]: amount,
@@ -899,60 +912,166 @@ export default function HoldingCompaniesScreen() {
                             );
                           })}
                         </View>
-                        <Text style={styles.capitalAllocationText}>
-                          Growth +{formatCurrency(allocationAmount)}: {capitalPreview.growth.additionalRunwayWeeks == null
-                            ? 'adds liquidity'
-                            : `+${capitalPreview.growth.additionalRunwayWeeks.toFixed(1)} weeks of current expenses`}
-                          {' • '}post-cash {formatCurrency(capitalPreview.growth.postBalance)}
-                          {capitalPreview.growth.reserveGapBefore > 0
-                            ? ` • reserve gap ${formatCurrency(capitalPreview.growth.reserveGapBefore)} → ${formatCurrency(capitalPreview.growth.reserveGapAfter)}`
-                            : ` • ${formatCurrency(capitalPreview.growth.cashAboveProtected)} above protected cash`}
-                        </Text>
-                        <Text style={styles.capitalAllocationText}>
-                          Debt up to {formatCurrency(allocationAmount)}: {capitalPreview.debt.cashUsed > 0
-                            ? `repay ${formatCurrency(capitalPreview.debt.principalRepaid)} principal • avoid ${formatCurrency(capitalPreview.debt.futureInterestAvoided)} future interest • debt service -${formatCurrency(capitalPreview.debt.weeklyDebtServiceReduction)}/wk`
-                            : 'no principal outstanding'}
-                        </Text>
+
+                        <View style={styles.allocationComparisonRow}>
+                          <View style={[styles.allocationChoiceCard, styles.growthChoiceCard]}>
+                            <View style={styles.allocationChoiceHeader}>
+                              <View style={styles.allocationChoiceIcon}>
+                                <Ionicons name="trending-up-outline" size={16} color={Colors.primary} />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.allocationChoiceTitle}>Growth Capital</Text>
+                                <Text style={styles.allocationChoiceSubtitle}>Liquidity & runway</Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.allocationMetric}>
+                              <Text style={styles.allocationMetricLabel}>Holding use</Text>
+                              <Text style={styles.allocationMetricValue}>{formatCurrency(allocationAmount)}</Text>
+                            </View>
+                            <View style={styles.allocationMetric}>
+                              <Text style={styles.allocationMetricLabel}>Holding after</Text>
+                              <Text style={styles.allocationMetricValue}>{formatCurrency(growthHoldingCashAfter)}</Text>
+                            </View>
+                            <View style={styles.allocationMetric}>
+                              <Text style={styles.allocationMetricLabel}>Company cash after</Text>
+                              <Text style={styles.allocationMetricValue}>{formatCurrency(capitalPreview.growth.postBalance)}</Text>
+                            </View>
+                            <View style={styles.allocationMetric}>
+                              <Text style={styles.allocationMetricLabel}>Runway gained</Text>
+                              <Text style={[styles.allocationMetricValue, { color: Colors.primary }]}>
+                                {capitalPreview.growth.additionalRunwayWeeks == null
+                                  ? 'Liquidity added'
+                                  : `+${capitalPreview.growth.additionalRunwayWeeks.toFixed(1)}w`}
+                              </Text>
+                            </View>
+                            <View style={styles.allocationMetric}>
+                              <Text style={styles.allocationMetricLabel}>Protected cash</Text>
+                              <Text style={styles.allocationMetricValue}>
+                                {capitalPreview.growth.reserveGapAfter > 0
+                                  ? `Gap ${formatCurrency(capitalPreview.growth.reserveGapAfter)}`
+                                  : `+${formatCurrency(capitalPreview.growth.cashAboveProtected)} above`}
+                              </Text>
+                            </View>
+                            {capitalPreview.growth.reserveGapBefore > 0 && (
+                              <Text style={styles.allocationChoiceHint}>
+                                Closes {formatCurrency(capitalPreview.growth.reserveGapReduction)} of the reserve gap
+                                {' • '}{Math.round(capitalPreview.growth.protectedCoverageAfter * 100)}% protected-cash coverage after.
+                              </Text>
+                            )}
+                            {capitalPreview.growth.minorityValueTransfer > 0 && (
+                              <Text style={styles.allocationMinorityWarning}>
+                                ~{formatCurrency(capitalPreview.growth.minorityValueTransfer)} of added equity value accrues to minority owners.
+                              </Text>
+                            )}
+                            {!canAllocateGrowth && (
+                              <Text style={styles.allocationUnavailable}>
+                                Need {formatCurrency(growthFundingGap)} more Holding cash.
+                              </Text>
+                            )}
+                            <Pressable
+                              accessibilityRole="button"
+                              disabled={!canAllocateGrowth}
+                              onPress={() => showGameDialog({
+                                title: `Allocate ${formatCurrency(allocationAmount)} growth capital to ${business.name}?`,
+                                message: `Holding reserve: ${formatCurrency(cashReserve)} → ${formatCurrency(growthHoldingCashAfter)}\nCompany cash: ${formatCurrency(business.balance ?? 0)} → ${formatCurrency(capitalPreview.growth.postBalance)}\n${capitalPreview.growth.additionalRunwayWeeks == null ? 'This adds liquidity.' : `Runway gained: about ${capitalPreview.growth.additionalRunwayWeeks.toFixed(1)} weeks of current operating expenses.`}\n${capitalPreview.growth.reserveGapAfter > 0 ? `Protected-cash gap after funding: ${formatCurrency(capitalPreview.growth.reserveGapAfter)}.` : `Cash above protected level after funding: ${formatCurrency(capitalPreview.growth.cashAboveProtected)}.`}\n\nGrowth capital increases tracked owner investment basis but does not directly increase revenue by itself.${capitalPreview.growth.minorityValueTransfer > 0 ? ` Other shareholders own ${capitalPreview.ownership.minorityOwnershipPct.toFixed(1)}%, so roughly ${formatCurrency(capitalPreview.growth.minorityValueTransfer)} of the added equity value accrues to those stakes.` : ''}`,
+                                confirmText: 'Allocate Growth',
+                                onConfirm: () => allocateHoldingCapital(holding.id, business.id, allocationAmount, 'capital'),
+                              })}
+                              style={[styles.allocationChoiceButton, styles.growthChoiceButton, !canAllocateGrowth && styles.disabledAction]}
+                            >
+                              <Text style={styles.allocationChoiceButtonText}>Allocate Growth</Text>
+                            </Pressable>
+                          </View>
+
+                          <View style={[styles.allocationChoiceCard, styles.debtChoiceCard]}>
+                            <View style={styles.allocationChoiceHeader}>
+                              <View style={[styles.allocationChoiceIcon, styles.debtChoiceIcon]}>
+                                <Ionicons name="card-outline" size={16} color={Colors.info} />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.allocationChoiceTitle}>Debt Paydown</Text>
+                                <Text style={styles.allocationChoiceSubtitle}>Lower financing burden</Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.allocationMetric}>
+                              <Text style={styles.allocationMetricLabel}>Holding use</Text>
+                              <Text style={styles.allocationMetricValue}>{formatCurrency(capitalPreview.debt.cashUsed)}</Text>
+                            </View>
+                            <View style={styles.allocationMetric}>
+                              <Text style={styles.allocationMetricLabel}>Holding after</Text>
+                              <Text style={styles.allocationMetricValue}>{formatCurrency(debtHoldingCashAfter)}</Text>
+                            </View>
+                            <View style={styles.allocationMetric}>
+                              <Text style={styles.allocationMetricLabel}>Principal</Text>
+                              <Text style={styles.allocationMetricValue}>
+                                {formatCurrency(capitalPreview.debt.principalBefore)} → {formatCurrency(capitalPreview.debt.principalAfter)}
+                              </Text>
+                            </View>
+                            <View style={styles.allocationMetric}>
+                              <Text style={styles.allocationMetricLabel}>Debt service</Text>
+                              <Text style={[styles.allocationMetricValue, { color: Colors.info }]}>
+                                -{formatCurrency(capitalPreview.debt.weeklyDebtServiceReduction)}/wk
+                              </Text>
+                            </View>
+                            <View style={styles.allocationMetric}>
+                              <Text style={styles.allocationMetricLabel}>Interest avoided</Text>
+                              <Text style={styles.allocationMetricValue}>{formatCurrency(capitalPreview.debt.futureInterestAvoided)}</Text>
+                            </View>
+                            {capitalPreview.debt.cashUsed > 0 && (
+                              <Text style={styles.allocationChoiceHint}>
+                                Repays {Math.round(capitalPreview.debt.principalReductionPct * 100)}% of current principal.
+                                {capitalPreview.debt.cashUsed < allocationAmount ? ` Only ${formatCurrency(capitalPreview.debt.cashUsed)} is needed from the selected ${formatCurrency(allocationAmount)} cap.` : ''}
+                              </Text>
+                            )}
+                            {capitalPreview.debt.minorityValueTransfer > 0 && (
+                              <Text style={styles.allocationMinorityWarning}>
+                                ~{formatCurrency(capitalPreview.debt.minorityValueTransfer)} of equity benefit accrues to minority owners.
+                              </Text>
+                            )}
+                            {debt <= 0 ? (
+                              <Text style={styles.allocationUnavailable}>No subsidiary debt outstanding.</Text>
+                            ) : debtFundingGap > 0 ? (
+                              <Text style={styles.allocationUnavailable}>
+                                Need {formatCurrency(debtFundingGap)} more Holding cash.
+                              </Text>
+                            ) : null}
+                            <Pressable
+                              accessibilityRole="button"
+                              disabled={!canAllocateDebt || debt <= 0}
+                              onPress={() => showGameDialog({
+                                title: `Repay debt for ${business.name}?`,
+                                message: `Holding reserve: ${formatCurrency(cashReserve)} → ${formatCurrency(debtHoldingCashAfter)}\nPrincipal: ${formatCurrency(capitalPreview.debt.principalBefore)} → ${formatCurrency(capitalPreview.debt.principalAfter)}\nWeekly debt service: ${formatCurrency(capitalPreview.debt.weeklyDebtServiceBefore)} → ${formatCurrency(capitalPreview.debt.weeklyDebtServiceAfter)}\nFuture scheduled interest avoided: about ${formatCurrency(capitalPreview.debt.futureInterestAvoided)}.\n\nOnly the actual payoff amount, ${formatCurrency(capitalPreview.debt.cashUsed)}, leaves the Holding reserve.${capitalPreview.debt.minorityValueTransfer > 0 ? ` Other shareholders own ${capitalPreview.ownership.minorityOwnershipPct.toFixed(1)}%, so roughly ${formatCurrency(capitalPreview.debt.minorityValueTransfer)} of the equity benefit accrues to those stakes.` : ''}`,
+                                confirmText: 'Repay Debt',
+                                onConfirm: () => allocateHoldingCapital(holding.id, business.id, allocationAmount, 'debt'),
+                              })}
+                              style={[styles.allocationChoiceButton, styles.debtChoiceButton, (!canAllocateDebt || debt <= 0) && styles.disabledAction]}
+                            >
+                              <Text style={styles.allocationChoiceButtonText}>Repay Debt</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+
                         {capitalPreview.ownership.minorityOwnershipPct > 0.001 && (
-                          <Text style={styles.capitalAllocationWarning}>
-                            Other shareholders hold {capitalPreview.ownership.minorityOwnershipPct.toFixed(1)}%. Growth funding transfers about {formatCurrency(capitalPreview.growth.minorityValueTransfer)} of value to those stakes; this debt payment transfers about {formatCurrency(capitalPreview.debt.minorityValueTransfer)}.
-                          </Text>
+                          <View style={styles.allocationOwnershipBanner}>
+                            <Ionicons name="people-outline" size={14} color={Colors.warning} />
+                            <Text style={styles.allocationOwnershipText}>
+                              Other shareholders own {capitalPreview.ownership.minorityOwnershipPct.toFixed(1)}%. Compare minority value transfer before allocating Holding capital.
+                            </Text>
+                          </View>
                         )}
                       </View>
-                      <View style={styles.buttonRow}>
-                        <Pressable
-                          disabled={!canAllocateGrowth}
-                          onPress={() => showGameDialog({
-                            title: `Allocate ${formatCurrency(allocationAmount)} growth capital to ${business.name}?`,
-                            message: `Move ${formatCurrency(allocationAmount)} from ${holding.name}'s reserve into the subsidiary. ${capitalPreview.growth.additionalRunwayWeeks == null ? 'This adds liquidity.' : `This adds about ${capitalPreview.growth.additionalRunwayWeeks.toFixed(1)} weeks of current operating expenses.`} Balance rises to ${formatCurrency(capitalPreview.growth.postBalance)}. ${capitalPreview.growth.reserveGapAfter > 0 ? `The protected-cash gap would still be ${formatCurrency(capitalPreview.growth.reserveGapAfter)}.` : `Cash above the current protected level would be ${formatCurrency(capitalPreview.growth.cashAboveProtected)}.`} Growth capital increases tracked owner investment basis but does not directly increase revenue by itself.${capitalPreview.growth.minorityValueTransfer > 0 ? ` Other shareholders own ${capitalPreview.ownership.minorityOwnershipPct.toFixed(1)}%, so roughly ${formatCurrency(capitalPreview.growth.minorityValueTransfer)} of the added equity value accrues to those stakes.` : ''}`,
-                            confirmText: 'Allocate',
-                            onConfirm: () => allocateHoldingCapital(holding.id, business.id, allocationAmount, 'capital'),
-                          })}
-                          style={[styles.smallAction, !canAllocateGrowth && styles.disabledAction]}
-                        >
-                          <Text style={styles.smallActionText}>Growth</Text>
-                        </Pressable>
-                        <Pressable
-                          disabled={!canAllocateDebt || debt <= 0}
-                          onPress={() => showGameDialog({
-                            title: `Repay debt for ${business.name}?`,
-                            message: `Use ${formatCurrency(capitalPreview.debt.cashUsed)} from ${holding.name}'s reserve to repay ${formatCurrency(capitalPreview.debt.principalRepaid)} of subsidiary principal. This cancels about ${formatCurrency(capitalPreview.debt.futureInterestAvoided)} of future scheduled interest and reduces weekly debt service from ${formatCurrency(capitalPreview.debt.weeklyDebtServiceBefore)} to ${formatCurrency(capitalPreview.debt.weeklyDebtServiceAfter)}. Only the actual payoff amount is removed from the holding reserve.${capitalPreview.debt.minorityValueTransfer > 0 ? ` Other shareholders own ${capitalPreview.ownership.minorityOwnershipPct.toFixed(1)}%, so roughly ${formatCurrency(capitalPreview.debt.minorityValueTransfer)} of the equity benefit accrues to those stakes.` : ''}`,
-                            confirmText: 'Repay',
-                            onConfirm: () => allocateHoldingCapital(holding.id, business.id, allocationAmount, 'debt'),
-                          })}
-                          style={[styles.smallAction, (!canAllocateDebt || debt <= 0) && styles.disabledAction]}
-                        >
-                          <Text style={styles.smallActionText}>Debt</Text>
-                        </Pressable>
-                        {business.familyBusiness?.isFamilyBusiness && (
+                      {business.familyBusiness?.isFamilyBusiness && (
+                        <View style={styles.familyAssetActionRow}>
                           <Pressable
                             onPress={() => toggleLongTermFamilyAsset(business.id)}
                             style={[styles.smallAction, business.portfolioIntent === 'long_term_family' && styles.protectedAction]}
                           >
-                            <Text style={styles.smallActionText}>{business.portfolioIntent === 'long_term_family' ? 'Unprotect' : 'Long-term'}</Text>
+                            <Text style={styles.smallActionText}>{business.portfolioIntent === 'long_term_family' ? 'Unprotect Family Asset' : 'Mark Long-term Family Asset'}</Text>
                           </Pressable>
-                        )}
-                      </View>
+                        </View>
+                      )}
 
                       <View style={styles.delegationBox}>
                         <View style={styles.delegationHeader}>
@@ -1196,14 +1315,38 @@ const styles = StyleSheet.create({
   subsidiaryName: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   subsidiaryMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
   capitalAllocationBox: { backgroundColor: Colors.elevated, borderRadius: 9, padding: 9, marginTop: 9 },
+  capitalAllocationHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   capitalAllocationTitle: { color: Colors.textPrimary, fontSize: 10, fontWeight: '800' },
-  allocationAmountRow: { flexDirection: 'row', gap: 5, marginTop: 7, marginBottom: 2 },
+  capitalAllocationMeta: { color: Colors.textMuted, fontSize: 8, lineHeight: 11, marginTop: 2 },
+  allocationAmountRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7, marginBottom: 2 },
   allocationAmountChip: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 5 },
   allocationAmountChipActive: { borderColor: Colors.info, backgroundColor: '#17263A' },
   allocationAmountText: { color: Colors.textMuted, fontSize: 8, fontWeight: '800' },
   allocationAmountTextActive: { color: Colors.info },
   capitalAllocationText: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, marginTop: 4 },
   capitalAllocationWarning: { color: Colors.warning, fontSize: 8, lineHeight: 12, marginTop: 5 },
+  allocationComparisonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
+  allocationChoiceCard: { flexGrow: 1, flexBasis: 145, borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 10, padding: 9, backgroundColor: Colors.card },
+  growthChoiceCard: { borderColor: `${Colors.primary}44` },
+  debtChoiceCard: { borderColor: `${Colors.info}44` },
+  allocationChoiceHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 7 },
+  allocationChoiceIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: `${Colors.primary}18`, alignItems: 'center', justifyContent: 'center' },
+  debtChoiceIcon: { backgroundColor: '#17263A' },
+  allocationChoiceTitle: { color: Colors.textPrimary, fontSize: 9, fontWeight: '900' },
+  allocationChoiceSubtitle: { color: Colors.textMuted, fontSize: 7, marginTop: 1 },
+  allocationMetric: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, paddingVertical: 3, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.cardBorder },
+  allocationMetricLabel: { color: Colors.textMuted, fontSize: 7, flexShrink: 1 },
+  allocationMetricValue: { color: Colors.textSecondary, fontSize: 7, fontWeight: '800', textAlign: 'right', flexShrink: 1 },
+  allocationChoiceHint: { color: Colors.textMuted, fontSize: 7, lineHeight: 10, marginTop: 6 },
+  allocationMinorityWarning: { color: Colors.warning, fontSize: 7, lineHeight: 10, marginTop: 5 },
+  allocationUnavailable: { color: Colors.negative, fontSize: 7, lineHeight: 10, marginTop: 5, fontWeight: '700' },
+  allocationChoiceButton: { minHeight: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingHorizontal: 7 },
+  growthChoiceButton: { backgroundColor: Colors.primary },
+  debtChoiceButton: { backgroundColor: Colors.info },
+  allocationChoiceButtonText: { color: Colors.white, fontSize: 8, fontWeight: '900' },
+  allocationOwnershipBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, borderRadius: 8, backgroundColor: '#33270F', padding: 8, marginTop: 8 },
+  allocationOwnershipText: { color: Colors.warning, fontSize: 7, lineHeight: 10, flex: 1 },
+  familyAssetActionRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 7 },
   returnText: { fontSize: 9, fontWeight: '700', marginTop: 3 },
   integrationWarning: { color: Colors.warning, fontSize: 9, fontWeight: '800', marginTop: 3 },
   longTermText: { color: Colors.warning, fontSize: 9, marginTop: 3 },
