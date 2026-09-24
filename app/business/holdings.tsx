@@ -23,6 +23,7 @@ import {
   getHoldingCapitalAllocationPreview,
   getHoldingCompanySummary,
   getHoldingSharedServiceEffects,
+  getHoldingTreasuryTransactionPreview,
   getHoldingSharedServiceUpgradeCost,
   normalizeHoldingSharedServices,
 } from '../../src/engine/holdingCompanyEngine';
@@ -50,7 +51,7 @@ const HOLDINGS_TOUR_STEPS: FeatureTourStep[] = [
   },
   {
     title: 'Use previews before moving group capital',
-    body: 'In Subsidiaries, expand a company to see the Growth and Debt previews. They show post-transaction cash, reserve gaps, debt and interest effects, and any value transferred to minority shareholders before you confirm.',
+    body: 'Treasury amount buttons first show personal and Holding cash before → after. In Subsidiaries, expand a company for Growth and Debt previews showing post-cash, reserve gaps, debt and interest effects, and minority-shareholder value before you confirm.',
     icon: 'analytics-outline',
   },
 ];
@@ -148,6 +149,59 @@ export default function HoldingCompaniesScreen() {
         setName('');
         setShowCreateHolding(false);
       },
+    });
+  };
+
+  const previewTreasuryTransaction = ({
+    action,
+    holdingId,
+    holdingName,
+    cashReserve,
+    reserveTarget,
+    amount,
+  }: {
+    action: 'fund' | 'distribution';
+    holdingId: string;
+    holdingName: string;
+    cashReserve: number;
+    reserveTarget: number;
+    amount: number;
+  }) => {
+    const preview = getHoldingTreasuryTransactionPreview({
+      action,
+      personalCash: cash,
+      cashReserve,
+      reserveTarget,
+      amount,
+    });
+    if (!preview.canExecute) return;
+
+    if (action === 'fund') {
+      showGameDialog({
+        title: `Fund ${holdingName}?`,
+        message:
+          `Personal cash: ${formatCurrency(preview.personalCashBefore)} → ${formatCurrency(preview.personalCashAfter)}\n`
+          + `Holding reserve: ${formatCurrency(preview.cashReserveBefore)} → ${formatCurrency(preview.cashReserveAfter)}\n\n`
+          + 'This funds the parent treasury only. Subsidiary cash changes later when you allocate capital. Nothing moves until you confirm.',
+        confirmText: 'Fund',
+        cancelText: 'Back',
+        onConfirm: () => fundHoldingCompany(holdingId, preview.transactionAmount),
+      });
+      return;
+    }
+
+    showGameDialog({
+      title: `Distribute ${formatCurrency(preview.transactionAmount)} to owner?`,
+      message:
+        `Holding reserve: ${formatCurrency(preview.cashReserveBefore)} → ${formatCurrency(preview.cashReserveAfter)}\n`
+        + `Personal cash: ${formatCurrency(preview.personalCashBefore)} → ${formatCurrency(preview.personalCashAfter)}\n`
+        + (preview.reserveTarget > 0
+          ? `Protected reserve target: ${formatCurrency(preview.reserveTarget)}\nCash above target after payout: ${formatCurrency(preview.cashAboveTargetAfter)}\n\n`
+          : 'Protected reserve target: Off\n\n')
+        + 'The reserve target remains protected. Nothing moves until you confirm.',
+      confirmText: 'Distribute',
+      cancelText: 'Back',
+      onConfirm: () => distributeHoldingCash(holdingId, preview.transactionAmount),
     });
   };
 
@@ -495,12 +549,22 @@ export default function HoldingCompaniesScreen() {
                   <Text style={styles.capitalMeta}>
                     Upstream mix: {formatCurrency(totalDividendsReceived)} dividends • {formatCurrency(totalManagementFeesCollected)} management fees.
                   </Text>
+                  <Text style={styles.transactionHint}>Personal cash → Holding reserve • tap an amount to preview.</Text>
                   <View style={styles.buttonRow}>
                     {CAPITAL_AMOUNTS.map((amount) => (
                       <Pressable
                         key={amount}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Preview funding ${formatCurrency(amount)}`}
                         disabled={cash < amount}
-                        onPress={() => fundHoldingCompany(holding.id, amount)}
+                        onPress={() => previewTreasuryTransaction({
+                          action: 'fund',
+                          holdingId: holding.id,
+                          holdingName: holding.name,
+                          cashReserve,
+                          reserveTarget,
+                          amount,
+                        })}
                         style={[styles.smallAction, cash < amount && styles.disabledAction]}
                       >
                         <Text style={styles.smallActionText}>+{formatCurrency(amount)}</Text>
@@ -549,12 +613,22 @@ export default function HoldingCompaniesScreen() {
                   <Text style={styles.capitalMeta}>
                     Available above reserve target: {formatCurrency(availableDistributionCash)}. Strategic investments may still use the full Holding reserve.
                   </Text>
+                  <Text style={styles.transactionHint}>Holding reserve → personal cash • tap an amount to preview.</Text>
                   <View style={styles.buttonRow}>
                     {PAYOUT_AMOUNTS.map((amount) => (
                       <Pressable
                         key={amount}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Preview owner distribution ${formatCurrency(amount)}`}
                         disabled={availableDistributionCash < amount}
-                        onPress={() => distributeHoldingCash(holding.id, amount)}
+                        onPress={() => previewTreasuryTransaction({
+                          action: 'distribution',
+                          holdingId: holding.id,
+                          holdingName: holding.name,
+                          cashReserve,
+                          reserveTarget,
+                          amount,
+                        })}
                         style={[styles.smallAction, availableDistributionCash < amount && styles.disabledAction]}
                       >
                         <Text style={styles.smallActionText}>{formatCurrency(amount)}</Text>
@@ -938,6 +1012,7 @@ const styles = StyleSheet.create({
   capitalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   capitalTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800' },
   capitalMeta: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
+  transactionHint: { color: Colors.info, fontSize: 8, lineHeight: 12, marginTop: 7 },
   capitalLedgerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 9, marginBottom: 3 },
   capitalLedgerItem: { width: '48.5%', backgroundColor: Colors.elevated, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7 },
   capitalLedgerLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '700' },
