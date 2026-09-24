@@ -666,7 +666,8 @@ export function processStocks(
       if (previous > 0) {
         const previousMove = (last - previous) / previous;
         const factor = Number(metadata.momentumFactor ?? 0);
-        const cap = cryptoStyle === 'speculative' ? 0.07 : cryptoStyle === 'utility' ? 0.025 : 0.012;
+        const defaultCap = cryptoStyle === 'speculative' ? 0.07 : cryptoStyle === 'utility' ? 0.025 : 0.012;
+        const cap = Math.max(0, Number(metadata.momentumCap ?? defaultCap));
         momentumEffect = Math.max(-cap, Math.min(cap, previousMove * factor));
       }
     }
@@ -683,7 +684,9 @@ export function processStocks(
     let maniaEffect = 0;
     if (cryptoStyle === 'speculative' && Math.random() < Number(metadata.maniaChance ?? 0)) {
       const direction = Math.random() < 0.55 ? 1 : -1;
-      maniaEffect = direction * (0.08 + Math.random() * 0.12);
+      const maniaMin = Math.max(0, Number(metadata.maniaMinMove ?? 0.08));
+      const maniaMax = Math.max(maniaMin, Number(metadata.maniaMaxMove ?? 0.20));
+      maniaEffect = direction * (maniaMin + Math.random() * (maniaMax - maniaMin));
     }
 
     const effectiveMacroShock = macroShock * Number(metadata.macroShockMultiplier ?? 1);
@@ -707,16 +710,22 @@ export function processStocks(
       ? rawChange * (1 - Math.max(0, Math.min(0.5, cryptoDownsideReduction)))
       : rawChange;
 
-    const minChange = isYoungEmerging ? (effectiveMacroShock < 0 ? -0.32 : -0.20)
+    const defaultMinChange = isYoungEmerging ? (effectiveMacroShock < 0 ? -0.32 : -0.20)
       : cryptoStyle === 'reserve' ? -0.18
         : cryptoStyle === 'utility' ? -0.25
           : cryptoStyle === 'speculative' ? -0.35
             : effectiveMacroShock < 0 ? -0.30 : -0.08;
-    const maxChange = isYoungEmerging ? 0.24
+    const defaultMaxChange = isYoungEmerging ? 0.24
       : cryptoStyle === 'reserve' ? 0.18
         : cryptoStyle === 'utility' ? 0.28
           : cryptoStyle === 'speculative' ? 0.40
             : 0.10;
+    const minChange = isCrypto && Number.isFinite(Number(metadata.minWeeklyChange))
+      ? Math.max(-0.50, Math.min(0, Number(metadata.minWeeklyChange)))
+      : defaultMinChange;
+    const maxChange = isCrypto && Number.isFinite(Number(metadata.maxWeeklyChange))
+      ? Math.max(0, Math.min(0.50, Number(metadata.maxWeeklyChange)))
+      : defaultMaxChange;
     const totalChange = Math.max(minChange, Math.min(maxChange, protectedRawChange));
 
     let newPrice = (stock?.currentPrice ?? 100) * (1 + totalChange);
