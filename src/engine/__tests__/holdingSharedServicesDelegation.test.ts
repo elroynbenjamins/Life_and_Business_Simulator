@@ -6,6 +6,8 @@ import {
 } from '../businessEngine';
 import {
   EMPTY_HOLDING_SHARED_SERVICES,
+  getHoldingAvailableDistributionCash,
+  getHoldingReserveTarget,
   getHoldingSharedServiceEffects,
   getHoldingSharedServiceUpgradeCost,
 } from '../holdingCompanyEngine';
@@ -99,6 +101,19 @@ function makeManagedBusiness(): OwnedBusiness {
 describe('holding shared services and delegated management', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('holding reserve target protects owner distributions without locking strategic capital', () => {
+    const holding = makeHolding({ cashReserve: 500_000, reserveTargetWeeks: 8 });
+    const first = makeManagedBusiness();
+    first.lastWeekExpenses = 20_000;
+    const second = { ...makeManagedBusiness(), id: 'managed-2', lastWeekExpenses: 10_000 };
+
+    expect(getHoldingReserveTarget(holding, [first, second])).toBe(240_000);
+    expect(getHoldingAvailableDistributionCash(holding, [first, second])).toBe(260_000);
+
+    const disabled = { ...holding, reserveTargetWeeks: 0 };
+    expect(getHoldingAvailableDistributionCash(disabled, [first, second])).toBe(500_000);
   });
 
   test('shared-service upgrade costs double by level and use inflation', () => {
