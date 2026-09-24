@@ -942,7 +942,7 @@ export default function BusinessDetailScreen() {
               </View>
               {acquisitionReturn?.returnPct != null && (
                 <Text style={[styles.acquisitionReturn, { color: acquisitionReturn.returnPct >= 0 ? Colors.primary : Colors.negative }]}>
-                  {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
+                  Owner ROI {acquisitionReturn.returnPct >= 0 ? '+' : ''}{acquisitionReturn.returnPct.toFixed(1)}%
                 </Text>
               )}
             </View>
