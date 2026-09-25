@@ -712,12 +712,15 @@ export function processStocks(
 
     // Per-asset trend lines keep the three crypto assets structurally distinct
     // without guaranteeing returns.
-    const annualTrend = Number(metadata.annualTrend ?? (isEtf ? 0.018 : isCommodity ? 0.006 : 0.015));
+    // Commodities are cyclical stores of value rather than compounding
+    // businesses. Keep their structural drift low and pull extended spikes
+    // back harder than equities so super-cycles do not dominate long saves.
+    const annualTrend = Number(metadata.annualTrend ?? (isEtf ? 0.018 : isCommodity ? 0.001 : 0.015));
     const weeklyGrowthDrift = Math.pow(1 + annualTrend, 1 / 20) - 1;
     const trendPrice = (data?.startPrice ?? stock.currentPrice ?? 100) * Math.pow(1 + annualTrend, elapsedWeeks / 20);
     const trendGap = trendPrice / Math.max(isCrypto ? 0.01 : 1, stock.currentPrice ?? 1) - 1;
-    const reversionCap = cryptoStyle === 'speculative' ? 0.012 : isCrypto ? 0.007 : 0.004;
-    const meanReversion = Math.max(-reversionCap, Math.min(reversionCap, trendGap * 0.02));
+    const reversionCap = isCommodity ? 0.014 : cryptoStyle === 'speculative' ? 0.012 : isCrypto ? 0.007 : 0.004;
+    const meanReversion = Math.max(-reversionCap, Math.min(reversionCap, trendGap * (isCommodity ? 0.055 : 0.02)));
 
     let emergingDrift = 0;
     let emergingMomentum = 0;
@@ -769,6 +772,20 @@ export function processStocks(
       maniaEffect = direction * (maniaMin + Math.random() * (maniaMax - maniaMin));
     }
 
+    let commodityCrashEffect = 0;
+    if (isCommodity) {
+      const commodityRatio = (stock.currentPrice ?? data?.startPrice ?? 1) / Math.max(1, data?.startPrice ?? 1);
+      const crashChance = commodityRatio >= 2
+        ? 0.025
+        : commodityRatio >= 1.35
+          ? 0.012
+          : 0.003;
+      if (Math.random() < crashChance) {
+        const maxCrash = commodityRatio >= 2 ? 0.32 : commodityRatio >= 1.35 ? 0.24 : 0.16;
+        commodityCrashEffect = -(0.10 + Math.random() * (maxCrash - 0.10));
+      }
+    }
+
     const effectiveMacroShock = macroShock * Number(metadata.macroShockMultiplier ?? 1);
     const rawChange = baseChange
       + newsEffect
@@ -784,6 +801,7 @@ export function processStocks(
       + reserveInflationEffect
       + scarcityDrift
       + maniaEffect
+      + commodityCrashEffect
       + effectiveMacroShock;
 
     const protectedRawChange = isCrypto && rawChange < 0
@@ -794,11 +812,13 @@ export function processStocks(
       : cryptoStyle === 'reserve' ? -0.18
         : cryptoStyle === 'utility' ? -0.25
           : cryptoStyle === 'speculative' ? -0.35
+            : isCommodity ? -0.22
             : effectiveMacroShock < 0 ? -0.30 : -0.08;
     const defaultMaxChange = isYoungEmerging ? 0.24
       : cryptoStyle === 'reserve' ? 0.18
         : cryptoStyle === 'utility' ? 0.28
           : cryptoStyle === 'speculative' ? 0.40
+            : isCommodity ? 0.12
             : 0.10;
     const minChange = cryptoRisk?.minWeeklyChange ?? defaultMinChange;
     const maxChange = cryptoRisk?.maxWeeklyChange ?? defaultMaxChange;

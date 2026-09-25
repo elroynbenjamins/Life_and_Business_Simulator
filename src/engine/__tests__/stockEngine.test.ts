@@ -38,6 +38,22 @@ describe('stockEngine market reporting and type events', () => {
     random.mockRestore();
   });
 
+  test('commodities can suffer sharp crashes after extended spikes', () => {
+    const random = jest.spyOn(Math, 'random');
+    random
+      .mockReturnValueOnce(0.5) // neutral ordinary weekly move
+      .mockReturnValueOnce(0.0) // trigger commodity crash branch
+      .mockReturnValueOnce(1.0); // max crash size
+
+    const result = processStocks({
+      ...INITIAL_GAME_STATE,
+      stocks: [{ ticker: 'GOLD', currentPrice: 3700, priceHistory: [1850, 2500, 3700] }],
+    }, { headline: 'Quiet week', effects: {} });
+
+    expect(result.stocks[0].currentPrice).toBeLessThan(3000);
+    random.mockRestore();
+  });
+
   test('has two positive and two negative events for every stock and commodity sector', () => {
     const sectorTargets = new Map(
       (stocksData as any[])
