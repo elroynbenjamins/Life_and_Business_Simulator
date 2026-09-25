@@ -32,7 +32,11 @@ export default function TutorialModal() {
   };
   const start = () => {
     if (!useTutorialStore.getState().ready) return;
-    useTutorialStore.getState().start(tutorialSnapshot(), true);
+    const snapshot = tutorialSnapshot();
+    if (useGameStore.getState().showEducationOnboarding) {
+      useTutorialStore.getState().resetChapters(snapshot.scope);
+    }
+    useTutorialStore.getState().start(snapshot, true);
     dismiss();
     router.navigate('/tabs');
   };
