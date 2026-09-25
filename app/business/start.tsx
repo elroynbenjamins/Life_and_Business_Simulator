@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,7 @@ const INDUSTRIES = [...new Set((businessTypesData ?? []).map((t) => t.industry))
 
 export default function StartBusinessScreen() {
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
   const cash = useGameStore((s) => s?.cash ?? 0);
   const businesses = useGameStore((s) => s?.businesses ?? []);
   const profile = useGameStore((s) => s.profile);
@@ -43,6 +44,11 @@ export default function StartBusinessScreen() {
     if (created) router.replace({ pathname: '/business/[id]', params: { id: created.id, newBusiness: '1' } });
   };
 
+  const handleSelectBusinessType = (typeId: string) => {
+    setSelectedType(typeId);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -53,7 +59,7 @@ export default function StartBusinessScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionTitle}>Available Cash: <Text style={{ color: Colors.primary }}>{formatCurrency(cash)}</Text></Text>
 
         <BusinessCapacityPanel />
@@ -87,7 +93,7 @@ export default function StartBusinessScreen() {
           return (
             <Pressable
               key={type.id}
-              onPress={() => setSelectedType(type.id)}
+              onPress={() => handleSelectBusinessType(type.id)}
               style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.98 : 1 }] }]}
             >
               <GameCard style={[styles.typeCard, isSelected && styles.typeCardSelected]}>
