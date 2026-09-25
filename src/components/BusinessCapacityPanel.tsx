@@ -141,7 +141,7 @@ export default function BusinessCapacityPanel({ compact = false }: { compact?: b
           <Text style={styles.adHelper}>
             {profile.adsRemoved
               ? 'Remove Ads benefit: claim one permanent +1 company slot per day, up to 10.'
-              : 'One completed rewarded ad can permanently unlock +1 company slot per day, up to 10.'}
+              : 'One completed rewarded ad can permanently unlock +1 company slot, up to 10.'}
           </Text>
         </>
       )}
