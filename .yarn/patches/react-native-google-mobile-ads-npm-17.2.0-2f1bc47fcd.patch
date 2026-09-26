@@ -1,0 +1,27 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 14528d486d5730690a029cdf649c583b696ff39b..d3f0c5ea62d6097ee6ce47790fbba16644c204f4 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -32,6 +32,7 @@ buildscript {
+ plugins {
+   id "io.invertase.gradle.build" version "1.5"
+ }
++apply plugin: 'com.android.library'
+ // AGP 9 ships built-in Kotlin support and registers the `kotlin` extension
+ // itself. Applying the Kotlin plugin on top of it fails configuration with
+ // "Cannot add extension with name 'kotlin'". Asking for the extension covers
+@@ -217,7 +218,8 @@ android {
+ // stale app builds cannot compile alongside the committed tree.
+ afterEvaluate {
+   def transientCodegen = layout.buildDirectory.dir("generated/source/codegen").get().asFile
+-  android.sourceSets.main.java.srcDirs = android.sourceSets.main.java.srcDirs.findAll {
++  def androidExtension = extensions.getByName("android")
++  androidExtension.sourceSets.main.java.srcDirs = androidExtension.sourceSets.main.java.srcDirs.findAll {
+     !it.toPath().startsWith(transientCodegen.toPath())
+   }
+ }
+@@ -271,4 +273,3 @@ ReactNative.shared.applyPackageVersion()
+ ReactNative.shared.applyDefaultExcludes()
+ ReactNative.module.applyAndroidVersions()
+ ReactNative.module.applyReactNativeDependency("api")
+-

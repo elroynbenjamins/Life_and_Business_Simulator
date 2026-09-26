@@ -1,4 +1,7 @@
 {
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-2222059903000796~8653871822"
+  },
   "expo": {
     "name": "Life Empire",
     "slug": "life-empire",
