@@ -7,7 +7,7 @@ export default function BusinessLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: Colors.background },
-        animation: 'slide_from_right',
+        animation: 'none',
       }}
     />
   );

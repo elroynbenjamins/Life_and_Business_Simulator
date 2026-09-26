@@ -50,7 +50,7 @@ function RootContent() {
     <SafeAreaProvider key={resolvedScheme}>
       <StatusBar style={resolvedScheme === 'dark' ? 'light' : 'dark'} />
       <View style={styles.game}>
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background }, animation: 'slide_from_right' }}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background }, animation: 'none' }}>
           <Stack.Screen name="tabs" />
           <Stack.Screen name="stock/[ticker]" />
           <Stack.Screen name="portfolio" />
