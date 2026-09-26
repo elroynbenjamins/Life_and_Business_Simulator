@@ -22,7 +22,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.elroybenjamins.lifeempire",
-      "versionCode": 212
+      "versionCode": 213
     },
     "web": {
       "favicon": "./assets/life-empire-icon.png",
@@ -31,6 +31,7 @@
     "plugins": [
       "expo-router",
       "expo-system-ui",
+      "./plugins/withAndroidLargeHeap",
       "expo-iap",
       [
         "expo-build-properties",

@@ -171,4 +171,21 @@ describe('rewarded ad responsiveness', () => {
     ads.__createdAds[1].emit(ads.RewardedAdEventType.LOADED);
     await expect(retry).resolves.toBe(true);
   });
+
+  test('dismisses an interstitial when the native close event fires', async () => {
+    const { manager, ads } = getHarness();
+
+    const loaded = manager.loadInterstitialAd();
+    await flushNativeModuleLoad();
+    expect(ads.__createdAds).toHaveLength(1);
+
+    ads.__createdAds[0].emit(ads.AdEventType.LOADED);
+    await expect(loaded).resolves.toBe(true);
+
+    const onClosed = jest.fn();
+    await expect(manager.showInterstitialAd(onClosed)).resolves.toBe(true);
+
+    expect(() => ads.__createdAds[0].emit(ads.AdEventType.CLOSED)).not.toThrow();
+    expect(onClosed).toHaveBeenCalledTimes(1);
+  });
 });

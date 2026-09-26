@@ -229,8 +229,8 @@ export async function showInterstitialAd(onClosed: () => void): Promise<boolean>
 
   try {
     const { AdEventType } = await loadGoogleMobileAdsModule();
-    const closed = ad.addAdEventListener(AdEventType.CLOSED, () => {
-      closed();
+    const unsubscribeClosed = ad.addAdEventListener(AdEventType.CLOSED, () => {
+      unsubscribeClosed();
       if (interstitialAd === ad) interstitialAd = null;
       onClosed();
     });
