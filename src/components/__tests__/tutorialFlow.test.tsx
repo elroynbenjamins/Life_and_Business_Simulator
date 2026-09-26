@@ -123,7 +123,7 @@ test('Android Back pauses the guide and removes its highlight', () => {
   const view = render(<TutorialDock />);
   const call = listener.mock.calls.find(([event]) => event === 'hardwareBackPress');
   expect(call).toBeDefined();
-  act(() => { call![1](); });
+  act(() => { (call![1] as () => boolean)(); });
   expect(view.queryByTestId('tutorial-dock')).toBeNull();
   expect(useTutorialStore.getState().highlight).toBeNull();
   listener.mockRestore();

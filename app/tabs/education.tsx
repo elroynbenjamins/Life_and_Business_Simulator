@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
 import ScreenHeader from '../../src/components/ScreenHeader';
@@ -48,6 +49,7 @@ function levelLabel(level: number): string {
 }
 
 export default function EducationScreen() {
+  const router = useRouter();
   const cash = useGameStore((s) => s?.cash ?? 0);
   const currentCourseId = useGameStore((s) => s?.currentCourseId);
   const courseWeeksCompleted = useGameStore((s) => s?.courseWeeksCompleted ?? 0);
@@ -85,6 +87,14 @@ export default function EducationScreen() {
   const currentCourse = currentCourseId
     ? (coursesData as any[]).find((c) => c?.id === currentCourseId)
     : null;
+
+  const handleEnroll = (courseId: string) => {
+    const isFirstEducation = !currentCourseId && completedCourses.length === 0;
+    enrollCourse?.(courseId);
+    if (isFirstEducation && useGameStore.getState().currentCourseId === courseId) {
+      router.replace('/tabs');
+    }
+  };
 
   const speedUp = async () => {
     if (adsRemoved) {
@@ -453,7 +463,7 @@ export default function EducationScreen() {
                           accentColor={accent}
                           label="Enroll"
                           tutorialId={course.id === firstGuidedCourseId ? 'education.enroll' : undefined}
-                          onPress={() => enrollCourse?.(course.id)}
+                          onPress={() => handleEnroll(course.id)}
                           style={styles.enrollButton}
                         />
                       )}

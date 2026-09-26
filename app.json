@@ -2,7 +2,7 @@
   "expo": {
     "name": "Life Empire",
     "slug": "life-empire",
-    "version": "1.0.0",
+    "version": "2.1.0",
     "orientation": "default",
     "icon": "./assets/life-empire-icon.png",
     "userInterfaceStyle": "automatic",
@@ -12,7 +12,6 @@
       "buildNumber": "1"
     },
     "android": {
-      "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#071126",
@@ -20,7 +19,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.elroybenjamins.lifeempire",
-      "versionCode": 1
+      "versionCode": 211
     },
     "web": {
       "favicon": "./assets/life-empire-icon.png",
@@ -31,12 +30,24 @@
       "expo-system-ui",
       "expo-iap",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ],
+      [
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-2222059903000796~8653871822",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-splash-screen",
+      "expo-status-bar"
     ],
     "scheme": "lifeempire",
     "extra": {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ColorValue, StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useTutorialFocusStore } from '../../src/store/tutorialFocusStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ function TabIcon({
   tutorialRoute,
 }: {
   name: React.ComponentProps<typeof Ionicons>['name'];
-  color: string;
+  color: ColorValue;
   size: number;
   focused: boolean;
   tutorialRoute?: string;
@@ -25,7 +25,7 @@ function TabIcon({
   const guideHighlight = useTutorialFocusStore((state) => Boolean(tutorialRoute && state.navigationRoute === tutorialRoute));
   return (
     <View style={[styles.iconWrap, focused && styles.iconWrapActive, guideHighlight && styles.iconWrapGuided]}>
-      <Ionicons name={name} size={Math.min(size, 22)} color={color} />
+      <Ionicons name={name} size={Math.min(size, 22)} color={color as string} />
     </View>
   );
 }
@@ -67,7 +67,10 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="career"
-        options={{ href: null }}
+        options={{
+          title: 'Career',
+          href: null,
+        }}
       />
       <Tabs.Screen
         name="business"

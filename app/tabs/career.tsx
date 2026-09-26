@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Colors } from '../../src/theme/colors';
 import GameCard from '../../src/components/GameCard';
+import ScreenHeader from '../../src/components/ScreenHeader';
 import ProgressBar from '../../src/components/ProgressBar';
 import useGameStore from '../../src/store/gameStore';
 import { formatCurrency } from '../../src/utils/format';
@@ -67,9 +69,7 @@ export default function CareerScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Career</Text>
-      </View>
+      <ScreenHeader title="Career" subtitle="Earn income while building your future" accentColor={Colors.primary} />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {promotionAssetNotice.blocked && (
@@ -284,6 +284,7 @@ export default function CareerScreen() {
 }
 
 function PartTimeCard() {
+  const router = useRouter();
   const partTimeJob = useGameStore((s) => s?.partTimeJob ?? false);
   const studentWorkTier = useGameStore((s) => s?.studentWorkTier ?? null);
   const setStudentWorkTier = useGameStore((s) => s?.setStudentWorkTier);
@@ -335,7 +336,17 @@ function PartTimeCard() {
                   borderRadius: 8,
                   opacity: hasFullTimeJob ? 0.55 : 1,
                 }}
-                onPress={() => setStudentWorkTier?.(active ? null : tier)}
+                onPress={() => {
+                  if (active) {
+                    setStudentWorkTier?.(null);
+                    return;
+                  }
+                  const isFirstStudentWorkChoice = !partTimeJob && !studentWorkTier;
+                  setStudentWorkTier?.(tier);
+                  if (isFirstStudentWorkChoice && useGameStore.getState().studentWorkTier === tier) {
+                    router.replace('/tabs');
+                  }
+                }}
                 disabled={hasFullTimeJob}
               >
                 <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>
@@ -354,8 +365,6 @@ function PartTimeCard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { color: Colors.textPrimary, fontSize: 24, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 40 },
   currentCard: { marginBottom: 16 },

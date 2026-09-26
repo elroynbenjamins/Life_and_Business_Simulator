@@ -31,7 +31,6 @@ export default function PrestigeScreen() {
   const unlockPrestigeBonus = useGameStore((s) => s?.unlockPrestigeBonus);
   const bonuses = getPrestigeBonuses();
   const [category, setCategory] = useState<PrestigeCategory>('All');
-  const [filter, setFilter] = useState<'all' | 'available'>('all');
 
   const handleUnlock = (bonusId: string, cost: number, gemCost: number) => {
     const gemText = gemCost > 0 ? ` + ${gemCost} Gems` : '';
@@ -48,13 +47,6 @@ export default function PrestigeScreen() {
     const rawReq = bonus.requires;
     return Array.isArray(rawReq) ? rawReq : rawReq ? [rawReq] : [];
   };
-  const canUnlockBonus = (bonus: any) => {
-    if (isUnlocked(bonus)) return false;
-    const hasPrereqs = prereqs(bonus).every((rid) => (profile?.unlockedPrestige ?? []).includes(rid));
-    return hasPrereqs
-      && (profile?.prestigePoints ?? 0) >= (bonus.cost ?? 0)
-      && (profile?.gems ?? 0) >= (bonus.gemCost ?? 0);
-  };
   const categoryCounts = useMemo(() => {
     const counts = Object.fromEntries(PRESTIGE_CATEGORIES.map((item) => [item, 0])) as Record<PrestigeCategory, number>;
     for (const bonus of bonuses) {
@@ -64,10 +56,8 @@ export default function PrestigeScreen() {
     return counts;
   }, [bonuses]);
   const visibleBonuses = useMemo(() => bonuses.filter((bonus: any) => {
-    const categoryMatch = category === 'All' || getPrestigeCategory(bonus) === category;
-    const filterMatch = filter === 'all' || canUnlockBonus(bonus);
-    return categoryMatch && filterMatch;
-  }), [bonuses, category, filter, profile]);
+    return category === 'All' || getPrestigeCategory(bonus) === category;
+  }), [bonuses, category]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -103,7 +93,7 @@ export default function PrestigeScreen() {
         </GameCard>
       </View>
 
-      <View style={styles.filterBlock}>
+      <View style={styles.categoryBlock}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {PRESTIGE_CATEGORIES.map((item) => (
             <Pressable
@@ -118,19 +108,6 @@ export default function PrestigeScreen() {
             </Pressable>
           ))}
         </ScrollView>
-        <View style={styles.toggleRow}>
-          {(['all', 'available'] as const).map((item) => (
-            <Pressable
-              key={item}
-              accessibilityRole="button"
-              hitSlop={{ top: 5, bottom: 5 }}
-              style={[styles.toggleButton, filter === item && styles.toggleActive]}
-              onPress={() => setFilter(item)}
-            >
-              <Text style={[styles.toggleText, filter === item && styles.toggleTextActive]}>{item === 'all' ? 'All' : 'Available'}</Text>
-            </Pressable>
-          ))}
-        </View>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -185,7 +162,7 @@ export default function PrestigeScreen() {
         })}
         {visibleBonuses.length === 0 && (
           <GameCard>
-            <Text style={styles.emptyText}>No upgrades match this filter yet.</Text>
+            <Text style={styles.emptyText}>No upgrades match this category yet.</Text>
           </GameCard>
         )}
       </ScrollView>
@@ -202,18 +179,13 @@ const styles = StyleSheet.create({
   gemsText: { color: Colors.premium, fontSize: 15, fontWeight: '700' },
   pointsText: { color: Colors.warning, fontSize: 18, fontWeight: '700' },
   pointsDesc: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 9 },
-  filterBlock: { paddingTop: 8 },
+  categoryBlock: { paddingTop: 8 },
   chipRow: { paddingHorizontal: 16, gap: 8 },
   chip: { minHeight: 36, borderRadius: 18, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
   chipActive: { borderColor: Colors.primary, backgroundColor: `${Colors.primary}18` },
   chipText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '800' },
   chipTextActive: { color: Colors.primary },
   chipCount: { color: Colors.textMuted, fontSize: 11, fontWeight: '800' },
-  toggleRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginTop: 8 },
-  toggleButton: { flex: 1, minHeight: 38, borderRadius: 10, borderWidth: 1, borderColor: Colors.cardBorder, alignItems: 'center', justifyContent: 'center' },
-  toggleActive: { backgroundColor: `${Colors.warning}18`, borderColor: Colors.warning },
-  toggleText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '800' },
-  toggleTextActive: { color: Colors.warning },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 40 },
   listSummary: { color: Colors.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 8 },

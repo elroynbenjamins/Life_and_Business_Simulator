@@ -369,6 +369,7 @@ export default function DashboardScreen() {
         {/* Utility Links */}
         <Text style={styles.sectionLabel}>More</Text>
         <View style={styles.linksRow}>
+          <QuickLink icon="briefcase" label="Career" onPress={() => router.push('/tabs/career')} />
           <QuickLink icon="home" label="Lifestyle" onPress={() => router.push('/housing')} />
           <QuickLink icon="trophy" label="Achievements" onPress={() => router.push('/achievements')} color={Colors.warning} />
           <QuickLink icon="card" label="Bank" onPress={() => router.push('/loans')} color={Colors.info} />

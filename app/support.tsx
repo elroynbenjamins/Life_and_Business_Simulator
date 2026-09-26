@@ -331,7 +331,7 @@ export default function SupportScreen() {
             </Pressable>}
           </View>
           <Text style={styles.removeAdsBenefit}>
-            No ads will be shown. Reward-equivalent buttons remain available without ads: the daily 20-Gem reward, daily temporary business Slot 2 reward, daily instant education completion, and one permanent +1 company-capacity claim per day up to the 10-company maximum.
+            No ads, plus enhanced daily rewards: claim 20 Gems once per day instead of the standard 10-Gem ad reward, unlock one temporary second slot for either a Business project or Business upgrade each day, instantly complete one education activity per day, and permanently add +1 company capacity once per day until you reach the 10-company maximum.
           </Text>
           {!adsRemoved && storeAvailable && <Pressable onPress={handleRestore} disabled={purchasing}><Text style={styles.restoreText}>Restore purchase</Text></Pressable>}
           {purchaseMessage !== '' && <Text style={styles.purchaseMessage}>{purchaseMessage}</Text>}

@@ -12,11 +12,12 @@ type ThemeContextValue = {
 
 const STORAGE_KEY = 'life_empire_theme_preference';
 const ThemeContext = createContext<ThemeContextValue | null>(null);
+const resolveScheme = (scheme: ReturnType<typeof useColorScheme>): 'light' | 'dark' => (scheme === 'light' ? 'light' : 'dark');
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const phoneScheme = useColorScheme();
   const [preference, setPreferenceState] = useState<ThemePreference>('system');
-  const resolvedScheme = preference === 'system' ? (phoneScheme ?? 'dark') : preference;
+  const resolvedScheme = preference === 'system' ? resolveScheme(phoneScheme) : preference;
   setActiveThemeScheme(resolvedScheme);
 
   useEffect(() => {
